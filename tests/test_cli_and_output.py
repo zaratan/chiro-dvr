@@ -1,0 +1,55 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+from pathlib import Path
+
+import pytest
+
+from batdetect.cli import collect_videos, plan_jobs
+from batdetect.output import RenderConfig, clip_name, format_time
+from batdetect.pipeline import Track
+from helpers import line
+
+
+@pytest.mark.parametrize(
+    ("seconds", "expected"),
+    [(0, "0:00.00"), (7.53, "0:07.53"), (59.996, "1:00.00"), (119.997, "2:00.00"), (237.4, "3:57.40")],
+)
+def test_format_time_never_shows_sixty_seconds(seconds: float, expected: str) -> None:
+    assert format_time(seconds) == expected
+
+
+def test_clip_name_sorts_by_id_and_carries_start_time() -> None:
+    track = Track(7, line(7122, 5, (0, 0), (1, 0)))
+
+    assert clip_name(track, 30.0) == "07_3m57s40.mp4"
+
+
+def test_collect_videos_keeps_only_video_files_of_a_folder(tmp_path: Path) -> None:
+    for name in ["b.MP4", "a.mov", "notes.txt", "c.mkv"]:
+        (tmp_path / name).touch()
+    (tmp_path / "sub.mp4").mkdir()
+
+    assert [p.name for p in collect_videos([tmp_path])] == ["a.mov", "b.MP4", "c.mkv"]
+
+
+def test_videos_with_the_same_name_get_distinct_output_folders(tmp_path: Path) -> None:
+    videos = [Path("night1/video_001.mp4"), Path("night2/video_001.mp4"), Path("night2/video_002.mp4")]
+
+    dests = [job.dest for job in plan_jobs(videos, tmp_path)]
+
+    assert dests == [tmp_path / "night1_video_001", tmp_path / "night2_video_001", tmp_path / "video_002"]
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: RenderConfig(box_pad=-1),
+        lambda: RenderConfig(trail_s=-1),
+        lambda: RenderConfig(clip_margin_s=-1),
+        lambda: RenderConfig(crf=52),
+    ],
+)
+def test_invalid_render_config_is_rejected(build: Callable[[], object]) -> None:
+    with pytest.raises(ValueError, match="must be"):
+        build()

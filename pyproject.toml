@@ -46,4 +46,6 @@ pythonVersion = "3.14"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]
 addopts = ["--strict-markers"]
+markers = ["slow: runs the detector on the real fixture video"]

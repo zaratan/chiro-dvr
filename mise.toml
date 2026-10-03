@@ -18,6 +18,9 @@ run = "uv run basedpyright"
 [tasks.test]
 run = "uv run pytest"
 
+[tasks.coverage]
+run = "uv run pytest --cov=batdetect --cov-report=term-missing"
+
 [tasks.check]
 run = [
   "uv run ruff check",

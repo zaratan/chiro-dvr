@@ -242,10 +242,10 @@ def track_detections(detections: dict[int, list[Detection]], cfg: TrackConfig) -
     active: list[Track] = []
     finished: list[Track] = []
     for frame in sorted(detections):
-        unmatched = _match(active, detections[frame], frame, cfg.max_jump)
-        active.extend(Track(0, [d]) for d in unmatched)
         finished.extend(t for t in active if frame - t.last.frame > cfg.max_gap)
         active = [t for t in active if frame - t.last.frame <= cfg.max_gap]
+        unmatched = _match(active, detections[frame], frame, cfg.max_jump)
+        active.extend(Track(0, [d]) for d in unmatched)
     finished.extend(active)
     kept = [
         t
