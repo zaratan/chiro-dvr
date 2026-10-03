@@ -134,6 +134,45 @@ Conséquences :
   connaître la saccade ;
 - l'interpolation dans les trous doit suivre le même rythme.
 
+## Diagnostic refait sur l'original (étape 0)
+
+Mêmes mesures, sur `video_092_original.mp4` (12,1 Mb/s, sans B-frames), avec les
+réglages par défaut : 14 pistes.
+
+| Constat | Export (1 Mb/s) | Original (12 Mb/s) |
+| --- | --- | --- |
+| Images manquantes dans les pistes rapides | 49 sur 219 (22 %) | 39 sur 272 (14 %) |
+| Pistes avec des trous | 10 sur 12 | 12 sur 14, trous de 1 à 4 images |
+| Pistes qui finissent contre un masque ou un bord (≤ 10 px) | 5 | 6 (#1, #2, #3, #4, #10, #13) |
+| Extrémités récupérables (prolongation rectiligne) | 1 à 4 images | toujours 1 à 5 images : #2 et #4 +5 après, #6 +4 avant, #14 +3 avant |
+| Détection par type d'image | B 75 %, P 85 % | P 87 %, I 78 % (pas de B) |
+| Saccade de période 3 | oui | **oui** : piste 5, 8,7 · 18,7 · 9,9 · 8,8 · 17,7 · 9,6 · 9,2 · 19,6… |
+| Pixels dont le résidu est exactement figé (MAD = 0) | presque tous | 36 % : le bruit du capteur réapparaît |
+| Ciel saturé à 0 | 19,7 % | 21,2 % |
+| Activité de l'affichage incrusté | 18 pixels au-dessus de 100 dépassements | **aucun** ; 1 dépassement dans la bande du haut, 301 dans celle du bas |
+
+**Piste 14 (3:57).** La chauve-souris apparaît à l'image 7122 de l'original (3:57,16), au
+même endroit que sur la capture de l'utilisateur. La piste ne commence qu'à 7127. Sur
+les cinq premières images, le résidu vaut −42, −31, −30, −71 et −59 en pleine résolution,
+mais −25, −26, −22, −30 et −30 à 480 px. **La réduction de l'image coûte toujours 30 à
+50 % du contraste, et c'est elle qui retarde le début de la piste.** Avant 7122, rien
+ne dépasse le bruit : elle sort de la végétation à ce moment-là.
+
+**Ce qui change dans les priorités :**
+
+- **L'original règle une partie des trous**, mais pas les extrémités ni la saccade.
+  L'interpolation (E1), la vitesse sur 3 images (E1 bis) et la seconde passe ou
+  l'hystérésis (D2, D3) restent utiles.
+- **La pleine résolution (B1) remonte** : c'est la cause mesurée du début tardif de la
+  piste 14.
+- **Le masque d'affichage (F1) devient plus simple.** Sur l'original, l'affichage ne
+  déclenche presque rien ; la raison n'est pas comprise, peut-être un rendu de l'affichage
+  différent entre l'original et l'export. Les bandes fixes pourraient être réduites au
+  strict nécessaire, ce qui libérerait les 6 pistes coupées. À vérifier sur d'autres
+  vidéos.
+- **Le bruit n'est plus un fond figé** : un seuil par pixel (D1) devient pertinent, et
+  il n'a plus besoin d'un plancher artificiel sur un tiers des pixels.
+
 ## Ce que fait la littérature
 
 **Le contraste négatif s'explique par la physiologie.** En vol, les ailes ne sont qu'à
