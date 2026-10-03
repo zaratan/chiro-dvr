@@ -38,6 +38,9 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
   tableaux numpy, OpenCV isolé dans `open_video`, `read_gray_frames`, `find_blobs`.
 - `output.py` : vidéo annotée, PNG, CSV, `params.json`, extraits (ffmpeg en sous-processus).
 - `cli.py` : arguments, construction des configs, boucle sur les vidéos.
+- `synthetic.py` et `bench.py` : fausses chauves-souris injectées en pleine résolution et
+  banc de mesure (`batdetect-bench`, [docs/08-banc-de-mesure.md](docs/08-banc-de-mesure.md)).
+  Toute amélioration de la détection ou du suivi se mesure au banc avant et après.
 - Configs en dataclasses gelées qui valident dans `__post_init__` ; pas de `Namespace`
   au-delà de `cli.py`.
 - Chaque retour de `cv2` passe par `np.asarray(..., dtype=...)` : les stubs d'OpenCV

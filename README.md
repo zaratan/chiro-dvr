@@ -42,6 +42,7 @@ mise run check      # lint + format + types + tests, doit être vert avant tout 
 mise run test       # tests seuls (uv run pytest -m "not slow" pour sauter l'extrait réel)
 mise run coverage
 mise run format
+uv run batdetect-bench in/video_092_original.mp4   # banc de mesure (docs/08)
 ```
 
 La base de connaissances du projet est dans [docs/](docs/README.md).

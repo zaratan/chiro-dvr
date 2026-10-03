@@ -12,6 +12,7 @@ pas, et pourquoi les choses sont comme elles sont.
 | [05-outillage-python.md](05-outillage-python.md) | Le monde Python vu depuis Ruby/TS/Rust, et les choix du dépôt |
 | [06-questions-ouvertes.md](06-questions-ouvertes.md) | Ce qui reste à trancher ou à valider |
 | [07-ameliorer-la-detection.md](07-ameliorer-la-detection.md) | Diagnostic mesuré des pistes manquées et catalogue des améliorations |
+| [08-banc-de-mesure.md](08-banc-de-mesure.md) | Le banc de cibles synthétiques : méthode, métriques, limites, résultats |
 
 Toute modification de comportement du code met à jour le document concerné dans la
 même série de changements.

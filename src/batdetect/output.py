@@ -10,14 +10,11 @@ from typing import TYPE_CHECKING, Any
 
 import cv2
 import numpy as np
-import numpy.typing as npt
 
-from batdetect.pipeline import Detection, Track, VideoError, VideoInfo
+from batdetect.pipeline import ColorFrame, Detection, Track, VideoError, VideoInfo
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
-
-ColorFrame = npt.NDArray[np.uint8]
 
 BOX_COLOR = (0, 0, 255)
 TRAIL_COLOR = (0, 200, 255)

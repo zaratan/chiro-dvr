@@ -11,6 +11,7 @@ dependencies = [
 
 [project.scripts]
 batdetect = "batdetect.cli:main"
+batdetect-bench = "batdetect.bench:main"
 
 [build-system]
 requires = ["uv_build>=0.12,<0.13"]
@@ -34,7 +35,7 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF", "N", "PTH", "PL", "NPY", "PT", "S"]
-ignore = ["S603", "S607"]
+ignore = ["S301", "S603", "S607"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "PLR2004"]

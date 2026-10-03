@@ -61,11 +61,8 @@ def plan_jobs(videos: list[Path], out_dir: Path) -> list[Job]:
     return jobs
 
 
-def build_parser() -> argparse.ArgumentParser:
-    d, t, r = DetectConfig(), TrackConfig(), RenderConfig()
-    ap = argparse.ArgumentParser(prog="batdetect", description="Detect and track bats in thermal videos.")
-    ap.add_argument("inputs", nargs="+", type=Path, help="video files or folders")
-    ap.add_argument("-o", "--out-dir", type=Path, default=Path("out"))
+def add_detection_arguments(ap: argparse.ArgumentParser) -> None:
+    d = DetectConfig()
     detect = ap.add_argument_group("detection")
     detect.add_argument("--threshold", type=float, default=d.threshold)
     detect.add_argument("--min-area", type=int, default=d.min_area)
@@ -76,6 +73,10 @@ def build_parser() -> argparse.ArgumentParser:
     detect.add_argument("--osd-bottom", type=float, default=d.osd_bottom)
     detect.add_argument("--merge-radius", type=int, default=d.merge_radius, help="pixels bridged between fragments")
     detect.add_argument("--work-width", type=int, default=d.work_width)
+
+
+def add_tracking_arguments(ap: argparse.ArgumentParser) -> None:
+    t = TrackConfig()
     track = ap.add_argument_group("tracking")
     track.add_argument("--max-jump", type=float, default=t.max_jump)
     track.add_argument("--max-gap", type=int, default=t.max_gap)
@@ -84,6 +85,15 @@ def build_parser() -> argparse.ArgumentParser:
     track.add_argument(
         "--twin-distance", type=float, default=t.twin_distance, help="max distance between fragments of one animal"
     )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    r = RenderConfig()
+    ap = argparse.ArgumentParser(prog="batdetect", description="Detect and track bats in thermal videos.")
+    ap.add_argument("inputs", nargs="+", type=Path, help="video files or folders")
+    ap.add_argument("-o", "--out-dir", type=Path, default=Path("out"))
+    add_detection_arguments(ap)
+    add_tracking_arguments(ap)
     render = ap.add_argument_group("output")
     render.add_argument("--box-pad", type=int, default=r.box_pad)
     render.add_argument("--trail", type=float, default=r.trail_s)
@@ -92,8 +102,8 @@ def build_parser() -> argparse.ArgumentParser:
     return ap
 
 
-def build_configs(ns: argparse.Namespace) -> tuple[DetectConfig, TrackConfig, RenderConfig]:
-    detect = DetectConfig(
+def build_detect_config(ns: argparse.Namespace) -> DetectConfig:
+    return DetectConfig(
         threshold=ns.threshold,
         min_area=ns.min_area,
         max_area=ns.max_area,
@@ -104,15 +114,21 @@ def build_configs(ns: argparse.Namespace) -> tuple[DetectConfig, TrackConfig, Re
         merge_radius=ns.merge_radius,
         work_width=ns.work_width,
     )
-    track = TrackConfig(
+
+
+def build_track_config(ns: argparse.Namespace) -> TrackConfig:
+    return TrackConfig(
         max_jump=ns.max_jump,
         max_gap=ns.max_gap,
         min_hits=ns.min_hits,
         min_travel=ns.min_travel,
         twin_distance=ns.twin_distance,
     )
+
+
+def build_configs(ns: argparse.Namespace) -> tuple[DetectConfig, TrackConfig, RenderConfig]:
     render = RenderConfig(box_pad=ns.box_pad, trail_s=ns.trail, clip_margin_s=ns.clip_margin, crf=ns.crf)
-    return detect, track, render
+    return build_detect_config(ns), build_track_config(ns), render
 
 
 def process(job: Job, detect: DetectConfig, track: TrackConfig, render: RenderConfig) -> None:

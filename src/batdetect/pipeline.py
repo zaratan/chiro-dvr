@@ -12,6 +12,7 @@ import numpy as np
 import numpy.typing as npt
 
 GrayFrame = npt.NDArray[np.uint8]
+ColorFrame = npt.NDArray[np.uint8]
 
 MIN_BACKGROUND_FRAMES = 3
 MIN_WORK_WIDTH = 16
@@ -19,6 +20,24 @@ MIN_WORK_WIDTH = 16
 
 class VideoError(Exception):
     pass
+
+
+@dataclass(frozen=True, slots=True)
+class Region:
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+
+    def __post_init__(self) -> None:
+        if not (0 <= self.x0 < self.x1 <= 1 and 0 <= self.y0 < self.y1 <= 1):
+            raise ValueError("a region must satisfy 0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1")
+
+    def contains(self, x: float, y: float) -> bool:
+        return self.x0 <= x <= self.x1 and self.y0 <= y <= self.y1
+
+
+SYMBION_OSD = (Region(0.0, 0.0, 1.0, 0.06), Region(0.30, 0.89, 0.56, 0.98))
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,13 +167,21 @@ def open_video(path: Path, work_width: int) -> tuple[cv2.VideoCapture, VideoInfo
     return cap, info
 
 
-def read_gray_frames(cap: cv2.VideoCapture, info: VideoInfo) -> Iterator[GrayFrame]:
+def read_frames(cap: cv2.VideoCapture) -> Iterator[ColorFrame]:
     while True:
         ok, frame = cap.read()
         if not ok:
             return
-        small = cv2.resize(frame, (info.work_width, info.work_height), interpolation=cv2.INTER_AREA)
-        yield np.asarray(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY), dtype=np.uint8)
+        yield np.asarray(frame, dtype=np.uint8)
+
+
+def to_work_gray(frame: ColorFrame, info: VideoInfo) -> GrayFrame:
+    small = cv2.resize(frame, (info.work_width, info.work_height), interpolation=cv2.INTER_AREA)
+    return np.asarray(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY), dtype=np.uint8)
+
+
+def read_gray_frames(cap: cv2.VideoCapture, info: VideoInfo) -> Iterator[GrayFrame]:
+    return (to_work_gray(frame, info) for frame in read_frames(cap))
 
 
 def osd_mask(width: int, height: int, cfg: DetectConfig) -> npt.NDArray[np.bool_]:
