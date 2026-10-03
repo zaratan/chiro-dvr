@@ -7,7 +7,7 @@ connaissances : [docs/](docs/README.md), à lire avant de toucher à un réglage
 
 ```bash
 mise run check                    # lint, format, types, tests : vert avant de rendre la main
-uv run batdetect in/video_092.mp4 # vidéo de référence : 5 min, ~2 min 40 de calcul, 12 pistes
+uv run batdetect in/video_092_original.mp4 # référence : 5 min, ~4 min 30 de calcul, 14 pistes
 ```
 
 ## Rôles
@@ -20,12 +20,15 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 
 - **Jamais d'écriture dans git** : ni `add`, ni `commit`, ni `stash`, ni `push`.
   L'utilisateur construit l'historique lui-même.
-- **Tout changement de détection ou de suivi se mesure sur la 092** avant d'être rendu :
+- **Tout changement de détection ou de suivi se mesure sur `video_092_original.mp4`** avant d'être rendu :
   nombre de pistes, temps de début, et mise à jour de [docs/03-resultats-092.md](docs/03-resultats-092.md).
 - **`in/` et `out/` sont hors git.** `in/` contient les vidéos de l'utilisateur : ne rien
   y supprimer ni modifier.
-- **L'extrait `tests/fixtures/video_092_3m24-4m05.mp4` est coupé sans réencodage** sur
-  une image-clé (image source 6148). Le réencoder changerait les détections.
+- **L'extrait `tests/fixtures/video_092_original_3m24-4m05.mp4` est coupé sans réencodage**
+  sur une image-clé de l'original (image source 6150, 30,03 i/s). Le réencoder changerait
+  les détections.
+- **Les vidéos se copient depuis les jumelles en USB**, jamais par l'export Stream Vision 2,
+  qui divise le débit par 12 ([docs/01-contexte.md](docs/01-contexte.md)).
 - **Docs synchronisées** : un changement de comportement met à jour `docs/` dans la même
   série de changements.
 

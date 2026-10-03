@@ -11,8 +11,8 @@ from batdetect.cli import main
 from batdetect.pipeline import DetectConfig, TrackConfig, detect_frames, open_video, read_gray_frames, track_detections
 from helpers import moving_square_frames, write_video
 
-FIXTURE = Path(__file__).parent / "fixtures" / "video_092_3m24-4m05.mp4"
-FIXTURE_START_S = 6148 / 30
+FIXTURE = Path(__file__).parent / "fixtures" / "video_092_original_3m24-4m05.mp4"
+FIXTURE_START_S = 6150 * 333 / 10000
 
 requires_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
 

@@ -1,5 +1,10 @@
 # Résultats sur video_092
 
+La référence est désormais l'original copié en USB (`video_092_original.mp4`, 14
+pistes, voir « Original contre export »). Le tableau ci-dessous et l'historique des
+réglages ont été mesurés sur l'export de Stream Vision 2, avant qu'on dispose de
+l'original.
+
 Vidéo du 2 septembre 2026, 20:37, falaise, jumelles posées, 5 min. Réglages par
 défaut, 12 pistes.
 
@@ -20,6 +25,32 @@ défaut, 12 pistes.
 
 Les passages rapides traversent le champ en diagonale, du haut à droite vers le bas à
 gauche pour la plupart, en 0,3 à 1,3 s.
+
+## Original contre export
+
+Même vidéo, mêmes réglages par défaut, original copié en USB (12,1 Mb/s) contre export
+de Stream Vision 2 (1,04 Mb/s). Les temps concordent à 0,1 s près.
+
+| Passage | Export : points / images (complétude) | Original | Remarque |
+| --- | --- | --- | --- |
+| 0:07 | 6 / 14 (43 %) | 10 / 17 (59 %) | |
+| 0:34 | 19 / 25 (76 %) | 30 / 35 (86 %) | commence 0,33 s plus tôt |
+| **0:51.65** | — | 6 / 8 | **nouveau** : lent (257 px/s), petit (18 px), faible (amplitude 40), au bord droit dans la végétation. Douteux |
+| 0:53 | 19 / 28 (68 %) | 24 / 29 (83 %) | |
+| 1:12 | 24 / 24 | 29 / 30 (97 %) | finit 0,16 s plus tard |
+| 1:49 | 20 / 23 (87 %) | 23 / 24 (96 %) | |
+| 2:02 | 9 / 12 | 10 / 15 | |
+| 2:24 | 8 / 11 | 10 / 12 | |
+| **2:37.16** | — | 5 / 9 | **nouveau** : rapide (1 265 px/s), devant la végétation en haut à gauche. Candidat sérieux |
+| 2:44 | 30 / 39 (77 %) | 38 / 40 (95 %) | |
+| 3:29 (lente) | 283 / 283 | 285 / 285 | |
+| 3:48 | 8 / 10 | 14 / 15 (93 %) | |
+| 3:51 | 13 / 14 | 16 / 16 (100 %) | |
+| 3:57 | 14 / 19 (74 %) | 18 / 22 (82 %) | commence 2 images plus tôt, mais toujours 4 images après l'arrivée vue à l'œil |
+
+Sur les 11 passages rapides communs, on passe de 170 à 222 points détectés (+31 %),
+et 2 passages nouveaux apparaissent. Le calcul prend 4 min 29 au lieu de 2 min 40, à
+cause du décodage d'un fichier 12 fois plus lourd.
 
 ## La piste 9
 
