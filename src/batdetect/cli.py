@@ -46,9 +46,19 @@ def collect_videos(inputs: list[Path]) -> list[Path]:
     return videos
 
 
+def output_name(video: Path, ambiguous: bool) -> str:
+    if not ambiguous:
+        return video.stem
+    return f"{video.parent.name}_{video.stem}_{video.suffix.lstrip('.').lower()}"
+
+
 def plan_jobs(videos: list[Path], out_dir: Path) -> list[Job]:
     stems = Counter(v.stem for v in videos)
-    return [Job(v, out_dir / (f"{v.parent.name}_{v.stem}" if stems[v.stem] > 1 else v.stem)) for v in videos]
+    jobs = [Job(v, out_dir / output_name(v, stems[v.stem] > 1)) for v in videos]
+    clashes = [dest for dest, n in Counter(j.dest for j in jobs).items() if n > 1]
+    if clashes:
+        raise ValueError(f"several videos would write to {clashes[0]}")
+    return jobs
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -140,14 +150,17 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("ffmpeg not found in PATH")
     out_dir: Path = ns.out_dir
     inputs: list[Path] = ns.inputs
-    jobs = plan_jobs(collect_videos(inputs), out_dir)
+    try:
+        jobs = plan_jobs(collect_videos(inputs), out_dir)
+    except ValueError as err:
+        parser.error(str(err))
     if not jobs:
         parser.error("no video found")
     failures = 0
     for job in jobs:
         try:
             process(job, *configs)
-        except (VideoError, ValueError) as err:
+        except (VideoError, ValueError, OSError) as err:
             failures += 1
             print(f"{job.video}: {err}", file=sys.stderr)
     return 1 if failures else 0

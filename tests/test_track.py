@@ -5,7 +5,7 @@ from collections.abc import Callable
 import pytest
 
 from batdetect.pipeline import Track, TrackConfig, combine, merge_twins, track_detections
-from helpers import by_frame, detection, line
+from helpers import by_frame, contiguous, detection, line
 
 
 def test_straight_flight_gives_one_track() -> None:
@@ -40,6 +40,15 @@ def test_gap_longer_than_max_gap_splits_the_track() -> None:
     tracks = track_detections(by_frame(flight), TrackConfig(max_gap=6, max_jump=10))
 
     assert len(tracks) == 2
+
+
+@pytest.mark.parametrize(("missing", "expected_tracks"), [(6, 1), (7, 2)])
+def test_track_survives_exactly_max_gap_empty_frames(missing: int, expected_tracks: int) -> None:
+    flight = [d for d in line(0, 30, (10, 50), (4, 0)) if not 10 <= d.frame < 10 + missing]
+
+    tracks = track_detections(contiguous(flight, 30), TrackConfig(max_gap=6, twin_distance=0))
+
+    assert len(tracks) == expected_tracks
 
 
 def test_tracks_below_min_hits_are_dropped() -> None:

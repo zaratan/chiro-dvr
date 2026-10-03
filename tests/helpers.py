@@ -27,6 +27,13 @@ def by_frame(*tracks: Iterable[Detection]) -> dict[int, list[Detection]]:
     return out
 
 
+def contiguous(detections: Iterable[Detection], frames: int) -> dict[int, list[Detection]]:
+    out: dict[int, list[Detection]] = {f: [] for f in range(frames)}
+    for det in detections:
+        out[det.frame].append(det)
+    return out
+
+
 def background(width: int, height: int, seed: int = 0) -> GrayFrame:
     rng = np.random.default_rng(seed)
     base = rng.normal(BACKGROUND, NOISE, (height, width))
