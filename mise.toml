@@ -1,0 +1,27 @@
+[tools]
+python = "3.14.8"
+uv = "0.12.22"
+lefthook = "2.1.16"
+
+[tasks.lint]
+run = "uv run ruff check"
+
+[tasks.format]
+run = "uv run ruff format"
+
+[tasks."format:check"]
+run = "uv run ruff format --check"
+
+[tasks.typecheck]
+run = "uv run basedpyright"
+
+[tasks.test]
+run = "uv run pytest"
+
+[tasks.check]
+run = [
+  "uv run ruff check",
+  "uv run ruff format --check",
+  "uv run basedpyright",
+  "uv run pytest",
+]
