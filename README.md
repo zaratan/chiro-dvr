@@ -60,3 +60,7 @@ uv run batdetect-bench in/video_092_original.mp4   # banc de mesure (docs/08)
 ```
 
 La base de connaissances du projet est dans [docs/](docs/README.md).
+
+## Licence
+
+MIT, voir [LICENSE](LICENSE).
