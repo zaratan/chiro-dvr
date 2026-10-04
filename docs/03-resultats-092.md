@@ -101,3 +101,16 @@ rampe sur la roche, autre animal, ou passage vu par Manon que le détecteur ne c
 | `merge_radius` = 2 | 13 | 3:51 réparé |
 | `twin_distance` = 12 | 12 | 2:44 réparé |
 | Borne de `max_gap` corrigée (6 images manquantes tolérées) | 12 | identique |
+
+## Médiane par tri par comparaisons (4 octobre 2026)
+
+Les 14 pistes sont identiques au bit près à celles de `np.median` (égalité des pistes
+complètes). Détection seule, selon le nombre de processus (`--workers`) :
+
+| Processus | 1 | 2 | 3 | 4 | 6 | 10 (défaut) |
+| --- | --- | --- | --- | --- | --- | --- |
+| Temps | 31,0 s | 23,7 s | 24,7 s | 27,3 s | 31,6 s | 47,3 s |
+| CPU | 114 s | 150 s | 184 s | 216 s | 282 s | 415 s |
+
+Avant ce changement, avec 10 processus : 66,6 s et 534 s de CPU. Le décodage domine
+désormais : chaque tranche relit la vidéo depuis le début ([09](09-profilage.md)).

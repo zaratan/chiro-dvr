@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 import numpy.typing as npt
 
+from batdetect.median import temporal_median
 from batdetect.video import GrayFrame
 
 MIN_BACKGROUND_FRAMES = 3
@@ -128,7 +129,7 @@ def detect_frames(
         entries = [e for e in window if abs(e[0] - target) <= half]
         current = next(e for e in entries if e[0] == target)
         sampled = entries[:: cfg.bg_step]
-        background = np.median(np.stack([e[1] for e in sampled]), axis=0)
+        background = temporal_median([e[1] for e in sampled])
         offset = current[2] - float(np.mean([e[2] for e in sampled]))
         residual = current[1] - background - offset
         residual[~mask] = 0

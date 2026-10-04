@@ -31,13 +31,17 @@
      dessin, réencodage x264 de 5 min en 1440×1080, sur un seul flux) et des extraits
      recoupés depuis elle. Pistes : encodage matériel `h264_videotoolbox` ; extraits
      tirés directement de l'original au lieu de la vidéo annotée ; vidéo complète en
-     option ; rendu par tranches. Mesurer d'abord la part de chaque étape.
+     option ; rendu par tranches. Mesuré le 4 octobre ([09](09-profilage.md)) : vidéo
+     annotée 56 %, détection 31 %, extraits 12 % ; `h264_videotoolbox` encode 5 fois plus
+     vite pour une fidélité presque égale.
    - **Médiane sur le GPU (Metal)** : le GPU reste à 0 % pendant le traitement. La médiane
      d'une pile de 11 images est un calcul massivement parallèle, adapté au GPU : MLX
      (Apple, léger) ou PyTorch avec le backend MPS (lourd). Ce serait une dépendance
      optionnelle, réservée aux Mac, avec repli sur numpy, puisque la CI tourne sous Linux.
-     Gain à mesurer face au découpage multiprocessus, avec lequel il se combine mal (un
-     seul GPU partagé par les processus).
+     Mesuré le 4 octobre ([09](09-profilage.md)) : `np.median` prend 78 % de la détection ;
+     un tri par comparaisons sur CPU est 13 fois plus rapide, au bit près, et vaut le GPU
+     à débit égal tant que la détection reste à 480 px. Le GPU est à reprendre pour la
+     pleine résolution ou le filtrage à plusieurs échelles.
    - **Python sans GIL (free-threading)** : des threads au lieu de processus
      partageraient la mémoire. Bloqué au 3 octobre 2026 : numpy publie des wheels
      `cp314t`, mais `opencv-python-headless` 5.0 seulement des wheels `abi3`,

@@ -1,0 +1,106 @@
+# Profilage : où part le temps de calcul
+
+Mesures du 4 octobre 2026 sur l'original de la 092 (5 min, 1440×1080, 30,03 i/s,
+9 011 images, 12 Mb/s), Apple M1 Max (10 cœurs, GPU 32 cœurs, 64 Go). Scripts de
+mesure hors dépôt ; les chiffres suffisent à refaire les choix.
+
+## Étapes du traitement complet
+
+Réglages par défaut, détection sur 10 processus, avant toute optimisation.
+
+| Étape | Temps | Part | Cœurs occupés |
+| --- | --- | --- | --- |
+| Vidéo annotée | 118,5 s | 56 % | 7,8 |
+| Détection | 66,6 s | 31 % | 8,0 |
+| Extraits (14) | 26,4 s | 12 % | 7,3 |
+| Image résumé (fond médian compris) | 1,5 s | 1 % | 4,0 |
+| Suivi et CSV | < 0,1 s | 0 % | |
+| **Total** | **213 s** | | |
+
+## Détection
+
+Un seul processus, 900 images, par image :
+
+| Poste | Temps | Part |
+| --- | --- | --- |
+| Médiane `np.median` sur 11 images à 480×360 | 12,6 ms | 78 % |
+| Décodage (`cap.read`) | 1,3 ms | 8 % |
+| Réduction et passage en gris | 0,8 ms | 5 % |
+| Résidu, taches, reste | 1,9 ms | 9 % |
+
+La lenteur de `np.median` ne vient pas de la disposition en mémoire : avec les pixels
+contigus (pile sur le dernier axe), le temps passe seulement de 18,3 à 17,1 ms. Elle
+vient de `np.partition`, qui lance une sélection par pixel, soit 172 800 petites
+sélections de 11 valeurs. Un **tri par comparaisons vectorisé** (des `minimum` et
+`maximum` sur des images entières) donne le même résultat au bit près en 1,4 ms.
+
+## Médiane : CPU contre GPU
+
+Médiane de 11 images, temps par médiane, transferts vers le GPU et retour compris, sauf
+la dernière ligne. Les 22 mesures donnent un résultat identique au bit près à
+`np.median`. MLX 0.32.3 et PyTorch 2.14.1 (backend MPS), sous Python 3.14.
+
+| Méthode | 480×360 | 1440×1080 |
+| --- | --- | --- |
+| CPU `np.median` | 18,1 ms | 162 ms |
+| CPU tri par comparaisons (un cœur) | 1,3 ms | 11,8 ms |
+| GPU MLX `mx.median` | 5,9 à 8,5 ms | 51 à 69 ms |
+| GPU PyTorch `torch.median` | 2,5 à 3,2 ms | 23 ms |
+| GPU PyTorch tri par comparaisons (lot) | 0,42 ms | 4,4 ms |
+| GPU MLX tri compilé, `mx.compile` (lot) | 0,21 ms | 1,6 ms |
+| GPU MLX tri compilé, données déjà sur le GPU | 0,09 ms | 0,58 ms |
+
+- **L'algorithme compte plus que le matériel** : les médianes toutes faites des
+  bibliothèques GPU trient toutes les valeurs et restent plus lentes que le tri par
+  comparaisons sur un seul cœur du CPU.
+- **À débit égal, CPU et GPU se valent aujourd'hui.** La détection occupe déjà environ
+  8 cœurs : le CPU débite une médiane toutes les 0,16 ms environ à 480 px (1,5 ms en
+  pleine résolution), contre 0,21 ms (1,6 ms) pour le GPU, unique et partagé.
+- **La marge du GPU est dans les transferts** : le banc envoyait chaque image 11 fois.
+  Une détection pensée pour le GPU, qui envoie chaque image une seule fois, viserait la
+  dernière ligne et libérerait les cœurs pour le décodage. Non mesuré.
+- Le GPU redevient intéressant pour la pleine résolution ou le filtrage à plusieurs
+  échelles (B2 dans [07](07-ameliorer-la-detection.md)), avec MLX en dépendance réservée
+  aux Mac.
+
+## Encodage de la vidéo annotée
+
+Lire et convertir une image côté Python coûte 1,2 ms, soit environ 11 s pour toute la
+vidéo ; le reste du rendu est l'encodage. Sur 60 s de la 092 (SSIM : fidélité à
+l'original, 1 = identique) :
+
+| Encodeur | Temps | CPU | Taille | SSIM |
+| --- | --- | --- | --- | --- |
+| `libx264` CRF 20 (défaut) | 22,0 s | 178 s | 144 Mo | 0,982 |
+| `libx264 -preset veryfast` CRF 20 | 7,7 s | 61 s | 133 Mo | 0,979 |
+| `h264_videotoolbox -q:v 65` | 4,2 s | 12 s | 151 Mo | 0,977 |
+| `h264_videotoolbox -b:v 12M` | 4,3 s | 12 s | 92 Mo | 0,962 |
+
+`h264_videotoolbox` passe par le moteur multimédia des puces Apple, un circuit dédié
+distinct du GPU. La vidéo annotée complète pèse 722 Mo en CRF 20, plus que l'original
+(454 Mo) : le bruit thermique se compresse mal.
+
+## Après la médiane par tri par comparaisons
+
+Détection de la 092 avec 10 processus : 66,6 s → 49,6 s, 534 s → 406 s de CPU, pistes
+identiques au bit près (une seconde exécution, dans le tableau plus bas, donne 47,3 s et
+415 s : environ 5 % d'écart d'une exécution à l'autre). Le gain est plus faible qu'attendu parce que le profil ci-dessus,
+fait sur un seul processus, comptait le temps réel et non le temps CPU :
+
+| Lecture | Temps réel | CPU | Cœurs |
+| --- | --- | --- | --- |
+| `cap.read()` | 1,12 ms/image | 8,62 ms/image | 7,7 |
+| `cap.grab()` (saut) | 0,85 ms/image | 6,62 ms/image | 7,7 |
+
+Le décodeur d'OpenCV occupe déjà presque tous les cœurs. Avec 10 tranches, chaque
+tranche relit la vidéo depuis le début pour s'y positionner : 4,5 vidéos sautées en
+tout, environ 270 s de CPU, plus 80 s pour lire la vidéo elle-même. Le décodage fait
+donc environ 85 % du CPU de la détection, et plus de processus coûte plus cher :
+
+| Processus | 1 | 2 | 3 | 4 | 6 | 10 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Temps | 31,0 s | 23,7 s | 24,7 s | 27,3 s | 31,6 s | 47,3 s |
+| CPU | 114 s | 150 s | 184 s | 216 s | 282 s | 415 s |
+
+Pistes : moins de processus par défaut ; décoder une seule fois et distribuer les
+images réduites aux processus ; décodage matériel (VideoToolbox).

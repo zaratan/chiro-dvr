@@ -27,9 +27,12 @@ Pour chaque image *t*, le fond est la médiane, pixel par pixel, des images de
   sur la 092) : sur une seconde, elle n'occupe un pixel donné que sur quelques images,
   donc la médiane l'efface. Une fenêtre plus longue suivrait mal les changements de
   lumière ; plus courte, elle garderait l'animal dans le fond.
-- `bg_step` = 3 : 11 images au lieu de 31 pour la médiane. La médiane est 85 % du temps
-  de détection (9,3 ms par image, mesuré), le fond change lentement, donc on
-  sous-échantillonne.
+- `bg_step` = 3 : 11 images au lieu de 31 pour la médiane, puisque le fond change
+  lentement.
+- La médiane est calculée par un tri par comparaisons partiel (`median.py`) : des
+  `minimum` et `maximum` sur des images entières, jusqu'à fixer la ou les valeurs
+  centrales. Résultat identique au bit près à `np.median`, en 1,2 à 1,3 ms par image au
+  lieu de 12,6 à 18 selon les mesures, sur un cœur ([09](09-profilage.md)).
 - Aux bords de la vidéo, la fenêtre est tronquée : la première et la dernière demi-seconde
   sont analysées avec moins d'images.
 

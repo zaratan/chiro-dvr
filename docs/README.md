@@ -13,6 +13,7 @@ pas, et pourquoi les choses sont comme elles sont.
 | [06-questions-ouvertes.md](06-questions-ouvertes.md) | Ce qui reste à trancher ou à valider |
 | [07-ameliorer-la-detection.md](07-ameliorer-la-detection.md) | Diagnostic mesuré des pistes manquées et catalogue des améliorations |
 | [08-banc-de-mesure.md](08-banc-de-mesure.md) | Le banc de cibles synthétiques : méthode, métriques, limites, résultats |
+| [09-profilage.md](09-profilage.md) | Où part le temps de calcul : étapes, médiane CPU contre GPU, encodeurs |
 
 Toute modification de comportement du code met à jour le document concerné dans la
 même série de changements.
