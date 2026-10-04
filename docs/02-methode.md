@@ -175,9 +175,18 @@ Ces deux derniers réglages visent le scintillement de pixels isolés que le sui
 juste au-dessus du seuil, 5 à 7 détections, directions au hasard (virage médian 1,5 rad,
 contre au plus 0,35 pour les vraies pistes de la 092). Mesuré, après le filtre des images
 saturées : 089 96 → 4 pistes, 091 53 → 23, 092 inchangée (14). Banc : transit 115
-trouvées sur 115, chasse 357 sur 371 ; le virage ne coûte aucune cible, même en chasse ou
-en tournoiement ([08](08-banc-de-mesure.md#vols-de-chasse-4-octobre-2026)), les 14 pertes
-viennent de `min_hits` 6 (cibles peu contrastées détectées sur 5 images seulement). Avec
+trouvées sur 253 visibles comme avant, chasse 357 sur 584 au lieu de 371 sur 592 ; le
+virage ne coûte aucune cible, même en chasse ou en tournoiement
+([08](08-banc-de-mesure.md#vols-de-chasse-4-octobre-2026)), les 14 pertes viennent de
+`min_hits` 6 (cibles peu contrastées détectées sur 5 images seulement ; le banc se sert
+aussi de `min_hits` pour dire qu'une cible est trouvée, 11 des 14 viennent du suivi).
+
+Limite connue : une chauve-souris lente avance de quelques pixels par image, et
+l'arrondi des positions fait tourner sa direction. La piste lente de 3:29 a un virage
+médian de 0,22 rad sur toute sa longueur, mais 12 fenêtres de 7 points sur 280 dépassent
+0,8 : un fragment court d'un vol lent (coupé par un trou ou une période ignorée) serait
+rejeté. Le banc ne simule pas de vol lent. Piste : ignorer les pas trop courts, ou
+mesurer la direction sur 3 images comme la vitesse. Avec
 5 détections, environ 16 % des pistes de bruit de 5 points passent le virage par hasard
 (3 virages seulement).
 

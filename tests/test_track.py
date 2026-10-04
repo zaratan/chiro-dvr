@@ -195,7 +195,7 @@ def test_a_curve_turning_steadily_has_a_small_median_turn() -> None:
 
 
 def test_a_spot_lit_twice_in_place_does_not_count_as_a_turn() -> None:
-    points = [helpers.detection(f, x, 50) for f, x in enumerate([0, 10, 10, 20, 30, 40])]
+    points = [helpers.detection(f, 50, y) for f, y in enumerate([100, 90, 90, 80, 70, 60])]
 
     assert Track(1, points).median_turn() == 0
 
@@ -209,3 +209,17 @@ def test_two_sharp_turns_out_of_three_reject_a_short_track() -> None:
     points = [helpers.detection(f, x, y) for f, (x, y) in enumerate([(0, 0), (20, 0), (20, 20), (40, 20), (60, 20)])]
 
     assert Track(1, points).median_turn() == pytest.approx(math.pi / 2)
+
+
+def test_a_gentle_zigzag_flying_west_is_still_gentle_across_the_half_turn_boundary() -> None:
+    west = [helpers.detection(i, 400 - 20.0 * i, 100 + (2 if i % 2 else -2)) for i in range(12)]
+
+    assert Track(1, west).median_turn() == pytest.approx(Track(1, zigzag(2)).median_turn())
+
+
+def test_one_sharp_turn_in_a_straight_track_does_not_reject_it() -> None:
+    points = [
+        helpers.detection(f, x, y) for f, (x, y) in enumerate([(0, 0), (20, 0), (40, 0), (40, 20), (40, 40), (40, 60)])
+    ]
+
+    assert Track(1, points).median_turn() == 0

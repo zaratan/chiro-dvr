@@ -29,6 +29,8 @@ def test_options_become_validated_configs() -> None:
             "0",
             "--unstable-pad",
             "2.5",
+            "--max-median-turn",
+            "1.2",
         ]
     )
 
@@ -38,6 +40,7 @@ def test_options_become_validated_configs() -> None:
     assert detect.threshold == 30
     assert detect.osd_regions == (Region(0, 0, 1, 0.1),)
     assert track.max_gap == 8
+    assert track.max_median_turn == 1.2
     assert render.crf == 28
     assert render.encoder == "x264"
     assert render.vt_quality == 40

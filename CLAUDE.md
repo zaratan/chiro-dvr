@@ -49,7 +49,7 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   saturées de taches (jumelles qui bougent) et leurs abords, retirées avant le suivi,
   par la commande comme par le banc.
 - `track.py` : `TrackConfig`, `Track`, appariement, fusion des jumelles, filtres de fin
-  (`min_hits`, `min_travel`, virage médian) (`track_detections`). Ne dépend que de `Detection`.
+  (`min_hits`, `min_travel`, virage médian), tout dans `track_detections`. Ne dépend que de `Detection`.
 - `output/` : `config.py` (`RenderConfig`), `timefmt.py` (temps et noms d'extraits),
   `overlay.py` (boîtes, trace, interpolation, `track_overlay`), `render.py` (une lecture
   de l'original qui alimente les extraits et la vidéo annotée optionnelle ; au plus

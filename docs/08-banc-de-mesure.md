@@ -210,4 +210,8 @@ Les cibles perdues avec `min_hits` plus haut sont surtout peu contrastées (−3
 visibles une quinzaine d'images, détectées sur 5 ou 6.
 
 Retenu le 4 octobre : `max_median_turn` 0,8 et `min_hits` 6. Bancs rejoués avec ces
-réglages : transit 115 trouvées, 0 fausse piste ; chasse 357 trouvées, 0 fausse piste.
+réglages : transit 115 trouvées sur 253 visibles, 0 fausse piste ; chasse 357 trouvées sur
+584 visibles (136 non visibles), 0 fausse piste. `min_hits` sert aussi au banc pour dire
+qu'une cible est visible et trouvée : à `min_hits` 6 pour le suivi seul (critère resté à
+5), la chasse perd 11 cibles au lieu de 14. Un critère « trouvée » indépendant du suivi
+rendrait la comparaison plus honnête.
