@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 
-Int16Frame = npt.NDArray[np.int16]
+IntFrame = npt.NDArray[np.integer[Any]]
 
 
-def temporal_median(frames: Sequence[Int16Frame]) -> npt.NDArray[np.float64]:
+def temporal_median(frames: Sequence[IntFrame]) -> npt.NDArray[np.float64]:
     n = len(frames)
     if n == 0:
         raise ValueError("temporal_median needs at least one frame")

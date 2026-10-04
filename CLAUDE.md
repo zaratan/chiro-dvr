@@ -7,7 +7,7 @@ connaissances : [docs/](docs/README.md), à lire avant de toucher à un réglage
 
 ```bash
 mise run check                    # lint, format, types, tests : vert avant de rendre la main
-uv run batdetect in/video_092_original.mp4 # référence : 5 min, ~4 min 30 de calcul, 14 pistes
+uv run batdetect in/video_092_original.mp4 # référence : 5 min, 14 pistes, ~50 s avec --workers 2
 ```
 
 ## Rôles
@@ -48,7 +48,8 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   (`track_detections`). Ne dépend que de `Detection`.
 - `output/` : `config.py` (`RenderConfig`), `timefmt.py` (temps et noms d'extraits),
   `overlay.py` (boîtes, interpolation), `annotated.py` (vidéo annotée), `tables.py`
-  (CSV, `params.json`), `clips.py` (extraits ; ffmpeg en sous-processus). Image résumé :
+  (CSV, `params.json`), `clips.py` (extraits ; ffmpeg en sous-processus), `encoder.py`
+  (moteur multimédia ou x264, choisi au démarrage par un essai d'encodage). Image résumé :
   `summary.py` (assemblage, écriture), `background.py` (fond médian, zones d'affichage masquées), `style.py`
   (palette, tailles selon la largeur), `geometry.py` (longueur d'arc), `colors.py`,
   `placement.py` (pastilles), `arrows.py`, `marker.py`, `legend.py`, `periods.py`

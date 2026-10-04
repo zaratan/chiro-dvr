@@ -9,6 +9,8 @@ import numpy as np
 import pytest
 
 from batdetect.detect import Detection
+from batdetect.output.config import VIDEOTOOLBOX, X264, RenderConfig
+from batdetect.output.encoder import encoder_works
 from batdetect.video import GrayFrame
 
 BACKGROUND = 200
@@ -68,6 +70,10 @@ def write_video(path: Path, frames: list[GrayFrame], fps: float) -> None:
 
 
 requires_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
+requires_videotoolbox = pytest.mark.skipif(
+    not encoder_works(RenderConfig(encoder=VIDEOTOOLBOX)), reason="Apple media engine not usable"
+)
+EVERY_ENCODER = [pytest.param(X264), pytest.param(VIDEOTOOLBOX, marks=requires_videotoolbox)]
 
 
 def small_video(path: Path, frames: int = 60, width: int = 320, height: int = 240) -> Path:

@@ -14,6 +14,9 @@ from batdetect.output.config import RenderConfig
         lambda: RenderConfig(trail_s=-1),
         lambda: RenderConfig(clip_margin_s=-1),
         lambda: RenderConfig(crf=52),
+        lambda: RenderConfig(encoder="hevc"),
+        lambda: RenderConfig(vt_quality=0),
+        lambda: RenderConfig(vt_quality=101),
     ],
 )
 def test_invalid_render_config_is_rejected(build: Callable[[], object]) -> None:

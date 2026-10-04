@@ -11,7 +11,8 @@ from batdetect.jobs import Job, collect_videos, plan_jobs
 from batdetect.output.annotated import render_annotated
 from batdetect.output.background import hide_display, median_background
 from batdetect.output.clips import split_clips
-from batdetect.output.config import RenderConfig
+from batdetect.output.config import ENCODERS, RenderConfig
+from batdetect.output.encoder import resolve_encoder
 from batdetect.output.summary import summary_image
 from batdetect.output.tables import config_params, write_params, write_tracks_csv
 from batdetect.output.timefmt import format_time
@@ -32,12 +33,25 @@ def build_parser() -> argparse.ArgumentParser:
     render.add_argument("--box-pad", type=int, default=r.box_pad)
     render.add_argument("--trail", type=float, default=r.trail_s)
     render.add_argument("--clip-margin", type=float, default=r.clip_margin_s)
-    render.add_argument("--crf", type=int, default=r.crf)
+    render.add_argument("--crf", type=int, default=r.crf, help="quality for x264 (lower is better)")
+    render.add_argument(
+        "--encoder", choices=ENCODERS, default=r.encoder, help="auto uses the Apple media engine if usable"
+    )
+    render.add_argument(
+        "--vt-quality", type=int, default=r.vt_quality, help="quality for videotoolbox (higher is better)"
+    )
     return ap
 
 
 def build_configs(ns: argparse.Namespace) -> tuple[DetectConfig, TrackConfig, RenderConfig]:
-    render = RenderConfig(box_pad=ns.box_pad, trail_s=ns.trail, clip_margin_s=ns.clip_margin, crf=ns.crf)
+    render = RenderConfig(
+        box_pad=ns.box_pad,
+        trail_s=ns.trail,
+        clip_margin_s=ns.clip_margin,
+        crf=ns.crf,
+        encoder=ns.encoder,
+        vt_quality=ns.vt_quality,
+    )
     return build_detect_config(ns), build_track_config(ns), render
 
 
@@ -72,6 +86,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(str(err))
     if shutil.which("ffmpeg") is None:
         parser.error("ffmpeg not found in PATH")
+    detect, track, render = configs
+    try:
+        configs = (detect, track, resolve_encoder(render))
+    except ValueError as err:
+        parser.error(str(err))
     out_dir: Path = ns.out_dir
     inputs: list[Path] = ns.inputs
     try:

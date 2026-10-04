@@ -49,3 +49,11 @@ def test_missing_ffmpeg_exits_with_a_usage_error(
         main([str(tmp_path)])
 
     assert "ffmpeg not found" in capsys.readouterr().err
+
+
+def test_unknown_encoder_exits_with_a_usage_error(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        main(["in", "--encoder", "hevc"])
+
+    assert exit_info.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err

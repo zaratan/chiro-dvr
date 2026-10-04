@@ -104,3 +104,37 @@ donc environ 85 % du CPU de la détection, et plus de processus coûte plus cher
 
 Pistes : moins de processus par défaut ; décoder une seule fois et distribuer les
 images réduites aux processus ; décodage matériel (VideoToolbox).
+
+## Après le moteur multimédia et la fenêtre en uint8
+
+Fenêtre de la médiane gardée en uint8 au lieu de int16 : pistes identiques au bit près,
+détection 31,0 → 27,2 s avec 1 processus, 23,7 → 22,2 s avec 2.
+
+Traitement complet de la 092, détection sur 2 processus, rendu par `h264_videotoolbox`
+q 65 :
+
+| Étape | Avant | Après |
+| --- | --- | --- |
+| Détection | 66,6 s (10 processus) | 20,3 s (2 processus) |
+| Image résumé | 1,5 s | 1,6 s |
+| Vidéo annotée | 118,5 s | 19,8 s |
+| Extraits | 26,4 s | 8,1 s |
+| **Total** | **213 s** | **49,8 s** |
+
+La vidéo annotée pèse 760 Mo au lieu de 722. Avec le réglage par défaut de
+`--workers` (un processus par cœur), la détection reste à environ 48 s.
+
+## Décodage : pistes éliminées
+
+- **Décodage matériel par OpenCV** : la roue `opencv-python-headless` 5.0 accepte
+  `CAP_PROP_HW_ACCELERATION` sans erreur, mais ne connaît que VAAPI (Linux) ;
+  `cap.get` renvoie 0 et le décodage reste logiciel.
+- **Décodage matériel par ffmpeg** (`-hwaccel videotoolbox`, sous-processus) : 5,6 s
+  au lieu de 1,0 s sur l'extrait de test (environ 220 images/s), pour 0,8 s de CPU au
+  lieu de 7,8. Le YUV décodé est identique au bit près, mais la conversion en BGR
+  d'ffmpeg ne reproduit jamais celle d'OpenCV : jusqu'à 18 niveaux d'écart sur l'image
+  grise de travail, pour un seuil de 25. Toute lecture hors d'OpenCV change les
+  détections et impose une nouvelle référence validée par Manon.
+- **Décoder une seule fois** (un fil lecteur alimente la détection par une file bornée) :
+  prototype sur l'extrait, 3,46 s → 2,16 s, détections identiques. C'est le lecteur
+  (décodage puis réduction) qui limite.

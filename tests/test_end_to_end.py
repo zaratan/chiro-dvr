@@ -37,7 +37,9 @@ def test_folder_run_writes_every_output_for_each_video(tmp_path: Path) -> None:
     assert (dest / "flight.tracks.png").stat().st_size > 0
     assert (dest / "flight_boxes.mp4").stat().st_size > 0
     assert [p.name for p in (dest / "split").iterdir()] == ["01_0m00s00.mp4"]
-    assert json.loads((dest / "params.json").read_text())["TrackConfig"]["min_hits"] == 5
+    params = json.loads((dest / "params.json").read_text())
+    assert params["TrackConfig"]["min_hits"] == 5
+    assert params["RenderConfig"]["encoder"] in {"x264", "videotoolbox"}
 
 
 @requires_ffmpeg

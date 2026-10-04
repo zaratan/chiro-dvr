@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 from batdetect.output.config import RenderConfig
+from batdetect.output.encoder import encoder_args
 from batdetect.output.timefmt import clip_name
 from batdetect.track import Track
 from batdetect.video import VideoError, VideoInfo
@@ -28,12 +29,7 @@ def split_clips(annotated: Path, tracks: list[Track], info: VideoInfo, split_dir
             str(annotated),
             "-t",
             f"{end - start:.3f}",
-            "-c:v",
-            "libx264",
-            "-crf",
-            str(cfg.crf),
-            "-pix_fmt",
-            "yuv420p",
+            *encoder_args(cfg),
             str(split_dir / clip_name(track, info.fps)),
         ]
         if subprocess.run(command, check=False).returncode != 0:

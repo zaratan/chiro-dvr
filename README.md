@@ -22,6 +22,9 @@ uv run batdetect a.mp4 b.mov -o res # fichiers précis, sorties dans res/
 uv run batdetect --help             # tous les réglages
 ```
 
+Sur un Mac Apple Silicon, les vidéos sont encodées par le moteur multimédia de la puce ;
+ailleurs par `libx264`. `--encoder x264` force l'encodeur logiciel.
+
 Les jumelles doivent être fixes pendant l'enregistrement : une vidéo où le cadre bouge
 n'est pas exploitable.
 

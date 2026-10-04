@@ -8,6 +8,7 @@ import numpy as np
 
 from batdetect.detect import Detection
 from batdetect.output.config import RenderConfig
+from batdetect.output.encoder import encoder_args
 from batdetect.output.overlay import draw_overlay, filled_points
 from batdetect.track import Track
 from batdetect.video import VideoError, VideoInfo
@@ -36,12 +37,7 @@ def render_annotated(video: Path, tracks: list[Track], info: VideoInfo, out_path
         str(info.fps),
         "-i",
         "-",
-        "-c:v",
-        "libx264",
-        "-crf",
-        str(cfg.crf),
-        "-pix_fmt",
-        "yuv420p",
+        *encoder_args(cfg),
         str(out_path),
     ]
     ffmpeg = subprocess.Popen(command, stdin=subprocess.PIPE)

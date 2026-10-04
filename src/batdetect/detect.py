@@ -122,7 +122,7 @@ def detect_frames(
     mask = osd_mask(first.shape[1], first.shape[0], cfg)
     if not mask.any():
         raise ValueError("osd_regions mask the whole frame")
-    window: deque[tuple[int, npt.NDArray[np.int16], float]] = deque(maxlen=2 * half + 1)
+    window: deque[tuple[int, GrayFrame, float]] = deque(maxlen=2 * half + 1)
     detections: dict[int, list[Detection]] = {}
 
     def process(target: int) -> None:
@@ -137,7 +137,7 @@ def detect_frames(
 
     index = -1
     for index, gray in enumerate(itertools.chain([first], iterator)):
-        window.append((index, gray.astype(np.int16), float(gray[mask].mean())))
+        window.append((index, gray, float(gray[mask].mean())))
         if index - half >= 0:
             process(index - half)
     for target in range(max(0, index - half + 1), index + 1):

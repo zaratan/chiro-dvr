@@ -104,6 +104,13 @@ image et dessinée en trait fin, pour qu'elle ne clignote pas. Ces positions ser
 uniquement à l'affichage : le CSV et le banc ne comptent que les vraies détections, et la
 colonne `filled_frames` indique combien d'images ont été comblées.
 
+La vidéo annotée et les extraits sont encodés par le moteur multimédia des puces Apple
+(`h264_videotoolbox`, qualité `--vt-quality` 65) quand un essai d'encodage de 0,2 s au
+démarrage réussit, sinon par `libx264` (`--crf` 20), par exemple sous Linux.
+`--encoder videotoolbox|x264` force le choix ; `params.json` enregistre l'encodeur
+réellement utilisé. Mesuré sur la 092 : vidéo annotée en 19,8 s au lieu de 118,5 s,
+fidélité presque égale (SSIM 0,977 contre 0,982, [09](09-profilage.md)).
+
 ## 7. Filtres finaux
 
 - `min_hits` = 5 détections : élimine les étincelles d'une ou deux images.
