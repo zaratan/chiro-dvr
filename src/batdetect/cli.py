@@ -9,6 +9,7 @@ from batdetect.arguments import add_detection_arguments, add_tracking_arguments,
 from batdetect.detect import DetectConfig
 from batdetect.jobs import Job, collect_videos, plan_jobs
 from batdetect.output.annotated import render_annotated
+from batdetect.output.background import hide_display, median_background
 from batdetect.output.clips import split_clips
 from batdetect.output.config import RenderConfig
 from batdetect.output.summary import summary_image
@@ -52,7 +53,7 @@ def process(job: Job, detect: DetectConfig, track: TrackConfig, render: RenderCo
         {"video": str(job.video), "fps": info.fps, **config_params(detect, track, render)},
         job.dest / "params.json",
     )
-    summary_image(job.video, tracks, info, job.dest / f"{stem}.tracks.png")
+    summary_image(hide_display(median_background(job.video, info), detect), tracks, info, job.dest / stem)
     annotated = job.dest / f"{stem}_boxes.mp4"
     render_annotated(job.video, tracks, info, annotated, render)
     split_clips(annotated, tracks, info, job.dest / "split", render)

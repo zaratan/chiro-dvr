@@ -72,10 +72,16 @@
      qui enjambent la frontière) donnerait une seule piste.
 9. **Distribution** aux naturalistes : binaire unique ou installation via uv.
 10. **Lisibilité de l'image résumé** (`*.tracks.png`), constatée sur l'original de la 092 :
-    les étiquettes des pistes qui entrent par le bord droit sortent du cadre, celles des
-    pistes groupées se chevauchent, le rouge se lit mal sur la roche claire, et rien
-    n'indique le sens du vol. Proposition : seulement un numéro dans une pastille sombre,
-    posée au milieu de la trajectoire et décalée en cas de collision ; une légende dans un
-    bandeau ajouté sur le côté (numéro, début, durée, vitesse) ; une couleur par piste
-    reprise dans la légende ; une flèche au bout de chaque trajectoire ; les mêmes
-    pastilles sur la vidéo annotée. À faire relire par l'agent UI/UX avant de coder.
+    les étiquettes des pistes qui entrent par le bord droit sortaient du cadre, celles des
+    pistes groupées se chevauchaient, le rouge se lisait mal sur la roche claire, et rien
+    n'indiquait le sens du vol.
+    - **Fait (4 octobre).** Fond médian de 25 images (moins bruité, sans chauve-souris),
+      une couleur par piste choisie pour différer de ses voisines, liseré sombre, flèche
+      de fin, numéro dans une pastille posée dans le cadre, à l'écart des autres pastilles, des
+      flèches et des croisements autant que possible, et légende dans un bandeau à droite (numéro,
+      début en m:ss), sur plusieurs colonnes si besoin. Tailles proportionnelles à la
+      largeur de la vidéo. Une image par tranche de 10 min pour les vidéos plus longues.
+    - Reste : les mêmes couleurs et pastilles sur la vidéo annotée et les extraits.
+    - L'affichage des jumelles (heure, date, batterie, chrono flou) reste dans le fond
+      médian, puisqu'il est fixe. `--osd-region` le masque (`0,0,1,0.07` pour les
+      Symbion) ; sans option, rien n'est masqué, pour ne dépendre d'aucune caméra.

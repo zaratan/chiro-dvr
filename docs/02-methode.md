@@ -49,7 +49,10 @@ Un pixel est retenu si |image − fond − écart de gain| > `threshold`.
 - La valeur absolue rend la détection indifférente au signe : tache sombre sur roche
   chaude ou tache claire sur ciel froid.
 - Aucun masque par défaut (voir [01](01-contexte.md)). `--osd-region x0,y0,x1,y1`,
-  répétable, en fractions de l'image, met à zéro une zone d'affichage qui bougerait.
+  répétable, en fractions de l'image, met à zéro une zone d'affichage qui bougerait,
+  et la masque aussi sur le fond de l'image résumé. Pour les Symbion, `0,0,1,0.07`
+  cache l'heure, la date, la batterie et le chrono ; mesuré sur l'original de la 092 :
+  mêmes 14 pistes, mêmes débuts et mêmes fins que sans masque.
   Les anciennes bandes du haut et du bas (7 et 10 %) coupaient 5 pistes sur 14.
 
 ## 4. Taches

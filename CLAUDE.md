@@ -45,9 +45,12 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
 - `track.py` : `TrackConfig`, `Track`, appariement, fusion des jumelles
   (`track_detections`). Ne dépend que de `Detection`.
 - `output/` : `config.py` (`RenderConfig`), `timefmt.py` (temps et noms d'extraits),
-  `overlay.py` (boîtes, interpolation), `annotated.py` (vidéo annotée), `summary.py`
-  (image résumé), `tables.py` (CSV, `params.json`), `clips.py` (extraits ; ffmpeg en
-  sous-processus).
+  `overlay.py` (boîtes, interpolation), `annotated.py` (vidéo annotée), `tables.py`
+  (CSV, `params.json`), `clips.py` (extraits ; ffmpeg en sous-processus). Image résumé :
+  `summary.py` (assemblage, écriture), `background.py` (fond médian, zones d'affichage masquées), `style.py`
+  (palette, tailles selon la largeur), `geometry.py` (longueur d'arc), `colors.py`,
+  `placement.py` (pastilles), `arrows.py`, `marker.py`, `legend.py`, `periods.py`
+  (tranches de 10 min).
 - `jobs.py` (vidéos à traiter, dossiers de sortie), `arguments.py` (options partagées et
   construction des configs), `cli.py` (commande `batdetect`).
 - `parallel.py` : détection découpée en tranches de temps, une par processus (`--workers`,

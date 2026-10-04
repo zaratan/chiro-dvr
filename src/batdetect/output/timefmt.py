@@ -12,3 +12,8 @@ def format_time(seconds: float) -> str:
 def clip_name(track: Track, fps: float) -> str:
     stamp = format_time(track.first.frame / fps).replace(":", "m").replace(".", "s")
     return f"{track.id:02d}_{stamp}.mp4"
+
+
+def format_clock(seconds: float) -> str:
+    minutes, rest = divmod(int(seconds), 60)
+    return f"{minutes}:{rest:02d}"

@@ -28,7 +28,11 @@ n'est pas exploitable.
 Pour chaque vidéo, `out/<nom>/` contient :
 
 - `<nom>_boxes.mp4` : la vidéo annotée, une boîte et un numéro par passage ;
-- `<nom>.tracks.png` : toutes les trajectoires sur une image ;
+- `<nom>.tracks.png` : toutes les trajectoires sur le fond médian de la vidéo, une couleur,
+  une flèche (sens du vol) et une pastille numérotée par passage, avec une légende à droite
+  (numéro et début). Au-delà de 10 min, une image par tranche de 10 min
+  (`<nom>.tracks_000m-010m.png`, …). `--osd-region 0,0,1,0.07` y cache l'affichage
+  des jumelles Symbion ;
 - `<nom>.tracks.csv` : début, fin, durée, vitesse de chaque passage ;
 - `params.json` : les réglages utilisés ;
 - `split/` : un extrait par passage, nommé par numéro et temps de début.

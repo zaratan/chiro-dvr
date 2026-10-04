@@ -5,27 +5,73 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from batdetect.output.overlay import BOX_COLOR, TRAIL_COLOR
-from batdetect.output.timefmt import format_time
+from batdetect.output.arrows import arrow_head
+from batdetect.output.colors import assign_colors
+from batdetect.output.geometry import Points, track_points
+from batdetect.output.legend import LegendEntry, legend_panel
+from batdetect.output.marker import draw_marker
+from batdetect.output.periods import SUMMARY_SPAN_S, Period, split_by_period
+from batdetect.output.placement import place_markers
+from batdetect.output.style import BACKGROUND_DIM, INK, PALETTE, SEPARATOR, SummaryStyle, style_for
+from batdetect.output.timefmt import format_clock
 from batdetect.track import Track
-from batdetect.video import VideoError, VideoInfo
-
-SUMMARY_FRAME = 30
+from batdetect.video import ColorFrame, VideoError, VideoInfo
 
 
-def summary_image(video: Path, tracks: list[Track], info: VideoInfo, out_path: Path) -> None:
-    cap = cv2.VideoCapture(str(video))
-    cap.set(cv2.CAP_PROP_POS_FRAMES, min(SUMMARY_FRAME, max(0, info.frame_count - 1)))
-    ok, raw = cap.read()
-    cap.release()
-    if not ok:
-        raise VideoError(f"cannot read a background frame from {video}")
-    image = (np.asarray(raw, dtype=np.float64) * 0.6).astype(np.uint8)
-    for track in tracks:
-        pts = np.array([(round(p.x), round(p.y)) for p in track.points], dtype=np.int32)
-        cv2.polylines(image, [pts], isClosed=False, color=TRAIL_COLOR, thickness=3)
-        start = (int(pts[0][0]) + 6, int(pts[0][1]))
-        label = f"#{track.id} {format_time(track.first.frame / info.fps)}"
-        cv2.putText(image, label, start, cv2.FONT_HERSHEY_SIMPLEX, 0.9, BOX_COLOR, 2)
-    if not cv2.imwrite(str(out_path), image):
-        raise VideoError(f"cannot write {out_path}")
+def polyline(points: Points) -> list[np.ndarray[tuple[int, int], np.dtype[np.int32]]]:
+    return [np.round(points).astype(np.int32)]
+
+
+def header_lines(stem: str, period: Period) -> list[str]:
+    count = len(period.tracks)
+    passages = f"{count} passage{'s' if count > 1 else ''}"
+    return [stem, passages, f"{format_clock(period.start_s)} - {format_clock(period.end_s)}"]
+
+
+def compose_summary(
+    background: ColorFrame, tracks: list[Track], fps: float, header: list[str], style: SummaryStyle
+) -> ColorFrame:
+    height, width = background.shape[:2]
+    image = (background.astype(np.float64) * BACKGROUND_DIM).astype(np.uint8)
+    paths = [track_points(t) for t in tracks]
+    colors = [PALETTE[c] for c in assign_colors(paths, len(PALETTE), style.neighbor_distance)]
+    heads = [arrow_head(p, style.arrow_length) for p in paths]
+    for path in paths:
+        cv2.polylines(image, polyline(path), False, INK, style.outline, cv2.LINE_AA)
+    for path, color in zip(paths, colors, strict=True):
+        cv2.polylines(image, polyline(path), False, color, style.line, cv2.LINE_AA)
+    for head, color in zip(heads, colors, strict=True):
+        if head is not None:
+            cv2.fillPoly(image, polyline(head), color, cv2.LINE_AA)
+            cv2.polylines(image, polyline(head), True, INK, style.border, cv2.LINE_AA)
+    tips = [(float(p[-1, 0]), float(p[-1, 1])) for p, h in zip(paths, heads, strict=True) if h is not None]
+    centers = place_markers(paths, (width, height), style.radius, tips, style.radius + style.arrow_length)
+    entries = [
+        LegendEntry(str(t.id), c, format_clock(t.first.frame / fps)) for t, c in zip(tracks, colors, strict=True)
+    ]
+    for entry, center in zip(entries, centers, strict=True):
+        draw_marker(image, center, entry.label, entry.color, style)
+    panel = legend_panel(header, entries, height, style)
+    panel[:, : style.border] = SEPARATOR
+    return np.hstack([image, panel])
+
+
+def remove_old_summaries(base: Path) -> None:
+    for old in base.parent.iterdir():
+        if old.name.startswith(f"{base.name}.tracks") and old.suffix == ".png":
+            old.unlink()
+
+
+def summary_image(
+    background: ColorFrame, tracks: list[Track], info: VideoInfo, base: Path, span_s: float = SUMMARY_SPAN_S
+) -> list[Path]:
+    style = style_for(info.width, str(max((t.id for t in tracks), default=0)))
+    remove_old_summaries(base)
+    written: list[Path] = []
+    for period in split_by_period(tracks, info, span_s):
+        image = compose_summary(background, period.tracks, info.fps, header_lines(base.name, period), style)
+        out = base.with_name(f"{base.name}.tracks{period.suffix}.png")
+        if not cv2.imwrite(str(out), image):
+            raise VideoError(f"cannot write {out}")
+        written.append(out)
+    return written
