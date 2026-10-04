@@ -47,8 +47,12 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
 - `track.py` : `TrackConfig`, `Track`, appariement, fusion des jumelles
   (`track_detections`). Ne dépend que de `Detection`.
 - `output/` : `config.py` (`RenderConfig`), `timefmt.py` (temps et noms d'extraits),
-  `overlay.py` (boîtes, interpolation), `annotated.py` (vidéo annotée), `tables.py`
-  (CSV, `params.json`), `clips.py` (extraits ; ffmpeg en sous-processus), `encoder.py`
+  `overlay.py` (boîtes, trace, interpolation, `track_overlay`), `render.py` (une lecture
+  de l'original qui alimente les extraits et la vidéo annotée optionnelle ; au plus
+  `MAX_WRITERS` encodeurs à la fois, sinon plusieurs passes), `writer.py` (`FrameWriter`,
+  un ffmpeg qui reçoit des images brutes ; supprime le fichier partiel s'il est
+  abandonné), `clips.py` (fenêtres d'extraits, répartition en passes), `tables.py`
+  (CSV, `params.json`), `encoder.py`
   (moteur multimédia ou x264, choisi au démarrage par un essai d'encodage). Image résumé :
   `summary.py` (assemblage, écriture), `background.py` (fond médian, zones d'affichage masquées), `style.py`
   (palette, tailles selon la largeur), `geometry.py` (longueur d'arc), `colors.py`,

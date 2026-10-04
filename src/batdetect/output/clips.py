@@ -1,36 +1,38 @@
 from __future__ import annotations
 
-import shutil
-import subprocess
+import itertools
+from dataclasses import dataclass
 from pathlib import Path
 
-from batdetect.output.config import RenderConfig
-from batdetect.output.encoder import encoder_args
 from batdetect.output.timefmt import clip_name
 from batdetect.track import Track
-from batdetect.video import VideoError, VideoInfo
 
 
-def split_clips(annotated: Path, tracks: list[Track], info: VideoInfo, split_dir: Path, cfg: RenderConfig) -> None:
-    shutil.rmtree(split_dir, ignore_errors=True)
-    split_dir.mkdir(parents=True)
-    duration = info.frame_count / info.fps
-    for track in tracks:
-        start = max(0.0, track.first.frame / info.fps - cfg.clip_margin_s)
-        end = min(duration, track.last.frame / info.fps + cfg.clip_margin_s)
-        command = [
-            "ffmpeg",
-            "-v",
-            "error",
-            "-y",
-            "-ss",
-            f"{start:.3f}",
-            "-i",
-            str(annotated),
-            "-t",
-            f"{end - start:.3f}",
-            *encoder_args(cfg),
-            str(split_dir / clip_name(track, info.fps)),
-        ]
-        if subprocess.run(command, check=False).returncode != 0:
-            raise VideoError(f"ffmpeg failed while cutting clip #{track.id}")
+@dataclass(frozen=True, slots=True)
+class ClipWindow:
+    first: int
+    last: int
+    path: Path
+
+
+def clip_windows(tracks: list[Track], fps: float, margin_s: float, split_dir: Path) -> list[ClipWindow]:
+    margin = round(margin_s * fps)
+    return [
+        ClipWindow(max(0, t.first.frame - margin), t.last.frame + margin, split_dir / clip_name(t, fps)) for t in tracks
+    ]
+
+
+def in_passes(windows: list[ClipWindow], max_writers: int) -> list[list[ClipWindow]]:
+    if max_writers < 1:
+        raise ValueError("max_writers must be >= 1")
+    lanes: list[list[ClipWindow]] = []
+    for window in sorted(windows, key=lambda w: w.first):
+        free = next((lane for lane in lanes if lane[-1].last < window.first), None)
+        if free is None:
+            lanes.append([window])
+        else:
+            free.append(window)
+    return [
+        sorted((w for lane in group for w in lane), key=lambda w: w.first)
+        for group in itertools.batched(lanes, max_writers, strict=False)
+    ]

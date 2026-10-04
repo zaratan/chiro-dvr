@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+from collections.abc import Callable
 
 import cv2
 import numpy as np
@@ -51,6 +52,12 @@ def filled_points(track: Track) -> list[tuple[Detection, bool]]:
     return filled
 
 
+def trail_points(track: Track, current: Detection, trail_frames: int) -> list[tuple[int, int]]:
+    start = current.frame - trail_frames
+    past = [p for p in track.points if start <= p.frame < current.frame]
+    return [(round(p.x), round(p.y)) for p in [*past, current]]
+
+
 def draw_overlay(
     frame: ColorFrame, hits: list[tuple[Track, Detection, bool]], info: VideoInfo, cfg: RenderConfig, frame_no: int
 ) -> None:
@@ -60,7 +67,19 @@ def draw_overlay(
         cv2.rectangle(frame, top_left, bottom_right, BOX_COLOR, 1 if interpolated else 2)
         label_at = (top_left[0], top_left[1] - 6)
         cv2.putText(frame, f"#{track.id}", label_at, cv2.FONT_HERSHEY_SIMPLEX, 0.8, BOX_COLOR, 2)
-        trail = [p for p in track.points if frame_no - trail_frames <= p.frame <= frame_no]
+        trail = trail_points(track, det, trail_frames)
         if len(trail) > 1:
-            pts = np.array([(round(p.x), round(p.y)) for p in trail], dtype=np.int32)
+            pts = np.array(trail, dtype=np.int32)
             cv2.polylines(frame, [pts], isClosed=False, color=TRAIL_COLOR, thickness=2)
+
+
+def track_overlay(tracks: list[Track], info: VideoInfo, cfg: RenderConfig) -> Callable[[ColorFrame, int], None]:
+    by_frame: dict[int, list[tuple[Track, Detection, bool]]] = {}
+    for track in tracks:
+        for det, interpolated in filled_points(track):
+            by_frame.setdefault(det.frame, []).append((track, det, interpolated))
+
+    def draw(frame: ColorFrame, frame_no: int) -> None:
+        draw_overlay(frame, by_frame.get(frame_no, []), info, cfg, frame_no)
+
+    return draw

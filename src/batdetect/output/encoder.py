@@ -19,18 +19,22 @@ def encoder_args(cfg: RenderConfig) -> list[str]:
     return [*codec, "-pix_fmt", "yuv420p"]
 
 
-def encoder_works(cfg: RenderConfig) -> bool:
+def encoder_failure(cfg: RenderConfig) -> str | None:
     command = ["ffmpeg", "-v", "error", *PROBE_INPUT, *encoder_args(cfg), "-f", "null", "-"]
     try:
-        return subprocess.run(command, capture_output=True, check=False).returncode == 0
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
     except FileNotFoundError:
-        return False
+        return "ffmpeg not found"
+    if result.returncode == 0:
+        return None
+    return result.stderr.strip() or f"ffmpeg exited with code {result.returncode}"
 
 
-def resolve_encoder(cfg: RenderConfig, works: Callable[[RenderConfig], bool] = encoder_works) -> RenderConfig:
+def resolve_encoder(cfg: RenderConfig, probe: Callable[[RenderConfig], str | None] = encoder_failure) -> RenderConfig:
     if cfg.encoder == AUTO:
         hardware = replace(cfg, encoder=VIDEOTOOLBOX)
-        return hardware if works(hardware) else replace(cfg, encoder=X264)
-    if not works(cfg):
-        raise ValueError(f"encoder {cfg.encoder} is not usable with this ffmpeg")
+        return hardware if probe(hardware) is None else replace(cfg, encoder=X264)
+    failure = probe(cfg)
+    if failure is not None:
+        raise ValueError(f"encoder {cfg.encoder} is not usable with this ffmpeg: {failure}")
     return cfg

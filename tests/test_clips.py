@@ -1,52 +1,63 @@
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
 
-from batdetect.output.clips import split_clips
-from batdetect.output.config import X264, RenderConfig
+from batdetect.output.clips import ClipWindow, clip_windows, in_passes
 from batdetect.track import Track
-from batdetect.video import VideoError, VideoInfo
-from helpers import EVERY_ENCODER, line, requires_ffmpeg, small_video
+from helpers import line
 
-INFO = VideoInfo(fps=30.0, frame_count=90, width=320, height=240, work_width=320, work_height=240)
-
-
-def duration_of(path: Path) -> float:
-    probe = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)]
-    return float(subprocess.run(probe, capture_output=True, text=True, check=True).stdout)
+SPLIT = Path("split")
 
 
-@requires_ffmpeg
-@pytest.mark.parametrize("encoder", EVERY_ENCODER)
-def test_one_clip_per_track_with_margins_clamped_to_the_video(tmp_path: Path, encoder: str) -> None:
-    video = small_video(tmp_path / "v.mp4", frames=90)
-    track = Track(1, line(0, 10, (20, 20), (5, 0)))
-
-    split_clips(video, [track], INFO, tmp_path / "split", RenderConfig(clip_margin_s=0.5, encoder=encoder))
-
-    clips = list((tmp_path / "split").iterdir())
-    assert [c.name for c in clips] == ["01_0m00s00.mp4"]
-    assert duration_of(clips[0]) == pytest.approx(10 / 30 - 1 / 30 + 0.5, abs=0.1)
+def window(first: int, last: int) -> ClipWindow:
+    return ClipWindow(first, last, SPLIT / f"{first}-{last}.mp4")
 
 
-@requires_ffmpeg
-def test_previous_clips_are_removed_before_cutting(tmp_path: Path) -> None:
-    video = small_video(tmp_path / "v.mp4", frames=90)
-    split = tmp_path / "split"
-    split.mkdir()
-    (split / "99_old.mp4").write_bytes(b"stale")
-
-    split_clips(video, [], INFO, split, RenderConfig())
-
-    assert list(split.iterdir()) == []
+def most_simultaneous(windows: list[ClipWindow]) -> int:
+    return max(sum(w.first <= f <= w.last for w in windows) for w in windows for f in (w.first, w.last))
 
 
-@requires_ffmpeg
-def test_ffmpeg_failure_is_reported_as_a_video_error(tmp_path: Path) -> None:
-    track = Track(1, line(0, 10, (20, 20), (5, 0)))
+def test_margin_is_counted_in_frames_and_clamped_at_the_start_only() -> None:
+    early = Track(1, line(5, 10, (20, 20), (5, 0)))
+    late = Track(2, line(100, 10, (20, 20), (5, 0)))
 
-    with pytest.raises(VideoError, match="clip #1"):
-        split_clips(tmp_path / "missing.mp4", [track], INFO, tmp_path / "split", RenderConfig(encoder=X264))
+    windows = clip_windows([early, late], fps=30.0, margin_s=0.5, split_dir=SPLIT)
+
+    assert [(w.first, w.last) for w in windows] == [(0, 29), (85, 124)]
+
+
+def test_clip_is_named_after_its_track_and_start() -> None:
+    track = Track(3, line(45, 10, (20, 20), (5, 0)))
+
+    assert clip_windows([track], fps=30.0, margin_s=0.0, split_dir=SPLIT)[0].path == SPLIT / "03_0m01s50.mp4"
+
+
+def test_windows_that_never_overlap_share_a_single_pass() -> None:
+    windows = [window(0, 9), window(10, 19), window(20, 29)]
+
+    assert in_passes(windows, max_writers=1) == [windows]
+
+
+def test_windows_touching_on_one_frame_need_two_writers() -> None:
+    assert in_passes([window(0, 10), window(10, 20)], max_writers=1) == [[window(0, 10)], [window(10, 20)]]
+
+
+def test_passes_never_hold_more_simultaneous_windows_than_allowed() -> None:
+    windows = [window(i, i + 20) for i in range(9)] + [window(40, 50)]
+
+    passes = in_passes(windows, max_writers=4)
+
+    assert sorted(w.first for batch in passes for w in batch) == sorted(w.first for w in windows)
+    assert all(most_simultaneous(batch) <= 4 for batch in passes)
+    assert len(passes) == 3
+
+
+def test_no_window_gives_no_pass() -> None:
+    assert in_passes([], max_writers=4) == []
+
+
+def test_at_least_one_writer_is_needed() -> None:
+    with pytest.raises(ValueError, match="max_writers"):
+        in_passes([window(0, 1)], max_writers=0)

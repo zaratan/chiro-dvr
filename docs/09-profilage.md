@@ -163,3 +163,23 @@ identiques.
 `--workers` vaut 1 par défaut depuis cette mesure. Commande complète par défaut sur la
 092 (`uv run batdetect in/video_092_original.mp4`) : **44,8 s**, contre 213 s au début
 de l'optimisation ; 14 pistes, encodeur `videotoolbox`.
+
+## Après le rendu en une lecture
+
+La vidéo annotée complète devient optionnelle (`--annotated`) ; les extraits sont encodés
+directement depuis l'original pendant une seule lecture, au lieu d'être recoupés dans la
+vidéo annotée ([02](02-methode.md#rendu)). Étape de rendu seule sur la 092 (14 extraits,
+`h264_videotoolbox`), deux exécutions de chaque, machine chargée (charge 8 à 12) mais
+mêmes conditions pour les trois :
+
+| Rendu | Temps | CPU |
+| --- | --- | --- |
+| Avant : vidéo annotée puis découpe | 29,4 à 31,0 s | 106 s |
+| Extraits seuls (défaut) | 12,0 à 12,7 s | 53 s |
+| Extraits et vidéo annotée (`--annotated`) | 26,4 à 28,8 s | 89 s |
+
+Mêmes 14 extraits, mêmes noms, même nombre d'images. Une génération d'encodage en moins :
+SSIM de l'extrait 5 contre l'original 0,955 → 0,974, pour 159 Mo d'extraits au lieu de
+142. Sans `--annotated`, le dossier de sortie de la 092 passe d'environ 900 Mo à 160 Mo.
+La lecture saute les images hors des extraits sans les convertir et s'arrête après le
+dernier (3:58 sur 5:00). Total de la commande par défaut à remesurer sur machine calme.

@@ -33,9 +33,9 @@
      parallèle : 3 min 35 au total, pour environ 1 min de détection (déduit du banc, deux
      passes en 1 min 58). Le reste vient de la vidéo annotée complète (redécodage,
      dessin, réencodage x264 de 5 min en 1440×1080, sur un seul flux) et des extraits
-     recoupés depuis elle. Pistes : encodage matériel `h264_videotoolbox` ; extraits
-     tirés directement de l'original au lieu de la vidéo annotée ; vidéo complète en
-     option ; rendu par tranches. Mesuré le 4 octobre ([09](09-profilage.md)) : vidéo
+     recoupés depuis elle. Pistes : encodage matériel `h264_videotoolbox` (fait) ; extraits
+     tirés directement de l'original au lieu de la vidéo annotée (fait) ; vidéo complète en
+     option (fait) ; rendu par tranches. Mesuré le 4 octobre ([09](09-profilage.md)) : vidéo
      annotée 56 %, détection 31 %, extraits 12 % ; `h264_videotoolbox` encode 5 fois plus
      vite pour une fidélité presque égale.
    - **Médiane sur le GPU (Metal)** : le GPU reste à 0 % pendant le traitement. La médiane
@@ -59,9 +59,9 @@
      résidus d'un clip (environ 1,5 Go à 480 px de large, 14 Go en pleine résolution),
      ce qu'exigerait une hystérésis 3D sur toute la durée.
    - **Réduire le coût par vidéo**, qui multiplie tous les gains :
-     - rendre la vidéo annotée complète optionnelle, et ne produire que les extraits
-       autour des pistes. Le rendu redécode et réencode 5 min en 1440×1080 ; sa part du
-       temps total reste à mesurer ;
+     - **fait (4 octobre)** : vidéo annotée complète en option (`--annotated`), extraits
+       encodés directement depuis l'original. Rendu de la 092 : environ 30 s → 12 s
+       ([09](09-profilage.md)). À voir à l'usage si Manon a besoin de la vidéo complète ;
      - encodage matériel (`h264_videotoolbox` sur Mac) pour les extraits ;
      - fond médian recalculé seulement une image sur N (la médiane faisait 85 % du
        temps de détection sur l'export) ;

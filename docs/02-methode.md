@@ -1,8 +1,8 @@
 # Méthode
 
 Le traitement d'une vidéo se fait en deux passes. La première lit la vidéo en petit,
-détecte et suit. La seconde relit la vidéo en pleine résolution pour dessiner les
-boîtes, puis découpe les extraits.
+détecte et suit. La seconde relit la vidéo en pleine résolution, dessine les boîtes et
+encode directement chaque extrait (et la vidéo annotée complète avec `--annotated`).
 
 Toutes les distances et surfaces des réglages, des pistes et du CSV sont en **pixels de
 la vidéo d'origine**. Pour détecter, la vidéo est réduite à `work_width` px de large
@@ -101,16 +101,25 @@ peu contrastée sortait en fragments écartés de 18 à 24 px, trop pour `merge_
 ## Rendu
 
 Entre deux détections d'une même piste, la boîte est interpolée linéairement à chaque
-image et dessinée en trait fin, pour qu'elle ne clignote pas. Ces positions servent
+image et dessinée en trait fin, pour qu'elle ne clignote pas ; la trace jaune de la
+dernière seconde la suit jusqu'à cette position. Ces positions servent
 uniquement à l'affichage : le CSV et le banc ne comptent que les vraies détections, et la
 colonne `filled_frames` indique combien d'images ont été comblées.
 
 La vidéo annotée et les extraits sont encodés par le moteur multimédia des puces Apple
 (`h264_videotoolbox`, qualité `--vt-quality` 65) quand un essai d'encodage de quelques
 images (0,2 s) au démarrage réussit, sinon par `libx264` (`--crf` 20), par exemple sous Linux.
-`--encoder videotoolbox|x264` force le choix ; `params.json` enregistre l'encodeur
-réellement utilisé. Mesuré sur la 092 : vidéo annotée en 19,8 s au lieu de 118,5 s,
+`--encoder videotoolbox|x264` force le choix, et un encodeur forcé inutilisable arrête la
+commande avec le message d'ffmpeg ; `params.json` enregistre l'encodeur réellement utilisé. Mesuré sur la 092 : vidéo annotée en 19,8 s au lieu de 118,5 s,
 fidélité presque égale (SSIM 0,977 contre 0,982, [09](09-profilage.md)).
+
+La seconde passe lit l'original une seule fois, dans l'ordre, avec la même numérotation
+des images que la détection. Chaque extrait a son encodeur, ouvert à la première image de
+sa fenêtre (début de la piste moins `--clip-margin`, fin plus `--clip-margin`) et fermé à
+la dernière ; les images que personne n'attend sont sautées sans être converties. Au plus
+6 encodeurs tournent en même temps (`MAX_WRITERS`) : au-delà, les extraits sont répartis
+en plusieurs passes, chacune relisant la vidéo. Un extrait qui échoue ou une interruption
+ne laissent pas de fichier tronqué.
 
 ## 7. Filtres finaux
 

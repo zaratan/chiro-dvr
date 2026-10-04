@@ -8,11 +8,12 @@ from pathlib import Path
 from batdetect.arguments import add_detection_arguments, add_tracking_arguments, build_detect_config, build_track_config
 from batdetect.detect import DetectConfig
 from batdetect.jobs import Job, collect_videos, plan_jobs
-from batdetect.output.annotated import render_annotated
 from batdetect.output.background import hide_display, median_background
-from batdetect.output.clips import split_clips
+from batdetect.output.clips import clip_windows
 from batdetect.output.config import ENCODERS, RenderConfig
 from batdetect.output.encoder import resolve_encoder
+from batdetect.output.overlay import track_overlay
+from batdetect.output.render import VideoOutputs, render_videos
 from batdetect.output.summary import summary_image
 from batdetect.output.tables import config_params, write_params, write_tracks_csv
 from batdetect.output.timefmt import format_time
@@ -40,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     render.add_argument(
         "--vt-quality", type=int, default=r.vt_quality, help="quality for videotoolbox (higher is better)"
     )
+    render.add_argument("--annotated", action="store_true", help="also write the whole annotated video")
     return ap
 
 
@@ -51,6 +53,7 @@ def build_configs(ns: argparse.Namespace) -> tuple[DetectConfig, TrackConfig, Re
         crf=ns.crf,
         encoder=ns.encoder,
         vt_quality=ns.vt_quality,
+        annotated=ns.annotated,
     )
     return build_detect_config(ns), build_track_config(ns), render
 
@@ -68,9 +71,11 @@ def process(job: Job, detect: DetectConfig, track: TrackConfig, render: RenderCo
         job.dest / "params.json",
     )
     summary_image(hide_display(median_background(job.video, info), detect), tracks, info, job.dest / stem)
-    annotated = job.dest / f"{stem}_boxes.mp4"
-    render_annotated(job.video, tracks, info, annotated, render)
-    split_clips(annotated, tracks, info, job.dest / "split", render)
+    split_dir = job.dest / "split"
+    outputs = VideoOutputs(
+        split_dir, clip_windows(tracks, info.fps, render.clip_margin_s, split_dir), job.dest / f"{stem}_boxes.mp4"
+    )
+    render_videos(job.video, info, outputs, track_overlay(tracks, info, render), render)
     print(f"{job.video.name}: {len(detections)} frames, {len(tracks)} tracks -> {job.dest}")
     for t in tracks:
         start, end = format_time(t.first.frame / info.fps), format_time(t.last.frame / info.fps)

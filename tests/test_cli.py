@@ -24,6 +24,7 @@ def test_options_become_validated_configs() -> None:
             "x264",
             "--vt-quality",
             "40",
+            "--annotated",
         ]
     )
 
@@ -35,6 +36,7 @@ def test_options_become_validated_configs() -> None:
     assert render.crf == 28
     assert render.encoder == "x264"
     assert render.vt_quality == 40
+    assert render.annotated
 
 
 def test_invalid_option_value_exits_with_a_usage_error(capsys: pytest.CaptureFixture[str]) -> None:
@@ -77,3 +79,7 @@ def test_unknown_encoder_exits_with_a_usage_error(capsys: pytest.CaptureFixture[
 
 def test_detection_runs_in_one_process_by_default_since_extra_chunks_only_add_re_decoding() -> None:
     assert build_parser().parse_args(["in"]).workers == 1
+
+
+def test_whole_annotated_video_is_off_by_default() -> None:
+    assert not build_configs(build_parser().parse_args(["in"]))[2].annotated

@@ -30,7 +30,6 @@ n'est pas exploitable.
 
 Pour chaque vidéo, `out/<nom>/` contient :
 
-- `<nom>_boxes.mp4` : la vidéo annotée, une boîte et un numéro par passage ;
 - `<nom>.tracks.png` : toutes les trajectoires sur le fond médian de la vidéo, une couleur,
   une flèche (sens du vol) et une pastille numérotée par passage, avec une légende à droite
   (numéro et début). Au-delà de 10 min, une image par tranche de 10 min
@@ -38,7 +37,10 @@ Pour chaque vidéo, `out/<nom>/` contient :
   des jumelles Symbion ;
 - `<nom>.tracks.csv` : début, fin, durée, vitesse de chaque passage ;
 - `params.json` : les réglages utilisés ;
-- `split/` : un extrait par passage, nommé par numéro et temps de début.
+- `split/` : un extrait par passage, nommé par numéro et temps de début, avec une boîte,
+  un numéro et la trace des passages visibles ;
+- avec `--annotated` seulement, `<nom>_boxes.mp4` : la vidéo annotée complète. Sans
+  l'option, celle d'un traitement précédent est supprimée.
 
 Le détail de la méthode et des réglages est dans [docs/02-methode.md](docs/02-methode.md).
 

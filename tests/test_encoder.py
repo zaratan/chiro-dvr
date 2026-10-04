@@ -6,20 +6,20 @@ import sys
 import pytest
 
 from batdetect.output.config import AUTO, VIDEOTOOLBOX, X264, RenderConfig
-from batdetect.output.encoder import encoder_args, encoder_works, resolve_encoder
+from batdetect.output.encoder import encoder_args, encoder_failure, resolve_encoder
 from helpers import requires_ffmpeg
 
 
-def always(_cfg: RenderConfig) -> bool:
-    return True
+def always(_cfg: RenderConfig) -> str | None:
+    return None
 
 
-def never(_cfg: RenderConfig) -> bool:
-    return False
+def never(_cfg: RenderConfig) -> str | None:
+    return "no compression session"
 
 
-def only_x264(cfg: RenderConfig) -> bool:
-    return cfg.encoder == X264
+def only_x264(cfg: RenderConfig) -> str | None:
+    return None if cfg.encoder == X264 else "no compression session"
 
 
 def test_videotoolbox_uses_its_quality_scale() -> None:
@@ -45,8 +45,8 @@ def test_auto_falls_back_to_x264_where_the_media_engine_is_missing() -> None:
     assert resolve_encoder(RenderConfig(), only_x264).encoder == X264
 
 
-def test_explicit_encoder_that_does_not_work_is_refused_up_front() -> None:
-    with pytest.raises(ValueError, match="videotoolbox is not usable"):
+def test_explicit_encoder_that_does_not_work_is_refused_up_front_with_ffmpeg_reason() -> None:
+    with pytest.raises(ValueError, match="videotoolbox is not usable with this ffmpeg: no compression session"):
         resolve_encoder(RenderConfig(encoder=VIDEOTOOLBOX), never)
 
 
@@ -58,7 +58,13 @@ def test_explicit_encoder_that_works_is_kept() -> None:
 
 @requires_ffmpeg
 def test_x264_probe_succeeds_with_a_real_ffmpeg() -> None:
-    assert encoder_works(RenderConfig(encoder=X264))
+    assert encoder_failure(RenderConfig(encoder=X264)) is None
+
+
+def test_missing_ffmpeg_is_reported_as_the_reason(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PATH", "")
+
+    assert encoder_failure(RenderConfig(encoder=X264)) == "ffmpeg not found"
 
 
 @requires_ffmpeg
@@ -66,4 +72,4 @@ def test_x264_probe_succeeds_with_a_real_ffmpeg() -> None:
     sys.platform != "darwin" or platform.machine() != "arm64", reason="the media engine only exists on Apple Silicon"
 )
 def test_media_engine_is_detected_on_apple_silicon_so_auto_never_silently_falls_back() -> None:
-    assert encoder_works(RenderConfig(encoder=VIDEOTOOLBOX))
+    assert encoder_failure(RenderConfig(encoder=VIDEOTOOLBOX)) is None

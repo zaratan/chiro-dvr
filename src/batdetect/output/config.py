@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Final, Literal
 
 MAX_CRF = 51
 MAX_VT_QUALITY = 100
-AUTO = "auto"
-VIDEOTOOLBOX = "videotoolbox"
-X264 = "x264"
-ENCODERS = (AUTO, VIDEOTOOLBOX, X264)
+type Encoder = Literal["auto", "videotoolbox", "x264"]
+AUTO: Final = "auto"
+VIDEOTOOLBOX: Final = "videotoolbox"
+X264: Final = "x264"
+ENCODERS: tuple[Encoder, ...] = (AUTO, VIDEOTOOLBOX, X264)
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,8 +18,9 @@ class RenderConfig:
     trail_s: float = 1.0
     clip_margin_s: float = 1.5
     crf: int = 20
-    encoder: str = AUTO
+    encoder: Encoder = AUTO
     vt_quality: int = 65
+    annotated: bool = False
 
     def __post_init__(self) -> None:
         if self.box_pad < 0:
