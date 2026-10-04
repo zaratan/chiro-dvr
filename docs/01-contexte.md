@@ -63,9 +63,13 @@ Mesuré sur la version exportée, sur laquelle le projet a démarré (`ffprobe`)
 | Audio | piste AAC présente, sans intérêt pour la détection |
 | Affichage incrusté (OSD) | compteur d'enregistrement rouge, heure, date, batterie en haut ; grossissements (« 2.0x », « 6.5x ») en bas sur certains fichiers |
 
-Le compteur d'enregistrement change chaque seconde : sans masque, n'importe quel
-détecteur de mouvement le prend pour un passage. D'où les bandes `osd_top` et
-`osd_bottom`.
+Le compteur d'enregistrement change chaque seconde, sur place. Un affichage fixe ne crée
+aucune détection, et un affichage qui change sur place ne produit pas de piste : ses
+détections ne se déplacent pas, et le suivi rejette ce qui parcourt moins de
+`min_travel`. Mesuré sur l'original de la 092 : sans aucun masque, aucune piste ne vient
+de l'affichage. L'outil n'a donc **pas de masque par défaut**, ce qui le garde
+indépendant de la caméra ; `--osd-region` reste disponible pour un appareil dont
+l'affichage bougerait vraiment.
 
 ## Ce que la prise de vue impose
 

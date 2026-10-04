@@ -12,12 +12,13 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from batdetect import parallel, pipeline, synthetic
 from batdetect.cli import add_detection_arguments, add_tracking_arguments, build_detect_config, build_track_config
 from batdetect.parallel import default_workers, detect_video
 from batdetect.pipeline import (
-    SYMBION_OSD,
     DetectConfig,
     Detection,
+    Region,
     Track,
     TrackConfig,
     VideoError,
@@ -40,7 +41,7 @@ VISIBLE_MARGIN_SIGMAS = 2.0
 WILSON_Z = 1.96
 DEFAULT_AMPLITUDES = (-15.0, -30.0, -60.0)
 DEFAULT_SIGMAS = (1.5, 3.0, 5.0)
-CACHE_VERSION = 2
+CACHED_MODULES = (pipeline, parallel, synthetic)
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,12 +83,11 @@ class Evaluation:
     injected_tracks: int
 
 
-def is_visible(obs: Observation, sigma: float, info: VideoInfo) -> bool:
+def is_visible(obs: Observation, sigma: float, info: VideoInfo, masked: Sequence[Region] = ()) -> bool:
     margin = VISIBLE_MARGIN_SIGMAS * sigma
     if not (margin <= obs.x <= info.width - margin and margin <= obs.y <= info.height - margin):
         return False
-    rel_x, rel_y = obs.x / info.width, obs.y / info.height
-    if any(region.contains(rel_x, rel_y) for region in SYMBION_OSD):
+    if any(region.contains(obs.x / info.width, obs.y / info.height) for region in masked):
         return False
     return abs(obs.effective) >= VISIBLE_MIN_CONTRAST
 
@@ -95,14 +95,15 @@ def is_visible(obs: Observation, sigma: float, info: VideoInfo) -> bool:
 def cache_key(video: Path, detect: DetectConfig, sampling: Sampling) -> str:
     stat = video.stat()
     payload = {
-        "cache_version": CACHE_VERSION,
+        "code": [hashlib.sha256(Path(str(m.__file__)).read_bytes()).hexdigest() for m in CACHED_MODULES],
         "video": str(video.resolve()),
         "size": stat.st_size,
         "mtime": stat.st_mtime,
         "detect": asdict(detect),
         "sampling": asdict(sampling),
     }
-    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    normalized = json.loads(json.dumps(payload), parse_int=float)
+    return hashlib.sha256(json.dumps(normalized, sort_keys=True).encode()).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,19 +122,26 @@ def collect(setup: BenchSetup) -> BenchRun:
     reference = detect_video(video, detect, info, setup.workers)[0]
     occupied = reference_occupancy(track_detections(reference, setup.track))
     bats = random_bats(sampling, info, len(reference), occupied)
-    injected, injectors = detect_video(video, detect, info, setup.workers, lambda chunk: Injector(bats, chunk))
-    observations: dict[int, list[Observation]] = {}
+    injected, injectors = detect_video(video, detect, info, setup.workers, lambda: Injector(bats))
+    unique: dict[tuple[int, int], Observation] = {}
     for injector in injectors:
         for bat_id, found in injector.observations.items():
-            observations.setdefault(bat_id, []).extend(found)
+            for obs in found:
+                unique[bat_id, obs.frame] = obs
+    observations: dict[int, list[Observation]] = {}
+    for (bat_id, _), obs in sorted(unique.items()):
+        observations.setdefault(bat_id, []).append(obs)
     return BenchRun(cache_key(video, detect, sampling), info, reference, injected, bats, observations)
 
 
 def load_or_collect(setup: BenchSetup, cache: Path) -> BenchRun:
     key = cache_key(setup.video, setup.detect, setup.sampling)
     if cache.exists():
-        with cache.open("rb") as fh:
-            cached: object = pickle.load(fh)
+        try:
+            with cache.open("rb") as fh:
+                cached: object = pickle.load(fh)
+        except pickle.UnpicklingError, AttributeError, TypeError, EOFError, ImportError:
+            cached = None
         if isinstance(cached, BenchRun) and cached.key == key:
             return cached
     run = collect(setup)
@@ -188,7 +196,7 @@ def _reference_points(tracks: Sequence[Track]) -> dict[int, list[Detection]]:
     return points
 
 
-def evaluate(run: BenchRun, track: TrackConfig, match: MatchConfig) -> Evaluation:
+def evaluate(run: BenchRun, track: TrackConfig, match: MatchConfig, masked: Sequence[Region] = ()) -> Evaluation:
     truth = _truth_by_frame(run)
     injected_tracks = track_detections(run.injected, track)
     reference_tracks = track_detections(run.reference, track)
@@ -197,7 +205,7 @@ def evaluate(run: BenchRun, track: TrackConfig, match: MatchConfig) -> Evaluatio
     not_visible = 0
     for bat in run.bats:
         observations = run.observations.get(bat.id, [])
-        visible = {o.frame: o for o in observations if is_visible(o, bat.sigma, run.info)}
+        visible = {o.frame: o for o in observations if is_visible(o, bat.sigma, run.info, masked)}
         if len(visible) < track.min_hits:
             not_visible += 1
             continue
@@ -270,7 +278,7 @@ def summarize(evaluation: Evaluation) -> list[dict[str, object]]:
 
 
 def code_version() -> str:
-    result = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=False)
+    result = subprocess.run(["git", "describe", "--always", "--dirty"], capture_output=True, text=True, check=False)
     return result.stdout.strip() or "unknown"
 
 
@@ -324,7 +332,7 @@ def main(argv: list[str] | None = None) -> int:
     except VideoError as err:
         print(f"{video}: {err}", file=sys.stderr)
         return 1
-    evaluation = evaluate(run, track, match)
+    evaluation = evaluate(run, track, match, detect.osd_regions)
     rows = summarize(evaluation)
     report = {
         "video": str(video),

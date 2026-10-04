@@ -10,13 +10,14 @@ from batdetect.bench import (
     MatchConfig,
     Observation,
     assign_tracks,
+    cache_key,
     evaluate,
     is_visible,
     main,
     wilson,
 )
-from batdetect.pipeline import Detection, Track, TrackConfig, VideoInfo
-from batdetect.synthetic import SyntheticBat
+from batdetect.pipeline import DetectConfig, Detection, Region, Track, TrackConfig, VideoInfo
+from batdetect.synthetic import BatClass, Sampling, SyntheticBat
 from helpers import background, detection, write_video
 
 INFO = VideoInfo(fps=30.0, frame_count=100, width=480, height=360, work_width=160, work_height=120)
@@ -47,9 +48,8 @@ def make_run(bats: list[SyntheticBat], injected: dict[int, list[Detection]], eff
     return BenchRun("k", INFO, {f: [] for f in range(INFO.frame_count)}, frames, bats, observations)
 
 
-def test_target_inside_the_osd_bar_is_not_visible() -> None:
-    assert not is_visible(Observation(0, 240, 5, -40), 3, INFO)
-    assert is_visible(Observation(0, 240, 180, -40), 3, INFO)
+def test_target_under_a_detection_mask_is_not_visible() -> None:
+    assert not is_visible(Observation(0, 240, 5, -40), 3, INFO, (Region(0, 0, 1, 0.1),))
 
 
 def test_target_touching_the_frame_edge_is_not_visible() -> None:
@@ -114,6 +114,16 @@ def test_track_with_no_target_and_no_reference_counterpart_is_a_false_track() ->
     evaluation = evaluate(make_run([bat], detections_on(bat) | stray), TrackConfig(), MATCH)
 
     assert evaluation.false_tracks == 1
+
+
+def test_cache_key_ignores_int_versus_float_spelling(tmp_path: Path) -> None:
+    video = tmp_path / "v.mp4"
+    video.write_bytes(b"x")
+    sampling = Sampling(1, (BatClass(-30, 2),), 3, 72)
+
+    assert cache_key(video, DetectConfig(min_area=4), sampling) == cache_key(
+        video, DetectConfig(min_area=4.0), sampling
+    )
 
 
 def test_wilson_interval_matches_the_textbook_value() -> None:

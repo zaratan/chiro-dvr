@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from batdetect.parallel import Chunk, detect_video, plan_chunks
+from batdetect.parallel import Chunk, detect_video, exit_with_parent, plan_chunks
 from batdetect.pipeline import DetectConfig, open_video
 from batdetect.synthetic import Injector, SyntheticBat
 from helpers import background, moving_square_frames, with_square, write_video
@@ -37,7 +37,7 @@ def test_split_detection_is_identical_to_a_single_pass(tmp_path: Path) -> None:
     assert split == single
 
 
-def test_injected_targets_are_observed_once_across_chunks(tmp_path: Path) -> None:
+def test_injected_targets_are_observed_on_every_frame_across_chunks(tmp_path: Path) -> None:
     video = tmp_path / "plain.mp4"
     write_video(video, moving_square_frames(900, step=(0, 0)), fps=30)
     cfg = DetectConfig()
@@ -45,10 +45,10 @@ def test_injected_targets_are_observed_once_across_chunks(tmp_path: Path) -> Non
     cap.release()
     bat = SyntheticBat(0, 280, tuple((40.0 + k, 60.0) for k in range(60)), tuple(-60.0 for _ in range(60)), -60, 3)
 
-    _, injectors = detect_video(video, cfg, info, 3, lambda chunk: Injector([bat], chunk))
+    _, injectors = detect_video(video, cfg, info, 3, lambda: Injector([bat]))
 
-    frames = sorted(o.frame for inj in injectors for o in inj.observations.get(0, []))
-    assert frames == list(range(280, 340))
+    frames = {o.frame for inj in injectors for o in inj.observations.get(0, [])}
+    assert frames == set(range(280, 340))
 
 
 @pytest.mark.slow
@@ -61,3 +61,7 @@ def test_split_detection_on_the_real_clip_matches_a_single_pass() -> None:
     split = detect_video(FIXTURE, cfg, info, workers=4)[0]
 
     assert split == single
+
+
+def test_watching_the_parent_is_a_no_op_in_the_main_process() -> None:
+    exit_with_parent()

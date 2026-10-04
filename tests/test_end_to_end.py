@@ -43,6 +43,7 @@ def test_folder_run_writes_every_output_for_each_video(tmp_path: Path) -> None:
     with (dest / "flight.tracks.csv").open() as fh:
         rows = list(csv.DictReader(fh))
     assert len(rows) == 1
+    assert "filled_frames" in rows[0]
     assert (dest / "flight.tracks.png").stat().st_size > 0
     assert (dest / "flight_boxes.mp4").stat().st_size > 0
     assert [p.name for p in (dest / "split").iterdir()] == ["01_0m00s00.mp4"]

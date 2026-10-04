@@ -8,8 +8,12 @@ Toutes les distances et surfaces des réglages, des pistes et du CSV sont en **p
 la vidéo d'origine**. Pour détecter, la vidéo est réduite à `work_width` px de large
 (480 par défaut, jamais plus que la vidéo elle-même) ; les détections sont reconverties
 en pixels d'origine dès leur création. Changer `work_width` ne change donc pas le sens
-des autres réglages. Les valeurs par défaut sont celles qui donnaient les résultats
-documentés à 480 px sur une vidéo 1440×1080.
+des autres réglages, **à l'arrondi près** : à 480 px de large sur une vidéo 1440×1080, un
+pixel de travail vaut 3 px d'origine et 9 px². Toute valeur de `min_area` jusqu'à 9 px²
+revient à « un pixel de travail suffit », et `merge_radius` est arrondi au pixel de
+travail. Les pixels d'origine ne sont pas une unité physique : une autre caméra, avec une
+autre résolution, demandera peut-être d'autres valeurs. Les valeurs par défaut sont celles
+qui donnaient les résultats documentés à 480 px sur une vidéo 1440×1080.
 
 La détection est découpée en tranches de temps traitées en parallèle, avec une
 demi-fenêtre de recouvrement : le résultat est identique au traitement d'un seul tenant.
@@ -44,23 +48,31 @@ Un pixel est retenu si |image − fond − écart de gain| > `threshold`.
   130 (`peak_amplitude` du CSV).
 - La valeur absolue rend la détection indifférente au signe : tache sombre sur roche
   chaude ou tache claire sur ciel froid.
-- Les bandes `osd_top` (7 %) et `osd_bottom` (10 %) sont mises à zéro pour ignorer
-  l'affichage incrusté.
+- Aucun masque par défaut (voir [01](01-contexte.md)). `--osd-region x0,y0,x1,y1`,
+  répétable, en fractions de l'image, met à zéro une zone d'affichage qui bougerait.
+  Les anciennes bandes du haut et du bas (7 et 10 %) coupaient 5 pistes sur 14.
 
 ## 4. Taches
 
 - `merge_radius` = 6 px : une fermeture morphologique recolle les fragments d'un même
   animal séparés de moins de ~12 px. Sur la 092 à 3:51, une seule chauve-souris sortait
   en deux taches distantes de 12 à 18 px.
-- `min_area` = 18 et `max_area` = 2 700 px². L'aire compte les pixels réellement
-  au-dessus du seuil, pas ceux ajoutés par la fermeture. En dessous, c'est du bruit ;
-  au-dessus, ce n'est plus un petit animal.
+- `min_area` = 4 et `max_area` = 2 700 px². L'aire compte les pixels réellement
+  au-dessus du seuil, pas ceux ajoutés par la fermeture. À 480 px de large, 4 px²
+  d'origine laisse passer une tache d'un seul pixel de travail : mesuré au banc
+  ([08](08-banc-de-mesure.md)), c'est ce qui permet de trouver les petites cibles, sans
+  piste de bruit en plus. L'ancienne valeur (18 px²) rejetait les taches de moins de deux
+  pixels de travail. À plus haute résolution, ce réglage laisse passer le bruit.
 
 ## 5. Suivi
 
 Chaque image, les détections sont attribuées aux pistes ouvertes.
 
-- **Prédiction** à vitesse constante depuis les deux derniers points.
+- **Prédiction** à vitesse constante, la vitesse étant mesurée entre le dernier point et
+  le plus récent situé au moins 3 images avant (une période de la saccade des jumelles).
+  Avec les deux derniers points seulement, l'erreur atteignait un facteur 2 une image sur
+  trois ; sur la 092, la piste la plus rapide (3:48) décrochait 2 images trop tôt. Une
+  piste de deux points garde la prédiction sur ces deux points.
 - **Appariement** au plus proche dans un rayon `max_jump` = 120 px, mais les pistes qui
   ont déjà une vitesse passent avant celles d'un seul point. Sans cette priorité, une
   piste naissante (un fragment) volait le point de la vraie piste : le passage de 3:58
@@ -79,6 +91,13 @@ peu contrastée sortait en fragments écartés de 18 à 24 px, trop pour `merge_
 
 `twin_distance` = 0 désactive la fusion.
 
+## Rendu
+
+Entre deux détections d'une même piste, la boîte est interpolée linéairement à chaque
+image et dessinée en trait fin, pour qu'elle ne clignote pas. Ces positions servent
+uniquement à l'affichage : le CSV et le banc ne comptent que les vraies détections, et la
+colonne `filled_frames` indique combien d'images ont été comblées.
+
 ## 7. Filtres finaux
 
 - `min_hits` = 5 détections : élimine les étincelles d'une ou deux images.
@@ -95,4 +114,5 @@ La liste des fichiers produits est dans le [README](../README.md#utilisation).
 Colonnes du CSV : `id`, `start`, `end`, `start_s` (début en secondes), `duration_s`, `hits` (nombre de détections),
 `chord_px` (distance de bout en bout), `path_px` (chemin parcouru), `speed_px_s`
 (chemin ÷ durée), `max_area_px` (plus grande tache, en pixels d'origine),
-`peak_amplitude` (plus fort écart au fond, en niveaux de gris).
+`peak_amplitude` (plus fort écart au fond, en niveaux de gris), `filled_frames` (images
+comblées par interpolation à l'affichage).

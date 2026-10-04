@@ -128,11 +128,10 @@ interne n'est pas connue.
 
 Conséquences :
 
-- **la prédiction actuelle, sur les deux derniers points, se trompe d'un facteur 2 une
-  image sur trois** : c'est une source d'erreurs d'appariement et d'extrapolation ;
-- la vitesse doit s'estimer sur au moins 3 images (une période), ou le modèle doit
-  connaître la saccade ;
-- l'interpolation dans les trous doit suivre le même rythme.
+- une prédiction sur les deux derniers points se trompe d'un facteur 2 une image sur
+  trois. Corrigé le 4 octobre : la vitesse est estimée sur au moins 3 images (E1 bis) ;
+- l'interpolation à l'affichage reste linéaire : elle peut s'écarter d'un pas au plus de
+  la position réelle pendant un trou, ce qui est sans conséquence pour une boîte.
 
 ## Diagnostic refait sur l'original (étape 0)
 
@@ -357,6 +356,24 @@ jumelles.
 - **G4. Non-régression élargie** : ajouter au test `slow` des assertions de complétude
   (par exemple, la piste 12 commence au plus tard à 7118) dès qu'une amélioration est en
   place.
+
+## État au 4 octobre 2026
+
+Fait et mesuré (voir [08](08-banc-de-mesure.md)) :
+
+- **G2** : banc de cibles synthétiques (`batdetect-bench`) ;
+- **A0** : vidéos copiées en USB ;
+- **B1, partiellement** : réglages en pixels d'origine. Monter la résolution sans seuil
+  adapté au bruit fait exploser les pistes de bruit, on reste donc à 480 px ;
+- **`min_area` 18 → 4** : le vrai verrou des petites cibles ;
+- **E1 bis** : vitesse sur 3 images ;
+- **E1** : interpolation à l'affichage ;
+- **F1, revu** : pas de masque par défaut, au lieu d'un profil de caméra, pour rester
+  indépendant de l'appareil ;
+- **détection parallèle** par tranches de temps.
+
+Prochaine étape côté détection : **B2 + D1** (filtrage à la taille de la cible et seuil
+par pixel), seule voie mesurée pour profiter de la pleine résolution, puis D2 et D3.
 
 ## Proposition d'ordre
 

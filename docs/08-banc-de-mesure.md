@@ -32,9 +32,10 @@ classe, résultat par cible) et `cache.pkl` (détections de référence et injec
 
 ## Ce qui compte comme visible
 
-Une cible est visible à une image si son centre est à plus de 2σ des bords, hors de
-l'affichage réel des jumelles (profil Symbion, indépendant des réglages de détection), et
-si son **contraste effectif** après écrêtage atteint 8 niveaux. Une tache sombre sur le
+Une cible est visible à une image si son centre est à plus de 2σ des bords et si son
+**contraste effectif** après écrêtage atteint 8 niveaux. Le banc ne connaît aucun
+affichage de caméra : une cible injectée sous un affichage fixe reste comptée visible,
+alors qu'en vrai l'affichage la cacherait (biais faible, l'affichage occupe peu de place). Une tache sombre sur le
 ciel saturé à 0 n'a aucun contraste effectif : elle n'est pas comptée comme manquée.
 Ce dénominateur ne dépend pas des masques de détection, ce qui permet de comparer deux
 réglages de masque. Les cibles visibles moins de `min_hits` images sont écartées
@@ -68,8 +69,15 @@ le change pas.
 - **Saccade modélisée** : le banc reproduit la saccade, donc un correctif de la saccade
   y paraîtra efficace par construction. Le run réel (trous, fragments) reste juge.
 - **Coût** : deux détections complètes (référence et injectée), puis le suivi est rejoué
-  à la demande depuis le cache. Seul un changement de réglage de détection ou de tirage
-  relance les détections.
+  à la demande depuis le cache. Le cache est invalidé par un changement de réglage de
+  détection ou de tirage, et par toute modification du code de `pipeline.py`,
+  `parallel.py` ou `synthetic.py` (empreinte de leur contenu dans la clé). Le rapport note
+  la version du code avec `git describe --dirty`.
+- **Placement figé** : les cibles sont placées loin des pistes du run de référence, calculées
+  avec les réglages de suivi du premier run. Rejouer avec un autre réglage de suivi
+  réutilise ces mêmes cibles, ce qui garde les comparaisons appariées.
+- **Masques** : une cible sous une `--osd-region` n'est pas comptée visible. Pour mesurer le
+  coût d'un masque, comparer le nombre de cibles trouvées plutôt que la complétude.
 
 ## Référence avant les gains rapides
 
@@ -136,3 +144,17 @@ Lecture :
   Une première version se positionnait dans le fichier avec `CAP_PROP_POS_FRAMES` : sur
   la vidéo complète, une tranche était décalée d'une image. Chaque processus lit désormais
   depuis le début et saute les images jusqu'à sa tranche (`grab`, 0,84 ms par image).
+
+## Gains rapides (sous-phase 1B)
+
+480 px, `min_area` 4, nouvelle définition de « visible » (sans profil de caméra), les deux
+lignes mesurées avec le même code :
+
+| Réglage | −46, σ 1,5 | −46, σ 3 | −24, σ 5 | Fausses pistes | Pistes de référence |
+| --- | --- | --- | --- | --- | --- |
+| Anciennes bandes (`--osd-region 0,0,1,0.07 --osd-region 0,0.9,1,1`) | 26/28 (0,59) | 24/26 (0,86) | 26/27 (0,37) | 0 | 14 |
+| **Sans masque (défaut)** | **27/28 (0,66)** | 24/26 **(0,95)** | 26/27 **(0,44)** | 0 | 14 |
+
+La vitesse estimée sur 3 images ne change rien de mesurable au banc (une seule complétude
+bouge de 0,01) ; sur la vraie vidéo, elle prolonge de 2 images la piste la plus rapide.
+L'interpolation ne touche que l'affichage et n'a pas d'effet sur le banc par construction.

@@ -41,7 +41,9 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 - `parallel.py` : détection découpée en tranches de temps, une par processus (`--workers`,
   par défaut le nombre de cœurs). Chaque tranche lit la vidéo depuis le début et saute
   jusqu'à elle : jamais `CAP_PROP_POS_FRAMES`, imprécis d'une image en mp4. Le résultat
-  doit rester identique au bit près au traitement séquentiel (tests dans `test_parallel.py`).
+  doit rester identique au bit près au traitement séquentiel. Seul le test `slow` sur le
+  vrai extrait détecte un positionnement imprécis : le lancer après toute modification de
+  `parallel.py`. Les processus de détection s'arrêtent si le parent meurt.
 - `synthetic.py` et `bench.py` : fausses chauves-souris injectées en pleine résolution et
   banc de mesure (`batdetect-bench`, [docs/08-banc-de-mesure.md](docs/08-banc-de-mesure.md)).
   Toute amélioration de la détection ou du suivi se mesure au banc avant et après.

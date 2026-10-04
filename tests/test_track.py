@@ -62,6 +62,28 @@ def test_track_survives_exactly_max_gap_empty_frames(missing: int, expected_trac
     assert len(tracks) == expected_tracks
 
 
+def test_saccade_prediction_error_stays_under_a_third_of_the_long_step() -> None:
+    xs = [0, 20, 30, 40, 60, 70, 80, 100, 110, 120, 140, 150]
+    points = [helpers.detection(f, x, 0) for f, x in enumerate(xs)]
+
+    errors = [abs(Track(1, points[:k]).predicted(k)[0] - xs[k]) for k in range(3, len(xs))]
+
+    assert max(errors) <= 20 / 3 + 1e-9
+
+
+def test_prediction_falls_back_to_the_last_two_points_on_a_young_track() -> None:
+    track = Track(1, [helpers.detection(0, 0, 0), helpers.detection(1, 10, 0)])
+
+    assert track.predicted(2) == (20, 0)
+
+
+def test_prediction_spans_three_frames_even_across_a_gap() -> None:
+    xs = {0: 0, 1: 10, 2: 20, 5: 80, 6: 90}
+    track = Track(1, [helpers.detection(f, x, 0) for f, x in xs.items()])
+
+    assert track.predicted(7) == pytest.approx((90 + (90 - 20) / 4, 0))
+
+
 def test_tracks_below_min_hits_are_dropped() -> None:
     tracks = track_detections(by_frame(line(0, 4, (10, 50), (5, 0))), TrackConfig(min_hits=5))
 

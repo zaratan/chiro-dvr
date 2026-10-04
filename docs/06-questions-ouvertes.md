@@ -19,14 +19,19 @@
    pour 1 300 s de temps CPU, soit environ 4,8 cœurs déjà occupés en moyenne par OpenCV,
    ffmpeg et numpy. En séquentiel, une heure d'enregistrement prend donc environ 54 min.
    Pistes :
-   - **La détection n'utilise qu'un cœur** : mesuré au banc, 431 s de CPU pour 276 s de
-     durée, soit environ 1,6 cœur, et les 5 cœurs du traitement complet viennent de
-     l'encodage ffmpeg. Le calcul d'une image ne dépend que de la seconde qui l'entoure :
-     **découper la vidéo en tranches de temps** traitées par plusieurs processus, avec une
-     demi-seconde de recouvrement, donne le même résultat, avec un gain attendu de ×4 à
-     ×8 sur le M1 Max et de ×3 à ×5 sur le M3 (estimation). Condition : un test qui vérifie
-     l'égalité exacte avec le traitement séquentiel. C'est le préalable à la pleine
-     résolution.
+   - **Fait (4 octobre) : détection découpée en tranches de temps**, une par processus,
+     identique au bit près au séquentiel. Gain mesuré ×2,3 sur le banc à 480 px avec
+     10 processus sur le M1 Max ; à mesurer sur le M3, dont 4 cœurs sur 8 sont des cœurs
+     économes (la tranche la plus lente fixe le temps total). Chaque tranche relit la
+     vidéo depuis le début pour éviter un positionnement imprécis : environ 90 s de
+     rattrapage pour la dernière tranche d'une vidéo d'une heure.
+   - **Le rendu domine maintenant le temps total.** Sur l'original, avec la détection
+     parallèle : 3 min 35 au total, pour environ 1 min de détection (déduit du banc, deux
+     passes en 1 min 58). Le reste vient de la vidéo annotée complète (redécodage,
+     dessin, réencodage x264 de 5 min en 1440×1080, sur un seul flux) et des extraits
+     recoupés depuis elle. Pistes : encodage matériel `h264_videotoolbox` ; extraits
+     tirés directement de l'original au lieu de la vidéo annotée ; vidéo complète en
+     option ; rendu par tranches. Mesurer d'abord la part de chaque étape.
    - **Médiane sur le GPU (Metal)** : le GPU reste à 0 % pendant le traitement. La médiane
      d'une pile de 11 images est un calcul massivement parallèle, adapté au GPU : MLX
      (Apple, léger) ou PyTorch avec le backend MPS (lourd). Ce serait une dépendance

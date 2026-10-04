@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from batdetect.parallel import Chunk
 from batdetect.pipeline import ColorFrame, Track, VideoInfo
 
 Point = tuple[float, float]
@@ -188,7 +187,6 @@ class Observation:
 @dataclass(slots=True)
 class Injector:
     bats: list[SyntheticBat]
-    chunk: Chunk
     observations: dict[int, list[Observation]] = field(default_factory=dict[int, list[Observation]])
     active: dict[int, list[SyntheticBat]] = field(default_factory=dict[int, list[SyntheticBat]])
 
@@ -200,8 +198,6 @@ class Injector:
     def __call__(self, frame: ColorFrame, frame_no: int) -> None:
         here = self.active.get(frame_no, [])
         effective = inject(frame, here, frame_no)
-        if not self.chunk.owns(frame_no):
-            return
         for bat in here:
             pos = bat.position(frame_no)
             if pos is not None and bat.id in effective:

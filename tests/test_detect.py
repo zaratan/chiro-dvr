@@ -5,7 +5,7 @@ from collections.abc import Callable
 import numpy as np
 import pytest
 
-from batdetect.pipeline import DetectConfig, detect_frames
+from batdetect.pipeline import DetectConfig, Region, detect_frames, osd_mask
 from helpers import background, moving_square_frames, with_square
 
 FPS = 30.0
@@ -44,9 +44,28 @@ def test_global_brightness_jump_is_not_motion() -> None:
 def test_spot_inside_the_osd_band_is_ignored() -> None:
     frames = moving_square_frames(40, start=(20, 2), step=(3, 0))
 
-    detections = detect_frames(frames, FPS, DetectConfig(osd_top=0.07), SCALE)
+    detections = detect_frames(frames, FPS, DetectConfig(osd_regions=(Region(0, 0, 1, 0.07),)), SCALE)
 
     assert all(found == [] for found in detections.values())
+
+
+def test_osd_region_mask_is_rounded_outwards() -> None:
+    mask = osd_mask(10, 10, DetectConfig(osd_regions=(Region(0.15, 0.15, 0.35, 0.35),)))
+
+    assert not mask[1:4, 1:4].any()
+    assert mask[4, 4]
+    assert mask[0, 0]
+
+
+def test_masks_covering_the_whole_frame_are_refused() -> None:
+    halves = DetectConfig(osd_regions=(Region(0, 0, 1, 0.5), Region(0, 0.5, 1, 1)))
+
+    with pytest.raises(ValueError, match="whole frame"):
+        detect_frames(moving_square_frames(5), FPS, halves, SCALE)
+
+
+def test_no_mask_by_default() -> None:
+    assert osd_mask(10, 10, DetectConfig()).all()
 
 
 def test_blobs_outside_area_bounds_are_ignored() -> None:
@@ -95,7 +114,6 @@ def test_background_window_too_short_for_the_frame_rate_is_rejected() -> None:
         lambda: DetectConfig(min_area=10, max_area=5),
         lambda: DetectConfig(bg_window_s=0),
         lambda: DetectConfig(bg_step=0),
-        lambda: DetectConfig(osd_top=0.6, osd_bottom=0.5),
         lambda: DetectConfig(merge_radius=-1),
         lambda: DetectConfig(work_width=8),
     ],

@@ -20,6 +20,7 @@ from batdetect.output import (
 from batdetect.parallel import default_workers, detect_video
 from batdetect.pipeline import (
     DetectConfig,
+    Region,
     TrackConfig,
     VideoError,
     open_video,
@@ -60,6 +61,14 @@ def plan_jobs(videos: list[Path], out_dir: Path) -> list[Job]:
     return jobs
 
 
+def parse_region(text: str) -> Region:
+    try:
+        x0, y0, x1, y1 = (float(v) for v in text.split(","))
+        return Region(x0, y0, x1, y1)
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(f"expected x0,y0,x1,y1 fractions, got {text!r}: {err}") from err
+
+
 def add_detection_arguments(ap: argparse.ArgumentParser) -> None:
     d = DetectConfig()
     detect = ap.add_argument_group("detection")
@@ -68,8 +77,13 @@ def add_detection_arguments(ap: argparse.ArgumentParser) -> None:
     detect.add_argument("--max-area", type=float, default=d.max_area, help="source pixels²")
     detect.add_argument("--bg-window", type=float, default=d.bg_window_s, help="seconds of rolling median background")
     detect.add_argument("--bg-step", type=int, default=d.bg_step)
-    detect.add_argument("--osd-top", type=float, default=d.osd_top)
-    detect.add_argument("--osd-bottom", type=float, default=d.osd_bottom)
+    detect.add_argument(
+        "--osd-region",
+        type=parse_region,
+        action="append",
+        default=[],
+        help="x0,y0,x1,y1 as fractions of the frame; masks a moving on-screen display",
+    )
     detect.add_argument(
         "--merge-radius", type=float, default=d.merge_radius, help="source pixels bridged between fragments"
     )
@@ -111,8 +125,7 @@ def build_detect_config(ns: argparse.Namespace) -> DetectConfig:
         max_area=ns.max_area,
         bg_window_s=ns.bg_window,
         bg_step=ns.bg_step,
-        osd_top=ns.osd_top,
-        osd_bottom=ns.osd_bottom,
+        osd_regions=tuple(ns.osd_region),
         merge_radius=ns.merge_radius,
         work_width=ns.work_width,
     )

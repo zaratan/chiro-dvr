@@ -52,6 +52,37 @@ Sur les 11 passages rapides communs, on passe de 170 à 222 points détectés (+
 et 2 passages nouveaux apparaissent. Le calcul prend 4 min 29 au lieu de 2 min 40, à
 cause du décodage d'un fichier 12 fois plus lourd.
 
+## Original avec `min_area` = 4 (réglage par défaut depuis le 4 octobre 2026)
+
+Mêmes 14 passages, presque tous plus complets ; plusieurs commencent plus tôt.
+
+| Passage | `min_area` 18 | `min_area` 4 |
+| --- | --- | --- |
+| 0:07 | 0:07.43, 10 points | 0:07.39, 13 points |
+| 0:34 | 30 | 33 |
+| 0:51 (douteux) | 0:51.65, 6 | 0:51.62, 9 |
+| 0:53 | 24 | 28 |
+| 1:12 | 29, fin 1:13.63 | 31, fin 1:13.87 |
+| 1:49 | 23 | 23 |
+| 2:02 | 10 | 12 |
+| 2:24 | 10 | 11 |
+| 2:37 (nouveau) | 2:37.16, 5 | 2:36.99, 7 |
+| 2:44 | 38 | 40 |
+| 3:29 (lente) | 285 | 287 |
+| 3:48 | 14 | 14 |
+| 3:51 | 16 | 17 |
+| 3:57 | 18 | 18 |
+
+Calcul : 3 min 46 avec la détection parallèle sur 10 processus (rendu des vidéos compris).
+
+## Après les gains rapides (4 octobre 2026)
+
+`min_area` 4, sans masque, vitesse sur 3 images : toujours 14 passages. Les 5 pistes qui
+s'arrêtaient contre l'ancienne bande du bas vont plus loin (0:07 jusqu'à 8,09 s, 0:34
+jusqu'à 35,27 s, 0:53 jusqu'à 54,88 s, 2:44 jusqu'à 45,38 s, 3:51 jusqu'à 51,69 s), et 3:48
+gagne 2 images (fin à 48,86 s). Entre 0 et 7 images interpolées par piste à l'affichage.
+Calcul : 3 min 35.
+
 ## La piste 9
 
 Une tache sombre qui avance lentement et sans à-coups pendant 9,4 s, de la gauche vers

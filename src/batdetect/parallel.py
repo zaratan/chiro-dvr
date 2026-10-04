@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import multiprocessing
 import os
+import threading
 from collections.abc import Callable, Iterator
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, replace
@@ -36,6 +37,18 @@ class Chunk:
 
     def owns(self, frame: int) -> bool:
         return self.start <= frame and (self.stop is None or frame < self.stop)
+
+
+def exit_with_parent() -> None:
+    parent = multiprocessing.parent_process()
+    if parent is None:
+        return
+
+    def watch() -> None:
+        parent.join()
+        os._exit(1)
+
+    threading.Thread(target=watch, daemon=True).start()
 
 
 def default_workers() -> int:
@@ -87,17 +100,21 @@ def detect_video[H: FrameHook](
     cfg: DetectConfig,
     info: VideoInfo,
     workers: int,
-    make_hook: Callable[[Chunk], H] | None = None,
+    make_hook: Callable[[], H] | None = None,
 ) -> tuple[dict[int, list[Detection]], list[H]]:
     chunks = plan_chunks(info.frame_count, workers, MIN_CHUNK_WINDOWS * 2 * cfg.half_window(info.fps))
-    hooks = [make_hook(c) if make_hook is not None else None for c in chunks]
+    hooks = [make_hook() if make_hook is not None else None for _ in chunks]
     if len(chunks) == 1:
         results = [detect_chunk(video, cfg, chunks[0], hooks[0])]
     else:
         context = multiprocessing.get_context("spawn")
-        with ProcessPoolExecutor(max_workers=len(chunks), mp_context=context) as pool:
+        with ProcessPoolExecutor(max_workers=len(chunks), mp_context=context, initializer=exit_with_parent) as pool:
             futures = [pool.submit(detect_chunk, video, cfg, c, h) for c, h in zip(chunks, hooks, strict=True)]
-            results = [f.result() for f in futures]
+            try:
+                results = [f.result() for f in futures]
+            except BaseException:
+                pool.shutdown(wait=False, cancel_futures=True)
+                raise
     detections: dict[int, list[Detection]] = {}
     returned: list[H] = []
     for found, hook in results:

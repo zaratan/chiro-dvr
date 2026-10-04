@@ -16,6 +16,7 @@ ColorFrame = npt.NDArray[np.uint8]
 
 MIN_BACKGROUND_FRAMES = 3
 MIN_WORK_WIDTH = 16
+VELOCITY_SPAN_FRAMES = 3
 
 
 class VideoError(Exception):
@@ -37,18 +38,14 @@ class Region:
         return self.x0 <= x <= self.x1 and self.y0 <= y <= self.y1
 
 
-SYMBION_OSD = (Region(0.0, 0.0, 1.0, 0.06), Region(0.30, 0.89, 0.56, 0.98))
-
-
 @dataclass(frozen=True, slots=True)
 class DetectConfig:
     threshold: float = 25
-    min_area: float = 18
+    min_area: float = 4
     max_area: float = 2700
     bg_window_s: float = 1.0
     bg_step: int = 3
-    osd_top: float = 0.07
-    osd_bottom: float = 0.10
+    osd_regions: tuple[Region, ...] = ()
     merge_radius: float = 6
     work_width: int = 480
 
@@ -63,8 +60,6 @@ class DetectConfig:
             raise ValueError("merge_radius must be >= 0")
         if self.bg_step < 1:
             raise ValueError("bg_step must be >= 1")
-        if not (0 <= self.osd_top < 1 and 0 <= self.osd_bottom < 1 and self.osd_top + self.osd_bottom < 1):
-            raise ValueError("osd_top and osd_bottom must leave part of the frame visible")
         if self.work_width < MIN_WORK_WIDTH:
             raise ValueError(f"work_width must be >= {MIN_WORK_WIDTH}")
 
@@ -140,7 +135,9 @@ class Track:
         last = self.last
         if len(self.points) == 1:
             return last.x, last.y
-        prev = self.points[-2]
+        prev = next(
+            (p for p in reversed(self.points[:-1]) if last.frame - p.frame >= VELOCITY_SPAN_FRAMES), self.points[-2]
+        )
         dt = last.frame - prev.frame
         ahead = frame - last.frame
         return last.x + (last.x - prev.x) / dt * ahead, last.y + (last.y - prev.y) / dt * ahead
@@ -190,8 +187,10 @@ def read_gray_frames(cap: cv2.VideoCapture, info: VideoInfo) -> Iterator[GrayFra
 
 def osd_mask(width: int, height: int, cfg: DetectConfig) -> npt.NDArray[np.bool_]:
     mask = np.ones((height, width), dtype=np.bool_)
-    mask[: int(height * cfg.osd_top)] = False
-    mask[height - int(height * cfg.osd_bottom) :] = False
+    for region in cfg.osd_regions:
+        x0, x1 = math.floor(region.x0 * width), math.ceil(region.x1 * width)
+        y0, y1 = math.floor(region.y0 * height), math.ceil(region.y1 * height)
+        mask[y0:y1, x0:x1] = False
     return mask
 
 
@@ -215,7 +214,7 @@ def find_blobs(residual: npt.NDArray[np.float64], frame: int, cfg: DetectConfig,
             continue
         left, top, width, height = (float(v) * scale for v in stats[i, :4])
         amplitude = float(np.abs(residual[pixels]).max())
-        cx, cy = (float(v) * scale for v in centroids[i])
+        cx, cy = ((float(v) + 0.5) * scale - 0.5 for v in centroids[i])
         found.append(Detection(frame, cx, cy, left, top, width, height, area, amplitude))
     return found
 
@@ -229,6 +228,8 @@ def detect_frames(
     if first is None:
         return {}
     mask = osd_mask(first.shape[1], first.shape[0], cfg)
+    if not mask.any():
+        raise ValueError("osd_regions mask the whole frame")
     window: deque[tuple[int, npt.NDArray[np.int16], float]] = deque(maxlen=2 * half + 1)
     detections: dict[int, list[Detection]] = {}
 
