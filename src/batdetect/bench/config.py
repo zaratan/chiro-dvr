@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from batdetect.detect import DetectConfig
+from batdetect.stability import StabilityConfig
 from batdetect.synthetic.sampling import Sampling
 from batdetect.track import TrackConfig
 
@@ -30,5 +31,6 @@ class BenchSetup:
     video: Path
     detect: DetectConfig
     track: TrackConfig
+    stability: StabilityConfig
     sampling: Sampling
     workers: int

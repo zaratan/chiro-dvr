@@ -71,6 +71,41 @@ Un pixel est retenu si |image − fond − écart de gain| > `threshold`.
   piste de bruit en plus. L'ancienne valeur (18 px²) rejetait les taches de moins de deux
   pixels de travail. À plus haute résolution, ce réglage laisse passer le bruit.
 
+## 4 bis. Images saturées de taches
+
+Quand les jumelles bougent, même d'une fraction de pixel par image, les images de la
+fenêtre du fond ne sont plus alignées : chaque contour contrasté laisse un résidu, et
+une seule image compte des centaines de taches. Sur la 089 (cadre qui glisse d'environ
+4 px entre 4,5 et 19 s), cela donnait 1 452 fausses pistes en 20 s ; sur la 091 (deux
+gros mouvements vers 3:57 et 4:06), 4 270. Un décalage figé, lui, est rattrapé par la
+fenêtre de 1 s : c'est le glissement qui crée les pistes.
+
+Une image compte comme **saturée** si elle a au moins `max_blobs` = 20 taches de plus
+que 6 fois la médiane des taches par image de la vidéo. La médiane fait monter la limite
+avec un seuil de détection bas, où même une vidéo stable compte des dizaines de taches
+par image : sur l'extrait de la 092 à `--threshold 15`, une limite fixe de 20 excluait
+toute la vidéo, la limite relative n'exclut rien. Les périodes ignorées sont ces images
+élargies de `unstable_pad_s` = 1 s de chaque côté (la fenêtre du fond déborde de ½ s, et
+les images calmes au milieu d'un mouvement restent suspectes), fusionnées quand moins
+d'1 s les sépare. Leurs détections sont retirées avant le suivi ; la détection elle-même
+ne change pas. Une piste qui traverse une période est coupée en deux.
+
+Mesuré sur les détections réelles : cadre stable, au plus 12 taches par image (089,
+091) et au plus 4 sur toute la 092 ; cadre qui bouge, plus de 270 en médiane. Résultat :
+089 1 546 → 96 pistes (19,5 s ignorées), 091 4 327 → 53 (22,3 s), 092 inchangée
+(14 pistes, rien d'ignoré). Le nombre de taches sert d'indicateur parce qu'il est
+gratuit : mesurer le décalage du cadre par corrélation de phase coûterait 3,2 ms par
+image, environ 29 s par vidéo de 5 min.
+
+La règle repère des images saturées, pas seulement des mouvements : sur la 089, entre
+7,5 et 10,7 s, des images à plus de 20 taches apparaissent sans mouvement mesurable.
+Un essaim d'au moins 20 chauves-souris dans la même image serait aussi ignoré : les
+périodes sont toujours signalées (en-tête de l'image résumé, « hors analyse » sans accent
+parce que la police ne dessine que l'ASCII, trois lignes au plus puis « + N autres » ;
+console ; `params.json` sous `ignored_s`), et
+`--max-blobs 0` désactive le filtre. Le banc applique le même filtre et retire des
+cibles visibles celles qui tombent dans une période ignorée.
+
 ## 5. Suivi
 
 Chaque image, les détections sont attribuées aux pistes ouvertes.
@@ -110,11 +145,12 @@ La vidéo annotée et les extraits sont encodés par le moteur multimédia des p
 (`h264_videotoolbox`, qualité `--vt-quality` 65) quand un essai d'encodage de quelques
 images (0,2 s) au démarrage réussit, sinon par `libx264` (`--crf` 20), par exemple sous Linux.
 `--encoder videotoolbox|x264` force le choix, et un encodeur forcé inutilisable arrête la
-commande avec le message d'ffmpeg ; `params.json` enregistre l'encodeur réellement utilisé. Mesuré sur la 092 : vidéo annotée en 19,8 s au lieu de 118,5 s,
-fidélité presque égale (SSIM 0,977 contre 0,982, [09](09-profilage.md)).
+commande avec le message d'ffmpeg ; `params.json` enregistre l'encodeur réellement
+utilisé. Mesuré sur la 092 : vidéo annotée en 19,8 s au lieu de 118,5 s, fidélité
+presque égale (SSIM 0,977 contre 0,982, [09](09-profilage.md)).
 
-La seconde passe lit l'original une seule fois, dans l'ordre, avec la même numérotation
-des images que la détection. Chaque extrait a son encodeur, ouvert à la première image de
+La seconde passe lit l'original dans l'ordre, avec la même numérotation des images que
+la détection, une seule fois quand 6 encodeurs suffisent. Chaque extrait a son encodeur, ouvert à la première image de
 sa fenêtre (début de la piste moins `--clip-margin`, fin plus `--clip-margin`) et fermé à
 la dernière ; les images que personne n'attend sont sautées sans être converties. Au plus
 6 encodeurs tournent en même temps (`MAX_WRITERS`) : au-delà, les extraits sont répartis

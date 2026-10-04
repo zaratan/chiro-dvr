@@ -38,3 +38,9 @@ def test_track_goes_to_the_period_where_it_starts_even_on_the_boundary() -> None
     periods = split_by_period([starting_at(1, 599.9), starting_at(2, 600)], info(1400), span_s=600)
 
     assert [[t.id for t in p.tracks] for p in periods] == [[1], [2], []]
+
+
+def test_ignored_time_goes_to_the_periods_it_touches_clipped_to_their_bounds() -> None:
+    periods = split_by_period([], info(1500), span_s=600, ignored=[(30.0, 40.0), (590.0, 610.0)])
+
+    assert [p.ignored for p in periods] == [((30.0, 40.0), (590.0, 600.0)), ((600.0, 610.0),), ()]

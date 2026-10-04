@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 
 from batdetect.detect import DetectConfig, Region
+from batdetect.stability import StabilityConfig
 from batdetect.track import TrackConfig
 
 
@@ -33,6 +34,14 @@ def add_detection_arguments(ap: argparse.ArgumentParser) -> None:
         "--merge-radius", type=float, default=d.merge_radius, help="source pixels bridged between fragments"
     )
     detect.add_argument("--work-width", type=int, default=d.work_width)
+    s = StabilityConfig()
+    detect.add_argument(
+        "--max-blobs",
+        type=int,
+        default=s.max_blobs,
+        help="frames with this many blobs above the usual level are ignored, as when the camera moves; 0 disables",
+    )
+    detect.add_argument("--unstable-pad", type=float, default=s.pad_s, help="seconds ignored around such frames")
 
 
 def add_tracking_arguments(ap: argparse.ArgumentParser) -> None:
@@ -58,6 +67,10 @@ def build_detect_config(ns: argparse.Namespace) -> DetectConfig:
         merge_radius=ns.merge_radius,
         work_width=ns.work_width,
     )
+
+
+def build_stability_config(ns: argparse.Namespace) -> StabilityConfig:
+    return StabilityConfig(max_blobs=ns.max_blobs, pad_s=ns.unstable_pad)
 
 
 def build_track_config(ns: argparse.Namespace) -> TrackConfig:

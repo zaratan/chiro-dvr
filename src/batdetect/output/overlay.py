@@ -59,7 +59,7 @@ def trail_points(track: Track, current: Detection, trail_frames: int) -> list[tu
 
 
 def draw_overlay(
-    frame: ColorFrame, hits: list[tuple[Track, Detection, bool]], info: VideoInfo, cfg: RenderConfig, frame_no: int
+    frame: ColorFrame, hits: list[tuple[Track, Detection, bool]], info: VideoInfo, cfg: RenderConfig
 ) -> None:
     trail_frames = round(cfg.trail_s * info.fps)
     for track, det, interpolated in hits:
@@ -80,6 +80,6 @@ def track_overlay(tracks: list[Track], info: VideoInfo, cfg: RenderConfig) -> Ca
             by_frame.setdefault(det.frame, []).append((track, det, interpolated))
 
     def draw(frame: ColorFrame, frame_no: int) -> None:
-        draw_overlay(frame, by_frame.get(frame_no, []), info, cfg, frame_no)
+        draw_overlay(frame, by_frame.get(frame_no, []), info, cfg)
 
     return draw

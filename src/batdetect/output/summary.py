@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import cv2
@@ -10,22 +11,31 @@ from batdetect.output.colors import assign_colors
 from batdetect.output.geometry import Points, track_points
 from batdetect.output.legend import LegendEntry, legend_panel
 from batdetect.output.marker import draw_marker
-from batdetect.output.periods import SUMMARY_SPAN_S, Period, split_by_period
+from batdetect.output.periods import Period
 from batdetect.output.placement import place_markers
 from batdetect.output.style import BACKGROUND_DIM, INK, PALETTE, SEPARATOR, SummaryStyle, style_for
 from batdetect.output.timefmt import format_clock
 from batdetect.track import Track
 from batdetect.video import ColorFrame, VideoError, VideoInfo
 
+MAX_IGNORED_LINES = 3
+
 
 def polyline(points: Points) -> list[np.ndarray[tuple[int, int], np.dtype[np.int32]]]:
     return [np.round(points).astype(np.int32)]
 
 
+def ignored_lines(period: Period) -> list[str]:
+    lines = [f"hors analyse {format_clock(a)} - {format_clock(math.ceil(b))}" for a, b in period.ignored]
+    if len(lines) > MAX_IGNORED_LINES:
+        return [*lines[:MAX_IGNORED_LINES], f"+ {len(lines) - MAX_IGNORED_LINES} autres"]
+    return lines
+
+
 def header_lines(stem: str, period: Period) -> list[str]:
     count = len(period.tracks)
     passages = f"{count} passage{'s' if count > 1 else ''}"
-    return [stem, passages, f"{format_clock(period.start_s)} - {format_clock(period.end_s)}"]
+    return [stem, passages, f"{format_clock(period.start_s)} - {format_clock(period.end_s)}", *ignored_lines(period)]
 
 
 def compose_summary(
@@ -62,13 +72,11 @@ def remove_old_summaries(base: Path) -> None:
             old.unlink()
 
 
-def summary_image(
-    background: ColorFrame, tracks: list[Track], info: VideoInfo, base: Path, span_s: float = SUMMARY_SPAN_S
-) -> list[Path]:
-    style = style_for(info.width, str(max((t.id for t in tracks), default=0)))
+def summary_image(background: ColorFrame, periods: list[Period], info: VideoInfo, base: Path) -> list[Path]:
+    style = style_for(info.width, str(max((t.id for p in periods for t in p.tracks), default=0)))
     remove_old_summaries(base)
     written: list[Path] = []
-    for period in split_by_period(tracks, info, span_s):
+    for period in periods:
         image = compose_summary(background, period.tracks, info.fps, header_lines(base.name, period), style)
         out = base.with_name(f"{base.name}.tracks{period.suffix}.png")
         if not cv2.imwrite(str(out), image):

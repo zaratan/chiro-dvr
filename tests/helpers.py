@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import shutil
-from collections.abc import Iterable
+import threading
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 import cv2
@@ -14,6 +15,7 @@ from batdetect.output.encoder import encoder_failure
 from batdetect.video import GrayFrame
 
 BACKGROUND = 200
+GUARD_TIMEOUT_S = 5.0
 NOISE = 3
 
 
@@ -67,6 +69,13 @@ def write_video(path: Path, frames: list[GrayFrame], fps: float) -> None:
     for gray in frames:
         writer.write(cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR))
     writer.release()
+
+
+def finishes(action: Callable[[], None]) -> bool:
+    guard = threading.Thread(target=action, daemon=True)
+    guard.start()
+    guard.join(GUARD_TIMEOUT_S)
+    return not guard.is_alive()
 
 
 requires_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")

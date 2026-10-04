@@ -11,6 +11,16 @@
    fabriquées seulement.
 5. **Jumelles qui bougent** (cas de la 027) : stabiliser l'image avant détection, ou au
    moins repérer et signaler les passages où tout le fond bouge.
+   - **Fait (4 octobre)** : les images saturées de taches et leurs abords sont ignorés
+     et signalés ([02](02-methode.md#4-bis-images-saturées-de-taches)). 089 : 1 546 →
+     96 pistes, 091 : 4 327 → 53. Stabiliser l'image pour garder ces périodes reste
+     possible, mais coûterait au moins 29 s par vidéo.
+   - **Essaim** : 20 chauves-souris ou plus dans la même image seraient prises pour un
+     mouvement. Réponse du 4 octobre : très peu probable ; si ça arrive, `--max-blobs`
+     règle la limite et `--max-blobs 0` désactive le filtre.
+   - Les pistes restantes de la 089 et de la 091 sont surtout des points d'1 pixel de
+     travail (95 sur 96 sur la 089, 30 sur 53 sur la 091), répartis sur toute la vidéo ;
+     la 092 n'en a aucune. Bruit propre à ces enregistrements, hors de ce filtre.
 6. **Classification grossière** par vitesse : vol rapide, déplacement lent, quasi
    immobile.
 7. **Comparaison avec ThruTracker** sur la même vidéo, pendant l'essai gratuit.

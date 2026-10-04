@@ -8,20 +8,13 @@ from collections.abc import Callable, Iterator
 import pytest
 
 from batdetect.prefetch import prefetched
+from helpers import GUARD_TIMEOUT_S, finishes
 
-GUARD_TIMEOUT_S = 5.0
 DEPTH = 3
 
 
 class ReaderTestError(Exception):
     pass
-
-
-def finishes(action: Callable[[], None]) -> bool:
-    guard = threading.Thread(target=action, daemon=True)
-    guard.start()
-    guard.join(GUARD_TIMEOUT_S)
-    return not guard.is_alive()
 
 
 def wait_until(condition: Callable[[], bool]) -> None:

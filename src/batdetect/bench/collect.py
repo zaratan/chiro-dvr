@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from batdetect.bench.config import BenchSetup
 from batdetect.detect import Detection
 from batdetect.parallel import detect_video
+from batdetect.stability import unstable_spans, without_spans
 from batdetect.synthetic.injection import Injector, Observation
 from batdetect.synthetic.sampling import random_bats, reference_occupancy
 from batdetect.synthetic.trajectory import SyntheticBat
@@ -27,7 +28,8 @@ def collect(setup: BenchSetup) -> BenchRun:
     cap, info = open_video(video, detect.work_width)
     cap.release()
     reference = detect_video(video, detect, info, setup.workers)[0]
-    occupied = reference_occupancy(track_detections(reference, setup.track))
+    spans = unstable_spans(reference, info.fps, setup.stability)
+    occupied = reference_occupancy(track_detections(without_spans(reference, spans), setup.track))
     bats = random_bats(sampling, info, len(reference), occupied)
     injected, injectors = detect_video(video, detect, info, setup.workers, lambda: Injector(bats))
     unique: dict[tuple[int, int], Observation] = {}

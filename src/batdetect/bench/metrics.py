@@ -8,6 +8,7 @@ from batdetect.bench.collect import BenchRun
 from batdetect.bench.config import MatchConfig
 from batdetect.bench.matching import assign_tracks, matches_reference, near, reference_points, truth_by_frame
 from batdetect.detect import Region
+from batdetect.stability import StabilityConfig, unstable_spans, without_spans
 from batdetect.synthetic.injection import Observation
 from batdetect.track import TrackConfig, track_detections
 from batdetect.video import VideoInfo
@@ -16,6 +17,9 @@ VISIBLE_MIN_CONTRAST = 8.0
 
 
 VISIBLE_MARGIN_SIGMAS = 2.0
+
+
+DEFAULT_STABILITY = StabilityConfig()
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,16 +54,30 @@ def is_visible(obs: Observation, sigma: float, info: VideoInfo, masked: Sequence
     return abs(obs.effective) >= VISIBLE_MIN_CONTRAST
 
 
-def evaluate(run: BenchRun, track: TrackConfig, match: MatchConfig, masked: Sequence[Region] = ()) -> Evaluation:
+def evaluate(
+    run: BenchRun,
+    track: TrackConfig,
+    match: MatchConfig,
+    masked: Sequence[Region] = (),
+    stability: StabilityConfig = DEFAULT_STABILITY,
+) -> Evaluation:
     truth = truth_by_frame(run)
-    injected_tracks = track_detections(run.injected, track)
-    reference_tracks = track_detections(run.reference, track)
+    ignored = unstable_spans(run.injected, run.info.fps, stability)
+    injected_tracks = track_detections(without_spans(run.injected, ignored), track)
+    reference = run.reference
+    reference_tracks = track_detections(
+        without_spans(reference, unstable_spans(reference, run.info.fps, stability)), track
+    )
     assigned = assign_tracks(injected_tracks, truth, match)
     results: list[BatResult] = []
     not_visible = 0
     for bat in run.bats:
         observations = run.observations.get(bat.id, [])
-        visible = {o.frame: o for o in observations if is_visible(o, bat.sigma, run.info, masked)}
+        visible = {
+            o.frame: o
+            for o in observations
+            if is_visible(o, bat.sigma, run.info, masked) and not any(s.contains(o.frame) for s in ignored)
+        }
         if len(visible) < track.min_hits:
             not_visible += 1
             continue

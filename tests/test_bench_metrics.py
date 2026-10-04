@@ -4,6 +4,7 @@ import pytest
 
 from batdetect.bench.metrics import evaluate, is_visible
 from batdetect.detect import Region
+from batdetect.stability import StabilityConfig
 from batdetect.synthetic.injection import Observation
 from batdetect.track import TrackConfig
 from bench_support import INFO, MATCH, bat_along, detections_on, make_run
@@ -67,3 +68,13 @@ def test_track_with_no_target_and_no_reference_counterpart_is_a_false_track() ->
     evaluation = evaluate(make_run([bat], detections_on(bat) | stray), TrackConfig(), MATCH)
 
     assert evaluation.false_tracks == 1
+
+
+def test_frames_ignored_as_unstable_leave_the_visible_frames_instead_of_counting_as_missed() -> None:
+    bat = bat_along(0, range(10, 30))
+    detections = detections_on(bat)
+    detections[20] = detections[20] + [detection(20, 20 + 10 * i, 300) for i in range(40)]
+
+    result = evaluate(make_run([bat], detections), TrackConfig(), MATCH, (), StabilityConfig(pad_s=0.1)).bats[0]
+
+    assert result.visible_frames == 20 - 7

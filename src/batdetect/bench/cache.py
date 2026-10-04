@@ -11,7 +11,7 @@ from batdetect.bench.config import BenchSetup
 from batdetect.detect import DetectConfig
 from batdetect.synthetic.sampling import Sampling
 
-CACHED_SOURCES = ("video.py", "median.py", "detect.py", "track.py", "parallel.py", "synthetic")
+CACHED_SOURCES = ("video.py", "median.py", "detect.py", "track.py", "stability.py", "parallel.py", "synthetic")
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 
 

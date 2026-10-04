@@ -21,14 +21,14 @@ DARK = 40
 INFO = VideoInfo(fps=30.0, frame_count=FRAMES, width=320, height=240, work_width=320, work_height=240)
 
 
-def band_frame(number: int, width: int) -> GrayFrame:
-    frame = np.full((240, width), DARK, dtype=np.uint8)
+def band_frame(number: int) -> GrayFrame:
+    frame = np.full((240, 320), DARK, dtype=np.uint8)
     frame[:, number * BAND : (number + 1) * BAND] = 255
     return frame
 
 
-def numbered_video(path: Path, width: int = 320) -> Path:
-    write_video(path, [band_frame(i, width) for i in range(FRAMES)], fps=30)
+def numbered_video(path: Path) -> Path:
+    write_video(path, [band_frame(i) for i in range(FRAMES)], fps=30)
     return path
 
 
@@ -70,9 +70,30 @@ def test_more_overlapping_clips_than_writers_are_all_rendered(tmp_path: Path) ->
     video = numbered_video(tmp_path / "v.mp4")
     out = outputs(tmp_path, *[(i, i + 10) for i in range(MAX_WRITERS + 2)])
 
-    render_videos(video, INFO, out, leave_as_is, RenderConfig(encoder=X264))
+    drawn: list[int] = []
+
+    def record(_frame: ColorFrame, frame_no: int) -> None:
+        drawn.append(frame_no)
+
+    render_videos(video, INFO, out, record, RenderConfig(encoder=X264))
 
     assert [frame_numbers(c.path) for c in out.clips] == [list(range(i, i + 11)) for i in range(MAX_WRITERS + 2)]
+    assert len(drawn) > len(set(drawn))
+
+
+@requires_ffmpeg
+def test_interruption_while_drawing_leaves_no_partial_clip(tmp_path: Path) -> None:
+    video = numbered_video(tmp_path / "v.mp4")
+    out = outputs(tmp_path, (0, 20), (2, 25))
+
+    def interrupt_at_ten(_frame: ColorFrame, frame_no: int) -> None:
+        if frame_no == 10:
+            raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        render_videos(video, INFO, out, interrupt_at_ten, RenderConfig(encoder=X264))
+
+    assert list(out.split_dir.iterdir()) == []
 
 
 @requires_ffmpeg
@@ -118,12 +139,12 @@ def test_previous_clips_are_removed(tmp_path: Path) -> None:
 
 @requires_ffmpeg
 def test_encoder_failure_stops_the_render_without_partial_clips(tmp_path: Path) -> None:
-    video = numbered_video(tmp_path / "v.mp4", width=322)
-    odd = replace(INFO, width=321)
+    video = numbered_video(tmp_path / "v.mp4")
+    width_x264_refuses = replace(INFO, width=321)
     out = outputs(tmp_path, (0, 20), (2, 25))
 
     with pytest.raises(VideoError, match="ffmpeg failed"):
-        render_videos(video, odd, out, leave_as_is, RenderConfig(encoder=X264))
+        render_videos(video, width_x264_refuses, out, leave_as_is, RenderConfig(encoder=X264))
 
     assert list(out.split_dir.iterdir()) == []
 

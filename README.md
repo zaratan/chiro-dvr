@@ -25,8 +25,9 @@ uv run batdetect --help             # tous les réglages
 Sur un Mac Apple Silicon, les vidéos sont encodées par le moteur multimédia de la puce ;
 ailleurs par `libx264`. `--encoder x264` force l'encodeur logiciel.
 
-Les jumelles doivent être fixes pendant l'enregistrement : une vidéo où le cadre bouge
-n'est pas exploitable.
+Les jumelles doivent être fixes pendant l'enregistrement. Les moments où le cadre bouge
+sont repérés et ignorés (environ 1 s de part et d'autre du mouvement) : ils ne sont pas
+analysés et sont à revoir à l'œil. `--max-blobs 0` désactive ce filtre.
 
 Pour chaque vidéo, `out/<nom>/` contient :
 
@@ -39,6 +40,10 @@ Pour chaque vidéo, `out/<nom>/` contient :
 - `params.json` : les réglages utilisés ;
 - `split/` : un extrait par passage, nommé par numéro et temps de début, avec une boîte,
   un numéro et la trace des passages visibles ;
+- les périodes ignorées parce que l'image est saturée de taches (jumelles qui bougent)
+  sont écrites dans l'en-tête du bandeau de l'image résumé (`hors analyse 0:00 - 0:09`,
+  arrondi vers l'extérieur), affichées en console et listées dans `params.json`
+  (`ignored_s`) ;
 - avec `--annotated` seulement, `<nom>_boxes.mp4` : la vidéo annotée complète. Sans
   l'option, celle d'un traitement précédent est supprimée.
 

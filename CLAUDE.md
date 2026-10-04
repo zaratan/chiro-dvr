@@ -35,7 +35,8 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 ## Code
 
 **Un module, une responsabilité, son fichier de tests** (`tests/test_<module>.py`, ou
-`test_<paquet>_<module>.py`). Dépendances à sens unique : `track` → `detect` → `video`, `detect` → `median`.
+`test_<paquet>_<module>.py`). Dépendances à sens unique : `track` → `detect` → `video`, `detect` → `median`,
+`stability` → `detect`.
 Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs rôles.
 
 - `video.py` : ouverture, lecture et réduction des images (`open_video`, `read_frames`,
@@ -44,6 +45,9 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   (`detect_frames`, `find_blobs`). Fonctions pures testables sur des tableaux numpy.
 - `median.py` : `temporal_median`, médiane d'une pile d'images par tri par comparaisons,
   identique au bit près à `np.median`, environ 10 fois plus rapide.
+- `stability.py` : `StabilityConfig`, `unstable_spans`, `without_spans` : images
+  saturées de taches (jumelles qui bougent) et leurs abords, retirées avant le suivi,
+  par la commande comme par le banc.
 - `track.py` : `TrackConfig`, `Track`, appariement, fusion des jumelles
   (`track_detections`). Ne dépend que de `Detection`.
 - `output/` : `config.py` (`RenderConfig`), `timefmt.py` (temps et noms d'extraits),

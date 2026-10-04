@@ -4,16 +4,34 @@ import csv
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from batdetect.cli import main
 from batdetect.detect import DetectConfig, detect_frames
 from batdetect.track import TrackConfig, track_detections
 from batdetect.video import GrayFrame, open_video, read_gray_frames
-from helpers import background, requires_ffmpeg, with_square, write_video
+from helpers import NOISE, background, requires_ffmpeg, with_square, write_video
 
 FIXTURE = Path(__file__).parent / "fixtures" / "video_092_original_3m24-4m05.mp4"
+SLIDE_STEP = 4
 FIXTURE_START_S = 6150 * 333 / 10000
+
+
+def sliding_scene_then_flight(frames: int, slide: range, flight: range) -> list[GrayFrame]:
+    rng = np.random.default_rng(3)
+    canvas = background(360, 320, seed=0).astype(np.int16)
+    for x, y in zip(rng.integers(5, 350, 200), rng.integers(5, 310, 200), strict=True):
+        canvas[y : y + 3, x : x + 3] -= 90
+    out: list[GrayFrame] = []
+    for i in range(frames):
+        offset = SLIDE_STEP * min(max(i - slide.start, 0), len(slide))
+        noise = rng.normal(0, NOISE, (240, 320))
+        frame = np.clip(canvas[10 + offset : 250 + offset, 20:340] + noise, 0, 255).astype(np.uint8)
+        if i in flight:
+            frame = with_square(frame, 20 + 6 * (i - flight.start), 120, size=6)
+        out.append(frame)
+    return out
 
 
 def flying_square(count: int, step: tuple[int, int]) -> list[GrayFrame]:
@@ -53,6 +71,27 @@ def test_annotated_option_adds_the_whole_annotated_video(tmp_path: Path) -> None
     assert main([str(videos), "-o", str(tmp_path / "out"), "--annotated"]) == 0
 
     assert (tmp_path / "out" / "flight" / "flight_boxes.mp4").stat().st_size > 0
+
+
+@requires_ffmpeg
+def test_frames_where_the_camera_slides_are_ignored_and_reported(tmp_path: Path) -> None:
+    videos = tmp_path / "in"
+    videos.mkdir()
+    write_video(videos / "shaky.mp4", sliding_scene_then_flight(150, range(30, 45), range(100, 140)), fps=30)
+
+    assert main([str(videos), "-o", str(tmp_path / "raw"), "--max-blobs", "0"]) == 0
+    assert main([str(videos), "-o", str(tmp_path / "out")]) == 0
+
+    def starts(root: Path) -> list[float]:
+        with (root / "shaky" / "shaky.tracks.csv").open() as fh:
+            return [float(row["start_s"]) for row in csv.DictReader(fh)]
+
+    assert sum(1 for s in starts(tmp_path / "raw") if 0.5 < s < 2.0) >= 5
+    assert [round(s, 1) for s in starts(tmp_path / "out")] == [3.3]
+    ignored = json.loads((tmp_path / "out" / "shaky" / "params.json").read_text())["ignored_s"]
+    assert len(ignored) == 1
+    assert ignored[0][0] <= 1.0
+    assert ignored[0][1] >= 1.5
 
 
 @requires_ffmpeg

@@ -6,7 +6,13 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-from batdetect.arguments import add_detection_arguments, add_tracking_arguments, build_detect_config, build_track_config
+from batdetect.arguments import (
+    add_detection_arguments,
+    add_tracking_arguments,
+    build_detect_config,
+    build_stability_config,
+    build_track_config,
+)
 from batdetect.bench.cache import load_or_collect
 from batdetect.bench.config import DEFAULT_AMPLITUDES, DEFAULT_SIGMAS, BenchSetup, MatchConfig
 from batdetect.bench.metrics import evaluate
@@ -39,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
     video: Path = ns.video
     out_dir: Path = ns.out_dir
     try:
-        detect, track = build_detect_config(ns), build_track_config(ns)
+        detect, track, stability = build_detect_config(ns), build_track_config(ns), build_stability_config(ns)
         match = MatchConfig(radius=ns.match_radius)
         amplitudes: list[float] = ns.amplitudes
         sigmas: list[float] = ns.sigmas
@@ -49,17 +55,19 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(str(err))
     dest = out_dir / video.stem
     try:
-        run = load_or_collect(BenchSetup(video, detect, track, sampling, max(1, ns.workers)), dest / "cache.pkl")
+        setup = BenchSetup(video, detect, track, stability, sampling, max(1, ns.workers))
+        run = load_or_collect(setup, dest / "cache.pkl")
     except VideoError as err:
         print(f"{video}: {err}", file=sys.stderr)
         return 1
-    evaluation = evaluate(run, track, match, detect.osd_regions)
+    evaluation = evaluate(run, track, match, detect.osd_regions, stability)
     rows = summarize(evaluation)
     report = {
         "video": str(video),
         "code": code_version(),
         "detect": asdict(detect),
         "track": asdict(track),
+        "stability": asdict(stability),
         "match": asdict(match),
         "sampling": asdict(sampling),
         "summary": rows,

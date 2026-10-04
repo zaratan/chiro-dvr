@@ -117,3 +117,8 @@ désormais : chaque tranche relit la vidéo depuis le début ([09](09-profilage.
 
 Avec la fenêtre en uint8 et le fil lecteur, pistes toujours identiques : 15,1 s avec
 1 processus, 42,3 s avec 10 ([09](09-profilage.md)).
+
+## Images saturées ignorées (4 octobre 2026)
+
+Aucune image de la 092 n'atteint la limite (au plus 4 taches par image) : rien n'est
+ignoré, les 14 pistes et le banc sont identiques ([02](02-methode.md#4-bis-images-saturées-de-taches)).

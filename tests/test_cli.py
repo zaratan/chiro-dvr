@@ -25,10 +25,15 @@ def test_options_become_validated_configs() -> None:
             "--vt-quality",
             "40",
             "--annotated",
+            "--max-blobs",
+            "0",
+            "--unstable-pad",
+            "2.5",
         ]
     )
 
-    detect, track, render = build_configs(ns)
+    settings = build_configs(ns)
+    detect, track, render = settings.detect, settings.track, settings.render
 
     assert detect.threshold == 30
     assert detect.osd_regions == (Region(0, 0, 1, 0.1),)
@@ -37,6 +42,7 @@ def test_options_become_validated_configs() -> None:
     assert render.encoder == "x264"
     assert render.vt_quality == 40
     assert render.annotated
+    assert (settings.stability.max_blobs, settings.stability.pad_s) == (0, 2.5)
 
 
 def test_invalid_option_value_exits_with_a_usage_error(capsys: pytest.CaptureFixture[str]) -> None:
@@ -82,4 +88,4 @@ def test_detection_runs_in_one_process_by_default_since_extra_chunks_only_add_re
 
 
 def test_whole_annotated_video_is_off_by_default() -> None:
-    assert not build_configs(build_parser().parse_args(["in"]))[2].annotated
+    assert not build_configs(build_parser().parse_args(["in"])).render.annotated
