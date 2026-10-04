@@ -139,3 +139,27 @@ La vidéo annotée pèse 760 Mo au lieu de 722. Avec le réglage par défaut de
 - **Décoder une seule fois** (un fil lecteur alimente la détection par une file bornée) :
   prototype sur l'extrait, 3,46 s → 2,16 s, détections identiques. C'est le lecteur
   (décodage puis réduction) qui limite.
+
+## Après le fil lecteur
+
+Dans chaque tranche, un fil lecteur décode, applique le crochet du banc et réduit les
+images pendant que le fil principal détecte (`prefetch.py`, file de 4 images). Un
+troisième étage (décodage et réduction séparés) ne gagnait rien (2,12 s contre 2,10 s
+sur l'extrait) et coûtait de la mémoire. Détection de la 092, pistes identiques au bit
+près à la référence ; la ligne « sans fil lecteur » inclut déjà la fenêtre en uint8,
+d'où l'écart avec le premier tableau par nombre de processus :
+
+| Processus | 1 | 2 | 3 | 4 | 10 (défaut) |
+| --- | --- | --- | --- | --- | --- |
+| Sans fil lecteur | 27,2 s | 22,2 s | | | 48,4 s |
+| Avec fil lecteur | 15,1 s | 16,8 s | 20,0 s | 23,1 s | 42,3 s |
+| CPU avec fil lecteur | 111 s | 146 s | 178 s | 211 s | 403 s |
+
+Un seul processus est désormais le plus rapide sur le M1 Max : le décodeur d'OpenCV
+occupe déjà les cœurs, et chaque tranche supplémentaire ajoute un saut par `grab`.
+Banc sur la 092 (deux passes) : 31,6 s avec 1 processus, 47,4 s avec 4, résumés
+identiques.
+
+`--workers` vaut 1 par défaut depuis cette mesure. Commande complète par défaut sur la
+092 (`uv run batdetect in/video_092_original.mp4`) : **44,8 s**, contre 213 s au début
+de l'optimisation ; 14 pistes, encodeur `videotoolbox`.

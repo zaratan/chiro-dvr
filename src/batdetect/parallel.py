@@ -12,9 +12,12 @@ from typing import Protocol
 import cv2
 
 from batdetect.detect import DetectConfig, Detection, detect_frames
+from batdetect.prefetch import prefetched
 from batdetect.video import ColorFrame, GrayFrame, VideoInfo, open_video, read_frames, to_work_gray
 
 MIN_CHUNK_WINDOWS = 10
+READ_AHEAD = 4
+DEFAULT_WORKERS = 1
 
 
 class FrameHook(Protocol):
@@ -40,10 +43,6 @@ def exit_with_parent() -> None:
         os._exit(1)
 
     threading.Thread(target=watch, daemon=True).start()
-
-
-def default_workers() -> int:
-    return os.process_cpu_count() or 1
 
 
 def plan_chunks(frame_count: int, workers: int, min_length: int) -> list[Chunk]:
@@ -77,7 +76,8 @@ def detect_chunk[H: FrameHook](
 
     try:
         skip_frames(cap, first)
-        local = detect_frames(frames(), info.fps, cfg, info.scale)
+        with prefetched(frames(), READ_AHEAD) as grays:
+            local = detect_frames(grays, info.fps, cfg, info.scale)
     finally:
         cap.release()
     owned = {

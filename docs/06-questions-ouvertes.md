@@ -25,6 +25,10 @@
      économes (la tranche la plus lente fixe le temps total). Chaque tranche relit la
      vidéo depuis le début pour éviter un positionnement imprécis : environ 90 s de
      rattrapage pour la dernière tranche d'une vidéo d'une heure.
+   - **Fait (4 octobre) : médiane par tri par comparaisons, fenêtre en uint8, fil
+     lecteur, rendu par le moteur multimédia.** Avec ces gains, une tranche de plus
+     coûte plus qu'elle ne rapporte : `--workers` vaut 1 par défaut, et la 092 complète
+     passe de 213 s à 44,8 s ([09](09-profilage.md)). À mesurer sur le M3.
    - **Le rendu domine maintenant le temps total.** Sur l'original, avec la détection
      parallèle : 3 min 35 au total, pour environ 1 min de détection (déduit du banc, deux
      passes en 1 min 58). Le reste vient de la vidéo annotée complète (redécodage,

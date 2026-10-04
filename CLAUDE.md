@@ -7,7 +7,7 @@ connaissances : [docs/](docs/README.md), à lire avant de toucher à un réglage
 
 ```bash
 mise run check                    # lint, format, types, tests : vert avant de rendre la main
-uv run batdetect in/video_092_original.mp4 # référence : 5 min, 14 pistes, ~50 s avec --workers 2
+uv run batdetect in/video_092_original.mp4 # référence : 5 min, 14 pistes, ~45 s de calcul
 ```
 
 ## Rôles
@@ -57,11 +57,15 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
 - `jobs.py` (vidéos à traiter, dossiers de sortie), `arguments.py` (options partagées et
   construction des configs), `cli.py` (commande `batdetect`).
 - `parallel.py` : détection découpée en tranches de temps, une par processus (`--workers`,
-  par défaut le nombre de cœurs). Chaque tranche lit la vidéo depuis le début et saute
+  1 par défaut : plus de tranches ajoutent surtout de la relecture, voir
+  [docs/09](docs/09-profilage.md)). Chaque tranche lit la vidéo depuis le début et saute
   jusqu'à elle : jamais `CAP_PROP_POS_FRAMES`, imprécis d'une image en mp4. Le résultat
   doit rester identique au bit près au traitement séquentiel. Seul le test `slow` sur le
   vrai extrait détecte un positionnement imprécis : le lancer après toute modification de
-  `parallel.py`. Les processus de détection s'arrêtent si le parent meurt.
+  `parallel.py`. Les processus de détection s'arrêtent si le parent meurt. Dans chaque
+  tranche, un fil lecteur (`prefetch.py`, file bornée à `READ_AHEAD` images) décode,
+  applique le crochet et réduit pendant que le fil principal détecte ; il est arrêté
+  et attendu avant la libération de la vidéo.
 - `synthetic/` (`trajectory.py`, `sampling.py`, `injection.py`) : fausses chauves-souris
   injectées en pleine résolution. `bench/` (`config`, `collect`, `cache`, `matching`,
   `metrics`, `stats`, `report`, `cli`) : banc de mesure (`batdetect-bench`,

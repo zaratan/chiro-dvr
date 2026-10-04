@@ -16,7 +16,7 @@ from batdetect.output.encoder import resolve_encoder
 from batdetect.output.summary import summary_image
 from batdetect.output.tables import config_params, write_params, write_tracks_csv
 from batdetect.output.timefmt import format_time
-from batdetect.parallel import default_workers, detect_video
+from batdetect.parallel import DEFAULT_WORKERS, detect_video
 from batdetect.track import TrackConfig, track_detections
 from batdetect.video import VideoError, open_video
 
@@ -26,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="batdetect", description="Detect and track bats in thermal videos.")
     ap.add_argument("inputs", nargs="+", type=Path, help="video files or folders")
     ap.add_argument("-o", "--out-dir", type=Path, default=Path("out"))
-    ap.add_argument("--workers", type=int, default=default_workers(), help="parallel processes for detection")
+    ap.add_argument("--workers", type=int, default=DEFAULT_WORKERS, help="parallel processes for detection")
     add_detection_arguments(ap)
     add_tracking_arguments(ap)
     render = ap.add_argument_group("output")

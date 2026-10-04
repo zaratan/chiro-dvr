@@ -12,7 +12,7 @@ from batdetect.bench.config import DEFAULT_AMPLITUDES, DEFAULT_SIGMAS, BenchSetu
 from batdetect.bench.metrics import evaluate
 from batdetect.bench.report import code_version, format_table
 from batdetect.bench.stats import summarize
-from batdetect.parallel import default_workers
+from batdetect.parallel import DEFAULT_WORKERS
 from batdetect.synthetic.sampling import Sampling
 from batdetect.synthetic.trajectory import BatClass
 from batdetect.video import VideoError
@@ -26,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--amplitudes", type=float, nargs="+", default=list(DEFAULT_AMPLITUDES))
     ap.add_argument("--sigmas", type=float, nargs="+", default=list(DEFAULT_SIGMAS), help="blob size, source pixels")
     ap.add_argument("--seed", type=int, default=1)
-    ap.add_argument("--workers", type=int, default=default_workers())
+    ap.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
     ap.add_argument("--match-radius", type=float, default=MatchConfig().radius, help="source pixels")
     add_detection_arguments(ap)
     add_tracking_arguments(ap)

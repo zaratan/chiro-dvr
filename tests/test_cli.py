@@ -73,3 +73,7 @@ def test_unknown_encoder_exits_with_a_usage_error(capsys: pytest.CaptureFixture[
 
     assert exit_info.value.code == 2
     assert "invalid choice" in capsys.readouterr().err
+
+
+def test_detection_runs_in_one_process_by_default_since_extra_chunks_only_add_re_decoding() -> None:
+    assert build_parser().parse_args(["in"]).workers == 1

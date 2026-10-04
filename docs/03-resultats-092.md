@@ -114,3 +114,6 @@ complètes). Détection seule, selon le nombre de processus (`--workers`) :
 
 Avant ce changement, avec 10 processus : 66,6 s et 534 s de CPU. Le décodage domine
 désormais : chaque tranche relit la vidéo depuis le début ([09](09-profilage.md)).
+
+Avec la fenêtre en uint8 et le fil lecteur, pistes toujours identiques : 15,1 s avec
+1 processus, 42,3 s avec 10 ([09](09-profilage.md)).
