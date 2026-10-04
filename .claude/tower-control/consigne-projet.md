@@ -28,6 +28,10 @@ worktree, sous `~/Projects/dvr-wt/`. Ton compte rendu s'écrit dans
 - Un module, une responsabilité, son fichier de tests. Pas de mock d'OpenCV ni de subprocess.
 - Un changement de comportement met à jour `docs/` dans la même issue ; si les 14 pistes
   de la 092 changent, `docs/03-resultats-092.md` aussi.
+- `docs/10-logique-de-detection.md` explique la logique étape par étape (outil, choix,
+  limite). Toute issue qui change une étape de la détection ou du suivi met à jour sa
+  section dans la même issue : l'outil, la raison du choix, la limite, et la ligne du
+  tableau des hypothèses si elle change. Le compte rendu dit quelles sections ont bougé.
 - Ce qui est ou n'est pas une chauve-souris ne se tranche pas dans le code : c'est une
   question pour la naturaliste, à faire remonter.
 - La qualité de détection passe avant le temps de calcul ; 16 Go de mémoire est la limite.
