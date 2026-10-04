@@ -2,22 +2,15 @@ from __future__ import annotations
 
 import csv
 import json
-import shutil
 from pathlib import Path
 
 import pytest
 
 from batdetect.cli import main
-from batdetect.pipeline import (
-    DetectConfig,
-    GrayFrame,
-    TrackConfig,
-    detect_frames,
-    open_video,
-    read_gray_frames,
-    track_detections,
-)
-from helpers import background, with_square, write_video
+from batdetect.detect import DetectConfig, detect_frames
+from batdetect.track import TrackConfig, track_detections
+from batdetect.video import GrayFrame, open_video, read_gray_frames
+from helpers import background, requires_ffmpeg, with_square, write_video
 
 FIXTURE = Path(__file__).parent / "fixtures" / "video_092_original_3m24-4m05.mp4"
 FIXTURE_START_S = 6150 * 333 / 10000
@@ -25,9 +18,6 @@ FIXTURE_START_S = 6150 * 333 / 10000
 
 def flying_square(count: int, step: tuple[int, int]) -> list[GrayFrame]:
     return [with_square(background(320, 240, seed=i), 20 + step[0] * i, 60 + step[1] * i, size=6) for i in range(count)]
-
-
-requires_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
 
 
 @requires_ffmpeg

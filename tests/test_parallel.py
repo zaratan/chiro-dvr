@@ -4,9 +4,11 @@ from pathlib import Path
 
 import pytest
 
+from batdetect.detect import DetectConfig
 from batdetect.parallel import Chunk, detect_video, exit_with_parent, plan_chunks
-from batdetect.pipeline import DetectConfig, open_video
-from batdetect.synthetic import Injector, SyntheticBat
+from batdetect.synthetic.injection import Injector
+from batdetect.synthetic.trajectory import SyntheticBat
+from batdetect.video import open_video
 from helpers import background, moving_square_frames, with_square, write_video
 
 FIXTURE = Path(__file__).parent / "fixtures" / "video_092_original_3m24-4m05.mp4"

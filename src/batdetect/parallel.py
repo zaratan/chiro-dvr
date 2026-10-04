@@ -11,17 +11,8 @@ from typing import Protocol
 
 import cv2
 
-from batdetect.pipeline import (
-    ColorFrame,
-    DetectConfig,
-    Detection,
-    GrayFrame,
-    VideoInfo,
-    detect_frames,
-    open_video,
-    read_frames,
-    to_work_gray,
-)
+from batdetect.detect import DetectConfig, Detection, detect_frames
+from batdetect.video import ColorFrame, GrayFrame, VideoInfo, open_video, read_frames, to_work_gray
 
 MIN_CHUNK_WINDOWS = 10
 

@@ -5,7 +5,7 @@ from collections.abc import Callable
 import numpy as np
 import pytest
 
-from batdetect.pipeline import DetectConfig, Region, detect_frames, osd_mask
+from batdetect.detect import DetectConfig, Region, detect_frames, osd_mask
 from helpers import background, moving_square_frames, with_square
 
 FPS = 30.0

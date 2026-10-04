@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import shutil
 from collections.abc import Iterable
 from pathlib import Path
 
 import cv2
 import numpy as np
+import pytest
 
-from batdetect.pipeline import Detection, GrayFrame
+from batdetect.detect import Detection
+from batdetect.video import GrayFrame
 
 BACKGROUND = 200
 NOISE = 3
@@ -62,3 +65,11 @@ def write_video(path: Path, frames: list[GrayFrame], fps: float) -> None:
     for gray in frames:
         writer.write(cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR))
     writer.release()
+
+
+requires_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
+
+
+def small_video(path: Path, frames: int = 60, width: int = 320, height: int = 240) -> Path:
+    write_video(path, [background(width, height, seed=i) for i in range(frames)], fps=30)
+    return path

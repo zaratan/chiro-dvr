@@ -5,7 +5,8 @@ from collections.abc import Callable
 import pytest
 
 import helpers
-from batdetect.pipeline import Detection, Track, TrackConfig, combine, merge_twins, track_detections
+from batdetect.detect import Detection
+from batdetect.track import Track, TrackConfig, combine, merge_twins, track_detections
 from helpers import by_frame, contiguous
 
 S = 3

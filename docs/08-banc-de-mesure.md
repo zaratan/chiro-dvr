@@ -70,8 +70,8 @@ le change pas.
   y paraîtra efficace par construction. Le run réel (trous, fragments) reste juge.
 - **Coût** : deux détections complètes (référence et injectée), puis le suivi est rejoué
   à la demande depuis le cache. Le cache est invalidé par un changement de réglage de
-  détection ou de tirage, et par toute modification du code de `pipeline.py`,
-  `parallel.py` ou `synthetic.py` (empreinte de leur contenu dans la clé). Le rapport note
+  détection ou de tirage, et par toute modification du code de `video.py`,
+  `detect.py`, `track.py`, `parallel.py` ou du paquet `synthetic/` (empreinte de leur contenu dans la clé). Le rapport note
   la version du code avec `git describe --dirty`.
 - **Placement figé** : les cibles sont placées loin des pistes du run de référence, calculées
   avec les réglages de suivi du premier run. Rejouer avec un autre réglage de suivi

@@ -34,23 +34,37 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 
 ## Code
 
-- `pipeline.py` : lecture vidéo, détection, suivi. Fonctions pures testables sur des
-  tableaux numpy, OpenCV isolé dans `open_video`, `read_gray_frames`, `find_blobs`.
-- `output.py` : vidéo annotée, PNG, CSV, `params.json`, extraits (ffmpeg en sous-processus).
-- `cli.py` : arguments, construction des configs, boucle sur les vidéos.
+**Un module, une responsabilité, son fichier de tests** (`tests/test_<module>.py`, ou
+`test_<paquet>_<module>.py`). Dépendances à sens unique : `track` → `detect` → `video`.
+Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs rôles.
+
+- `video.py` : ouverture, lecture et réduction des images (`open_video`, `read_frames`,
+  `to_work_gray`). Seul endroit qui lit la vidéo pour la détection.
+- `detect.py` : `DetectConfig`, `Detection`, masques, fond médian et taches
+  (`detect_frames`, `find_blobs`). Fonctions pures testables sur des tableaux numpy.
+- `track.py` : `TrackConfig`, `Track`, appariement, fusion des jumelles
+  (`track_detections`). Ne dépend que de `Detection`.
+- `output/` : `config.py` (`RenderConfig`), `timefmt.py` (temps et noms d'extraits),
+  `overlay.py` (boîtes, interpolation), `annotated.py` (vidéo annotée), `summary.py`
+  (image résumé), `tables.py` (CSV, `params.json`), `clips.py` (extraits ; ffmpeg en
+  sous-processus).
+- `jobs.py` (vidéos à traiter, dossiers de sortie), `arguments.py` (options partagées et
+  construction des configs), `cli.py` (commande `batdetect`).
 - `parallel.py` : détection découpée en tranches de temps, une par processus (`--workers`,
   par défaut le nombre de cœurs). Chaque tranche lit la vidéo depuis le début et saute
   jusqu'à elle : jamais `CAP_PROP_POS_FRAMES`, imprécis d'une image en mp4. Le résultat
   doit rester identique au bit près au traitement séquentiel. Seul le test `slow` sur le
   vrai extrait détecte un positionnement imprécis : le lancer après toute modification de
   `parallel.py`. Les processus de détection s'arrêtent si le parent meurt.
-- `synthetic.py` et `bench.py` : fausses chauves-souris injectées en pleine résolution et
-  banc de mesure (`batdetect-bench`, [docs/08-banc-de-mesure.md](docs/08-banc-de-mesure.md)).
+- `synthetic/` (`trajectory.py`, `sampling.py`, `injection.py`) : fausses chauves-souris
+  injectées en pleine résolution. `bench/` (`config`, `collect`, `cache`, `matching`,
+  `metrics`, `stats`, `report`, `cli`) : banc de mesure (`batdetect-bench`,
+  [docs/08-banc-de-mesure.md](docs/08-banc-de-mesure.md)).
   Toute amélioration de la détection ou du suivi se mesure au banc avant et après.
 - Toutes les coordonnées, distances et surfaces hors de `find_blobs` sont en pixels de la
   vidéo d'origine ; seule la détection travaille à `work_width`.
 - Configs en dataclasses gelées qui valident dans `__post_init__` ; pas de `Namespace`
-  au-delà de `cli.py`.
+  au-delà de `cli.py` et `arguments.py`.
 - Chaque retour de `cv2` passe par `np.asarray(..., dtype=...)` : les stubs d'OpenCV
   sont trop larges pour basedpyright strict.
 - Code et identifiants en anglais, docs en français. Zéro commentaire, zéro `noqa` ou
