@@ -31,8 +31,9 @@ Pour chaque image *t*, le fond est la médiane, pixel par pixel, des images de
   lentement.
 - La médiane est calculée par un tri par comparaisons partiel (`median.py`) : des
   `minimum` et `maximum` sur des images entières, jusqu'à fixer la ou les valeurs
-  centrales. Résultat identique au bit près à `np.median`, en 1,2 à 1,3 ms par image au
-  lieu de 12,6 à 18 selon les mesures, sur un cœur ([09](09-profilage.md)).
+  centrales, sur la fenêtre gardée en uint8. Résultat identique au bit près à
+  `np.median`, en 0,7 ms par image sur un cœur, contre 12,6 à 18 ms avec `np.median`
+  ([09](09-profilage.md)).
 - Aux bords de la vidéo, la fenêtre est tronquée : la première et la dernière demi-seconde
   sont analysées avec moins d'images.
 
@@ -105,8 +106,8 @@ uniquement à l'affichage : le CSV et le banc ne comptent que les vraies détect
 colonne `filled_frames` indique combien d'images ont été comblées.
 
 La vidéo annotée et les extraits sont encodés par le moteur multimédia des puces Apple
-(`h264_videotoolbox`, qualité `--vt-quality` 65) quand un essai d'encodage de 0,2 s au
-démarrage réussit, sinon par `libx264` (`--crf` 20), par exemple sous Linux.
+(`h264_videotoolbox`, qualité `--vt-quality` 65) quand un essai d'encodage de quelques
+images (0,2 s) au démarrage réussit, sinon par `libx264` (`--crf` 20), par exemple sous Linux.
 `--encoder videotoolbox|x264` force le choix ; `params.json` enregistre l'encodeur
 réellement utilisé. Mesuré sur la 092 : vidéo annotée en 19,8 s au lieu de 118,5 s,
 fidélité presque égale (SSIM 0,977 contre 0,982, [09](09-profilage.md)).

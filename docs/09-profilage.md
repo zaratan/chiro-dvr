@@ -107,7 +107,8 @@ images réduites aux processus ; décodage matériel (VideoToolbox).
 
 ## Après le moteur multimédia et la fenêtre en uint8
 
-Fenêtre de la médiane gardée en uint8 au lieu de int16 : pistes identiques au bit près,
+Fenêtre de la médiane gardée en uint8 au lieu de int16 : médiane seule 1,22 → 0,73 ms
+par image à 480×360, pistes identiques au bit près,
 détection 31,0 → 27,2 s avec 1 processus, 23,7 → 22,2 s avec 2.
 
 Traitement complet de la 092, détection sur 2 processus, rendu par `h264_videotoolbox`

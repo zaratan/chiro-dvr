@@ -10,7 +10,21 @@ from batdetect.detect import Region
 
 def test_options_become_validated_configs() -> None:
     ns = build_parser().parse_args(
-        ["in", "--threshold", "30", "--osd-region", "0,0,1,0.1", "--max-gap", "8", "--crf", "28"]
+        [
+            "in",
+            "--threshold",
+            "30",
+            "--osd-region",
+            "0,0,1,0.1",
+            "--max-gap",
+            "8",
+            "--crf",
+            "28",
+            "--encoder",
+            "x264",
+            "--vt-quality",
+            "40",
+        ]
     )
 
     detect, track, render = build_configs(ns)
@@ -19,6 +33,8 @@ def test_options_become_validated_configs() -> None:
     assert detect.osd_regions == (Region(0, 0, 1, 0.1),)
     assert track.max_gap == 8
     assert render.crf == 28
+    assert render.encoder == "x264"
+    assert render.vt_quality == 40
 
 
 def test_invalid_option_value_exits_with_a_usage_error(capsys: pytest.CaptureFixture[str]) -> None:

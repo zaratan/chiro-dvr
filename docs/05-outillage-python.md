@@ -4,7 +4,7 @@
 
 Mesuré sur l'original de la 092 ([09](09-profilage.md)) : décodage 1,1 ms par image
 (8,6 ms de CPU, le décodeur occupe presque tous les cœurs), réduction 0,8 ms, médiane du
-fond 1,2 ms (tri par comparaisons vectorisé, contre 12,6 ms avec `np.median`), résidu et
+fond 0,7 ms (tri par comparaisons vectorisé en uint8, contre 12,6 ms avec `np.median`), résidu et
 taches 1,9 ms. Le calcul lourd est déjà en C (numpy, OpenCV, ffmpeg) et le décodage
 domine : une réécriture en Rust ne gagnerait presque rien. L'écosystème (OpenCV, suivi,
 YOLO) est natif en Python. La question se reposera si l'outil doit être distribué en

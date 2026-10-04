@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import platform
+import sys
+
 import pytest
 
 from batdetect.output.config import AUTO, VIDEOTOOLBOX, X264, RenderConfig
@@ -56,3 +59,11 @@ def test_explicit_encoder_that_works_is_kept() -> None:
 @requires_ffmpeg
 def test_x264_probe_succeeds_with_a_real_ffmpeg() -> None:
     assert encoder_works(RenderConfig(encoder=X264))
+
+
+@requires_ffmpeg
+@pytest.mark.skipif(
+    sys.platform != "darwin" or platform.machine() != "arm64", reason="the media engine only exists on Apple Silicon"
+)
+def test_media_engine_is_detected_on_apple_silicon_so_auto_never_silently_falls_back() -> None:
+    assert encoder_works(RenderConfig(encoder=VIDEOTOOLBOX))
