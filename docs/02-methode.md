@@ -15,8 +15,10 @@ travail. Les pixels d'origine ne sont pas une unité physique : une autre camér
 autre résolution, demandera peut-être d'autres valeurs. Les valeurs par défaut sont celles
 qui donnaient les résultats documentés à 480 px sur une vidéo 1440×1080.
 
-La détection est découpée en tranches de temps traitées en parallèle, avec une
-demi-fenêtre de recouvrement : le résultat est identique au traitement d'un seul tenant.
+La détection tourne par défaut dans un seul processus. Avec `--workers` > 1, elle peut
+être découpée en tranches de temps traitées en parallèle, si la vidéo est assez longue,
+avec une demi-fenêtre de recouvrement : le résultat est identique au traitement d'un seul
+tenant. Chaque tranche supplémentaire ajoute surtout de la relecture ([09](09-profilage.md)).
 
 ## 1. Fond par médiane glissante
 

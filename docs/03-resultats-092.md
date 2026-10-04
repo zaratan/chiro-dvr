@@ -5,6 +5,8 @@ pistes, voir « Original contre export »). Le tableau ci-dessous et l'historiqu
 réglages ont été mesurés sur l'export de Stream Vision 2, avant qu'on dispose de
 l'original.
 
+## Export de Stream Vision 2 (historique, 12 pistes)
+
 Vidéo du 2 septembre 2026, 20:37, falaise, jumelles posées, 5 min. Réglages par
 défaut, 12 pistes.
 
@@ -110,7 +112,7 @@ rampe sur la roche, autre animal, ou passage vu par Manon que le détecteur ne c
 Les 14 pistes sont identiques au bit près à celles de `np.median` (égalité des pistes
 complètes). Détection seule, selon le nombre de processus (`--workers`) :
 
-| Processus | 1 | 2 | 3 | 4 | 6 | 10 (défaut) |
+| Processus | 1 | 2 | 3 | 4 | 6 | 10 (ancien défaut) |
 | --- | --- | --- | --- | --- | --- | --- |
 | Temps | 31,0 s | 23,7 s | 24,7 s | 27,3 s | 31,6 s | 47,3 s |
 | CPU | 114 s | 150 s | 184 s | 216 s | 282 s | 415 s |

@@ -122,8 +122,8 @@ q 65 :
 | Extraits | 26,4 s | 8,1 s |
 | **Total** | **213 s** | **49,8 s** |
 
-La vidéo annotée pèse 760 Mo au lieu de 722. Avec le réglage par défaut de
-`--workers` (un processus par cœur), la détection reste à environ 48 s.
+La vidéo annotée pèse 760 Mo au lieu de 722. Avec 10 processus (un par
+cœur, l'ancien défaut de `--workers`), la détection reste à environ 48 s.
 
 ## Décodage : pistes éliminées
 
@@ -149,7 +149,7 @@ sur l'extrait) et coûtait de la mémoire. Détection de la 092, pistes identiqu
 près à la référence ; la ligne « sans fil lecteur » inclut déjà la fenêtre en uint8,
 d'où l'écart avec le premier tableau par nombre de processus :
 
-| Processus | 1 | 2 | 3 | 4 | 10 (défaut) |
+| Processus | 1 | 2 | 3 | 4 | 10 (ancien défaut) |
 | --- | --- | --- | --- | --- | --- |
 | Sans fil lecteur | 27,2 s | 22,2 s | | | 48,4 s |
 | Avec fil lecteur | 15,1 s | 16,8 s | 20,0 s | 23,1 s | 42,3 s |

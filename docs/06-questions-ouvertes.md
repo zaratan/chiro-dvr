@@ -1,6 +1,6 @@
 # Questions ouvertes
 
-1. **Validation par Manon** des 12 pistes de la 092 : lesquelles sont des chauves-souris,
+1. **Validation par Manon** des 14 pistes de la 092 : lesquelles sont des chauves-souris,
    lesquelles sont autre chose (insecte proche, oiseau). Donnera le taux de vraies et
    fausses détections, et permettra d'ajuster `threshold`, `min_hits` et `min_area`.
 2. **Nature de la piste 9** (3:29 à 3:39, lente) : voir [03-resultats-092.md](03-resultats-092.md).
