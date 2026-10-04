@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from batdetect.synthetic.hunting import make_hunting_bat
 from batdetect.synthetic.trajectory import BatClass, Flight, Point, SyntheticBat, make_bat
 from batdetect.track import Track
 from batdetect.video import VideoInfo
@@ -52,6 +53,15 @@ def _too_close(bat: SyntheticBat, occupied: dict[int, list[Point]], min_distance
     return False
 
 
+def draw_shape(index: int, kind: BatClass, info: VideoInfo, rng: np.random.Generator) -> SyntheticBat:
+    if kind.motion != "pass":
+        return make_hunting_bat(index, 0, kind, info, rng)
+    start, end = _entry_exit(rng, info.width, info.height, 3 * kind.sigma + 2)
+    control = (float(rng.uniform(0, info.width)), float(rng.uniform(0, info.height)))
+    flight = Flight((start, control, end), float(rng.uniform(*SPEED_RANGE)), float(rng.uniform(*ACCELERATION_RANGE)))
+    return make_bat(index, 0, flight, kind, rng)
+
+
 def reference_occupancy(tracks: Sequence[Track]) -> dict[int, list[Point]]:
     occupied: dict[int, list[Point]] = {}
     for track in tracks:
@@ -70,16 +80,13 @@ def random_bats(
         kind = sampling.classes[index // sampling.per_class]
         rng = np.random.default_rng(child)
         for _ in range(MAX_ATTEMPTS):
-            start, end = _entry_exit(rng, info.width, info.height, 3 * kind.sigma + 2)
-            control = (float(rng.uniform(0, info.width)), float(rng.uniform(0, info.height)))
-            flight = Flight(
-                (start, control, end), float(rng.uniform(*SPEED_RANGE)), float(rng.uniform(*ACCELERATION_RANGE))
-            )
-            shape = make_bat(index, 0, flight, kind, rng)
+            shape = draw_shape(index, kind, info, rng)
             if len(shape.positions) >= frame_count:
                 continue
             first = int(rng.integers(0, frame_count - len(shape.positions)))
-            candidate = SyntheticBat(index, first, shape.positions, shape.amplitudes, kind.amplitude, kind.sigma)
+            candidate = SyntheticBat(
+                index, first, shape.positions, shape.amplitudes, kind.amplitude, kind.sigma, kind.motion
+            )
             if not _too_close(candidate, occupancy, sampling.min_distance):
                 bats.append(candidate)
                 for k, point in enumerate(candidate.positions):

@@ -48,8 +48,8 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
 - `stability.py` : `StabilityConfig`, `unstable_spans`, `without_spans` : images
   saturées de taches (jumelles qui bougent) et leurs abords, retirées avant le suivi,
   par la commande comme par le banc.
-- `track.py` : `TrackConfig`, `Track`, appariement, fusion des jumelles
-  (`track_detections`). Ne dépend que de `Detection`.
+- `track.py` : `TrackConfig`, `Track`, appariement, fusion des jumelles, filtres de fin
+  (`min_hits`, `min_travel`, virage médian) (`track_detections`). Ne dépend que de `Detection`.
 - `output/` : `config.py` (`RenderConfig`), `timefmt.py` (temps et noms d'extraits),
   `overlay.py` (boîtes, trace, interpolation, `track_overlay`), `render.py` (une lecture
   de l'original qui alimente les extraits et la vidéo annotée optionnelle ; au plus
@@ -74,8 +74,8 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   tranche, un fil lecteur (`prefetch.py`, file bornée à `READ_AHEAD` images) décode,
   applique le crochet et réduit pendant que le fil principal détecte ; il est arrêté
   et attendu avant la libération de la vidéo.
-- `synthetic/` (`trajectory.py`, `sampling.py`, `injection.py`) : fausses chauves-souris
-  injectées en pleine résolution. `bench/` (`config`, `collect`, `cache`, `matching`,
+- `synthetic/` (`trajectory.py`, `hunting.py`, `sampling.py`, `injection.py`) : fausses chauves-souris
+  injectées en pleine résolution, en transit (Bézier) ou en chasse (`--motions hunt circle`). `bench/` (`config`, `collect`, `cache`, `matching`,
   `metrics`, `stats`, `report`, `cli`) : banc de mesure (`batdetect-bench`,
   [docs/08-banc-de-mesure.md](docs/08-banc-de-mesure.md)).
   Toute amélioration de la détection ou du suivi se mesure au banc avant et après.

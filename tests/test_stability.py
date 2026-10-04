@@ -44,11 +44,18 @@ def test_close_crowded_frames_form_one_span() -> None:
     assert unstable_spans(crowd(counts), FPS, CFG) == [Span(8, 17)]
 
 
-def test_spans_separated_by_less_than_the_padding_are_merged_but_not_farther_ones() -> None:
-    counts = [0] * 60
-    counts[10] = counts[16] = counts[40] = 30
+def test_spans_separated_by_exactly_the_padding_are_merged() -> None:
+    counts = [0] * 40
+    counts[10] = counts[17] = 30
 
-    assert unstable_spans(crowd(counts), FPS, CFG) == [Span(8, 18), Span(38, 42)]
+    assert unstable_spans(crowd(counts), FPS, CFG) == [Span(8, 19)]
+
+
+def test_spans_separated_by_one_frame_more_than_the_padding_stay_apart() -> None:
+    counts = [0] * 40
+    counts[10] = counts[18] = 30
+
+    assert unstable_spans(crowd(counts), FPS, CFG) == [Span(8, 12), Span(16, 20)]
 
 
 def test_spans_stop_at_the_first_and_last_frames() -> None:
@@ -71,7 +78,12 @@ def test_ignored_frames_keep_their_key_with_no_detection() -> None:
 
 @pytest.mark.parametrize(
     "build",
-    [lambda: StabilityConfig(max_blobs=-1), lambda: StabilityConfig(pad_s=-0.1)],
+    [
+        lambda: StabilityConfig(max_blobs=-1),
+        lambda: StabilityConfig(pad_s=-0.1),
+        lambda: StabilityConfig(pad_s=float("nan")),
+        lambda: StabilityConfig(pad_s=float("inf")),
+    ],
 )
 def test_invalid_stability_config_is_rejected(build: Callable[[], object]) -> None:
     with pytest.raises(ValueError, match="must be"):

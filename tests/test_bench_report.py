@@ -10,6 +10,7 @@ from batdetect.bench.report import code_version, format_table
 
 def test_table_has_a_line_per_class_and_a_totals_line() -> None:
     row: dict[str, object] = {
+        "motion": "hunt",
         "amplitude": -60.0,
         "sigma": 3.0,
         "n": 26,
@@ -28,6 +29,7 @@ def test_table_has_a_line_per_class_and_a_totals_line() -> None:
 
     lines = table.splitlines()
     assert len(lines) == 4
+    assert lines[1].startswith("hunt")
     assert "-60.0" in lines[1]
     assert lines[-1] == "not visible: 17  false tracks: 0  tracks: 136 injected run, 14 reference"
 

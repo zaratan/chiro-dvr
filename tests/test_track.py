@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 
 import pytest
@@ -160,8 +161,51 @@ def test_combined_fragment_is_area_weighted_and_boxes_both() -> None:
         lambda: TrackConfig(min_hits=0),
         lambda: TrackConfig(min_travel=-1),
         lambda: TrackConfig(twin_distance=-1),
+        lambda: TrackConfig(max_median_turn=0),
     ],
 )
 def test_invalid_track_config_is_rejected(build: Callable[[], object]) -> None:
     with pytest.raises(ValueError, match="must be"):
         build()
+
+
+def zigzag(amplitude: float, frames: int = 12) -> list[Detection]:
+    return [helpers.detection(i, 20.0 * i, 100 + (amplitude if i % 2 else -amplitude)) for i in range(frames)]
+
+
+def test_gentle_zigzag_is_kept_but_a_wide_one_is_noise() -> None:
+    assert len(track_detections(contiguous(zigzag(2), 12), TrackConfig())) == 1
+    assert track_detections(contiguous(zigzag(15), 12), TrackConfig()) == []
+
+
+def test_a_large_enough_max_median_turn_keeps_any_zigzag() -> None:
+    assert len(track_detections(contiguous(zigzag(30), 12), TrackConfig(max_median_turn=math.pi))) == 1
+
+
+def test_a_track_exactly_at_the_turn_limit_is_kept() -> None:
+    limit = Track(1, zigzag(15)).median_turn()
+
+    assert len(track_detections(contiguous(zigzag(15), 12), TrackConfig(max_median_turn=limit))) == 1
+
+
+def test_a_curve_turning_steadily_has_a_small_median_turn() -> None:
+    arc = [helpers.detection(i, 300 + 200 * math.cos(i / 10), 300 + 200 * math.sin(i / 10)) for i in range(20)]
+
+    assert Track(1, arc).median_turn() == pytest.approx(0.1)
+
+
+def test_a_spot_lit_twice_in_place_does_not_count_as_a_turn() -> None:
+    points = [helpers.detection(f, x, 50) for f, x in enumerate([0, 10, 10, 20, 30, 40])]
+
+    assert Track(1, points).median_turn() == 0
+
+
+def test_tracks_too_short_to_turn_are_kept_for_lack_of_evidence() -> None:
+    assert Track(1, [helpers.detection(0, 0, 0)]).median_turn() == 0
+    assert Track(1, [helpers.detection(0, 0, 0), helpers.detection(1, 10, 0)]).median_turn() == 0
+
+
+def test_two_sharp_turns_out_of_three_reject_a_short_track() -> None:
+    points = [helpers.detection(f, x, y) for f, (x, y) in enumerate([(0, 0), (20, 0), (20, 20), (40, 20), (60, 20)])]
+
+    assert Track(1, points).median_turn() == pytest.approx(math.pi / 2)

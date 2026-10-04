@@ -5,6 +5,7 @@ import statistics
 from collections.abc import Sequence
 
 from batdetect.bench.metrics import BatResult, Evaluation
+from batdetect.synthetic.trajectory import MOTIONS
 
 WILSON_Z = 1.96
 
@@ -24,15 +25,16 @@ def _median_or_none(values: Sequence[float]) -> float | None:
 
 
 def summarize(evaluation: Evaluation) -> list[dict[str, object]]:
-    groups: dict[tuple[float, float], list[BatResult]] = {}
+    groups: dict[tuple[str, float, float], list[BatResult]] = {}
     for result in evaluation.bats:
-        groups.setdefault((result.amplitude, result.sigma), []).append(result)
+        groups.setdefault((result.motion, result.amplitude, result.sigma), []).append(result)
     rows: list[dict[str, object]] = []
-    for (amplitude, sigma), results in sorted(groups.items()):
+    for (motion, amplitude, sigma), results in sorted(groups.items(), key=lambda g: (MOTIONS.index(g[0][0]), g[0][1:])):
         found = [r for r in results if r.found]
         low, high = wilson(len(found), len(results))
         rows.append(
             {
+                "motion": motion,
                 "amplitude": amplitude,
                 "sigma": sigma,
                 "n": len(results),

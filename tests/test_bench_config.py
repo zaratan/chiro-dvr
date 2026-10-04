@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 import pytest
 
-from batdetect.bench.config import MatchConfig
+from batdetect.bench.config import MatchConfig, bench_classes
 
 
 @pytest.mark.parametrize(
@@ -22,3 +22,10 @@ def test_invalid_match_config_is_rejected(build: Callable[[], object]) -> None:
 
 def test_full_purity_is_allowed() -> None:
     assert MatchConfig(purity=1).purity == 1
+
+
+def test_classes_are_drawn_passes_first_whatever_the_order_typed_and_without_duplicates() -> None:
+    typed = bench_classes(["hunt", "pass", "pass"], [-60.0], [3.0])
+
+    assert typed == bench_classes(["pass", "hunt"], [-60.0], [3.0])
+    assert [c.motion for c in typed] == ["pass", "hunt"]

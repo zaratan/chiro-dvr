@@ -3,10 +3,14 @@ from __future__ import annotations
 import itertools
 import math
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 
 Point = tuple[float, float]
+
+type Motion = Literal["pass", "hunt", "circle"]
+MOTIONS: tuple[Motion, ...] = ("pass", "hunt", "circle")
 
 
 SACCADE_PERIOD = 3
@@ -19,6 +23,7 @@ FLICKER_RANGE = (0.6, 1.0)
 class BatClass:
     amplitude: float
     sigma: float
+    motion: Motion = "pass"
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +41,7 @@ class SyntheticBat:
     amplitudes: tuple[float, ...]
     amplitude: float
     sigma: float
+    motion: Motion = "pass"
 
     @property
     def end_frame(self) -> int:
@@ -78,4 +84,4 @@ def make_bat(bat_id: int, start_frame: int, flight: Flight, kind: BatClass, rng:
     positions = tuple(bezier(flight.controls, u**flight.acceleration) for u in progress)
     flicker = rng.uniform(*FLICKER_RANGE, size=frames)
     amplitudes = tuple(float(kind.amplitude * f) for f in flicker)
-    return SyntheticBat(bat_id, start_frame, positions, amplitudes, kind.amplitude, kind.sigma)
+    return SyntheticBat(bat_id, start_frame, positions, amplitudes, kind.amplitude, kind.sigma, kind.motion)

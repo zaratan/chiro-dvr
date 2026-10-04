@@ -78,3 +78,15 @@ def test_frames_ignored_as_unstable_leave_the_visible_frames_instead_of_counting
     result = evaluate(make_run([bat], detections), TrackConfig(), MATCH, (), StabilityConfig(pad_s=0.1)).bats[0]
 
     assert result.visible_frames == 20 - 7
+
+
+def test_a_track_born_in_a_crowded_burst_is_not_counted_as_a_false_track() -> None:
+    bat = bat_along(0, range(10, 30))
+    burst = {
+        f: [detection(f, 60 + 12 * (f - 50), 300)] + [detection(f, 20 + 15 * i, 100) for i in range(30)]
+        for f in range(50, 60)
+    }
+    run = make_run([bat], detections_on(bat) | burst)
+
+    assert evaluate(run, TrackConfig(), MATCH, (), StabilityConfig()).false_tracks == 0
+    assert evaluate(run, TrackConfig(), MATCH, (), StabilityConfig(max_blobs=0)).false_tracks == 1

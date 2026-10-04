@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import itertools
 import math
+import statistics
 from dataclasses import dataclass, field
 
 from batdetect.detect import Detection
@@ -12,9 +14,10 @@ VELOCITY_SPAN_FRAMES = 3
 class TrackConfig:
     max_jump: float = 120
     max_gap: int = 6
-    min_hits: int = 5
+    min_hits: int = 6
     min_travel: float = 45
     twin_distance: float = 36
+    max_median_turn: float = 0.8
 
     def __post_init__(self) -> None:
         if self.max_jump <= 0:
@@ -27,6 +30,8 @@ class TrackConfig:
             raise ValueError("min_travel must be >= 0")
         if self.twin_distance < 0:
             raise ValueError("twin_distance must be >= 0")
+        if not self.max_median_turn > 0:
+            raise ValueError("max_median_turn must be > 0")
 
 
 @dataclass(slots=True)
@@ -55,6 +60,13 @@ class Track:
 
     def chord(self) -> float:
         return math.hypot(self.last.x - self.first.x, self.last.y - self.first.y)
+
+    def median_turn(self) -> float:
+        headings = [
+            math.atan2(b.y - a.y, b.x - a.x) for a, b in itertools.pairwise(self.points) if (a.x, a.y) != (b.x, b.y)
+        ]
+        turns = [abs((b - a + math.pi) % (2 * math.pi) - math.pi) for a, b in itertools.pairwise(headings)]
+        return statistics.median(turns) if turns else 0.0
 
     def path_length(self) -> float:
         return sum(math.hypot(b.x - a.x, b.y - a.y) for a, b in zip(self.points, self.points[1:], strict=False))
@@ -92,7 +104,7 @@ def track_detections(detections: dict[int, list[Detection]], cfg: TrackConfig) -
     kept = [
         t
         for t in merge_twins(finished, cfg.twin_distance)
-        if len(t.points) >= cfg.min_hits and t.chord() >= cfg.min_travel
+        if len(t.points) >= cfg.min_hits and t.chord() >= cfg.min_travel and t.median_turn() <= cfg.max_median_turn
     ]
     kept.sort(key=lambda t: (t.first.frame, t.first.x))
     for number, track in enumerate(kept, 1):

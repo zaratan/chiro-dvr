@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import statistics
 from dataclasses import dataclass
 
@@ -16,8 +17,8 @@ class StabilityConfig:
     def __post_init__(self) -> None:
         if self.max_blobs < 0:
             raise ValueError("max_blobs must be >= 0")
-        if self.pad_s < 0:
-            raise ValueError("pad_s must be >= 0")
+        if not (math.isfinite(self.pad_s) and self.pad_s >= 0):
+            raise ValueError("pad_s must be a finite number >= 0")
 
 
 @dataclass(frozen=True, slots=True)

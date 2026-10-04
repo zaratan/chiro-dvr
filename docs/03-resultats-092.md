@@ -60,18 +60,21 @@ Mêmes 14 passages, presque tous plus complets ; plusieurs commencent plus tôt.
 | --- | --- | --- |
 | 0:07 | 0:07.43, 10 points | 0:07.39, 13 points |
 | 0:34 | 30 | 33 |
-| 0:51 (douteux) | 0:51.65, 6 | 0:51.62, 9 |
+| 0:51 (ignorable, 4 octobre) | 0:51.65, 6 | 0:51.62, 9 |
 | 0:53 | 24 | 28 |
 | 1:12 | 29, fin 1:13.63 | 31, fin 1:13.87 |
 | 1:49 | 23 | 23 |
 | 2:02 | 10 | 12 |
 | 2:24 | 10 | 11 |
-| 2:37 (nouveau) | 2:37.16, 5 | 2:36.99, 7 |
+| 2:37 (valide, 4 octobre) | 2:37.16, 5 | 2:36.99, 7 |
 | 2:44 | 38 | 40 |
 | 3:29 (lente) | 285 | 287 |
 | 3:48 | 14 | 14 |
 | 3:51 | 16 | 17 |
 | 3:57 | 18 | 18 |
+
+Statuts donnés par l'utilisateur le 4 octobre : 2:37 est un vrai passage, 0:51 peut
+être ignoré. 2:37 n'a que 7 détections : `min_hits` ne doit pas dépasser 7.
 
 Calcul : 3 min 46 avec la détection parallèle sur 10 processus (rendu des vidéos compris).
 
@@ -122,3 +125,9 @@ Avec la fenêtre en uint8 et le fil lecteur, pistes toujours identiques : 15,1 s
 
 Aucune image de la 092 n'atteint la limite (au plus 4 taches par image) : rien n'est
 ignoré, les 14 pistes et le banc sont identiques ([02](02-methode.md#4-bis-images-saturées-de-taches)).
+
+## `min_hits` 6 et filtre de virage (4 octobre 2026)
+
+Mêmes 14 pistes, mêmes débuts et mêmes nombres de détections. La plus courte, 2:37
+(7 détections), est valide ; la plus sinueuse a un virage médian de 0,35 rad pour un
+seuil de 0,8 ([02](02-methode.md#7-filtres-finaux)).

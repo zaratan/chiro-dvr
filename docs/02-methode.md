@@ -84,10 +84,12 @@ Une image compte comme **saturée** si elle a au moins `max_blobs` = 20 taches d
 que 6 fois la médiane des taches par image de la vidéo. La médiane fait monter la limite
 avec un seuil de détection bas, où même une vidéo stable compte des dizaines de taches
 par image : sur l'extrait de la 092 à `--threshold 15`, une limite fixe de 20 excluait
-toute la vidéo, la limite relative n'exclut rien. Les périodes ignorées sont ces images
-élargies de `unstable_pad_s` = 1 s de chaque côté (la fenêtre du fond déborde de ½ s, et
-les images calmes au milieu d'un mouvement restent suspectes), fusionnées quand moins
-d'1 s les sépare. Leurs détections sont retirées avant le suivi ; la détection elle-même
+toute la vidéo, la limite relative n'exclut rien. Non mesuré : avec un seuil bas, la
+limite monte (872 taches à `--threshold 12`) et un vrai mouvement pourrait passer
+dessous ; la règle a été réglée au seuil par défaut. Les périodes ignorées sont ces images
+élargies de `pad_s` = 1 s (`--unstable-pad`) de chaque côté (la fenêtre du fond déborde de ½ s, et
+les images calmes au milieu d'un mouvement restent suspectes), fusionnées quand au plus
+1 s les sépare. Leurs détections sont retirées avant le suivi ; la détection elle-même
 ne change pas. Une piste qui traverse une période est coupée en deux.
 
 Mesuré sur les détections réelles : cadre stable, au plus 12 taches par image (089,
@@ -159,8 +161,25 @@ ne laissent pas de fichier tronqué.
 
 ## 7. Filtres finaux
 
-- `min_hits` = 5 détections : élimine les étincelles d'une ou deux images.
+- `min_hits` = 6 détections (depuis le 4 octobre ; 5 avant) : élimine les étincelles
+  de quelques images. Le passage valide le plus court de la 092 (2:37) en a 7 : ne pas
+  dépasser 7.
 - `min_travel` = 45 px de bout en bout : élimine un point qui scintille sur place.
+- `max_median_turn` = 0,8 rad : élimine les pistes qui zigzaguent. Le virage d'une piste
+  est l'angle entre deux pas successifs ; on en prend la médiane, qui tolère un virage
+  brusque isolé. Un pas nul (même pixel rallumé) est ignoré ; une piste trop courte pour
+  avoir un virage est gardée. 3,15 ou plus désactive le filtre.
+
+Ces deux derniers réglages visent le scintillement de pixels isolés que le suivi enchaîne
+(`max_jump` 120 px) sur les vidéos bruitées : taches d'un pixel de travail, contraste
+juste au-dessus du seuil, 5 à 7 détections, directions au hasard (virage médian 1,5 rad,
+contre au plus 0,35 pour les vraies pistes de la 092). Mesuré, après le filtre des images
+saturées : 089 96 → 4 pistes, 091 53 → 23, 092 inchangée (14). Banc : transit 115
+trouvées sur 115, chasse 357 sur 371 ; le virage ne coûte aucune cible, même en chasse ou
+en tournoiement ([08](08-banc-de-mesure.md#vols-de-chasse-4-octobre-2026)), les 14 pertes
+viennent de `min_hits` 6 (cibles peu contrastées détectées sur 5 images seulement). Avec
+5 détections, environ 16 % des pistes de bruit de 5 points passent le virage par hasard
+(3 virages seulement).
 
 Les pistes restantes sont numérotées par ordre chronologique. Le numéro change dès
 qu'une piste apparaît ou disparaît plus tôt dans la vidéo : pour désigner un passage,

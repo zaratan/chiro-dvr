@@ -10,6 +10,7 @@ from batdetect.bench.matching import assign_tracks, matches_reference, near, ref
 from batdetect.detect import Region
 from batdetect.stability import StabilityConfig, unstable_spans, without_spans
 from batdetect.synthetic.injection import Observation
+from batdetect.synthetic.trajectory import Motion
 from batdetect.track import TrackConfig, track_detections
 from batdetect.video import VideoInfo
 
@@ -25,6 +26,7 @@ DEFAULT_STABILITY = StabilityConfig()
 @dataclass(frozen=True, slots=True)
 class BatResult:
     id: int
+    motion: Motion
     amplitude: float
     sigma: float
     visible_frames: int
@@ -91,6 +93,7 @@ def evaluate(
         results.append(
             BatResult(
                 id=bat.id,
+                motion=bat.motion,
                 amplitude=bat.amplitude,
                 sigma=bat.sigma,
                 visible_frames=len(visible),

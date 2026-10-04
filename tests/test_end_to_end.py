@@ -58,7 +58,7 @@ def test_folder_run_writes_every_output_for_each_video(tmp_path: Path) -> None:
     assert not (dest / "flight_boxes.mp4").exists()
     assert [p.name for p in (dest / "split").iterdir()] == ["01_0m00s00.mp4"]
     params = json.loads((dest / "params.json").read_text())
-    assert params["TrackConfig"]["min_hits"] == 5
+    assert params["TrackConfig"]["min_hits"] == 6
     assert params["RenderConfig"]["encoder"] in {"x264", "videotoolbox"}
 
 
@@ -89,9 +89,7 @@ def test_frames_where_the_camera_slides_are_ignored_and_reported(tmp_path: Path)
     assert sum(1 for s in starts(tmp_path / "raw") if 0.5 < s < 2.0) >= 5
     assert [round(s, 1) for s in starts(tmp_path / "out")] == [3.3]
     ignored = json.loads((tmp_path / "out" / "shaky" / "params.json").read_text())["ignored_s"]
-    assert len(ignored) == 1
-    assert ignored[0][0] <= 1.0
-    assert ignored[0][1] >= 1.5
+    assert ignored == [pytest.approx([0.0, 2.5], abs=0.04)]
 
 
 @requires_ffmpeg

@@ -9,6 +9,7 @@ from pathlib import Path
 from batdetect.bench.collect import BenchRun, collect
 from batdetect.bench.config import BenchSetup
 from batdetect.detect import DetectConfig
+from batdetect.stability import StabilityConfig
 from batdetect.synthetic.sampling import Sampling
 
 CACHED_SOURCES = ("video.py", "median.py", "detect.py", "track.py", "stability.py", "parallel.py", "synthetic")
@@ -24,7 +25,7 @@ def code_fingerprint() -> list[str]:
     return [hashlib.sha256(f.read_bytes()).hexdigest() for f in files]
 
 
-def cache_key(video: Path, detect: DetectConfig, sampling: Sampling) -> str:
+def cache_key(video: Path, detect: DetectConfig, sampling: Sampling, stability: StabilityConfig) -> str:
     stat = video.stat()
     payload = {
         "code": code_fingerprint(),
@@ -33,13 +34,14 @@ def cache_key(video: Path, detect: DetectConfig, sampling: Sampling) -> str:
         "mtime": stat.st_mtime,
         "detect": asdict(detect),
         "sampling": asdict(sampling),
+        "stability": asdict(stability),
     }
     normalized = json.loads(json.dumps(payload), parse_int=float)
     return hashlib.sha256(json.dumps(normalized, sort_keys=True).encode()).hexdigest()
 
 
 def load_or_collect(setup: BenchSetup, cache: Path) -> BenchRun:
-    key = cache_key(setup.video, setup.detect, setup.sampling)
+    key = cache_key(setup.video, setup.detect, setup.sampling, setup.stability)
     if cache.exists():
         try:
             with cache.open("rb") as fh:

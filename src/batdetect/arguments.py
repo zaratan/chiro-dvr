@@ -54,6 +54,12 @@ def add_tracking_arguments(ap: argparse.ArgumentParser) -> None:
     track.add_argument(
         "--twin-distance", type=float, default=t.twin_distance, help="source pixels between fragments of one animal"
     )
+    track.add_argument(
+        "--max-median-turn",
+        type=float,
+        default=t.max_median_turn,
+        help="radians; tracks that zigzag more are noise; 3.15 or more disables",
+    )
 
 
 def build_detect_config(ns: argparse.Namespace) -> DetectConfig:
@@ -80,4 +86,5 @@ def build_track_config(ns: argparse.Namespace) -> TrackConfig:
         min_hits=ns.min_hits,
         min_travel=ns.min_travel,
         twin_distance=ns.twin_distance,
+        max_median_turn=ns.max_median_turn,
     )

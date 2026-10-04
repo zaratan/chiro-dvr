@@ -12,10 +12,13 @@ def code_version() -> str:
 
 
 def format_table(rows: Sequence[dict[str, object]], evaluation: Evaluation) -> str:
-    lines = ["amplitude  sigma   n  found  ci95          completeness  start_delay  end_early  fragments  effective"]
+    lines = [
+        "motion  amplitude  sigma   n  found  ci95          completeness  start_delay  end_early  fragments  effective"
+    ]
     for r in rows:
         lines.append(
-            f"{r['amplitude']:>9}  {r['sigma']:>5}  {r['n']:>2}  {r['found']:>5}  {r['found_ci95']!s:<12}  "
+            f"{r['motion']!s:<6}  {r['amplitude']:>9}  {r['sigma']:>5}  {r['n']:>2}  {r['found']:>5}  "
+            f"{r['found_ci95']!s:<12}  "
             f"{r['median_completeness']!s:>12}  {r['median_start_delay']!s:>11}  {r['median_end_early']!s:>9}  "
             f"{r['mean_fragments']!s:>9}  {r['median_effective']!s:>9}"
         )

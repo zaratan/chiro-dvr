@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from batdetect.detect import DetectConfig
 from batdetect.stability import StabilityConfig
 from batdetect.synthetic.sampling import Sampling
+from batdetect.synthetic.trajectory import MOTIONS, BatClass, Motion
 from batdetect.track import TrackConfig
 
 DEFAULT_AMPLITUDES = (-15.0, -30.0, -60.0)
@@ -34,3 +36,9 @@ class BenchSetup:
     stability: StabilityConfig
     sampling: Sampling
     workers: int
+
+
+def bench_classes(
+    motions: Sequence[Motion], amplitudes: Sequence[float], sigmas: Sequence[float]
+) -> tuple[BatClass, ...]:
+    return tuple(BatClass(a, s, m) for m in MOTIONS if m in motions for a in amplitudes for s in sigmas)

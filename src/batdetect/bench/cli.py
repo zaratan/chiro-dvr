@@ -14,13 +14,13 @@ from batdetect.arguments import (
     build_track_config,
 )
 from batdetect.bench.cache import load_or_collect
-from batdetect.bench.config import DEFAULT_AMPLITUDES, DEFAULT_SIGMAS, BenchSetup, MatchConfig
+from batdetect.bench.config import DEFAULT_AMPLITUDES, DEFAULT_SIGMAS, BenchSetup, MatchConfig, bench_classes
 from batdetect.bench.metrics import evaluate
 from batdetect.bench.report import code_version, format_table
 from batdetect.bench.stats import summarize
 from batdetect.parallel import DEFAULT_WORKERS
 from batdetect.synthetic.sampling import Sampling
-from batdetect.synthetic.trajectory import BatClass
+from batdetect.synthetic.trajectory import MOTIONS, Motion
 from batdetect.video import VideoError
 
 
@@ -31,6 +31,9 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--per-class", type=int, default=30)
     ap.add_argument("--amplitudes", type=float, nargs="+", default=list(DEFAULT_AMPLITUDES))
     ap.add_argument("--sigmas", type=float, nargs="+", default=list(DEFAULT_SIGMAS), help="blob size, source pixels")
+    ap.add_argument(
+        "--motions", nargs="+", choices=MOTIONS, default=["pass"], help="pass: smooth crossing; hunt, circle: turns"
+    )
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
     ap.add_argument("--match-radius", type=float, default=MatchConfig().radius, help="source pixels")
@@ -49,7 +52,8 @@ def main(argv: list[str] | None = None) -> int:
         match = MatchConfig(radius=ns.match_radius)
         amplitudes: list[float] = ns.amplitudes
         sigmas: list[float] = ns.sigmas
-        classes = tuple(BatClass(a, s) for a in amplitudes for s in sigmas)
+        motions: list[Motion] = ns.motions
+        classes = bench_classes(motions, amplitudes, sigmas)
         sampling = Sampling(ns.seed, classes, ns.per_class, 3 * match.radius)
     except ValueError as err:
         parser.error(str(err))

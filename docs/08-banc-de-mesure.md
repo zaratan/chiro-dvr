@@ -24,6 +24,24 @@ classe, résultat par cible) et `cache.pkl` (détections de référence et injec
   accélération (progression en u^a, a de 1 à 1,8), et la **saccade de période 3** mesurée
   sur les Symbion (un pas double, deux simples, phase aléatoire).
 - **Battements** : amplitude multipliée par un facteur aléatoire de 0,6 à 1 à chaque image.
+- **Vols de chasse** (`--motions hunt circle`, `synthetic/hunting.py`) : la cible entre par
+  un bord vers l'intérieur, vole à 8 à 30 px d'origine par image, et enchaîne segments
+  presque droits (0,2 à 1 s pour `hunt`, 0,1 à 0,3 s pour `circle`, qui vire plus de la
+  moitié du temps) et virages de 45° à 180°. Dans un virage, la vitesse descend à 25 à
+  50 % de la croisière au sommet et la vitesse angulaire y culmine, au plus 0,15 à
+  0,4 rad par image (un virage court est adouci : sommet réalisé jusqu'à 0,09) ; le rayon
+  suit le carré de la vitesse, l'accélération latérale reste constante : d'après le demi-tour mesuré d'une chauve-souris (0,69 s, 2 → 0,5
+  m/s, rayon 5,5 cm au sommet, [PMC7608926](https://pmc.ncbi.nlm.nih.gov/articles/PMC7608926/))
+  et les pistes de chasse des pipistrelles, plus lentes et sinueuses que le transit
+  ([PMC5234808](https://pmc.ncbi.nlm.nih.gov/articles/PMC5234808/)). Saccade et battements
+  identiques au transit. Fin à la sortie du champ ou à 4 s (en plein champ : l'animal
+  peut aussi sortir en profondeur). Le virage médian géométrique reste sous 0,2 rad par
+  image pour 99 % des cibles : c'est le bruit de position de la détection, au sommet des
+  virages lents, qui fait monter le virage mesuré. Le banc par défaut reste en transit
+  seul (`--motions pass`) ; les classes de chasse sont tirées après celles de transit,
+  qui ne changent donc pas. Elles ne changent que comme trajectoires : dans un banc qui
+  mélange transit et chasse, les cibles de chasse modifient la détection et le suivi des
+  autres ; garder des passes séparées.
 - **Placement** : tirage par rejet. Aucune cible à moins de 3 rayons d'appariement d'une
   piste réelle (run de référence) ou d'une autre cible au même instant, pour éviter les
   crédits indus et les fusions de jumelles.
@@ -37,9 +55,13 @@ Une cible est visible à une image si son centre est à plus de 2σ des bords et
 affichage de caméra : une cible injectée sous un affichage fixe reste comptée visible,
 alors qu'en vrai l'affichage la cacherait (biais faible, l'affichage occupe peu de place). Une tache sombre sur le
 ciel saturé à 0 n'a aucun contraste effectif : elle n'est pas comptée comme manquée.
-Ce dénominateur ne dépend pas des masques de détection, ce qui permet de comparer deux
-réglages de masque. Les cibles visibles moins de `min_hits` images sont écartées
-(« not visible »).
+Les images des périodes ignorées parce que saturées de taches
+([02](02-methode.md#4-bis-images-saturées-de-taches)) ne comptent pas non plus : la
+cible n'y est ni trouvée ni manquée. Ces périodes sont calculées sur le run injecté, comme
+le suivi rejoué ; elles dépendent donc des réglages de détection (seuil, `work_width`),
+et deux réglages ne se comparent plus sur exactement le même dénominateur s'ils en
+produisent. Sur la 092, aucune période. Les cibles visibles moins de `min_hits` images
+sont écartées (« not visible »).
 
 ## Appariement et métriques
 
@@ -66,12 +88,18 @@ le change pas.
 - **Pas d'artefacts de compression** : l'injection se fait après décodage. Sur l'original
   (12 Mb/s, sans B-frames) le biais est faible, mais il est optimiste.
 - **Forme simplifiée** : une gaussienne ronde, pas une silhouette d'ailes.
+- **Chasse en 2D, sans distance** : vitesses et rayons en pixels, indépendants de la
+  taille de la tache ; le rayon au sommet (5 à 100 px) peut être un peu plus serré que
+  0,1 envergure pour σ 5. Ce qui décide du virage mesuré est le pas au sommet (2 px par
+  image au moins) face au bruit du centroïde, que le banc mesure réellement.
 - **Saccade modélisée** : le banc reproduit la saccade, donc un correctif de la saccade
   y paraîtra efficace par construction. Le run réel (trous, fragments) reste juge.
 - **Coût** : deux détections complètes (référence et injectée), puis le suivi est rejoué
   à la demande depuis le cache. Le cache est invalidé par un changement de réglage de
-  détection ou de tirage, et par toute modification du code de `video.py`,
-  `detect.py`, `track.py`, `parallel.py` ou du paquet `synthetic/` (empreinte de leur contenu dans la clé). Le rapport note
+  détection, de tirage ou de stabilité (`--max-blobs`, `--unstable-pad` : ils changent
+  les pistes de référence qui guident le placement), et par toute modification du code de
+  `video.py`, `median.py`, `detect.py`, `track.py`, `stability.py`, `parallel.py` ou du
+  paquet `synthetic/` (empreinte de leur contenu dans la clé). Le rapport note
   la version du code avec `git describe --dirty`.
 - **Placement figé** : les cibles sont placées loin des pistes du run de référence, calculées
   avec les réglages de suivi du premier run. Rejouer avec un autre réglage de suivi
@@ -158,3 +186,28 @@ lignes mesurées avec le même code :
 La vitesse estimée sur 3 images ne change rien de mesurable au banc (une seule complétude
 bouge de 0,01) ; sur la vraie vidéo, elle prolonge de 2 images la piste la plus rapide.
 L'interpolation ne touche que l'affichage et n'a pas d'effet sur le banc par construction.
+
+## Vols de chasse (4 octobre 2026)
+
+Banc dédié sur la 092 : `--motions hunt circle --amplitudes -60 -30 --sigmas 1.5 3 5
+--per-class 60`, 34,7 s. 720 cibles tirées (12 classes × 60), 592 visibles (les 128
+autres ne quittent jamais les coins noirs de l'oculaire : une chasse courte qui entre
+près d'un coin n'atteint pas le disque visible ; environ 49 par classe en pratique),
+371 trouvées avec `min_hits` 5 (comme le transit, la classe −30/σ1,5 est invisible et
+−30/σ3 difficile), 0 fausse piste. Le banc par défaut est inchangé.
+
+Comparaison appariée sur les mêmes cibles, depuis le cache (cibles trouvées avec le
+réglage actuel et perdues avec le nouveau) :
+
+| Réglage de suivi | Transit (115) | Chasse (371) |
+| --- | --- | --- |
+| virage médian ≤ 0,6 rad | −1 | −1 |
+| virage médian ≤ 0,8 ou 1,0 rad | 0 | 0 |
+| `min_hits` 6 | 0 | −14 |
+| `min_hits` 7 | −1 | −24 |
+
+Les cibles perdues avec `min_hits` plus haut sont surtout peu contrastées (−30) :
+visibles une quinzaine d'images, détectées sur 5 ou 6.
+
+Retenu le 4 octobre : `max_median_turn` 0,8 et `min_hits` 6. Bancs rejoués avec ces
+réglages : transit 115 trouvées, 0 fausse piste ; chasse 357 trouvées, 0 fausse piste.

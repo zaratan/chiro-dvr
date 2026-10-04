@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from batdetect.synthetic.sampling import Sampling, random_bats
+from batdetect.synthetic.hunting import MAX_DURATION_S, make_hunting_bat
+from batdetect.synthetic.sampling import Sampling, draw_shape, random_bats
 from batdetect.synthetic.trajectory import BatClass
 from batdetect.video import VideoInfo
 
@@ -31,3 +32,26 @@ def test_sampled_bats_keep_away_from_occupied_positions() -> None:
     for bat in bats:
         for x, y in bat.positions:
             assert np.hypot(x - 240, y - 180) >= 20
+
+
+def test_adding_hunting_classes_after_the_passes_leaves_every_pass_unchanged() -> None:
+    passes = Sampling(7, (BatClass(-30, 2), BatClass(-60, 3)), 4, min_distance=8)
+    both = Sampling(7, (BatClass(-30, 2), BatClass(-60, 3), BatClass(-60, 3, "hunt")), 4, min_distance=8)
+
+    before = random_bats(passes, INFO, 600, {})
+    after = random_bats(both, INFO, 600, {})
+
+    assert [(b.start_frame, b.positions, b.amplitudes) for b in before] == [
+        (b.start_frame, b.positions, b.amplitudes) for b in after[:8]
+    ]
+    assert {b.motion for b in after[8:]} == {"hunt"}
+    assert all(len(b.positions) <= round(MAX_DURATION_S * INFO.fps) for b in after[8:])
+
+
+def test_hunting_and_circling_classes_draw_hunting_flights_not_crossings() -> None:
+    for motion in ("hunt", "circle"):
+        kind = BatClass(-60, 3, motion)
+
+        drawn = draw_shape(0, kind, INFO, np.random.default_rng(5))
+
+        assert drawn.positions == make_hunting_bat(0, 0, kind, INFO, np.random.default_rng(5)).positions
