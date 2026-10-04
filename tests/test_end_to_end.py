@@ -8,11 +8,24 @@ from pathlib import Path
 import pytest
 
 from batdetect.cli import main
-from batdetect.pipeline import DetectConfig, TrackConfig, detect_frames, open_video, read_gray_frames, track_detections
-from helpers import moving_square_frames, write_video
+from batdetect.pipeline import (
+    DetectConfig,
+    GrayFrame,
+    TrackConfig,
+    detect_frames,
+    open_video,
+    read_gray_frames,
+    track_detections,
+)
+from helpers import background, with_square, write_video
 
 FIXTURE = Path(__file__).parent / "fixtures" / "video_092_original_3m24-4m05.mp4"
 FIXTURE_START_S = 6150 * 333 / 10000
+
+
+def flying_square(count: int, step: tuple[int, int]) -> list[GrayFrame]:
+    return [with_square(background(320, 240, seed=i), 20 + step[0] * i, 60 + step[1] * i, size=6) for i in range(count)]
+
 
 requires_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
 
@@ -21,7 +34,7 @@ requires_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffm
 def test_folder_run_writes_every_output_for_each_video(tmp_path: Path) -> None:
     videos = tmp_path / "in"
     videos.mkdir()
-    write_video(videos / "flight.mp4", moving_square_frames(90, width=320, height=240, step=(3, 1)), fps=30)
+    write_video(videos / "flight.mp4", flying_square(90, step=(3, 1)), fps=30)
     out = tmp_path / "out"
 
     assert main([str(videos), "-o", str(out)]) == 0
@@ -41,7 +54,7 @@ def test_unreadable_video_fails_without_stopping_the_others(tmp_path: Path) -> N
     videos = tmp_path / "in"
     videos.mkdir()
     (videos / "broken.mp4").write_bytes(b"not a video")
-    write_video(videos / "ok.mp4", moving_square_frames(60, width=320, height=240), fps=30)
+    write_video(videos / "ok.mp4", flying_square(60, step=(3, 0)), fps=30)
 
     assert main([str(videos), "-o", str(tmp_path / "out")]) == 1
     assert (tmp_path / "out" / "ok" / "ok.tracks.csv").exists()
@@ -51,7 +64,7 @@ def test_unreadable_video_fails_without_stopping_the_others(tmp_path: Path) -> N
 def test_bats_confirmed_by_the_naturalist_are_tracked() -> None:
     cap, info = open_video(FIXTURE, DetectConfig().work_width)
     try:
-        detections = detect_frames(read_gray_frames(cap, info), info.fps, DetectConfig())
+        detections = detect_frames(read_gray_frames(cap, info), info.fps, DetectConfig(), info.scale)
     finally:
         cap.release()
     tracks = track_detections(detections, TrackConfig())

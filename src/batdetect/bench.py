@@ -8,49 +8,44 @@ import pickle
 import statistics
 import subprocess
 import sys
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-import cv2
-
 from batdetect.cli import add_detection_arguments, add_tracking_arguments, build_detect_config, build_track_config
+from batdetect.parallel import default_workers, detect_video
 from batdetect.pipeline import (
     SYMBION_OSD,
     DetectConfig,
     Detection,
-    GrayFrame,
     Track,
     TrackConfig,
     VideoError,
     VideoInfo,
-    detect_frames,
     open_video,
-    read_frames,
-    read_gray_frames,
-    to_work_gray,
     track_detections,
 )
-from batdetect.synthetic import BatClass, Sampling, SyntheticBat, inject, random_bats, reference_occupancy
+from batdetect.synthetic import (
+    BatClass,
+    Injector,
+    Observation,
+    Sampling,
+    SyntheticBat,
+    random_bats,
+    reference_occupancy,
+)
 
 VISIBLE_MIN_CONTRAST = 8.0
 VISIBLE_MARGIN_SIGMAS = 2.0
 WILSON_Z = 1.96
 DEFAULT_AMPLITUDES = (-15.0, -30.0, -60.0)
 DEFAULT_SIGMAS = (1.5, 3.0, 5.0)
-
-
-@dataclass(frozen=True, slots=True)
-class Observation:
-    frame: int
-    x: float
-    y: float
-    effective: float
+CACHE_VERSION = 2
 
 
 @dataclass(frozen=True, slots=True)
 class MatchConfig:
-    radius: float = 8.0
+    radius: float = 24.0
     purity: float = 0.5
 
 
@@ -100,6 +95,7 @@ def is_visible(obs: Observation, sigma: float, info: VideoInfo) -> bool:
 def cache_key(video: Path, detect: DetectConfig, sampling: Sampling) -> str:
     stat = video.stat()
     payload = {
+        "cache_version": CACHE_VERSION,
         "video": str(video.resolve()),
         "size": stat.st_size,
         "mtime": stat.st_mtime,
@@ -109,50 +105,38 @@ def cache_key(video: Path, detect: DetectConfig, sampling: Sampling) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
 
-def _injected_frames(
-    video: Path, info: VideoInfo, bats: Sequence[SyntheticBat], observations: dict[int, list[Observation]]
-) -> Iterator[GrayFrame]:
-    active: dict[int, list[SyntheticBat]] = {}
-    for bat in bats:
-        for frame in range(bat.start_frame, bat.end_frame + 1):
-            active.setdefault(frame, []).append(bat)
-    cap = cv2.VideoCapture(str(video))
-    if not cap.isOpened():
-        raise VideoError(f"cannot open {video}")
-    try:
-        for frame_no, frame in enumerate(read_frames(cap)):
-            here = active.get(frame_no, [])
-            effective = inject(frame, here, frame_no)
-            for bat in here:
-                pos = bat.position(frame_no)
-                if pos is not None and bat.id in effective:
-                    observations.setdefault(bat.id, []).append(Observation(frame_no, *pos, effective[bat.id]))
-            yield to_work_gray(frame, info)
-    finally:
-        cap.release()
+@dataclass(frozen=True, slots=True)
+class BenchSetup:
+    video: Path
+    detect: DetectConfig
+    track: TrackConfig
+    sampling: Sampling
+    workers: int
 
 
-def collect(video: Path, detect: DetectConfig, track: TrackConfig, sampling: Sampling) -> BenchRun:
+def collect(setup: BenchSetup) -> BenchRun:
+    video, detect, sampling = setup.video, setup.detect, setup.sampling
     cap, info = open_video(video, detect.work_width)
-    try:
-        reference = detect_frames(read_gray_frames(cap, info), info.fps, detect)
-    finally:
-        cap.release()
-    occupied = reference_occupancy(track_detections(reference, track), info.scale)
+    cap.release()
+    reference = detect_video(video, detect, info, setup.workers)[0]
+    occupied = reference_occupancy(track_detections(reference, setup.track))
     bats = random_bats(sampling, info, len(reference), occupied)
+    injected, injectors = detect_video(video, detect, info, setup.workers, lambda chunk: Injector(bats, chunk))
     observations: dict[int, list[Observation]] = {}
-    injected = detect_frames(_injected_frames(video, info, bats, observations), info.fps, detect)
+    for injector in injectors:
+        for bat_id, found in injector.observations.items():
+            observations.setdefault(bat_id, []).extend(found)
     return BenchRun(cache_key(video, detect, sampling), info, reference, injected, bats, observations)
 
 
-def load_or_collect(video: Path, detect: DetectConfig, track: TrackConfig, sampling: Sampling, cache: Path) -> BenchRun:
-    key = cache_key(video, detect, sampling)
+def load_or_collect(setup: BenchSetup, cache: Path) -> BenchRun:
+    key = cache_key(setup.video, setup.detect, setup.sampling)
     if cache.exists():
         with cache.open("rb") as fh:
             cached: object = pickle.load(fh)
         if isinstance(cached, BenchRun) and cached.key == key:
             return cached
-    run = collect(video, detect, track, sampling)
+    run = collect(setup)
     cache.parent.mkdir(parents=True, exist_ok=True)
     tmp = cache.with_suffix(".tmp")
     with tmp.open("wb") as fh:
@@ -169,7 +153,7 @@ def _truth_by_frame(run: BenchRun) -> dict[int, list[tuple[int, float, float]]]:
     truth: dict[int, list[tuple[int, float, float]]] = {}
     for bat_id, observations in run.observations.items():
         for obs in observations:
-            truth.setdefault(obs.frame, []).append((bat_id, obs.x / run.info.scale, obs.y / run.info.scale))
+            truth.setdefault(obs.frame, []).append((bat_id, obs.x, obs.y))
     return truth
 
 
@@ -221,8 +205,7 @@ def evaluate(run: BenchRun, track: TrackConfig, match: MatchConfig) -> Evaluatio
             det.frame
             for t in assigned.get(bat.id, [])
             for det in t.points
-            if det.frame in visible
-            and _near(det, visible[det.frame].x / run.info.scale, visible[det.frame].y / run.info.scale, match.radius)
+            if det.frame in visible and _near(det, visible[det.frame].x, visible[det.frame].y, match.radius)
         }
         found = len(covered) >= track.min_hits
         results.append(
@@ -314,7 +297,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--amplitudes", type=float, nargs="+", default=list(DEFAULT_AMPLITUDES))
     ap.add_argument("--sigmas", type=float, nargs="+", default=list(DEFAULT_SIGMAS), help="blob size, source pixels")
     ap.add_argument("--seed", type=int, default=1)
-    ap.add_argument("--match-radius", type=float, default=MatchConfig().radius, help="work pixels")
+    ap.add_argument("--workers", type=int, default=default_workers())
+    ap.add_argument("--match-radius", type=float, default=MatchConfig().radius, help="source pixels")
     add_detection_arguments(ap)
     add_tracking_arguments(ap)
     return ap
@@ -336,7 +320,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(str(err))
     dest = out_dir / video.stem
     try:
-        run = load_or_collect(video, detect, track, sampling, dest / "cache.pkl")
+        run = load_or_collect(BenchSetup(video, detect, track, sampling, max(1, ns.workers)), dest / "cache.pkl")
     except VideoError as err:
         print(f"{video}: {err}", file=sys.stderr)
         return 1

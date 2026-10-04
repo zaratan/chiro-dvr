@@ -43,20 +43,20 @@ SYMBION_OSD = (Region(0.0, 0.0, 1.0, 0.06), Region(0.30, 0.89, 0.56, 0.98))
 @dataclass(frozen=True, slots=True)
 class DetectConfig:
     threshold: float = 25
-    min_area: int = 2
-    max_area: int = 300
+    min_area: float = 18
+    max_area: float = 2700
     bg_window_s: float = 1.0
     bg_step: int = 3
     osd_top: float = 0.07
     osd_bottom: float = 0.10
-    merge_radius: int = 2
+    merge_radius: float = 6
     work_width: int = 480
 
     def __post_init__(self) -> None:
         if self.threshold <= 0:
             raise ValueError("threshold must be > 0")
-        if not 1 <= self.min_area <= self.max_area:
-            raise ValueError("expected 1 <= min_area <= max_area")
+        if not 0 < self.min_area <= self.max_area:
+            raise ValueError("expected 0 < min_area <= max_area")
         if self.bg_window_s <= 0:
             raise ValueError("bg_window_s must be > 0")
         if self.merge_radius < 0:
@@ -77,11 +77,11 @@ class DetectConfig:
 
 @dataclass(frozen=True, slots=True)
 class TrackConfig:
-    max_jump: float = 40
+    max_jump: float = 120
     max_gap: int = 6
     min_hits: int = 5
-    min_travel: float = 15
-    twin_distance: float = 12
+    min_travel: float = 45
+    twin_distance: float = 36
 
     def __post_init__(self) -> None:
         if self.max_jump <= 0:
@@ -101,11 +101,11 @@ class Detection:
     frame: int
     x: float
     y: float
-    left: int
-    top: int
-    width: int
-    height: int
-    area: int
+    left: float
+    top: float
+    width: float
+    height: float
+    area: float
     amplitude: float
 
 
@@ -162,6 +162,7 @@ def open_video(path: Path, work_width: int) -> tuple[cv2.VideoCapture, VideoInfo
     if width <= 0 or height <= 0 or fps <= 0:
         cap.release()
         raise VideoError(f"{path} has no readable video stream")
+    work_width = min(work_width, width)
     work_height = max(1, round(work_width * height / width))
     info = VideoInfo(fps, int(cap.get(cv2.CAP_PROP_FRAME_COUNT)), width, height, work_width, work_height)
     return cap, info
@@ -176,8 +177,11 @@ def read_frames(cap: cv2.VideoCapture) -> Iterator[ColorFrame]:
 
 
 def to_work_gray(frame: ColorFrame, info: VideoInfo) -> GrayFrame:
-    small = cv2.resize(frame, (info.work_width, info.work_height), interpolation=cv2.INTER_AREA)
-    return np.asarray(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY), dtype=np.uint8)
+    if (info.work_width, info.work_height) != (info.width, info.height):
+        frame = np.asarray(
+            cv2.resize(frame, (info.work_width, info.work_height), interpolation=cv2.INTER_AREA), dtype=np.uint8
+        )
+    return np.asarray(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), dtype=np.uint8)
 
 
 def read_gray_frames(cap: cv2.VideoCapture, info: VideoInfo) -> Iterator[GrayFrame]:
@@ -191,11 +195,12 @@ def osd_mask(width: int, height: int, cfg: DetectConfig) -> npt.NDArray[np.bool_
     return mask
 
 
-def find_blobs(residual: npt.NDArray[np.float64], frame: int, cfg: DetectConfig) -> list[Detection]:
+def find_blobs(residual: npt.NDArray[np.float64], frame: int, cfg: DetectConfig, scale: float) -> list[Detection]:
     above = np.abs(residual) > cfg.threshold
     merged = above.astype(np.uint8)
-    if cfg.merge_radius > 0:
-        size = 2 * cfg.merge_radius + 1
+    merge_radius = round(cfg.merge_radius / scale)
+    if merge_radius > 0:
+        size = 2 * merge_radius + 1
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (size, size))
         merged = np.asarray(cv2.morphologyEx(merged, cv2.MORPH_CLOSE, kernel), dtype=np.uint8)
     count, labels_mat, stats_mat, centroids_mat = cv2.connectedComponentsWithStats(merged)
@@ -205,17 +210,19 @@ def find_blobs(residual: npt.NDArray[np.float64], frame: int, cfg: DetectConfig)
     found: list[Detection] = []
     for i in range(1, count):
         pixels = above & (labels == i)
-        area = int(pixels.sum())
+        area = float(pixels.sum()) * scale**2
         if not cfg.min_area <= area <= cfg.max_area:
             continue
-        left, top, width, height = (int(v) for v in stats[i, :4])
+        left, top, width, height = (float(v) * scale for v in stats[i, :4])
         amplitude = float(np.abs(residual[pixels]).max())
-        cx, cy = (float(v) for v in centroids[i])
+        cx, cy = (float(v) * scale for v in centroids[i])
         found.append(Detection(frame, cx, cy, left, top, width, height, area, amplitude))
     return found
 
 
-def detect_frames(frames: Iterable[GrayFrame], fps: float, cfg: DetectConfig) -> dict[int, list[Detection]]:
+def detect_frames(
+    frames: Iterable[GrayFrame], fps: float, cfg: DetectConfig, scale: float = 1.0
+) -> dict[int, list[Detection]]:
     half = cfg.half_window(fps)
     iterator = iter(frames)
     first = next(iterator, None)
@@ -233,7 +240,7 @@ def detect_frames(frames: Iterable[GrayFrame], fps: float, cfg: DetectConfig) ->
         offset = current[2] - float(np.mean([e[2] for e in sampled]))
         residual = current[1] - background - offset
         residual[~mask] = 0
-        detections[target] = find_blobs(residual, target, cfg)
+        detections[target] = find_blobs(residual, target, cfg, scale)
 
     index = -1
     for index, gray in enumerate(itertools.chain([first], iterator)):

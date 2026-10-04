@@ -93,4 +93,4 @@ def test_sampled_bats_keep_away_from_occupied_positions() -> None:
 
     for bat in bats:
         for x, y in bat.positions:
-            assert np.hypot(x - 240, y - 180) >= 20 * INFO.scale
+            assert np.hypot(x - 240, y - 180) >= 20

@@ -20,11 +20,11 @@ from batdetect.synthetic import SyntheticBat
 from helpers import background, detection, write_video
 
 INFO = VideoInfo(fps=30.0, frame_count=100, width=480, height=360, work_width=160, work_height=120)
-MATCH = MatchConfig(radius=4, purity=0.5)
+MATCH = MatchConfig(radius=12, purity=0.5)
 
 
 def bat_along(bat_id: int, frames: range, y: float = 60) -> SyntheticBat:
-    positions = tuple((30.0 + 6 * k, y * INFO.scale) for k in range(len(frames)))
+    positions = tuple((90.0 + 18 * k, y * INFO.scale) for k in range(len(frames)))
     return SyntheticBat(bat_id, frames.start, positions, tuple(-40.0 for _ in frames), -40.0, 3.0)
 
 
@@ -37,7 +37,7 @@ def detections_on(bat: SyntheticBat, skip: set[int] | None = None) -> dict[int, 
     for k, (x, y) in enumerate(bat.positions):
         frame = bat.start_frame + k
         if frame not in (skip or set()):
-            out[frame] = [detection(frame, x / INFO.scale, y / INFO.scale)]
+            out[frame] = [detection(frame, x, y)]
     return out
 
 
@@ -100,16 +100,16 @@ def test_track_split_by_a_long_gap_counts_as_two_fragments() -> None:
 
 def test_track_mostly_elsewhere_is_not_credited_to_a_target_it_brushes() -> None:
     bat = bat_along(0, range(10, 30))
-    brush = [detection(10, 10, 20)] + [detection(f, 10 + 6 * (f - 10), 100) for f in range(11, 30)]
+    brush = [detection(10, 30, 60)] + [detection(f, 30 + 18 * (f - 10), 300) for f in range(11, 30)]
     track = Track(1, brush)
-    truth = {o.frame: [(0, o.x / INFO.scale, o.y / INFO.scale)] for o in observations_of(bat)}
+    truth = {o.frame: [(0, o.x, o.y)] for o in observations_of(bat)}
 
     assert assign_tracks([track], truth, MATCH) == {}
 
 
 def test_track_with_no_target_and_no_reference_counterpart_is_a_false_track() -> None:
     bat = bat_along(0, range(10, 30))
-    stray = {f: [detection(f, 20 + 4 * (f - 50), 100)] for f in range(50, 60)}
+    stray = {f: [detection(f, 60 + 12 * (f - 50), 300)] for f in range(50, 60)}
 
     evaluation = evaluate(make_run([bat], detections_on(bat) | stray), TrackConfig(), MATCH)
 

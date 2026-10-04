@@ -51,11 +51,11 @@ def clip_name(track: Track, fps: float) -> str:
     return f"{track.id:02d}_{stamp}.mp4"
 
 
-def _box(det: Detection, scale: float, pad: int) -> tuple[tuple[int, int], tuple[int, int]]:
-    x0 = int(det.left * scale) - pad
-    y0 = int(det.top * scale) - pad
-    x1 = int((det.left + det.width) * scale) + pad
-    y1 = int((det.top + det.height) * scale) + pad
+def _box(det: Detection, pad: int) -> tuple[tuple[int, int], tuple[int, int]]:
+    x0 = int(det.left) - pad
+    y0 = int(det.top) - pad
+    x1 = int(det.left + det.width) + pad
+    y1 = int(det.top + det.height) + pad
     return (x0, y0), (x1, y1)
 
 
@@ -64,13 +64,13 @@ def draw_overlay(
 ) -> None:
     trail_frames = round(cfg.trail_s * info.fps)
     for track, det in hits:
-        top_left, bottom_right = _box(det, info.scale, cfg.box_pad)
+        top_left, bottom_right = _box(det, cfg.box_pad)
         cv2.rectangle(frame, top_left, bottom_right, BOX_COLOR, 2)
         label_at = (top_left[0], top_left[1] - 6)
         cv2.putText(frame, f"#{track.id}", label_at, cv2.FONT_HERSHEY_SIMPLEX, 0.8, BOX_COLOR, 2)
         trail = [p for p in track.points if frame_no - trail_frames <= p.frame <= frame_no]
         if len(trail) > 1:
-            pts = np.array([(round(p.x * info.scale), round(p.y * info.scale)) for p in trail], dtype=np.int32)
+            pts = np.array([(round(p.x), round(p.y)) for p in trail], dtype=np.int32)
             cv2.polylines(frame, [pts], isClosed=False, color=TRAIL_COLOR, thickness=2)
 
 
@@ -137,7 +137,7 @@ def summary_image(video: Path, tracks: list[Track], info: VideoInfo, out_path: P
         raise VideoError(f"cannot read a background frame from {video}")
     image = (np.asarray(raw, dtype=np.float64) * 0.6).astype(np.uint8)
     for track in tracks:
-        pts = np.array([(round(p.x * info.scale), round(p.y * info.scale)) for p in track.points], dtype=np.int32)
+        pts = np.array([(round(p.x), round(p.y)) for p in track.points], dtype=np.int32)
         cv2.polylines(image, [pts], isClosed=False, color=TRAIL_COLOR, thickness=3)
         start = (int(pts[0][0]) + 6, int(pts[0][1]))
         label = f"#{track.id} {format_time(track.first.frame / info.fps)}"
@@ -167,8 +167,7 @@ def write_tracks_csv(tracks: list[Track], info: VideoInfo, out_path: Path) -> No
         for t in tracks:
             start = t.first.frame / info.fps
             duration = max((t.last.frame - t.first.frame) / info.fps, 1 / info.fps)
-            path_px = t.path_length() * info.scale
-            area_scale = info.scale**2
+            path_px = t.path_length()
             writer.writerow(
                 [
                     t.id,
@@ -177,10 +176,10 @@ def write_tracks_csv(tracks: list[Track], info: VideoInfo, out_path: Path) -> No
                     round(start, 2),
                     round(duration, 2),
                     len(t.points),
-                    round(t.chord() * info.scale, 1),
+                    round(t.chord(), 1),
                     round(path_px, 1),
                     round(path_px / duration, 1),
-                    round(max(p.area for p in t.points) * area_scale),
+                    round(max(p.area for p in t.points)),
                     round(max(p.amplitude for p in t.points), 1),
                 ]
             )

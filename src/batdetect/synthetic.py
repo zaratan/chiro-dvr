@@ -3,10 +3,11 @@ from __future__ import annotations
 import itertools
 import math
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
+from batdetect.parallel import Chunk
 from batdetect.pipeline import ColorFrame, Track, VideoInfo
 
 Point = tuple[float, float]
@@ -140,11 +141,11 @@ def _too_close(bat: SyntheticBat, occupied: dict[int, list[Point]], min_distance
     return False
 
 
-def reference_occupancy(tracks: Sequence[Track], scale: float) -> dict[int, list[Point]]:
+def reference_occupancy(tracks: Sequence[Track]) -> dict[int, list[Point]]:
     occupied: dict[int, list[Point]] = {}
     for track in tracks:
         for p in track.points:
-            occupied.setdefault(p.frame, []).append((p.x * scale, p.y * scale))
+            occupied.setdefault(p.frame, []).append((p.x, p.y))
     return occupied
 
 
@@ -168,9 +169,40 @@ def random_bats(
                 continue
             first = int(rng.integers(0, frame_count - len(shape.positions)))
             candidate = SyntheticBat(index, first, shape.positions, shape.amplitudes, kind.amplitude, kind.sigma)
-            if not _too_close(candidate, occupancy, sampling.min_distance * info.scale):
+            if not _too_close(candidate, occupancy, sampling.min_distance):
                 bats.append(candidate)
                 for k, point in enumerate(candidate.positions):
                     occupancy.setdefault(first + k, []).append(point)
                 break
     return bats
+
+
+@dataclass(frozen=True, slots=True)
+class Observation:
+    frame: int
+    x: float
+    y: float
+    effective: float
+
+
+@dataclass(slots=True)
+class Injector:
+    bats: list[SyntheticBat]
+    chunk: Chunk
+    observations: dict[int, list[Observation]] = field(default_factory=dict[int, list[Observation]])
+    active: dict[int, list[SyntheticBat]] = field(default_factory=dict[int, list[SyntheticBat]])
+
+    def __post_init__(self) -> None:
+        for bat in self.bats:
+            for frame in range(bat.start_frame, bat.end_frame + 1):
+                self.active.setdefault(frame, []).append(bat)
+
+    def __call__(self, frame: ColorFrame, frame_no: int) -> None:
+        here = self.active.get(frame_no, [])
+        effective = inject(frame, here, frame_no)
+        if not self.chunk.owns(frame_no):
+            return
+        for bat in here:
+            pos = bat.position(frame_no)
+            if pos is not None and bat.id in effective:
+                self.observations.setdefault(bat.id, []).append(Observation(frame_no, *pos, effective[bat.id]))

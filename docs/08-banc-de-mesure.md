@@ -42,7 +42,7 @@ réglages de masque. Les cibles visibles moins de `min_hits` images sont écart�
 
 ## Appariement et métriques
 
-- Une détection couvre une cible si elle est à moins de `--match-radius` (8 px de travail)
+- Une détection couvre une cible si elle est à moins de `--match-radius` (24 px d'origine)
   de sa position vraie à la même image.
 - Chaque piste est attribuée à la cible qu'elle couvre le plus, si au moins 50 % de ses
   points la couvrent.
@@ -96,3 +96,43 @@ Aucune fausse piste. Lecture :
   comme mesuré sur la vraie piste de 3:57.
 - La chauve-souris de 3:57 à son arrivée (−30 à −70 en pleine résolution, petite) tombe
   exactement dans la zone que l'outil rate aujourd'hui.
+
+## Résolution de travail et `min_area` (sous-phase 1A bis)
+
+Mêmes cibles (graine 1), détection parallèle sur 10 processus, vérifiée identique au bit
+près au traitement séquentiel sur la vidéo complète (la ligne 480 px / 18 reproduit
+exactement la référence séquentielle). « Pistes de référence » = pistes trouvées sur la vraie vidéo sans
+injection : c'est ce que verrait la naturaliste. Le banc ne compte comme fausses pistes que
+celles absentes de la référence : **le bruit présent dans les deux runs n'y apparaît pas**,
+d'où cette colonne.
+
+| Réglage | −46, σ 1,5 | −46, σ 3 | −24, σ 3 | −24, σ 5 | Pistes de référence | Fausses pistes | Temps |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 480 px, `min_area` 18 | 1/28 | 24/26 (0,86) | 0/26 | 15/27 (0,10) | 14 | 0 | 1 min 59 |
+| 720 px, `min_area` 18 | 0/28 | 24/26 (0,87) | 0/26 | 17/27 (0,20) | 13 | 0 | 2 min 42 |
+| 960 px, `min_area` 18 | 0/28 | 24/26 (0,87) | 0/26 | 19/27 (0,26) | 12 | 0 | 4 min 36 |
+| **480 px, `min_area` 4** | **26/28 (0,62)** | 24/26 (0,91) | **10/26** | **26/27 (0,39)** | **14** | **0** | 1 min 58 |
+| 720 px, `min_area` 4 | 21/25 (0,80) | 24/26 (0,87) | 15/24 (0,30) | 18/23 (0,54) | **7 652** | 318 | 2 min 49 |
+| 960 px, `min_area` 4 | 25/27 (0,87) | 25/26 (0,91) | 18/26 (0,30) | 26/27 (0,56) | **498** | 7 | 4 min 34 |
+
+Entre parenthèses : complétude médiane. À 720 px avec `min_area` 4, le bruit a gêné le
+tirage (43 cibles jamais visibles au lieu de 19) : ce jeu de cibles n'est pas le même.
+Le run en pleine résolution (1440 px) a été arrêté après 25 minutes sans résultat.
+
+Lecture :
+
+- **`min_area` bloquait, pas la résolution.** À 480 px, l'abaisser de 18 à 4 px² fait
+  passer les petites cibles contrastées de 1 à 26 sur 28, et les grosses peu contrastées
+  de 15 à 26 sur 27, sans aucune piste de bruit en plus (14 pistes de référence).
+- **La réduction à 480 px est un débruitage.** Chaque pixel de travail moyenne 3×3 pixels
+  d'origine. À plus haute résolution, le même seuil de 25 laisse passer le bruit : des
+  centaines ou des milliers de pistes. À 720 px, `min_area` 4 px² vaut 1 pixel de travail,
+  donc un pixel isolé suffit ; à 960 px, il en faut 2, d'où moins de bruit qu'à 720.
+- **La haute résolution apporte de la complétude** (0,87 contre 0,62 sur les petites cibles
+  fortes à 960 px, 0,56 contre 0,39 sur les grosses faibles), mais elle n'est exploitable qu'avec un
+  seuil adapté au bruit local (D1) et un filtrage à la taille de la cible (B2), qui
+  remplace le débruitage qu'apportait la réduction.
+- **La détection parallèle** divise le temps par 2,3 à 480 px (1 min 58 contre 4 min 36).
+  Une première version se positionnait dans le fichier avec `CAP_PROP_POS_FRAMES` : sur
+  la vidéo complète, une tranche était décalée d'une image. Chaque processus lit désormais
+  depuis le début et saute les images jusqu'à sa tranche (`grab`, 0,84 ms par image).

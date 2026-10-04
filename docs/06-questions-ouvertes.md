@@ -19,6 +19,25 @@
    pour 1 300 s de temps CPU, soit environ 4,8 cœurs déjà occupés en moyenne par OpenCV,
    ffmpeg et numpy. En séquentiel, une heure d'enregistrement prend donc environ 54 min.
    Pistes :
+   - **La détection n'utilise qu'un cœur** : mesuré au banc, 431 s de CPU pour 276 s de
+     durée, soit environ 1,6 cœur, et les 5 cœurs du traitement complet viennent de
+     l'encodage ffmpeg. Le calcul d'une image ne dépend que de la seconde qui l'entoure :
+     **découper la vidéo en tranches de temps** traitées par plusieurs processus, avec une
+     demi-seconde de recouvrement, donne le même résultat, avec un gain attendu de ×4 à
+     ×8 sur le M1 Max et de ×3 à ×5 sur le M3 (estimation). Condition : un test qui vérifie
+     l'égalité exacte avec le traitement séquentiel. C'est le préalable à la pleine
+     résolution.
+   - **Médiane sur le GPU (Metal)** : le GPU reste à 0 % pendant le traitement. La médiane
+     d'une pile de 11 images est un calcul massivement parallèle, adapté au GPU : MLX
+     (Apple, léger) ou PyTorch avec le backend MPS (lourd). Ce serait une dépendance
+     optionnelle, réservée aux Mac, avec repli sur numpy, puisque la CI tourne sous Linux.
+     Gain à mesurer face au découpage multiprocessus, avec lequel il se combine mal (un
+     seul GPU partagé par les processus).
+   - **Python sans GIL (free-threading)** : des threads au lieu de processus
+     partageraient la mémoire. Bloqué au 3 octobre 2026 : numpy publie des wheels
+     `cp314t`, mais `opencv-python-headless` 5.0 seulement des wheels `abi3`,
+     incompatibles avec un Python sans GIL. À revoir avec Python 3.15 et les wheels
+     d'OpenCV qui suivront.
    - **Traiter plusieurs vidéos en parallèle** (un processus par vidéo, nombre de
      processus réglable). Avec 4,8 cœurs déjà pris par vidéo, deux vidéos à la fois
      occupent la machine : gain attendu d'environ ×2, pas ×10. Estimation, à mesurer.

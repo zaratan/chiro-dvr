@@ -4,8 +4,19 @@ from collections.abc import Callable
 
 import pytest
 
-from batdetect.pipeline import Track, TrackConfig, combine, merge_twins, track_detections
-from helpers import by_frame, contiguous, detection, line
+import helpers
+from batdetect.pipeline import Detection, Track, TrackConfig, combine, merge_twins, track_detections
+from helpers import by_frame, contiguous
+
+S = 3
+
+
+def line(start_frame: int, frames: int, start: tuple[float, float], step: tuple[float, float]) -> list[Detection]:
+    return helpers.line(start_frame, frames, (start[0] * S, start[1] * S), (step[0] * S, step[1] * S))
+
+
+def detection(frame: int, x: float, y: float) -> Detection:
+    return helpers.detection(frame, x * S, y * S)
 
 
 def test_straight_flight_gives_one_track() -> None:
@@ -22,8 +33,8 @@ def test_two_crossing_flights_stay_two_tracks() -> None:
     tracks = track_detections(by_frame(a, b), TrackConfig())
 
     assert len(tracks) == 2
-    assert {round(t.first.y) for t in tracks} == {10, 76}
-    assert {round(t.last.y) for t in tracks} == {76, 10}
+    assert {round(t.first.y) for t in tracks} == {10 * S, 76 * S}
+    assert {round(t.last.y) for t in tracks} == {76 * S, 10 * S}
 
 
 def test_gap_shorter_than_max_gap_is_bridged() -> None:
@@ -37,7 +48,7 @@ def test_gap_shorter_than_max_gap_is_bridged() -> None:
 def test_gap_longer_than_max_gap_splits_the_track() -> None:
     flight = [d for d in line(0, 20, (10, 50), (4, 0)) if not 6 <= d.frame <= 13]
 
-    tracks = track_detections(by_frame(flight), TrackConfig(max_gap=6, max_jump=10))
+    tracks = track_detections(by_frame(flight), TrackConfig(max_gap=6, max_jump=10 * S))
 
     assert len(tracks) == 2
 
@@ -58,7 +69,7 @@ def test_tracks_below_min_hits_are_dropped() -> None:
 
 
 def test_flickering_spot_that_does_not_travel_is_dropped() -> None:
-    tracks = track_detections(by_frame(line(0, 20, (50, 50), (0.2, 0))), TrackConfig(min_travel=15))
+    tracks = track_detections(by_frame(line(0, 20, (50, 50), (0.2, 0))), TrackConfig(min_travel=15 * S))
 
     assert tracks == []
 
@@ -87,7 +98,7 @@ def test_fragments_of_one_animal_are_merged_into_one_track() -> None:
     body = line(0, 10, (10, 50), (6, 0))
     wing = line(0, 10, (14, 56), (6, 0))
 
-    tracks = track_detections(by_frame(body, wing), TrackConfig(twin_distance=12))
+    tracks = track_detections(by_frame(body, wing), TrackConfig(twin_distance=12 * S))
 
     assert len(tracks) == 1
     assert len(tracks[0].points) == 10
@@ -97,19 +108,19 @@ def test_two_animals_flying_apart_are_not_merged() -> None:
     a = Track(1, line(0, 10, (10, 50), (6, 0)))
     b = Track(2, line(0, 10, (14, 54), (6, 3)))
 
-    assert len(merge_twins([a, b], max_distance=12)) == 2
+    assert len(merge_twins([a, b], max_distance=12 * S)) == 2
 
 
 def test_tracks_that_never_coexist_are_not_twins() -> None:
     a = Track(1, line(0, 5, (10, 50), (6, 0)))
     b = Track(2, line(10, 5, (12, 50), (6, 0)))
 
-    assert len(merge_twins([a, b], max_distance=12)) == 2
+    assert len(merge_twins([a, b], max_distance=12 * S)) == 2
 
 
 def test_combined_fragment_is_area_weighted_and_boxes_both() -> None:
-    big = detection(0, 10, 10, area=30)
-    small = detection(0, 20, 10, area=10)
+    big = helpers.detection(0, 10, 10, area=30)
+    small = helpers.detection(0, 20, 10, area=10)
 
     merged = combine(big, small)
 

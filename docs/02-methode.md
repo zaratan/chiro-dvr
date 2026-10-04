@@ -4,10 +4,15 @@ Le traitement d'une vidéo se fait en deux passes. La première lit la vidéo en
 détecte et suit. La seconde relit la vidéo en pleine résolution pour dessiner les
 boîtes, puis découpe les extraits.
 
-Les distances des paramètres sont en **pixels de travail** : la vidéo est réduite à
-`work_width` = 480 px de large (hauteur proportionnelle). Pour une vidéo 1440×1080, un
-pixel de travail vaut 3 pixels d'origine. Le CSV, lui, donne les distances en pixels
-d'origine.
+Toutes les distances et surfaces des réglages, des pistes et du CSV sont en **pixels de
+la vidéo d'origine**. Pour détecter, la vidéo est réduite à `work_width` px de large
+(480 par défaut, jamais plus que la vidéo elle-même) ; les détections sont reconverties
+en pixels d'origine dès leur création. Changer `work_width` ne change donc pas le sens
+des autres réglages. Les valeurs par défaut sont celles qui donnaient les résultats
+documentés à 480 px sur une vidéo 1440×1080.
+
+La détection est découpée en tranches de temps traitées en parallèle, avec une
+demi-fenêtre de recouvrement : le résultat est identique au traitement d'un seul tenant.
 
 ## 1. Fond par médiane glissante
 
@@ -44,19 +49,19 @@ Un pixel est retenu si |image − fond − écart de gain| > `threshold`.
 
 ## 4. Taches
 
-- `merge_radius` = 2 : une fermeture morphologique (disque de 5 px) recolle les
-  fragments d'un même animal séparés de moins de ~4 px. Sur la 092 à 3:51, une seule
-  chauve-souris sortait en deux taches distantes de 4 à 6 px.
-- `min_area` = 2 et `max_area` = 300 pixels de travail. L'aire compte les pixels
-  réellement au-dessus du seuil, pas ceux ajoutés par la fermeture. Sous 2, c'est du
-  bruit ; au-dessus de 300, ce n'est plus un petit animal.
+- `merge_radius` = 6 px : une fermeture morphologique recolle les fragments d'un même
+  animal séparés de moins de ~12 px. Sur la 092 à 3:51, une seule chauve-souris sortait
+  en deux taches distantes de 12 à 18 px.
+- `min_area` = 18 et `max_area` = 2 700 px². L'aire compte les pixels réellement
+  au-dessus du seuil, pas ceux ajoutés par la fermeture. En dessous, c'est du bruit ;
+  au-dessus, ce n'est plus un petit animal.
 
 ## 5. Suivi
 
 Chaque image, les détections sont attribuées aux pistes ouvertes.
 
 - **Prédiction** à vitesse constante depuis les deux derniers points.
-- **Appariement** au plus proche dans un rayon `max_jump` = 40 px, mais les pistes qui
+- **Appariement** au plus proche dans un rayon `max_jump` = 120 px, mais les pistes qui
   ont déjà une vitesse passent avant celles d'un seul point. Sans cette priorité, une
   piste naissante (un fragment) volait le point de la vraie piste : le passage de 3:58
   sortait coupé en deux.
@@ -66,18 +71,18 @@ Chaque image, les détections sont attribuées aux pistes ouvertes.
 
 ## 6. Fusion des pistes jumelles
 
-Deux pistes qui coexistent et restent à moins de `twin_distance` = 12 px l'une de
+Deux pistes qui coexistent et restent à moins de `twin_distance` = 36 px l'une de
 l'autre sur **toutes** leurs images communes sont un seul animal fragmenté : elles sont
 fusionnées (boîte englobante, centre pondéré par l'aire). Deux vraies chauves-souris
 s'écartent au moins une fois et restent séparées. Sur la 092 à 2:44, une chauve-souris
-peu contrastée sortait en fragments écartés de 6 à 8 px, trop pour `merge_radius`.
+peu contrastée sortait en fragments écartés de 18 à 24 px, trop pour `merge_radius`.
 
 `twin_distance` = 0 désactive la fusion.
 
 ## 7. Filtres finaux
 
 - `min_hits` = 5 détections : élimine les étincelles d'une ou deux images.
-- `min_travel` = 15 px de bout en bout : élimine un point qui scintille sur place.
+- `min_travel` = 45 px de bout en bout : élimine un point qui scintille sur place.
 
 Les pistes restantes sont numérotées par ordre chronologique. Le numéro change dès
 qu'une piste apparaît ou disparaît plus tôt dans la vidéo : pour désigner un passage,

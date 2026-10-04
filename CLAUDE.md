@@ -38,9 +38,15 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
   tableaux numpy, OpenCV isolé dans `open_video`, `read_gray_frames`, `find_blobs`.
 - `output.py` : vidéo annotée, PNG, CSV, `params.json`, extraits (ffmpeg en sous-processus).
 - `cli.py` : arguments, construction des configs, boucle sur les vidéos.
+- `parallel.py` : détection découpée en tranches de temps, une par processus (`--workers`,
+  par défaut le nombre de cœurs). Chaque tranche lit la vidéo depuis le début et saute
+  jusqu'à elle : jamais `CAP_PROP_POS_FRAMES`, imprécis d'une image en mp4. Le résultat
+  doit rester identique au bit près au traitement séquentiel (tests dans `test_parallel.py`).
 - `synthetic.py` et `bench.py` : fausses chauves-souris injectées en pleine résolution et
   banc de mesure (`batdetect-bench`, [docs/08-banc-de-mesure.md](docs/08-banc-de-mesure.md)).
   Toute amélioration de la détection ou du suivi se mesure au banc avant et après.
+- Toutes les coordonnées, distances et surfaces hors de `find_blobs` sont en pixels de la
+  vidéo d'origine ; seule la détection travaille à `work_width`.
 - Configs en dataclasses gelées qui valident dans `__post_init__` ; pas de `Namespace`
   au-delà de `cli.py`.
 - Chaque retour de `cv2` passe par `np.asarray(..., dtype=...)` : les stubs d'OpenCV

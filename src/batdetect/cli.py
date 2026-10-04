@@ -17,13 +17,12 @@ from batdetect.output import (
     write_params,
     write_tracks_csv,
 )
+from batdetect.parallel import default_workers, detect_video
 from batdetect.pipeline import (
     DetectConfig,
     TrackConfig,
     VideoError,
-    detect_frames,
     open_video,
-    read_gray_frames,
     track_detections,
 )
 
@@ -65,25 +64,27 @@ def add_detection_arguments(ap: argparse.ArgumentParser) -> None:
     d = DetectConfig()
     detect = ap.add_argument_group("detection")
     detect.add_argument("--threshold", type=float, default=d.threshold)
-    detect.add_argument("--min-area", type=int, default=d.min_area)
-    detect.add_argument("--max-area", type=int, default=d.max_area)
+    detect.add_argument("--min-area", type=float, default=d.min_area, help="source pixels²")
+    detect.add_argument("--max-area", type=float, default=d.max_area, help="source pixels²")
     detect.add_argument("--bg-window", type=float, default=d.bg_window_s, help="seconds of rolling median background")
     detect.add_argument("--bg-step", type=int, default=d.bg_step)
     detect.add_argument("--osd-top", type=float, default=d.osd_top)
     detect.add_argument("--osd-bottom", type=float, default=d.osd_bottom)
-    detect.add_argument("--merge-radius", type=int, default=d.merge_radius, help="pixels bridged between fragments")
+    detect.add_argument(
+        "--merge-radius", type=float, default=d.merge_radius, help="source pixels bridged between fragments"
+    )
     detect.add_argument("--work-width", type=int, default=d.work_width)
 
 
 def add_tracking_arguments(ap: argparse.ArgumentParser) -> None:
     t = TrackConfig()
     track = ap.add_argument_group("tracking")
-    track.add_argument("--max-jump", type=float, default=t.max_jump)
+    track.add_argument("--max-jump", type=float, default=t.max_jump, help="source pixels")
     track.add_argument("--max-gap", type=int, default=t.max_gap)
     track.add_argument("--min-hits", type=int, default=t.min_hits)
-    track.add_argument("--min-travel", type=float, default=t.min_travel)
+    track.add_argument("--min-travel", type=float, default=t.min_travel, help="source pixels")
     track.add_argument(
-        "--twin-distance", type=float, default=t.twin_distance, help="max distance between fragments of one animal"
+        "--twin-distance", type=float, default=t.twin_distance, help="source pixels between fragments of one animal"
     )
 
 
@@ -92,6 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="batdetect", description="Detect and track bats in thermal videos.")
     ap.add_argument("inputs", nargs="+", type=Path, help="video files or folders")
     ap.add_argument("-o", "--out-dir", type=Path, default=Path("out"))
+    ap.add_argument("--workers", type=int, default=default_workers(), help="parallel processes for detection")
     add_detection_arguments(ap)
     add_tracking_arguments(ap)
     render = ap.add_argument_group("output")
@@ -131,12 +133,10 @@ def build_configs(ns: argparse.Namespace) -> tuple[DetectConfig, TrackConfig, Re
     return build_detect_config(ns), build_track_config(ns), render
 
 
-def process(job: Job, detect: DetectConfig, track: TrackConfig, render: RenderConfig) -> None:
+def process(job: Job, detect: DetectConfig, track: TrackConfig, render: RenderConfig, workers: int) -> None:
     cap, info = open_video(job.video, detect.work_width)
-    try:
-        detections = detect_frames(read_gray_frames(cap, info), info.fps, detect)
-    finally:
-        cap.release()
+    cap.release()
+    detections = detect_video(job.video, detect, info, workers)[0]
     tracks = track_detections(detections, track)
     job.dest.mkdir(parents=True, exist_ok=True)
     stem = job.video.stem
@@ -175,7 +175,7 @@ def main(argv: list[str] | None = None) -> int:
     failures = 0
     for job in jobs:
         try:
-            process(job, *configs)
+            process(job, *configs, max(1, ns.workers))
         except (VideoError, ValueError, OSError) as err:
             failures += 1
             print(f"{job.video}: {err}", file=sys.stderr)

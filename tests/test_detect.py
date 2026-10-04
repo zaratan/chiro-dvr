@@ -9,24 +9,25 @@ from batdetect.pipeline import DetectConfig, detect_frames
 from helpers import background, moving_square_frames, with_square
 
 FPS = 30.0
+SCALE = 3.0
 
 
 def test_dark_moving_spot_is_detected_on_every_frame_at_its_centroid() -> None:
     frames = moving_square_frames(40, start=(20, 60), step=(3, 0))
 
-    detections = detect_frames(frames, FPS, DetectConfig())
+    detections = detect_frames(frames, FPS, DetectConfig(), SCALE)
 
     assert sorted(detections) == list(range(40))
     for frame, found in detections.items():
         assert len(found) == 1
-        assert found[0].x == pytest.approx(21 + 3 * frame, abs=0.5)
-        assert found[0].y == pytest.approx(61, abs=0.5)
+        assert found[0].x == pytest.approx(SCALE * (21 + 3 * frame), abs=1.5)
+        assert found[0].y == pytest.approx(SCALE * 61, abs=1.5)
 
 
 def test_bright_moving_spot_is_detected_too() -> None:
     frames = [with_square(background(160, 120, seed=i), 20 + 3 * i, 60, delta=50) for i in range(40)]
 
-    detections = detect_frames(frames, FPS, DetectConfig())
+    detections = detect_frames(frames, FPS, DetectConfig(), SCALE)
 
     assert all(len(found) == 1 for found in detections.values())
 
@@ -35,7 +36,7 @@ def test_global_brightness_jump_is_not_motion() -> None:
     frames = [background(160, 120, seed=i) for i in range(40)]
     frames = [f if i < 20 else np.clip(f.astype(np.int16) + 30, 0, 255).astype(np.uint8) for i, f in enumerate(frames)]
 
-    detections = detect_frames(frames, FPS, DetectConfig())
+    detections = detect_frames(frames, FPS, DetectConfig(), SCALE)
 
     assert all(found == [] for found in detections.values())
 
@@ -43,7 +44,7 @@ def test_global_brightness_jump_is_not_motion() -> None:
 def test_spot_inside_the_osd_band_is_ignored() -> None:
     frames = moving_square_frames(40, start=(20, 2), step=(3, 0))
 
-    detections = detect_frames(frames, FPS, DetectConfig(osd_top=0.07))
+    detections = detect_frames(frames, FPS, DetectConfig(osd_top=0.07), SCALE)
 
     assert all(found == [] for found in detections.values())
 
@@ -51,21 +52,21 @@ def test_spot_inside_the_osd_band_is_ignored() -> None:
 def test_blobs_outside_area_bounds_are_ignored() -> None:
     frames = moving_square_frames(40)
 
-    assert all(found == [] for found in detect_frames(frames, FPS, DetectConfig(min_area=10)).values())
-    assert all(found == [] for found in detect_frames(frames, FPS, DetectConfig(max_area=8)).values())
+    assert all(found == [] for found in detect_frames(frames, FPS, DetectConfig(min_area=90), SCALE).values())
+    assert all(found == [] for found in detect_frames(frames, FPS, DetectConfig(max_area=72), SCALE).values())
 
 
 def test_video_shorter_than_the_background_window_is_still_analysed() -> None:
     frames = moving_square_frames(12, step=(4, 0))
 
-    detections = detect_frames(frames, FPS, DetectConfig(bg_window_s=1.0))
+    detections = detect_frames(frames, FPS, DetectConfig(bg_window_s=1.0), SCALE)
 
     assert sorted(detections) == list(range(12))
     assert all(len(found) == 1 for found in detections.values())
 
 
 def test_no_frames_gives_no_detections() -> None:
-    assert detect_frames([], FPS, DetectConfig()) == {}
+    assert detect_frames([], FPS, DetectConfig(), SCALE) == {}
 
 
 def test_fragments_closer_than_merge_radius_become_one_blob() -> None:
@@ -73,11 +74,11 @@ def test_fragments_closer_than_merge_radius_become_one_blob() -> None:
         with_square(with_square(background(160, 120, seed=i), 20 + 3 * i, 60), 20 + 3 * i + 5, 60) for i in range(40)
     ]
 
-    merged = detect_frames(frames, FPS, DetectConfig(merge_radius=2))
-    split = detect_frames(frames, FPS, DetectConfig(merge_radius=0))
+    merged = detect_frames(frames, FPS, DetectConfig(merge_radius=6), SCALE)
+    split = detect_frames(frames, FPS, DetectConfig(merge_radius=0), SCALE)
 
     assert all(len(found) == 1 for found in merged.values())
-    assert all(found[0].area == 18 for found in merged.values())
+    assert all(found[0].area == 18 * SCALE**2 for found in merged.values())
     assert all(len(found) == 2 for found in split.values())
 
 
