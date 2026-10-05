@@ -49,5 +49,8 @@ pythonVersion = "3.14"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["tests"]
-addopts = ["--strict-markers"]
-markers = ["slow: runs the detector on the real fixture video"]
+addopts = ["--strict-markers", "-m", "not reference"]
+markers = [
+    "slow: runs the detector on the real fixture video",
+    "reference: runs the detector on the whole 092 video, stored with Git LFS",
+]

@@ -9,14 +9,19 @@ import cv2
 import numpy as np
 import pytest
 
-from batdetect.detect import Detection
+from batdetect.detect import DetectConfig, Detection
 from batdetect.output.config import VIDEOTOOLBOX, X264, RenderConfig
 from batdetect.output.encoder import encoder_failure
-from batdetect.video import GrayFrame
+from batdetect.parallel import detect_video
+from batdetect.stability import StabilityConfig, unstable_spans, without_spans
+from batdetect.track import Track, TrackConfig, track_detections
+from batdetect.video import GrayFrame, open_video
 
 BACKGROUND = 200
 GUARD_TIMEOUT_S = 5.0
 NOISE = 3
+START_TOLERANCE_FRAMES = 5
+HITS_TOLERANCE = 3
 
 
 def detection(frame: int, x: float, y: float, area: int = 9) -> Detection:
@@ -39,6 +44,20 @@ def contiguous(detections: Iterable[Detection], frames: int) -> dict[int, list[D
     for det in detections:
         out[det.frame].append(det)
     return out
+
+
+def tracks_with_defaults(video: Path) -> tuple[list[Track], float]:
+    detect = DetectConfig()
+    cap, info = open_video(video, detect.work_width)
+    cap.release()
+    detections = detect_video(video, detect, info, workers=1)[0]
+    spans = unstable_spans(detections, info.fps, StabilityConfig())
+    return track_detections(without_spans(detections, spans), TrackConfig()), info.fps
+
+
+def assert_matches_reference(tracks: list[Track], start_frames: list[int], hits: list[int]) -> None:
+    assert [t.first.frame for t in tracks] == pytest.approx(start_frames, abs=START_TOLERANCE_FRAMES)
+    assert [len(t.points) for t in tracks] == pytest.approx(hits, abs=HITS_TOLERANCE)
 
 
 def background(width: int, height: int, seed: int = 0) -> GrayFrame:
