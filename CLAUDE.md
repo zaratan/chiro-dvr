@@ -27,6 +27,11 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 - **L'extrait `tests/fixtures/video_092_original_3m24-4m05.mp4` est coupé sans réencodage**
   sur une image-clé de l'original (image source 6150, 30,03 i/s). Le réencoder changerait
   les détections.
+- **La 092 entière `tests/fixtures/video_092_original.mp4` est suivie par Git LFS**
+  (`.gitattributes`), copie exacte de `in/`. Son test, marqueur `reference`, est exclu de
+  `pytest` par défaut et tourne dans sa propre tâche de CI : `uv run pytest -m reference`.
+  Tolérances du test de référence, sur les deux vidéos : nombre de pistes exact, début ±5
+  images, points ±3, qui couvrent l'écart mesuré entre Mac et Linux (4 images, 2 points).
 - **Les vidéos se copient depuis les jumelles en USB**, jamais par l'export Stream Vision 2,
   qui divise le débit par 12 ([docs/01-contexte.md](docs/01-contexte.md)).
 - **Docs synchronisées** : un changement de comportement met à jour `docs/` dans la même

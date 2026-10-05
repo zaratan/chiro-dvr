@@ -5,10 +5,12 @@ extrait par passage pour validation par une naturaliste.
 
 ## Installation
 
-Prérequis : [mise](https://mise.jdx.dev/) et ffmpeg (`brew install ffmpeg` sur macOS,
-`apt install ffmpeg` sur Debian/Ubuntu ; testé avec ffmpeg 9).
+Prérequis : [mise](https://mise.jdx.dev/), ffmpeg (`brew install ffmpeg` sur macOS,
+`apt install ffmpeg` sur Debian/Ubuntu ; testé avec ffmpeg 9) et Git LFS pour la vidéo de
+référence des tests.
 
 ```bash
+git lfs install     # avant le clone, ou git lfs pull après
 mise install        # Python 3.14.8, uv, lefthook aux versions de mise.toml
 uv sync             # dépendances dans .venv/ depuis uv.lock
 lefthook install    # hooks avant commit (ruff)
@@ -53,7 +55,9 @@ Le détail de la méthode et des réglages est dans [docs/02-methode.md](docs/02
 
 ```bash
 mise run check      # lint + format + types + tests, doit être vert avant tout commit
-mise run test       # tests seuls (uv run pytest -m "not slow" pour sauter l'extrait réel)
+mise run test       # tests seuls, sans la 092 entière
+uv run pytest -m "not slow and not reference"   # sans aucune vraie vidéo
+uv run pytest -m reference                       # la 092 entière, ses 14 pistes (environ 40 s)
 mise run coverage
 mise run format
 uv run batdetect-bench in/video_092_original.mp4   # banc de mesure (docs/08)

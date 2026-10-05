@@ -8,10 +8,17 @@ import numpy as np
 import pytest
 
 from batdetect.cli import main
-from batdetect.detect import DetectConfig, detect_frames
-from batdetect.track import TrackConfig, track_detections
-from batdetect.video import GrayFrame, open_video, read_gray_frames
-from helpers import NOISE, background, requires_ffmpeg, with_square, write_video
+from batdetect.track import Track
+from batdetect.video import GrayFrame
+from helpers import (
+    NOISE,
+    assert_matches_reference,
+    background,
+    requires_ffmpeg,
+    tracks_with_defaults,
+    with_square,
+    write_video,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "video_092_original_3m24-4m05.mp4"
 SLIDE_STEP = 4
@@ -103,19 +110,25 @@ def test_unreadable_video_fails_without_stopping_the_others(tmp_path: Path) -> N
     assert (tmp_path / "out" / "ok" / "ok.tracks.csv").exists()
 
 
+@pytest.fixture(scope="module")
+def extract_tracks() -> tuple[list[Track], float]:
+    return tracks_with_defaults(FIXTURE)
+
+
 @pytest.mark.slow
-def test_bats_confirmed_by_the_naturalist_are_tracked() -> None:
-    cap, info = open_video(FIXTURE, DetectConfig().work_width)
-    try:
-        detections = detect_frames(read_gray_frames(cap, info), info.fps, DetectConfig(), info.scale)
-    finally:
-        cap.release()
-    tracks = track_detections(detections, TrackConfig())
+def test_bats_confirmed_by_the_naturalist_are_tracked(extract_tracks: tuple[list[Track], float]) -> None:
+    tracks, fps = extract_tracks
 
     def active_at(source_s: float) -> bool:
-        frame = (source_s - FIXTURE_START_S) * info.fps
-        return any(t.first.frame - info.fps <= frame <= t.last.frame + info.fps for t in tracks)
+        frame = (source_s - FIXTURE_START_S) * fps
+        return any(t.first.frame - fps <= frame <= t.last.frame + fps for t in tracks)
 
     assert active_at(3 * 60 + 36)
     assert active_at(3 * 60 + 58)
-    assert 4 <= len(tracks) <= 6
+
+
+@pytest.mark.slow
+def test_extract_keeps_its_four_tracks_within_the_noise_between_platforms(
+    extract_tracks: tuple[list[Track], float],
+) -> None:
+    assert_matches_reference(extract_tracks[0], start_frames=[144, 705, 787, 976], hits=[287, 16, 21, 18])

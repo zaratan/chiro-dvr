@@ -40,6 +40,15 @@ binaire unique à des naturalistes sans Python.
 - **lefthook** plutôt que prek ou pre-commit : binaire unique, `{staged_files}` natif,
   et les hooks lancent `uv run ruff`, donc la version de `uv.lock`.
 - **Extrait réel dans git**, pas en LFS : 5,3 Mo une fois pour toutes.
+- **092 entière en LFS** (454 Mo, accord de la naturaliste) : test à marqueur `reference`,
+  exclu de `pytest` par défaut, dans une tâche de CI parallèle qui garde l'objet LFS en
+  cache pour ne pas entamer le quota de téléchargement LFS de GitHub à chaque passage.
+- **Tolérances des tests sur vraie vidéo** : nombre de pistes exact, début ±5 images,
+  points ±3. La même vidéo ne donne pas les mêmes pistes sur Mac arm64 et Linux : jusqu'à
+  4 images de décalage sur un début et 2 points d'écart (mesuré en octobre 2026, OpenCV
+  5.0.0). Sur l'extrait, ces tolérances attrapent `threshold` 35 et 45 ; sur la 092
+  entière, tous les réglages dégradés essayés sauf `merge_radius` 0, absorbé par la
+  fusion des jumelles.
 - **Pas de seuil de couverture** (`mise run coverage` pour la voir) : un pourcentage
   bloquant n'a pas de sens sur un outil de cette taille.
 - **CI** : `jdx/mise-action` installe les versions de `mise.toml`, actions épinglées
