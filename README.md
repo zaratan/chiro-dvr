@@ -6,11 +6,12 @@ extrait par passage pour validation par une naturaliste.
 ## Installation
 
 Prérequis : [mise](https://mise.jdx.dev/), ffmpeg (`brew install ffmpeg` sur macOS,
-`apt install ffmpeg` sur Debian/Ubuntu ; testé avec ffmpeg 9) et Git LFS pour la vidéo de
-référence des tests.
+`apt install ffmpeg` sur Debian/Ubuntu ; testé avec ffmpeg 9) et Git LFS pour les deux
+vidéos de test (l'extrait et la 092 entière).
 
 ```bash
-git lfs install     # avant le clone, ou git lfs pull après
+git lfs install     # une fois par machine, avant le clone
+git lfs pull        # après un clone fait sans LFS : sinon les tests sur vraie vidéo échouent
 mise install        # Python 3.14.8, uv, lefthook aux versions de mise.toml
 uv sync             # dépendances dans .venv/ depuis uv.lock
 lefthook install    # hooks avant commit (ruff)

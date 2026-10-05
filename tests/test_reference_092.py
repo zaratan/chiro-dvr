@@ -7,13 +7,10 @@ import pytest
 from helpers import assert_matches_reference, tracks_with_defaults
 
 WHOLE_092 = Path(__file__).parent / "fixtures" / "video_092_original.mp4"
-LFS_POINTER_MAX_BYTES = 1024
 
 
 @pytest.mark.reference
 def test_whole_092_keeps_its_fourteen_tracks_within_the_noise_between_platforms() -> None:
-    if WHOLE_092.stat().st_size <= LFS_POINTER_MAX_BYTES:
-        pytest.fail(f"{WHOLE_092.name} is a Git LFS pointer: run git lfs pull")
     tracks, _ = tracks_with_defaults(WHOLE_092)
 
     assert_matches_reference(

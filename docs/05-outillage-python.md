@@ -39,10 +39,14 @@ binaire unique à des naturalistes sans Python.
   montée de version.
 - **lefthook** plutôt que prek ou pre-commit : binaire unique, `{staged_files}` natif,
   et les hooks lancent `uv run ruff`, donc la version de `uv.lock`.
-- **Extrait réel dans git**, pas en LFS : 5,3 Mo une fois pour toutes.
+- **Extrait réel en LFS** (5,3 Mo) : GitHub refusait le fichier dans git. La tâche
+  `check` de la CI ne télécharge que lui, et le garde en cache.
 - **092 entière en LFS** (454 Mo, accord de la naturaliste) : test à marqueur `reference`,
   exclu de `pytest` par défaut, dans une tâche de CI parallèle qui garde l'objet LFS en
   cache pour ne pas entamer le quota de téléchargement LFS de GitHub à chaque passage.
+- **Vidéo absente** : sans `git lfs pull`, une vidéo de test n'est qu'un pointeur de
+  quelques octets. `tests/conftest.py` arrête alors les tests `slow` et `reference` avec
+  ce message, au lieu d'un `VideoError` peu lisible.
 - **Tolérances des tests sur vraie vidéo** : nombre de pistes exact, début ±5 images,
   points ±3. La même vidéo ne donne pas les mêmes pistes sur Mac arm64 et Linux : jusqu'à
   4 images de décalage sur un début et 2 points d'écart (mesuré en octobre 2026, OpenCV
