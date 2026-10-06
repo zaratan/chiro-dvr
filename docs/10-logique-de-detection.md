@@ -15,6 +15,8 @@ tache, régularité.
 vidéo ─► image grise réduite ─► fond (médiane) ─► résidu ─► seuil ─► taches
                                                                         │
       pistes gardées ◄─ filtres ◄─ fusion des jumelles ◄─ suivi ◄─ images instables retirées
+                                                                        ▲
+vidéo ─► ffprobe, un fil (pendant la détection) ─────────────────► images illisibles retirées
 ```
 
 | Étape | Module | Outil | Question posée |
@@ -24,6 +26,7 @@ vidéo ─► image grise réduite ─► fond (médiane) ─► résidu ─► 
 | Gain | `detect.py` | différence de moyennes | L'image entière a-t-elle changé de luminosité ? |
 | Seuil | `detect.py` | valeur absolue, seuil fixe | Ce pixel s'écarte-t-il assez du fond ? |
 | Taches | `detect.py` | fermeture morphologique, composantes connexes | Quels pixels forment un même objet ? |
+| Illisible | `probe.py`, `damage.py`, `exclusion.py` | journal de décodage d'ffprobe, images-clés | Le décodeur a-t-il dû réparer l'image ? |
 | Stabilité | `stability.py` | comptage, médiane | Les jumelles ont-elles bougé ? |
 | Suivi | `track.py` | prédiction linéaire, plus proche voisin | Cette tache prolonge-t-elle une piste ? |
 | Jumelles | `track.py` | union-find | Deux pistes sont-elles un seul animal ? |
@@ -123,6 +126,80 @@ gardée entre 4 et 2 700 px² d'origine. Le plancher laisse passer une tache d'u
 pixel réduit : c'est ce qui trouve les petites cibles, au prix d'un bruit que le suivi
 doit ensuite écarter.
 
+## 5 bis. Écarter les images que le décodeur a réparées
+
+**Le problème.** Sur 17 des 22 vidéos des sessions du 2 septembre et du 2 octobre 2026,
+il manque quelques octets à la fin de certaines images. Le décodeur bouche le trou par
+*dissimulation d'erreur* : il recopie un morceau d'image voisine. OpenCV rend cette image
+réparée sans rien dire. Une image P réparée sert de référence aux suivantes, donc le
+dégât dure jusqu'à l'image-clé suivante (8 à 16 images). Sur la 122, cela donnait des
+centaines de fausses pistes ; une fois le filtre de stabilité en place, les deux tiers de
+la vidéo ignorés comme « jumelles qui bougent ».
+
+**Outil.** Une passe **ffprobe** lit tout le fichier pendant que la détection tourne
+(`-show_log 16`). Elle range chaque message d'erreur du décodeur sous l'image qui l'a
+produit, et donne les images-clés et les horodatages (`pts`). Une image est abîmée si elle
+porte un message de niveau erreur, ou si elle suit un trou dans les `pts` de plus d'un pas
+et demi (13 images jamais décodées sur la 122, sans aucun message). La plage écartée va
+de l'image abîmée à l'image qui précède la prochaine image-clé.
+
+**Pourquoi une marge.** Le fond d'une image est la médiane de ±½ s d'images
+(§ 2). Une image saine à moins d'une demi-fenêtre d'une image réparée a donc un fond
+faux. Mesuré sur la 122 sans marge : les 81 images qui déclenchaient encore le filtre de
+stabilité étaient toutes à 9 images au plus d'une plage abîmée, avant comme après, et les
+4 pistes restantes finissaient toutes 1 à 6 images avant une plage. Chaque plage est donc
+élargie de la demi-fenêtre du fond de chaque côté (`half_window`, 15 images à 30 i/s),
+avant la fusion des plages, avant la stabilité et avant le suivi.
+
+**Pourquoi ffprobe et pas OpenCV.** OpenCV ne signale rien : `cap.read()` répond « vrai ».
+Changer de décodeur pour la détection est exclu, parce que la conversion en gris d'ffmpeg
+diffère de celle d'OpenCV ([09](09-profilage.md)). Il faut donc relier chaque message
+d'ffprobe à l'image d'OpenCV de même numéro. C'est vérifié sur la 122 : horodatages
+identiques sur les 8 998 images, et contenu de même numéro dans 8 993 cas sur 8 993
+comparés. L'ordre des
+messages sur la sortie d'erreur d'`ffmpeg`, lui, est décalé d'une à deux images, et
+ffprobe sur plusieurs fils rattache mal les messages : la passe tourne sur un seul fil.
+
+**Ce que la sortie en dit.** Le temps écarté est signalé à part des mouvements :
+« illisible 3 min 22 s (79 plages) » dans le bandeau, une ligne `damaged` en console,
+`damaged_s` dans `params.json`. Ce temps **inclut la marge**. `damaged_frames` compte les
+images signalées par le décodeur ou qui suivent un trou (196 sur la 122), pas les images
+écartées (6 043). Si ffprobe et OpenCV ne voient pas le même nombre d'images, les numéros
+ne se correspondent plus : la vidéo échoue, et les autres vidéos du lot continuent.
+
+**Ce que ça coûte.**
+
+| Vidéo | Images signalées | Illisible | Instable restant | Union | Pistes avant → après |
+| --- | --- | --- | --- | --- | --- |
+| 122 (195 erreurs) | 196 | 201,2 s en 79 plages | 0 s | 201,2 s sur 300 | 25 → 0 |
+| 093 (11 erreurs) | 11 | 14,0 s en 8 plages | 2,1 s | 16,0 s | 4 → 3 |
+| 092 (aucune) | 0 | 0 s | 0 s | 0 s | 14 → 14 |
+
+Sur une vidéo très abîmée, la marge coûte cher : sans elle, la 122 gardait 77,8 s
+illisibles, mais aussi 50,3 s instables et 4 pistes collées aux plages. Avec 15 images de
+marge, il reste environ 98 s analysées sur les 300 de la vidéo. La passe ffprobe double environ le temps de
+traitement de toute vidéo, abîmée ou non ([09](09-profilage.md), #36).
+
+**Limites.**
+
+- Une tranche très abîmée peut ne produire aucun message (vu sur une vidéo fabriquée en
+  coupant 60 % d'une tranche) : l'image passe alors pour saine.
+- Un nombre d'images égal ne prouve pas l'alignement : une image perdue au début et une
+  image doublée plus loin passeraient le contrôle. L'écart entre les deux décodeurs dépend de
+  leurs versions d'ffmpeg : sur une vidéo fabriquée dont une tranche est coupée entière,
+  ffprobe 9 compte 118 images et OpenCV (libavcodec 61) 46, alors que ffmpeg 6 sous Ubuntu
+  et OpenCV en comptent tous deux 119. Le contrôle protège le cas où l'écart existe.
+- Le dégât s'arrête à l'image-clé parce que les images-clés des jumelles sont des IDR, sans
+  image B. Un autre appareil pourrait ne pas respecter cette hypothèse.
+- Après un trou d'images, les temps calculés par numéro d'image avancent sur l'horloge de
+  la vidéo (0,43 s sur la 122, #35).
+- OpenCV écrit ses messages `[h264 @ …]` sur la sortie d'erreur pour chaque image réparée,
+  ce qui noie la sortie de la commande (#34).
+- La lecture d'une image réparée par OpenCV n'est pas reproductible quand la conversion
+  suit la lecture de trop près : sans marge, deux traitements de la 122 ne donnaient pas
+  les mêmes plages instables. La marge couvre tout l'effet mesuré (cinq traitements
+  identiques).
+
 ## 6. Écarter les images où les jumelles bougent
 
 **Outil.** Un simple **comptage**. Une image est suspecte si elle porte au moins 20
@@ -142,8 +219,8 @@ suspecte, et la période est toujours signalée. L'outil préfère dire « je n'
 regardé ici » plutôt que produire des centaines de fausses pistes.
 
 **Limites.** Un essaim de 20 animaux dans une image serait pris pour un mouvement. Les
-erreurs de décodage du fichier produisent le même symptôme et font ignorer de longues
-périodes (issue #1).
+images abîmées au décodage produisaient le même symptôme ; elles sont retirées avant ce
+comptage (§ 5 bis) et ne passent plus pour un mouvement.
 
 ## 7. Relier les taches dans le temps : le suivi
 
@@ -238,4 +315,6 @@ jugement de la naturaliste.
 | L'animal s'écarte du fond de plus de 25 niveaux | Il n'est pas vu ; le ciel saturé est aveugle |
 | Le vol est régulier d'une image à la suivante | La piste se coupe ou est rejetée |
 | Deux animaux proches finissent par s'écarter | Ils sont fusionnés en un seul |
-| Le fichier se décode sans erreur | Les erreurs passent pour un mouvement |
+| Le décodeur signale chaque image qu'il répare | Une image réparée en silence passe pour une vraie scène |
+| Les images-clés arrêtent le dégât (IDR, sans image B) | Le dégât déborde au-delà de la plage écartée |
+| ffprobe et OpenCV numérotent les images de la même façon | La vidéo échoue si les nombres d'images diffèrent ; sinon, non contrôlé |

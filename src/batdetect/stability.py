@@ -5,6 +5,7 @@ import statistics
 from dataclasses import dataclass
 
 from batdetect.detect import Detection
+from batdetect.spans import Span
 
 TYPICAL_FACTOR = 6
 
@@ -19,15 +20,6 @@ class StabilityConfig:
             raise ValueError("max_blobs must be >= 0")
         if not (math.isfinite(self.pad_s) and self.pad_s >= 0):
             raise ValueError("pad_s must be a finite number >= 0")
-
-
-@dataclass(frozen=True, slots=True)
-class Span:
-    first: int
-    last: int
-
-    def contains(self, frame: int) -> bool:
-        return self.first <= frame <= self.last
 
 
 def crowd_limit(counts: list[int], max_blobs: int) -> float:
@@ -48,7 +40,3 @@ def unstable_spans(detections: dict[int, list[Detection]], fps: float, cfg: Stab
         else:
             spans.append(Span(first, last))
     return spans
-
-
-def without_spans(detections: dict[int, list[Detection]], spans: list[Span]) -> dict[int, list[Detection]]:
-    return {f: [] if any(s.contains(f) for s in spans) else found for f, found in detections.items()}

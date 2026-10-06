@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from batdetect.bench.collect import BenchRun
 from batdetect.bench.config import MatchConfig
+from batdetect.damage import Probe
 from batdetect.detect import Detection
 from batdetect.synthetic.injection import Observation
 from batdetect.synthetic.trajectory import SyntheticBat
@@ -12,6 +13,9 @@ INFO = VideoInfo(fps=30.0, frame_count=100, width=480, height=360, work_width=16
 
 
 MATCH = MatchConfig(radius=12, purity=0.5)
+
+
+KEY_INTERVAL = 15
 
 
 def bat_along(bat_id: int, frames: range, y: float = 60) -> SyntheticBat:
@@ -32,7 +36,16 @@ def detections_on(bat: SyntheticBat, skip: set[int] | None = None) -> dict[int, 
     return out
 
 
-def make_run(bats: list[SyntheticBat], injected: dict[int, list[Detection]], effective: float = -40) -> BenchRun:
+def make_run(
+    bats: list[SyntheticBat],
+    injected: dict[int, list[Detection]],
+    *,
+    effective: float = -40,
+    damaged: tuple[int, ...] = (),
+    reference: dict[int, list[Detection]] | None = None,
+) -> BenchRun:
     frames = {f: injected.get(f, []) for f in range(INFO.frame_count)}
     observations = {b.id: observations_of(b, effective) for b in bats}
-    return BenchRun("k", INFO, {f: [] for f in range(INFO.frame_count)}, frames, bats, observations)
+    probe = Probe(INFO.frame_count, damaged, (), tuple(range(0, INFO.frame_count, KEY_INTERVAL)))
+    references = {f: (reference or {}).get(f, []) for f in range(INFO.frame_count)}
+    return BenchRun("k", INFO, references, frames, bats, probe, 0, observations)

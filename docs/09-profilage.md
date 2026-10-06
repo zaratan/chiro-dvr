@@ -183,3 +183,32 @@ SSIM de l'extrait 5 contre l'original 0,955 → 0,974, pour 159 Mo d'extraits au
 142. Sans `--annotated`, le dossier de sortie de la 092 passe d'environ 900 Mo à 160 Mo.
 La lecture saute les images hors des extraits sans les convertir et s'arrête après le
 dernier (3:58 sur 5:00). Total de la commande par défaut à remesurer sur machine calme.
+
+## Passe ffprobe des images illisibles (issue #1)
+
+Les images que le décodeur répare sont repérées par `ffprobe -threads 1 -show_log 16`
+([10](10-logique-de-detection.md)). Mesures sous verrou, une commande à la fois, second
+lancement ou lancements répétés.
+
+| | Passe seule | Commande avant | Commande après | CPU avant → après |
+| --- | --- | --- | --- | --- |
+| 092 (aucune erreur) | 56 à 58 s | 33,8 s | 68,3 s | 170 → 221 s |
+| 093 (11 erreurs) | | 27,4 s | 65,7 s | 159 → 210 s |
+| 122 (195 erreurs) | 54 à 59 s | 59,5 s | 58,6 s (5 lancements de 58,5 à 59,1 s) | 191 → 177 s |
+
+La passe dure environ 55 s par 5 min, que la vidéo soit abîmée ou non, sur un seul cœur.
+Elle tourne pendant la détection, mais devient l'étape la plus longue : le traitement
+complet d'une vidéo saine double environ. La 122 ne ralentit pas parce qu'il ne reste
+presque rien à analyser ni aucun extrait à encoder. Sur la même vidéo, les temps d'une
+commande varient jusqu'à 30 % d'un lancement à l'autre ; le temps CPU, lui, est stable.
+
+Éliminé pour accélérer la passe :
+
+- **ffprobe sur plusieurs fils** (`-threads 0`) : 10 s au lieu de 56 sur la 122, mais
+  192 images signalées au lieu de 195 et rattachées aux mauvaises images.
+- **`-skip_loop_filter all`** : mêmes 195 images, 2 s de gagnées seulement.
+- **`-flags2 fast`** : mêmes 195 images, 14 s de plus.
+- **L'ordre des messages sur la sortie d'erreur d'`ffmpeg`** : décalé d'une à deux images
+  avec ffmpeg 9, donc inutilisable.
+
+L'accélération de la passe se mesure dans l'issue #36.

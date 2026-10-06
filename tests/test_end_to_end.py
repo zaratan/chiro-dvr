@@ -2,18 +2,23 @@ from __future__ import annotations
 
 import csv
 import json
+from collections.abc import Generator
+from contextlib import contextmanager
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 from batdetect.cli import main
+from batdetect.probe import ProbeOutcome, probing
 from batdetect.track import Track
 from batdetect.video import GrayFrame
 from helpers import (
     NOISE,
     assert_matches_reference,
     background,
+    damaged_video,
     requires_ffmpeg,
     tracks_with_defaults,
     with_square,
@@ -67,6 +72,8 @@ def test_folder_run_writes_every_output_for_each_video(tmp_path: Path) -> None:
     params = json.loads((dest / "params.json").read_text())
     assert params["TrackConfig"]["min_hits"] == 6
     assert params["RenderConfig"]["encoder"] in {"x264", "videotoolbox"}
+    assert (params["damaged_s"], params["damaged_frames"]) == ([], 0)
+    assert params["ffprobe"].startswith("ffprobe version")
 
 
 @requires_ffmpeg
@@ -108,6 +115,49 @@ def test_unreadable_video_fails_without_stopping_the_others(tmp_path: Path) -> N
 
     assert main([str(videos), "-o", str(tmp_path / "out")]) == 1
     assert (tmp_path / "out" / "ok" / "ok.tracks.csv").exists()
+
+
+@requires_ffmpeg
+def test_damaged_time_is_reported_apart_and_counted_in_the_ignored_total(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    videos = tmp_path / "in"
+    videos.mkdir()
+    damaged_video(videos / "cut.mp4", {20, 21, 50})
+
+    assert main([str(videos), "-o", str(tmp_path / "out")]) == 0
+
+    params = json.loads((tmp_path / "out" / "cut" / "params.json").read_text())
+    assert params["damaged_s"] == [[0.17, 2.5]]
+    assert params["damaged_frames"] == 3
+    assert params["ignored_s"] == []
+    out = capsys.readouterr().out
+    assert "2.3 s ignored" in out
+    assert "  damaged 2.3 s in 1 span, detections ignored" in out
+
+
+@requires_ffmpeg
+def test_video_whose_frame_numbers_cannot_be_matched_fails_without_stopping_the_others(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    videos = tmp_path / "in"
+    videos.mkdir()
+    write_video(videos / "lost.mp4", flying_square(60, step=(3, 0)), fps=30)
+    write_video(videos / "ok.mp4", flying_square(60, step=(3, 0)), fps=30)
+
+    @contextmanager
+    def probing_one_frame_more_on_lost(video: Path) -> Generator[ProbeOutcome]:
+        with probing(video) as outcome:
+            yield outcome
+        if video.name == "lost.mp4":
+            outcome.found = replace(outcome.probe, frame_count=outcome.probe.frame_count + 1)
+
+    monkeypatch.setattr("batdetect.cli.probing", probing_one_frame_more_on_lost)
+
+    assert main([str(videos), "-o", str(tmp_path / "out")]) == 1
+    assert "frame numbers do not match" in capsys.readouterr().err
+    assert (tmp_path / "out" / "ok" / "ok.tracks.csv").exists()
+    assert not (tmp_path / "out" / "lost").exists()
 
 
 @pytest.fixture(scope="module")

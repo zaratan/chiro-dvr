@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -57,6 +58,8 @@ def main(argv: list[str] | None = None) -> int:
         sampling = Sampling(ns.seed, classes, ns.per_class, 3 * match.radius)
     except ValueError as err:
         parser.error(str(err))
+    if shutil.which("ffprobe") is None:
+        parser.error("ffprobe not found in PATH")
     dest = out_dir / video.stem
     try:
         setup = BenchSetup(video, detect, track, stability, sampling, max(1, ns.workers))

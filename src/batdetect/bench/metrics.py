@@ -8,7 +8,9 @@ from batdetect.bench.collect import BenchRun
 from batdetect.bench.config import MatchConfig
 from batdetect.bench.matching import assign_tracks, matches_reference, near, reference_points, truth_by_frame
 from batdetect.detect import Region
-from batdetect.stability import StabilityConfig, unstable_spans, without_spans
+from batdetect.exclusion import exclude
+from batdetect.spans import covered_frames
+from batdetect.stability import StabilityConfig
 from batdetect.synthetic.injection import Observation
 from batdetect.synthetic.trajectory import Motion
 from batdetect.track import TrackConfig, track_detections
@@ -64,11 +66,11 @@ def evaluate(
     stability: StabilityConfig = DEFAULT_STABILITY,
 ) -> Evaluation:
     truth = truth_by_frame(run)
-    ignored = unstable_spans(run.injected, run.info.fps, stability)
-    injected_tracks = track_detections(without_spans(run.injected, ignored), track)
-    reference = run.reference
+    injected = exclude(run.injected, run.probe, run.margin, run.info.fps, stability)
+    ignored = covered_frames(injected.ignored_spans)
+    injected_tracks = track_detections(injected.detections, track)
     reference_tracks = track_detections(
-        without_spans(reference, unstable_spans(reference, run.info.fps, stability)), track
+        exclude(run.reference, run.probe, run.margin, run.info.fps, stability).detections, track
     )
     assigned = assign_tracks(injected_tracks, truth, match)
     results: list[BatResult] = []
@@ -76,9 +78,7 @@ def evaluate(
     for bat in run.bats:
         observations = run.observations.get(bat.id, [])
         visible = {
-            o.frame: o
-            for o in observations
-            if is_visible(o, bat.sigma, run.info, masked) and not any(s.contains(o.frame) for s in ignored)
+            o.frame: o for o in observations if is_visible(o, bat.sigma, run.info, masked) and o.frame not in ignored
         }
         if len(visible) < track.min_hits:
             not_visible += 1
