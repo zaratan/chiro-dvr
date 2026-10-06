@@ -7,7 +7,7 @@ connaissances : [docs/](docs/README.md), à lire avant de toucher à un réglage
 
 ```bash
 mise run check                    # lint, format, types, tests : vert avant de rendre la main
-uv run batdetect in/video_092_original.mp4 # référence : 5 min, 14 pistes, ~45 s de calcul
+uv run batdetect in/video_092_original.mp4 # référence : 5 min, 14 pistes, ~70 s de calcul (docs/09)
 ```
 
 ## Rôles
@@ -44,7 +44,8 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 
 **Un module, une responsabilité, son fichier de tests** (`tests/test_<module>.py`, ou
 `test_<paquet>_<module>.py`). Dépendances à sens unique : `track` → `detect` → `video`, `detect` → `median`,
-`stability` → `detect`.
+`stability` → `spans` → `detect`, `probe` → `damage` → `spans`, `damage` → `video`, `exclusion` → `damage`,
+`stability`, `spans`, `detect`.
 Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs rôles.
 
 - `video.py` : ouverture, lecture et réduction des images (`open_video`, `read_frames`,
@@ -53,9 +54,20 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   (`detect_frames`, `find_blobs`). Fonctions pures testables sur des tableaux numpy.
 - `median.py` : `temporal_median`, médiane d'une pile d'images par tri par comparaisons,
   identique au bit près à `np.median`, environ 10 fois plus rapide.
-- `stability.py` : `StabilityConfig`, `unstable_spans`, `without_spans` : images
+- `stability.py` : `StabilityConfig`, `unstable_spans` : images
   saturées de taches (jumelles qui bougent) et leurs abords, retirées avant le suivi,
   par la commande comme par le banc.
+- `spans.py` : `Span`, `without_spans`, plages d'images dont les détections sont vidées
+  en gardant leurs clés.
+- `damage.py` : lecture de la sortie d'ffprobe (`parse_probe`), images en erreur de
+  décodage ou après un saut de `pts`, plages abîmées jusqu'à l'image-clé suivante,
+  élargies de la demi-fenêtre du fond de chaque côté (`damaged_spans`),
+  `check_frame_count` (ffprobe et OpenCV doivent voir le même nombre d'images).
+- `probe.py` : `probing`, le processus ffprobe (un seul fil, sortie dans un
+  fichier temporaire, tué si le bloc échoue), lu après le bloc.
+- `exclusion.py` : `exclude`, seul point d'entrée de la commande comme du banc : contrôle du
+  nombre d'images, plages abîmées sorties du calcul de stabilité, détections vidées dans
+  les plages abîmées et instables (clés gardées).
 - `track.py` : `TrackConfig`, `Track`, appariement, fusion des jumelles, filtres de fin
   (`min_hits`, `min_travel`, virage médian), tout dans `track_detections`. Ne dépend que de `Detection`.
 - `output/` : `config.py` (`RenderConfig`), `timefmt.py` (temps et noms d'extraits),

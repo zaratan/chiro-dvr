@@ -44,3 +44,9 @@ def test_ignored_time_goes_to_the_periods_it_touches_clipped_to_their_bounds() -
     periods = split_by_period([], info(1500), span_s=600, ignored=[(30.0, 40.0), (590.0, 610.0)])
 
     assert [p.ignored for p in periods] == [((30.0, 40.0), (590.0, 600.0)), ((600.0, 610.0),), ()]
+
+
+def test_damaged_span_across_two_periods_counts_in_both() -> None:
+    periods = split_by_period([], info(1500), span_s=600, damaged=[(595.0, 605.0)])
+
+    assert [p.damaged for p in periods] == [((595.0, 600.0),), ((600.0, 605.0),), ()]

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from batdetect.track import Track
 
 
@@ -17,3 +19,8 @@ def clip_name(track: Track, fps: float) -> str:
 def format_clock(seconds: float) -> str:
     minutes, rest = divmod(int(seconds), 60)
     return f"{minutes}:{rest:02d}"
+
+
+def format_duration(seconds: float) -> str:
+    minutes, rest = divmod(math.ceil(seconds), 60)
+    return f"{minutes} min {rest} s" if minutes else f"{rest} s"

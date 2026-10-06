@@ -14,6 +14,7 @@ from batdetect.arguments import (
     build_track_config,
 )
 from batdetect.detect import DetectConfig
+from batdetect.exclusion import exclude
 from batdetect.jobs import Job, collect_videos, plan_jobs
 from batdetect.output.background import hide_display, median_background
 from batdetect.output.clips import clip_windows
@@ -26,7 +27,9 @@ from batdetect.output.summary import summary_image
 from batdetect.output.tables import config_params, write_params, write_tracks_csv
 from batdetect.output.timefmt import format_time
 from batdetect.parallel import DEFAULT_WORKERS, detect_video
-from batdetect.stability import Span, StabilityConfig, unstable_spans, without_spans
+from batdetect.probe import ffprobe_version, probing
+from batdetect.spans import Span, covered_frames
+from batdetect.stability import StabilityConfig
 from batdetect.track import TrackConfig, track_detections
 from batdetect.video import VideoError, open_video
 
@@ -79,13 +82,15 @@ def seconds(span: Span, fps: float) -> tuple[float, float]:
     return span.first / fps, (span.last + 1) / fps
 
 
-def process(job: Job, settings: Settings, workers: int) -> None:
+def process(job: Job, settings: Settings, workers: int, ffprobe: str) -> None:
     detect, render = settings.detect, settings.render
     cap, info = open_video(job.video, detect.work_width)
     cap.release()
-    detections = detect_video(job.video, detect, info, workers)[0]
-    spans = unstable_spans(detections, info.fps, settings.stability)
-    tracks = track_detections(without_spans(detections, spans), settings.track)
+    with probing(job.video) as outcome:
+        detections = detect_video(job.video, detect, info, workers)[0]
+    analysis = exclude(detections, outcome.probe, detect.half_window(info.fps), info.fps, settings.stability)
+    unstable = analysis.unstable
+    tracks = track_detections(analysis.detections, settings.track)
     job.dest.mkdir(parents=True, exist_ok=True)
     stem = job.video.stem
     write_tracks_csv(tracks, info, job.dest / f"{stem}.tracks.csv")
@@ -94,20 +99,32 @@ def process(job: Job, settings: Settings, workers: int) -> None:
             "video": str(job.video),
             "fps": info.fps,
             **config_params(detect, settings.track, settings.stability, render),
-            "ignored_s": [[round(t, 2) for t in seconds(span, info.fps)] for span in spans],
+            "ignored_s": [[round(t, 2) for t in seconds(span, info.fps)] for span in unstable],
+            "damaged_s": [[round(t, 2) for t in seconds(span, info.fps)] for span in analysis.damaged],
+            "damaged_frames": analysis.reported_frames,
+            "ffprobe": ffprobe,
         },
         job.dest / "params.json",
     )
-    periods = split_by_period(tracks, info, ignored=[seconds(span, info.fps) for span in spans])
+    periods = split_by_period(
+        tracks,
+        info,
+        ignored=[seconds(span, info.fps) for span in unstable],
+        damaged=[seconds(span, info.fps) for span in analysis.damaged],
+    )
     summary_image(hide_display(median_background(job.video, info), detect), periods, info, job.dest / stem)
     split_dir = job.dest / "split"
     outputs = VideoOutputs(
         split_dir, clip_windows(tracks, info.fps, render.clip_margin_s, split_dir), job.dest / f"{stem}_boxes.mp4"
     )
     render_videos(job.video, info, outputs, track_overlay(tracks, info, render), render)
-    ignored = sum(end - start for start, end in (seconds(span, info.fps) for span in spans))
+    ignored = len(analysis.ignored_frames) / info.fps
     print(f"{job.video.name}: {len(detections)} frames, {len(tracks)} tracks, {ignored:.1f} s ignored -> {job.dest}")
-    for span in spans:
+    if analysis.damaged:
+        damaged = len(covered_frames(analysis.damaged)) / info.fps
+        count = len(analysis.damaged)
+        print(f"  damaged {damaged:.1f} s in {count} span{'s' if count > 1 else ''}, detections ignored")
+    for span in unstable:
         start, end = (format_time(t) for t in seconds(span, info.fps))
         print(f"  unstable {start} -> {end}, detections ignored")
     for t in tracks:
@@ -124,6 +141,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(str(err))
     if shutil.which("ffmpeg") is None:
         parser.error("ffmpeg not found in PATH")
+    if shutil.which("ffprobe") is None:
+        parser.error("ffprobe not found in PATH")
     try:
         settings = replace(configs, render=resolve_encoder(configs.render))
     except ValueError as err:
@@ -136,10 +155,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(str(err))
     if not jobs:
         parser.error("no video found")
+    ffprobe = ffprobe_version()
     failures = 0
     for job in jobs:
         try:
-            process(job, settings, max(1, ns.workers))
+            process(job, settings, max(1, ns.workers), ffprobe)
         except (VideoError, ValueError, OSError) as err:
             failures += 1
             print(f"{job.video}: {err}", file=sys.stderr)

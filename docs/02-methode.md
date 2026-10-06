@@ -108,7 +108,27 @@ périodes sont toujours signalées (en-tête de l'image résumé, « hors analys
 parce que la police ne dessine que l'ASCII, trois lignes au plus puis « + N autres » ;
 console ; `params.json` sous `ignored_s`), et
 `--max-blobs 0` désactive le filtre. Le banc applique le même filtre et retire des
-cibles visibles celles qui tombent dans une période ignorée.
+cibles visibles celles qui tombent dans une période ignorée. Les images illisibles (4 ter)
+sont retirées avant le comptage : elles ne déclenchent plus de période et ne pèsent pas
+sur la médiane des taches.
+
+## 4 ter. Images illisibles
+
+Une passe `ffprobe` sur un seul fil tourne pendant la détection et signale les images
+que le décodeur a dû réparer (message d'erreur rattaché à l'image), ainsi que l'image qui
+suit un trou dans les horodatages de plus d'un pas et demi. Chacune est écartée jusqu'à
+l'image qui précède la prochaine image-clé, puis la plage est élargie de la demi-fenêtre
+du fond de chaque côté (`half_window`, 15 images à 30 i/s, déduite de `bg_window_s`),
+avant la fusion des plages, la stabilité et le suivi. Pas d'option pour désactiver.
+
+Mesuré : la 092 (aucune erreur) est inchangée au bit près. La 093 (11 erreurs) a 14,0 s
+illisibles en 8 plages, une seule période instable au lieu de quatre, et 3 pistes au lieu
+de 4. La 122 (195 erreurs, 13 images jamais décodées) a 201,2 s illisibles en 79 plages,
+plus aucune période instable, et plus aucune piste au lieu de 25. Sans la marge, il
+restait sur la 122 50,3 s instables et 4 pistes, toutes collées aux plages. Les raisons, la
+preuve de la correspondance entre ffprobe et OpenCV et les limites sont dans
+[10](10-logique-de-detection.md) ; le coût de la passe est dans [09](09-profilage.md)
+(#36).
 
 ## 5. Suivi
 

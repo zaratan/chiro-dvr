@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from batdetect.bench.metrics import evaluate, is_visible
@@ -8,7 +10,7 @@ from batdetect.stability import StabilityConfig
 from batdetect.synthetic.injection import Observation
 from batdetect.track import TrackConfig
 from bench_support import INFO, MATCH, bat_along, detections_on, make_run
-from helpers import detection
+from helpers import by_frame, detection, line
 
 
 def test_target_under_a_detection_mask_is_not_visible() -> None:
@@ -90,3 +92,39 @@ def test_a_track_born_in_a_crowded_burst_is_not_counted_as_a_false_track() -> No
 
     assert evaluate(run, TrackConfig(), MATCH, (), StabilityConfig()).false_tracks == 0
     assert evaluate(run, TrackConfig(), MATCH, (), StabilityConfig(max_blobs=0)).false_tracks == 1
+
+
+def test_bench_ignores_damaged_frames_like_the_command() -> None:
+    bat = bat_along(0, range(20, 40))
+    flight_in_damage = by_frame(line(31, 12, (300, 300), (10, 0)))
+
+    evaluation = evaluate(make_run([bat], detections_on(bat) | flight_in_damage, damaged=(30,)), TrackConfig(), MATCH)
+
+    assert evaluation.bats[0].visible_frames == 10
+    assert evaluation.bats[0].completeness == 1
+    assert (evaluation.injected_tracks, evaluation.false_tracks) == (1, 0)
+
+
+def test_reference_tracks_inside_damage_are_dropped_like_the_command() -> None:
+    reference = by_frame(line(31, 12, (300, 300), (10, 0)))
+
+    evaluation = evaluate(make_run([], {}, damaged=(30,), reference=reference), TrackConfig(), MATCH)
+
+    assert evaluation.reference_tracks == 0
+
+
+def test_injected_bat_inside_damage_is_not_visible() -> None:
+    bat = bat_along(0, range(31, 40))
+
+    evaluation = evaluate(make_run([bat], detections_on(bat), damaged=(30,)), TrackConfig(), MATCH)
+
+    assert evaluation.bats == []
+    assert evaluation.not_visible == 1
+
+
+def test_bench_drops_the_margin_around_damage_like_the_command() -> None:
+    bat = bat_along(0, range(24, 50))
+    run = make_run([bat], detections_on(bat), damaged=(30,))
+
+    assert evaluate(run, TrackConfig(), MATCH).not_visible == 0
+    assert evaluate(replace(run, margin=3), TrackConfig(), MATCH).not_visible == 1

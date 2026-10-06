@@ -9,10 +9,23 @@ from pathlib import Path
 from batdetect.bench.collect import BenchRun, collect
 from batdetect.bench.config import BenchSetup
 from batdetect.detect import DetectConfig
+from batdetect.probe import ffprobe_version
 from batdetect.stability import StabilityConfig
 from batdetect.synthetic.sampling import Sampling
 
-CACHED_SOURCES = ("video.py", "median.py", "detect.py", "track.py", "stability.py", "parallel.py", "synthetic")
+CACHED_SOURCES = (
+    "video.py",
+    "median.py",
+    "detect.py",
+    "track.py",
+    "stability.py",
+    "spans.py",
+    "damage.py",
+    "probe.py",
+    "exclusion.py",
+    "parallel.py",
+    "synthetic",
+)
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -29,6 +42,7 @@ def cache_key(video: Path, detect: DetectConfig, sampling: Sampling, stability: 
     stat = video.stat()
     payload = {
         "code": code_fingerprint(),
+        "ffprobe": ffprobe_version(),
         "video": str(video.resolve()),
         "size": stat.st_size,
         "mtime": stat.st_mtime,

@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import pytest
 
+from batdetect.output.legend import MAX_HEADER_COLUMNS, column_width, fit_text
 from batdetect.output.periods import Period, split_by_period
 from batdetect.output.style import BACKGROUND_DIM, SEPARATOR, style_for
 from batdetect.output.summary import compose_summary, header_lines, summary_image
@@ -61,6 +62,35 @@ def test_more_than_three_ignored_ranges_are_summed_up_on_a_fourth_line() -> None
         "hors analyse 0:20 - 0:22",
         "+ 2 autres",
     ]
+
+
+def test_damaged_time_is_summed_on_its_own_line_after_the_unstable_ranges() -> None:
+    period = Period(0, 300, [], alone=True, ignored=((0.0, 8.59),), damaged=((10.0, 10.5), (40.0, 117.3)))
+
+    assert header_lines("v122", period)[3:] == [
+        "hors analyse 0:00 - 0:09",
+        "illisible 1 min 18 s (2 plages)",
+    ]
+
+
+def test_period_without_damage_has_no_damage_line() -> None:
+    assert header_lines("v092", Period(0, 300, [], alone=True)) == ["v092", "0 passage", "0:00 - 5:00"]
+
+
+def test_header_stays_ascii_since_opencv_draws_no_accents() -> None:
+    period = Period(0, 300, [], alone=True, ignored=((0.0, 1.0),), damaged=((2.0, 3.0),))
+
+    assert all(line.isascii() for line in header_lines("v", period))
+
+
+@pytest.mark.parametrize("width", [480, 640, 1440, 3840])
+def test_longest_damage_line_is_never_cut_on_the_summary(width: int) -> None:
+    style = style_for(width)
+    period = Period(0, 600, [], alone=False, damaged=tuple((k + 0.0, k + 0.999) for k in range(600)))
+    line = header_lines("v", period)[-1]
+
+    assert line == "illisible 10 min 0 s (600 plages)"
+    assert fit_text(line, MAX_HEADER_COLUMNS * column_width(style, []) - 2 * style.margin, style) == line
 
 
 def test_summary_writes_one_image_and_removes_stale_ones(tmp_path: Path) -> None:

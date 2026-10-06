@@ -5,7 +5,8 @@ from collections.abc import Callable
 import pytest
 
 from batdetect.detect import Detection
-from batdetect.stability import Span, StabilityConfig, unstable_spans, without_spans
+from batdetect.spans import Span
+from batdetect.stability import StabilityConfig, unstable_spans
 from helpers import detection
 
 FPS = 10.0
@@ -66,14 +67,6 @@ def test_spans_stop_at_the_first_and_last_frames() -> None:
 
 def test_zero_max_blobs_disables_the_filter() -> None:
     assert unstable_spans(crowd([0] * 20 + [500] + [0] * 20), FPS, StabilityConfig(max_blobs=0)) == []
-
-
-def test_ignored_frames_keep_their_key_with_no_detection() -> None:
-    detections = crowd([1, 2, 3, 4, 5])
-
-    kept = without_spans(detections, [Span(1, 2)])
-
-    assert {f: len(found) for f, found in kept.items()} == {0: 1, 1: 0, 2: 0, 3: 4, 4: 5}
 
 
 @pytest.mark.parametrize(

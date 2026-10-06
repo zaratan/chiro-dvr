@@ -19,6 +19,7 @@ class Period:
     tracks: list[Track]
     alone: bool
     ignored: tuple[TimeRange, ...] = ()
+    damaged: tuple[TimeRange, ...] = ()
 
     @property
     def suffix(self) -> str:
@@ -32,11 +33,24 @@ def clipped(ranges: Sequence[TimeRange], start: float, end: float) -> tuple[Time
 
 
 def split_by_period(
-    tracks: list[Track], info: VideoInfo, span_s: float = SUMMARY_SPAN_S, ignored: Sequence[TimeRange] = ()
+    tracks: list[Track],
+    info: VideoInfo,
+    span_s: float = SUMMARY_SPAN_S,
+    ignored: Sequence[TimeRange] = (),
+    damaged: Sequence[TimeRange] = (),
 ) -> list[Period]:
     duration = info.frame_count / info.fps
     if duration <= span_s:
-        return [Period(0.0, duration, tracks, alone=True, ignored=clipped(ignored, 0.0, duration))]
+        return [
+            Period(
+                0.0,
+                duration,
+                tracks,
+                alone=True,
+                ignored=clipped(ignored, 0.0, duration),
+                damaged=clipped(damaged, 0.0, duration),
+            )
+        ]
     count = math.ceil(duration / span_s)
     groups: list[list[Track]] = [[] for _ in range(count)]
     for track in tracks:
@@ -44,5 +58,14 @@ def split_by_period(
     periods: list[Period] = []
     for k, group in enumerate(groups):
         start, end = k * span_s, min((k + 1) * span_s, duration)
-        periods.append(Period(start, end, group, alone=False, ignored=clipped(ignored, start, end)))
+        periods.append(
+            Period(
+                start,
+                end,
+                group,
+                alone=False,
+                ignored=clipped(ignored, start, end),
+                damaged=clipped(damaged, start, end),
+            )
+        )
     return periods

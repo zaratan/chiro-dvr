@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 import threading
 from collections.abc import Callable, Iterable
 from pathlib import Path
@@ -10,10 +11,12 @@ import numpy as np
 import pytest
 
 from batdetect.detect import DetectConfig, Detection
+from batdetect.exclusion import exclude
 from batdetect.output.config import VIDEOTOOLBOX, X264, RenderConfig
 from batdetect.output.encoder import encoder_failure
 from batdetect.parallel import detect_video
-from batdetect.stability import StabilityConfig, unstable_spans, without_spans
+from batdetect.probe import probing
+from batdetect.stability import StabilityConfig
 from batdetect.track import Track, TrackConfig, track_detections
 from batdetect.video import GrayFrame, open_video
 
@@ -22,6 +25,12 @@ GUARD_TIMEOUT_S = 5.0
 NOISE = 3
 START_TOLERANCE_FRAMES = 5
 HITS_TOLERANCE = 3
+START_CODE = b"\x00\x00\x01"
+SLICE_TYPES = (1, 5)
+NAL_TYPE_MASK = 0x1F
+CUT_FRACTION = 1 / 3
+SYNTHETIC_FRAMES = 120
+SYNTHETIC_GOP = 15
 
 
 def detection(frame: int, x: float, y: float, area: int = 9) -> Detection:
@@ -50,9 +59,10 @@ def tracks_with_defaults(video: Path) -> tuple[list[Track], float]:
     detect = DetectConfig()
     cap, info = open_video(video, detect.work_width)
     cap.release()
-    detections = detect_video(video, detect, info, workers=1)[0]
-    spans = unstable_spans(detections, info.fps, StabilityConfig())
-    return track_detections(without_spans(detections, spans), TrackConfig()), info.fps
+    with probing(video) as outcome:
+        detections = detect_video(video, detect, info, workers=1)[0]
+    analysis = exclude(detections, outcome.probe, detect.half_window(info.fps), info.fps, StabilityConfig())
+    return track_detections(analysis.detections, TrackConfig()), info.fps
 
 
 def assert_matches_reference(tracks: list[Track], start_frames: list[int], hits: list[int]) -> None:
@@ -97,7 +107,9 @@ def finishes(action: Callable[[], None]) -> bool:
     return not guard.is_alive()
 
 
-requires_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
+requires_ffmpeg = pytest.mark.skipif(
+    shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None, reason="ffmpeg or ffprobe not installed"
+)
 requires_videotoolbox = pytest.mark.skipif(
     encoder_failure(RenderConfig(encoder=VIDEOTOOLBOX)) is not None, reason="Apple media engine not usable"
 )
@@ -106,4 +118,64 @@ EVERY_ENCODER = [pytest.param(X264), pytest.param(VIDEOTOOLBOX, marks=requires_v
 
 def small_video(path: Path, frames: int = 60, width: int = 320, height: int = 240) -> Path:
     write_video(path, [background(width, height, seed=i) for i in range(frames)], fps=30)
+    return path
+
+
+def nal_units(stream: bytes) -> list[bytes]:
+    starts: list[int] = []
+    at = stream.find(START_CODE)
+    while at >= 0:
+        starts.append(at + len(START_CODE))
+        at = stream.find(START_CODE, at + len(START_CODE))
+    ends = [s - len(START_CODE) for s in starts[1:]] + [len(stream)]
+    return [stream[s:e].rstrip(b"\x00") for s, e in zip(starts, ends, strict=True)]
+
+
+def cut_slices(stream: bytes, pictures: set[int], fraction: float) -> bytes:
+    out = bytearray()
+    picture = -1
+    for unit in nal_units(stream):
+        is_slice = unit[0] & NAL_TYPE_MASK in SLICE_TYPES
+        picture += int(is_slice)
+        cut = is_slice and picture in pictures
+        kept = unit[: len(unit) - max(1, int(len(unit) * fraction))] if cut else unit
+        out += b"\x00" + START_CODE + kept
+    return bytes(out)
+
+
+def damaged_video(path: Path, pictures: set[int], fraction: float = CUT_FRACTION) -> Path:
+    raw = path.with_suffix(".h264")
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"testsrc2=size=320x240:rate=30:duration={SYNTHETIC_FRAMES / 30}",
+            "-c:v",
+            "libx264",
+            "-g",
+            str(SYNTHETIC_GOP),
+            "-bf",
+            "0",
+            "-pix_fmt",
+            "yuv420p",
+            "-x264-params",
+            "slices=1:scenecut=0",
+            "-threads",
+            "1",
+            "-bsf:v",
+            "h264_mp4toannexb",
+            "-f",
+            "h264",
+            str(raw),
+        ],
+        check=True,
+    )
+    raw.write_bytes(cut_slices(raw.read_bytes(), pictures, fraction))
+    subprocess.run(["ffmpeg", "-v", "quiet", "-y", "-r", "30", "-i", str(raw), "-c", "copy", str(path)], check=True)
+    raw.unlink()
     return path

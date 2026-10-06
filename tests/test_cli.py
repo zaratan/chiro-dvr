@@ -92,3 +92,17 @@ def test_detection_runs_in_one_process_by_default_since_extra_chunks_only_add_re
 
 def test_whole_annotated_video_is_off_by_default() -> None:
     assert not build_configs(build_parser().parse_args(["in"])).render.annotated
+
+
+def test_missing_ffprobe_exits_with_a_usage_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def only_ffmpeg(name: str) -> str | None:
+        return "/usr/bin/ffmpeg" if name == "ffmpeg" else None
+
+    monkeypatch.setattr("batdetect.cli.shutil.which", only_ffmpeg)
+
+    with pytest.raises(SystemExit):
+        main([str(tmp_path)])
+
+    assert "ffprobe not found" in capsys.readouterr().err

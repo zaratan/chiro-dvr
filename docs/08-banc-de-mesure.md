@@ -60,7 +60,11 @@ Les images des périodes ignorées parce que saturées de taches
 cible n'y est ni trouvée ni manquée. Ces périodes sont calculées sur le run injecté, comme
 le suivi rejoué ; elles dépendent donc des réglages de détection (seuil, `work_width`),
 et deux réglages ne se comparent plus sur exactement le même dénominateur s'ils en
-produisent. Sur la 092, aucune période. Les cibles visibles moins de `min_hits` images
+produisent. Sur la 092, aucune période. Les images illisibles (images abîmées au décodage
+et leur marge, [10](10-logique-de-detection.md)) ne comptent pas davantage : le banc passe
+par la même fonction `exclude` que la commande, pour le run de référence comme pour le
+run injecté. Sur une vidéo très abîmée, beaucoup de cibles tombent ainsi en « not
+visible » sans être manquées. Les cibles visibles moins de `min_hits` images
 sont écartées (« not visible »).
 
 ## Appariement et métriques
@@ -98,8 +102,10 @@ le change pas.
   à la demande depuis le cache. Le cache est invalidé par un changement de réglage de
   détection, de tirage ou de stabilité (`--max-blobs`, `--unstable-pad` : ils changent
   les pistes de référence qui guident le placement), et par toute modification du code de
-  `video.py`, `median.py`, `detect.py`, `track.py`, `stability.py`, `parallel.py` ou du
-  paquet `synthetic/` (empreinte de leur contenu dans la clé). Le rapport note
+  `video.py`, `median.py`, `detect.py`, `track.py`, `stability.py`, `spans.py`,
+  `damage.py`, `probe.py`, `exclusion.py`, `parallel.py` ou du paquet `synthetic/`
+  (empreinte de leur contenu dans la clé), et par la version d'`ffprobe`, qui repère les
+  images abîmées. Le rapport note
   la version du code avec `git describe --dirty`.
 - **Placement figé** : les cibles sont placées loin des pistes du run de référence, calculées
   avec les réglages de suivi du premier run. Rejouer avec un autre réglage de suivi

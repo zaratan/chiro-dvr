@@ -5,7 +5,7 @@ extrait par passage pour validation par une naturaliste.
 
 ## Installation
 
-Prérequis : [mise](https://mise.jdx.dev/), ffmpeg (`brew install ffmpeg` sur macOS,
+Prérequis : [mise](https://mise.jdx.dev/), ffmpeg et ffprobe (même paquet : `brew install ffmpeg` sur macOS,
 `apt install ffmpeg` sur Debian/Ubuntu ; testé avec ffmpeg 9) et Git LFS pour les deux
 vidéos de test (l'extrait et la 092 entière).
 
@@ -32,6 +32,14 @@ Les jumelles doivent être fixes pendant l'enregistrement. Les moments où le ca
 sont repérés et ignorés (environ 1 s de part et d'autre du mouvement) : ils ne sont pas
 analysés et sont à revoir à l'œil. `--max-blobs 0` désactive ce filtre.
 
+Les images que le décodeur a dû réparer (fichier abîmé) sont repérées par une passe
+`ffprobe` qui tourne pendant la détection, et ignorées jusqu'à l'image-clé suivante, plus
+une demi-seconde de chaque côté : le fond médian les voit encore
+([docs/10](docs/10-logique-de-detection.md)). Ce filtre ne se désactive pas. La passe
+double environ le temps de traitement (#36). Si ffprobe et OpenCV ne voient pas le même
+nombre d'images, la vidéo échoue avec les deux nombres, et les autres vidéos du lot
+continuent.
+
 Pour chaque vidéo, `out/<nom>/` contient :
 
 - `<nom>.tracks.png` : toutes les trajectoires sur le fond médian de la vidéo, une couleur,
@@ -47,6 +55,13 @@ Pour chaque vidéo, `out/<nom>/` contient :
   sont écrites dans l'en-tête du bandeau de l'image résumé (`hors analyse 0:00 - 0:09`,
   arrondi vers l'extérieur), affichées en console et listées dans `params.json`
   (`ignored_s`) ;
+- les périodes illisibles (images abîmées et leur marge) sont signalées à part : une ligne
+  `illisible 3 min 22 s (79 plages)` dans le bandeau, une ligne `damaged …` en console,
+  et dans `params.json` la liste `damaged_s`, `damaged_frames` (nombre d'images signalées
+  par le décodeur ou qui suivent un trou dans les horodatages, pas le nombre d'images
+  écartées) et la version d'`ffprobe`. Le total « s ignored » de la console compte une
+  seule fois le temps à la fois illisible et instable ; le bandeau, lui, liste les deux
+  sans retirer leur recouvrement ;
 - avec `--annotated` seulement, `<nom>_boxes.mp4` : la vidéo annotée complète. Sans
   l'option, celle d'un traitement précédent est supprimée.
 

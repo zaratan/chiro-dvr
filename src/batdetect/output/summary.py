@@ -14,7 +14,7 @@ from batdetect.output.marker import draw_marker
 from batdetect.output.periods import Period
 from batdetect.output.placement import place_markers
 from batdetect.output.style import BACKGROUND_DIM, INK, PALETTE, SEPARATOR, SummaryStyle, style_for
-from batdetect.output.timefmt import format_clock
+from batdetect.output.timefmt import format_clock, format_duration
 from batdetect.track import Track
 from batdetect.video import ColorFrame, VideoError, VideoInfo
 
@@ -32,10 +32,24 @@ def ignored_lines(period: Period) -> list[str]:
     return lines
 
 
+def damaged_lines(period: Period) -> list[str]:
+    if not period.damaged:
+        return []
+    count = len(period.damaged)
+    total = sum(b - a for a, b in period.damaged)
+    return [f"illisible {format_duration(total)} ({count} plage{'s' if count > 1 else ''})"]
+
+
 def header_lines(stem: str, period: Period) -> list[str]:
     count = len(period.tracks)
     passages = f"{count} passage{'s' if count > 1 else ''}"
-    return [stem, passages, f"{format_clock(period.start_s)} - {format_clock(period.end_s)}", *ignored_lines(period)]
+    return [
+        stem,
+        passages,
+        f"{format_clock(period.start_s)} - {format_clock(period.end_s)}",
+        *ignored_lines(period),
+        *damaged_lines(period),
+    ]
 
 
 def compose_summary(
