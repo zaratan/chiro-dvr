@@ -185,7 +185,10 @@ traitement de toute vidéo, abîmée ou non ([09](09-profilage.md), #36).
 - Une tranche très abîmée peut ne produire aucun message (vu sur une vidéo fabriquée en
   coupant 60 % d'une tranche) : l'image passe alors pour saine.
 - Un nombre d'images égal ne prouve pas l'alignement : une image perdue au début et une
-  image doublée plus loin passeraient le contrôle.
+  image doublée plus loin passeraient le contrôle. L'écart entre les deux décodeurs dépend de
+  leurs versions d'ffmpeg : sur une vidéo fabriquée dont une tranche est coupée entière,
+  ffprobe 9 compte 118 images et OpenCV (libavcodec 61) 46, alors que ffmpeg 6 sous Ubuntu
+  et OpenCV en comptent tous deux 119. Le contrôle protège le cas où l'écart existe.
 - Le dégât s'arrête à l'image-clé parce que les images-clés des jumelles sont des IDR, sans
   image B. Un autre appareil pourrait ne pas respecter cette hypothèse.
 - Après un trou d'images, les temps calculés par numéro d'image avancent sur l'horloge de
