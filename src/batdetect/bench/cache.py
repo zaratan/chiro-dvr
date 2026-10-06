@@ -16,6 +16,7 @@ from batdetect.synthetic.sampling import Sampling
 CACHED_SOURCES = (
     "video.py",
     "median.py",
+    "noise.py",
     "detect.py",
     "track.py",
     "stability.py",

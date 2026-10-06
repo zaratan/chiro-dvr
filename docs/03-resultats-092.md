@@ -1,9 +1,55 @@
 # Résultats sur video_092
 
-La référence est désormais l'original copié en USB (`video_092_original.mp4`, 14
-pistes, voir « Original contre export »). Le tableau ci-dessous et l'historique des
-réglages ont été mesurés sur l'export de Stream Vision 2, avant qu'on dispose de
-l'original.
+La référence est l'original copié en USB (`video_092_original.mp4`). Depuis le 6 octobre
+2026, les réglages par défaut sont 960 px, filtre de 1,5 px, seuil 12 et seuil par pixel
+(facteur 8) ; la section suivante en donne les 14 pistes. Les sections plus bas sont
+l'historique : export de Stream Vision 2, puis original avec l'ancien réglage (480 px,
+seuil fixe 25).
+
+## Réglages par défaut du 6 octobre 2026 : 14 pistes
+
+Mêmes 14 passages que l'ancien réglage, choisis sur sept vidéos
+([08](08-banc-de-mesure.md#sur-six-autres-vidéos)). Commande complète : 135 à 151 s
+(30 à 34 s avec l'ancien réglage).
+
+| # | Début → fin | Détections | Ancien réglage |
+| --- | --- | --- | --- |
+| 1 | 0:07.39 → 0:08.13 | 20 | 0:07.39, 17 |
+| 2 | 0:33.94 → 0:35.27 | 40 | 0:33.94, 39 |
+| 3 | 0:51.62 → 0:51.89 | 7 | 0:51.62, 9 |
+| 4 | 0:53.75 → 0:54.88 | 34 | 0:53.75, 34 |
+| 5 | 1:12.60 → 1:13.87 | 35 | 1:12.67, 31 |
+| 6 | 1:48.93 → 1:50.00 | 32 | 1:49.23, 23 |
+| 7 | 2:02.82 → 2:03.49 | 17 | 2:02.82, 12 |
+| 8 | 2:24.63 → 2:25.13 | 13 | 2:24.67, 11 |
+| 9 | 2:36.99 → 2:37.46 | 10 | 2:36.99, 7 |
+| 10 | 2:43.95 → 2:45.38 | 44 | 2:43.95, 44 |
+| 11 | 3:29.61 → 3:39.23 | 290 | 3:29.61, 287 |
+| 12 | 3:48.29 → 3:48.86 | 17 | 3:48.29, 16 |
+| 13 | 3:50.89 → 3:51.69 | 24 | 3:51.02, 21 |
+| 14 | 3:57.18 → 3:58.05 | 27 | 3:57.32, 18 |
+
+Les deux passages confirmés par Manon restent suivis (3:36 dans la piste 11, 3:58 dans
+la piste 14). Cinq pistes commencent plus tôt, de 1 à 9 images (1:49 : 9 images ; 3:57 :
+4 images, la chauve-souris sortant de la végétation), et presque toutes gagnent des
+détections ; 0:51, jugée ignorable, en perd 2. Verdict de l'utilisateur à l'œil sur
+cette configuration : propre.
+
+## Cibles connues, pour les issues suivantes
+
+- **092, 3:42.10 → 3:42.30** : objet réel confirmé par l'utilisateur (zoom, vitesse
+  ×0,5), rapide (1 430 px/s), faible (amplitude 19 à 22 sur l'image filtrée), qui entre
+  par le haut de l'image. **Manqué par le réglage par défaut** : sur 2 de ses 6 images,
+  il passe sur des pixels agités où le seuil par pixel monte à 22 à 36 ; il ne reste que
+  4 détections pour un minimum de 6. Trouvé avec 1440 px sans seuil par pixel, réglage
+  qui explose sur d'autres vidéos ([08](08-banc-de-mesure.md#sur-six-autres-vidéos)). À
+  faire confirmer comme chauve-souris par Manon (#6).
+- **125, pistes 8 et 9 du réglage par défaut** (0:28.41 → 0:29.64, 37 détections ;
+  0:28.94 → 0:29.74, 25 détections) : validées comme réelles par l'utilisateur. L'ancien
+  réglage n'en sortait qu'une (0:29.04 → 0:29.34, 8 détections).
+- **Six pistes de l'ancien réglage que le nouveau ne sort plus**, toutes jugées fausses
+  par l'utilisateur : 089 à 1:34.91, 1:46.27, 3:13.33 ; 091 à 0:00.23 ; 125 à 2:03.35 et
+  4:04.18.
 
 ## Export de Stream Vision 2 (historique, 12 pistes)
 
@@ -54,7 +100,7 @@ Sur les 11 passages rapides communs, on passe de 170 à 222 points détectés (+
 et 2 passages nouveaux apparaissent. Le calcul prend 4 min 29 au lieu de 2 min 40, à
 cause du décodage d'un fichier 12 fois plus lourd.
 
-## Original avec `min_area` = 4 (réglage par défaut depuis le 4 octobre 2026)
+## Original avec `min_area` = 4 (réglage par défaut du 4 au 6 octobre 2026)
 
 Mêmes 14 passages, presque tous plus complets ; plusieurs commencent plus tôt.
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -58,3 +60,14 @@ def test_input_frames_are_left_untouched() -> None:
 def test_empty_stack_is_refused() -> None:
     with pytest.raises(ValueError, match="at least one frame"):
         temporal_median([])
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("count", [7, 8, 11])
+def test_float_frames_match_the_numpy_median_taken_in_double_precision(
+    count: int, dtype: type[np.floating[Any]]
+) -> None:
+    rng = np.random.default_rng(400 + count)
+    frames = [rng.normal(0, 20, (6, 7)).astype(dtype) for _ in range(count)]
+
+    assert np.array_equal(temporal_median(frames), np.median(np.stack(frames).astype(np.float64), axis=0))

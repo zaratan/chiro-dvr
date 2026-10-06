@@ -7,9 +7,10 @@ import numpy as np
 import numpy.typing as npt
 
 IntFrame = npt.NDArray[np.integer[Any]]
+NumericFrame = npt.NDArray[np.integer[Any] | np.floating[Any]]
 
 
-def temporal_median(frames: Sequence[IntFrame]) -> npt.NDArray[np.float64]:
+def temporal_median(frames: Sequence[NumericFrame]) -> npt.NDArray[np.float64]:
     n = len(frames)
     if n == 0:
         raise ValueError("temporal_median needs at least one frame")

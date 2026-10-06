@@ -62,6 +62,31 @@ def test_split_detection_is_identical_to_a_single_pass(tmp_path: Path) -> None:
     assert split == single
 
 
+def test_split_detection_with_a_per_pixel_threshold_is_identical_to_a_single_pass(tmp_path: Path) -> None:
+    video = square_video(tmp_path / "long.mp4")
+    cfg = DetectConfig(threshold=4, noise_factor=6, target_sigma=0)
+    cap, info = open_video(video, cfg.work_width)
+    cap.release()
+
+    single = detect_video(video, cfg, info, workers=1)[0]
+    split = detect_video(video, cfg, info, workers=3)[0]
+
+    assert split == single
+    assert split != detect_video(video, DetectConfig(threshold=4, noise_factor=0, target_sigma=0), info, workers=1)[0]
+
+
+def test_split_detection_with_a_target_filter_is_identical_to_a_single_pass(tmp_path: Path) -> None:
+    video = square_video(tmp_path / "long.mp4")
+    cfg = DetectConfig(threshold=8, target_sigma=3, noise_factor=6)
+    cap, info = open_video(video, cfg.work_width)
+    cap.release()
+
+    single = detect_video(video, cfg, info, workers=1)[0]
+
+    assert detect_video(video, cfg, info, workers=3)[0] == single
+    assert single != detect_video(video, DetectConfig(threshold=8, noise_factor=6, target_sigma=0), info, workers=1)[0]
+
+
 def test_threaded_reading_matches_a_plain_pass_without_reader_thread(tmp_path: Path) -> None:
     video = square_video(tmp_path / "long.mp4")
     cfg = DetectConfig()
@@ -107,6 +132,15 @@ def test_split_detection_on_the_real_clip_matches_a_single_pass() -> None:
 
     assert split == single
     assert single == plain_pass(FIXTURE, cfg)
+
+
+@pytest.mark.slow
+def test_split_detection_with_a_per_pixel_threshold_on_the_real_clip_matches_a_single_pass() -> None:
+    cfg = DetectConfig(threshold=15, noise_factor=6)
+    cap, info = open_video(FIXTURE, cfg.work_width)
+    cap.release()
+
+    assert detect_video(FIXTURE, cfg, info, workers=4)[0] == detect_video(FIXTURE, cfg, info, workers=1)[0]
 
 
 def test_watching_the_parent_is_a_no_op_in_the_main_process() -> None:

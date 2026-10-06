@@ -12,7 +12,7 @@ qui se déplace de façon régulière**. Tout le traitement découle de ces troi
 tache, régularité.
 
 ```
-vidéo ─► image grise réduite ─► fond (médiane) ─► résidu ─► seuil ─► taches
+vidéo ─► image grise réduite et filtrée ─► fond (médiane) ─► résidu ─► seuil par pixel ─► taches
                                                                         │
       pistes gardées ◄─ filtres ◄─ fusion des jumelles ◄─ suivi ◄─ images instables retirées
                                                                         ▲
@@ -21,10 +21,10 @@ vidéo ─► ffprobe, un fil (pendant la détection) ────────�
 
 | Étape | Module | Outil | Question posée |
 | --- | --- | --- | --- |
-| Lecture | `video.py`, `prefetch.py` | OpenCV, moyenne de surface | Que voit le capteur, en plus petit ? |
+| Lecture | `video.py`, `prefetch.py`, `detect.py` | OpenCV, moyenne de surface, flou gaussien | Que voit le capteur, en plus petit, à la taille d'une chauve-souris ? |
 | Fond | `detect.py`, `median.py` | médiane temporelle | À quoi ressemble la scène sans animal ? |
 | Gain | `detect.py` | différence de moyennes | L'image entière a-t-elle changé de luminosité ? |
-| Seuil | `detect.py` | valeur absolue, seuil fixe | Ce pixel s'écarte-t-il assez du fond ? |
+| Seuil | `detect.py`, `noise.py` | valeur absolue, plancher et bruit du pixel (MAD) | Ce pixel s'écarte-t-il assez du fond, compte tenu de son propre bruit ? |
 | Taches | `detect.py` | fermeture morphologique, composantes connexes | Quels pixels forment un même objet ? |
 | Illisible | `probe.py`, `damage.py`, `exclusion.py` | journal de décodage d'ffprobe, images-clés | Le décodeur a-t-il dû réparer l'image ? |
 | Stabilité | `stability.py` | comptage, médiane | Les jumelles ont-elles bougé ? |
@@ -35,16 +35,29 @@ vidéo ─► ffprobe, un fil (pendant la détection) ────────�
 ## 1. Lire et réduire l'image
 
 **Outil.** OpenCV décode la vidéo (par ffmpeg), convertit en niveaux de gris de 0 à 255,
-et réduit l'image à 480 px de large par **moyenne de surface** (`INTER_AREA`) : chaque
-pixel réduit est la moyenne des 9 pixels d'origine qu'il recouvre, sur une vidéo de
-1440 px.
+et réduit l'image à 960 px de large par **moyenne de surface** (`INTER_AREA`) : sur une
+vidéo de 1440 px, chaque pixel réduit moyenne 1,5 × 1,5 pixels d'origine. Puis un **flou
+gaussien** d'écart-type 1,5 px d'origine, la taille d'une petite chauve-souris lointaine,
+est appliqué à chaque image réduite, avant tout le reste.
 
-**Pourquoi.** Moyenner 9 pixels divise le bruit par 3 environ et le calcul par 9. La
-réduction sert donc de débruitage gratuit.
+**Pourquoi le flou.** C'est le **filtre adapté** (*matched filter*) d'une tache gaussienne
+dans du bruit, le meilleur rapport signal sur bruit possible pour une cible de cette
+taille : il moyenne le bruit d'un pixel à ses voisins sans écraser une tache de quelques
+pixels. Il remplace le débruitage qu'apportait jusqu'au 6 octobre 2026 la réduction à
+480 px, qui faisait perdre 30 à 50 % de leur contraste aux cibles de moins de 3 px
+([07](07-ameliorer-la-detection.md)).
 
-**Le prix.** Une cible plus petite que 3 px se dilue dans la moyenne : elle perd 30 à
-50 % de son contraste (mesuré, [07](07-ameliorer-la-detection.md)). C'est aujourd'hui le
-premier frein sur les petites cibles (issue #7).
+**Choix.** Filtrer l'image avant le fond plutôt que le résidu après, pour que le fond, le
+résidu et le bruit de chaque pixel soient mesurés dans le même espace. 960 px plutôt que
+1440 : sur sept vidéos, la pleine résolution donne presque les mêmes pistes pour 2,4 fois
+le temps de calcul ([08](08-banc-de-mesure.md#sur-six-autres-vidéos)).
+
+**Limites.** Une tache plus grande que le filtre est moins rehaussée, une plus petite
+perd du contraste. À 960 px, un pixel de travail vaut 2,25 px² : `min_area` 4 exige deux
+pixels, et une cible qui n'en allume qu'un sur une image perd cette image. La médiane
+sur des images en flottants coûte plus cher qu'en entiers de 8 bits : la 092 se traite
+en 135 à 151 s au lieu de 30 ([09](09-profilage.md)). `--target-sigma 0 --work-width 480`
+revient à l'ancienne lecture.
 
 **Détail technique.** Un fil d'exécution décode et réduit en avance (4 images) pendant
 que le fil principal détecte. Toutes les coordonnées ressortent en pixels d'origine : le
@@ -95,20 +108,40 @@ n'est pas corrigé.
 
 ## 4. Décider pixel par pixel : le seuil
 
-**Outil.** Le **résidu** est `image − fond − décalage de gain`. Un pixel est retenu si
-la valeur absolue du résidu dépasse 25 niveaux.
+**Outil.** Le **résidu** est `image − fond − décalage de gain`, sur l'image filtrée. Un
+pixel est retenu si la valeur absolue du résidu dépasse **son propre seuil** :
+max(12, 8 × bruit du pixel).
 
 **Pourquoi la valeur absolue.** L'animal peut être plus sombre que le fond (devant la
 roche chaude) ou plus clair (devant un ciel froid). Le signe n'est pas supposé.
 
-**Pourquoi un seuil fixe.** C'est le test le plus simple : sur la vidéo de référence, le
-bruit reste sous 25 et les passages montent de 49 à 130.
+**Pourquoi pas un seuil fixe.** Jusqu'au 6 octobre 2026, le seuil était fixe à 25 : sur la
+vidéo de référence, le bruit restait dessous. Mais un seuil unique traite pareil la roche
+calme et la végétation qui bouge, et surtout il ne s'adapte pas d'une vidéo à l'autre.
+Mesuré sur sept vidéos : un seuil fixe abaissé à 12, bon sur la 092, laisse des centaines
+de pistes de bruit sur la 089, la 090 et la 091, dont le bruit de fond dépasse 12 en
+quelques points de chaque image ([08](08-banc-de-mesure.md#sur-six-autres-vidéos)).
 
-**Limite, et c'est la principale.** Un seuil unique traite pareil la roche calme et la
-végétation qui bouge. La bonne grandeur serait le résidu divisé par le bruit local de
-chaque pixel, c'est-à-dire un *score z*. C'est le seuil par pixel de l'issue #7, avec un
-filtrage à la taille de la cible qui est l'optimum théorique pour une tache dans du
-bruit.
+**Le seuil par pixel** (`--noise-factor`, 8 par défaut, 0 pour revenir au seuil fixe).
+*Outil* : pour chaque pixel, on mesure son bruit sur les images de la fenêtre du fond
+(11 à 30 i/s) par la **MAD** (médiane des écarts absolus à la médiane, multipliée par 1,4826 pour
+valoir un écart-type sur un bruit gaussien), et le seuil devient
+max(seuil fixe, k × bruit). *Choix* : la MAD plutôt que l'écart-type, parce qu'un passage
+d'animal sur une ou deux images de la fenêtre ne la fait presque pas monter ; la fenêtre
+plutôt qu'une moyenne qui s'accumule depuis le début, pour que chaque tranche de la
+détection parallèle donne le même résultat ; le seuil fixe gardé comme plancher, parce
+que la MAD sur 11 images est souvent très faible : sur l'extrait de test à 480 px,
+descendre le plancher de 4 à 1 niveau multiplie par 60 les pixels au-dessus de 6 fois le
+bruit (2,6 → 160 par image). *Limites* : 11 images estiment mal le bruit d'un pixel, si
+bien qu'une feuille agitée passe encore parfois. Une cible faible qui passe sur des
+pixels agités peut être perdue : sur la 092, le passage réel de 3:42.10 (pic de 13 à 22
+après filtre) tombe sur deux de ses six images sous un seuil relevé à 22 à 36, et n'a
+plus assez de détections pour faire une piste. Le calcul coûte deux médianes de plus par
+image, limitées aux pixels dont le résidu dépasse déjà le plancher (les autres ne
+peuvent pas être retenus) : rien de mesurable à 480 et 960 px, environ 1,6 ms par image
+à 1440 px. Un saut de gain de 30 niveaux, qu'absorbait l'ancien seuil de 25, fait
+désormais ignorer 2,6 à 2,8 s autour du saut par le filtre des images saturées (§ 6),
+sans créer de piste.
 
 ## 5. Regrouper les pixels en taches
 
@@ -122,9 +155,11 @@ bruit.
 
 **Choix.** L'aire compte seulement les pixels réellement au-dessus du seuil, pas ceux
 ajoutés par la fermeture : la fermeture sert à regrouper, pas à mesurer. Une tache est
-gardée entre 4 et 2 700 px² d'origine. Le plancher laisse passer une tache d'un seul
-pixel réduit : c'est ce qui trouve les petites cibles, au prix d'un bruit que le suivi
-doit ensuite écarter.
+gardée entre 4 et 2 700 px² d'origine. À 960 px, un pixel réduit vaut 2,25 px² : il faut
+donc deux pixels au-dessus du seuil, et une tache d'un seul pixel est rejetée (à 480 px,
+un seul suffisait). La position d'une tache filtrée reste à 2 px d'origine près
+(testé). Plus haut, 9 ou 18 px² perdent les petites cibles faibles sans retirer de
+bruit.
 
 ## 5 bis. Écarter les images que le décodeur a réparées
 
@@ -290,6 +325,11 @@ positions fait tourner sa direction mesurée.
   décalage suffit à changer les détections.
 - **Un seul processus par défaut** : depuis que la médiane est rapide, une tranche de
   plus coûte plus en relecture qu'elle ne rapporte.
+- **Taches mesurées en une passe** : l'aire et le pic de toutes les taches d'une image
+  sont comptés en un seul parcours des pixels au-dessus du seuil, au lieu d'un masque de
+  l'image par tache. Sans effet à 480 px ; à 1440 px, où le bruit fait des centaines de
+  taches par image, la détection de l'extrait de test passe de 20 min à 18 s
+  ([09](09-profilage.md)).
 
 ## 11. Savoir si c'est juste
 
@@ -312,7 +352,10 @@ jugement de la naturaliste.
 | --- | --- |
 | Les jumelles sont fixes | Les périodes de mouvement sont ignorées et signalées |
 | L'animal bouge de plus que sa taille en une seconde | Il s'efface dans le fond |
-| L'animal s'écarte du fond de plus de 25 niveaux | Il n'est pas vu ; le ciel saturé est aveugle |
+| L'animal s'écarte du fond filtré de plus de 12 niveaux et de 8 fois le bruit du pixel | Il n'est pas vu ; le ciel saturé est aveugle ; devant de la végétation agitée, il faut un contraste plus fort |
+| La cible a à peu près la taille du filtre gaussien (1,5 px d'origine) | Plus petite, elle perd du contraste ; plus grande, elle est moins rehaussée |
+| Une cible allume au moins deux pixels de travail (960 px) | L'image est perdue (`min_area`) |
+| Le gain des jumelles change peu en une demi-seconde | Autour d'un saut de 30 niveaux ou plus, quelques secondes sont ignorées |
 | Le vol est régulier d'une image à la suivante | La piste se coupe ou est rejetée |
 | Deux animaux proches finissent par s'écarter | Ils sont fusionnés en un seul |
 | Le décodeur signale chaque image qu'il répare | Une image réparée en silence passe pour une vraie scène |

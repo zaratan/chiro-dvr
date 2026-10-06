@@ -181,4 +181,4 @@ def test_bats_confirmed_by_the_naturalist_are_tracked(extract_tracks: tuple[list
 def test_extract_keeps_its_four_tracks_within_the_noise_between_platforms(
     extract_tracks: tuple[list[Track], float],
 ) -> None:
-    assert_matches_reference(extract_tracks[0], start_frames=[144, 705, 787, 976], hits=[287, 16, 21, 18])
+    assert_matches_reference(extract_tracks[0], start_frames=[144, 705, 783, 972], hits=[290, 17, 24, 27])

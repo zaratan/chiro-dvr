@@ -7,7 +7,7 @@ connaissances : [docs/](docs/README.md), à lire avant de toucher à un réglage
 
 ```bash
 mise run check                    # lint, format, types, tests : vert avant de rendre la main
-uv run batdetect in/video_092_original.mp4 # référence : 5 min, 14 pistes, ~70 s de calcul (docs/09)
+uv run batdetect in/video_092_original.mp4 # référence : 5 min, 14 pistes, ~2 min 30 de calcul (docs/09)
 ```
 
 ## Rôles
@@ -43,17 +43,20 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 ## Code
 
 **Un module, une responsabilité, son fichier de tests** (`tests/test_<module>.py`, ou
-`test_<paquet>_<module>.py`). Dépendances à sens unique : `track` → `detect` → `video`, `detect` → `median`,
+`test_<paquet>_<module>.py`). Dépendances à sens unique : `track` → `detect` → `video`, `detect` → `noise` → `median`,
 `stability` → `spans` → `detect`, `probe` → `damage` → `spans`, `damage` → `video`, `exclusion` → `damage`,
 `stability`, `spans`, `detect`.
 Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs rôles.
 
 - `video.py` : ouverture, lecture et réduction des images (`open_video`, `read_frames`,
   `to_work_gray`). Seul endroit qui lit la vidéo pour la détection.
-- `detect.py` : `DetectConfig`, `Detection`, masques, fond médian et taches
+- `detect.py` : `DetectConfig`, `Detection`, masques, filtre à la taille de la cible
+  (`target_blur`), fond médian, seuil par pixel (`raised_threshold`) et taches
   (`detect_frames`, `find_blobs`). Fonctions pures testables sur des tableaux numpy.
 - `median.py` : `temporal_median`, médiane d'une pile d'images par tri par comparaisons,
   identique au bit près à `np.median`, environ 10 fois plus rapide.
+- `noise.py` : `temporal_noise`, bruit de chaque pixel (MAD des écarts au fond sur les
+  images de la fenêtre, corrigés du gain) pour le seuil par pixel (`noise_factor`).
 - `stability.py` : `StabilityConfig`, `unstable_spans` : images
   saturées de taches (jumelles qui bougent) et leurs abords, retirées avant le suivi,
   par la commande comme par le banc.
