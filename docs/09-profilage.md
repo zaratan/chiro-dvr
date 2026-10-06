@@ -212,3 +212,92 @@ commande varient jusqu'à 30 % d'un lancement à l'autre ; le temps CPU, lui, es
   avec ffmpeg 9, donc inutilisable.
 
 L'accélération de la passe se mesure dans l'issue #36.
+
+## Mesure des taches en une passe (5 octobre 2026)
+
+`find_blobs` construisait un masque de toute l'image pour chaque tache, afin d'en compter
+les pixels au-dessus du seuil et d'en prendre le pic : un coût proportionnel au nombre de
+taches multiplié par le nombre de pixels. L'aire et le pic de toutes les taches viennent
+désormais d'une seule passe sur les pixels au-dessus du seuil. Détection seule sur
+l'extrait de test (1 230 images, un processus, réglages par défaut sauf la largeur) :
+
+| Largeur | Taches | Avant | Après | CPU avant → après | Mémoire maximale |
+| --- | --- | --- | --- | --- | --- |
+| 480 px | 388 | 2,4 s | 2,2 s | 15,2 → 15,1 s | 172 → 172 Mo |
+| 960 px | 3 861 | 32,3 s | 7,9 s | 58,8 → 34,6 s | 240 → 247 Mo |
+| 1440 px | 342 662 | 1 221 s | 17,9 s | 1 233 → 39,7 s | 509 → 486 Mo |
+
+Détections identiques au bit près aux trois largeurs, banc et 14 pistes de la 092
+identiques. À 480 px, rien de mesurable : banc 31,7 s et 217 s de CPU avant comme
+après, commande sur la 092 28,9 s contre 29,1 s. À 1440 px avec le seuil de 25,
+l'extrait compte 280 taches par image : c'est probablement ce coût qui avait fait
+arrêter le banc en pleine résolution après 25 minutes ([08](08-banc-de-mesure.md)),
+non vérifié en le relançant.
+
+## Carte de bruit du seuil par pixel (5 octobre 2026)
+
+`--noise-factor` ajoute deux médianes par image, sur des écarts en float32 (le centre
+des écarts, puis leur MAD). Détection seule sur l'extrait de test, seuil 18, un
+processus :
+
+| Largeur | Sans carte (k = 0) | Avec carte (k = 8) | Par image | Mémoire maximale |
+| --- | --- | --- | --- | --- |
+| 480 px | 2,2 s | 10,5 s | +6,7 ms | 171 → 232 Mo |
+| 960 px | 9,0 s | 41,5 s | +26 ms | 348 → 339 Mo |
+| 1440 px | 18,7 s | 99,9 s | +66 ms | 435 → 564 Mo |
+
+Sur la 092 entière, la commande passe de 29 à 90 s, et le banc de 32 à 155 s. Une
+médiane en float32 coûte environ 4 fois une médiane en uint8 (0,7 ms à 480 px). Non
+essayé : des écarts en entiers 16 bits.
+
+Depuis, la carte n'est calculée que sur les pixels dont le résidu dépasse déjà le
+plancher : un pixel sous le plancher n'est jamais retenu, quel que soit son bruit, et
+l'arithmétique reste la même pixel par pixel. Détections identiques octet par octet aux
+trois largeurs. Seuil 18, k = 8, extrait de test, second lancement ; machine chargée par
+d'autres travaux pendant ces mesures (charge 8 à 19), donc le CPU fait foi plus que le
+temps réel :
+
+| Largeur | Carte sur toute l'image | Carte sur les pixels candidats | CPU | Mémoire maximale |
+| --- | --- | --- | --- | --- |
+| 480 px | 12,5 s | 2,8 s | 25,4 → 15,6 s | 235 → 175 Mo |
+| 960 px | 49,6 s | 9,8 s | 74,5 → 36,2 s | 352 → 254 Mo |
+| 1440 px | 118,0 s | 21,6 s | 135,5 → 42,4 s | 578 → 370 Mo |
+
+Mesurées ensuite en alternance avec k = 0 (deux fois chacun, charge 6 à 9), la carte ne
+coûte plus rien de mesurable à 480 px (CPU 15,5 à 16,4 s contre 15,9 à 16,1 s) ni à 960 px
+(36,0 à 36,1 s contre 36,1 à 36,2 s) ; à 1440 px, 21,0 à 21,2 s contre 19,0 à 19,1 s,
+soit environ 1,6 ms par image, pour 0,6 s de CPU. La mémoire baisse avec la carte (moins
+de taches à mesurer) : 1440 px 443 à 448 Mo sans, 371 à 386 Mo avec. Sur la 092 entière, les
+deux versions alternées dans les mêmes conditions : 92,6 et 96,0 s contre 31,4 et 34,7 s,
+CPU 237 et 240 s contre 178 et 180 s, mémoire 687 et 693 Mo contre 629 et 634 Mo, mêmes
+pistes. Une médiane par `np.sort` sur la pile des pixels candidats, à la place du tri par
+comparaisons, ne gagne rien (3,0 s contre 2,8 s à 480 px, 23,5 s contre 22,1 s à
+1440 px) : écartée.
+
+## Filtre à la taille de la cible (5 octobre 2026)
+
+`--target-sigma` floute chaque image réduite et garde les images en float32 : la médiane
+du fond travaille sur 4 fois plus d'octets qu'en uint8. Détection seule sur l'extrait de
+test, σ 1,5, un processus, mesures prises avant la règle du verrou (charge non
+contrôlée) :
+
+| Largeur | Sans filtre | Avec filtre | Par image |
+| --- | --- | --- | --- |
+| 960 px | 8,3 s (seuil 25) | 16,3 à 16,8 s | +6,5 ms |
+| 1440 px | 18,7 s (seuil 18) | 38,3 s | +16 ms |
+
+Sur la 092 entière, sous le verrou de mesure : 30 s par défaut, 135 s à 960 px avec le
+filtre (378 s de CPU, 702 Mo), 283 s à 1440 px (518 s, 838 Mo). Non essayé : garder les
+images filtrées en entiers 16 bits pour accélérer la médiane.
+
+## Réglages par défaut du 6 octobre 2026
+
+960 px, filtre de 1,5 px, seuil par pixel. Commande complète sur la 092 (extraits
+compris, sous le verrou de mesure) : 135 à 151 s au lieu de 30 à 34 s, 373 à 386 s de
+CPU au lieu de 175 s, 707 Mo de mémoire au plus au lieu de 627. Sur les sept vidéos de
+la comparaison (092, 089, 090, 091, 125, 126, 127), 16 min au lieu de 4, et 45 min de
+CPU au lieu de 20. Le surcoût vient surtout de la médiane du fond sur des images
+filtrées en float32, quatre fois plus de pixels qu'à 480 px ; la carte de bruit, limitée
+aux pixels au-dessus du plancher, ne coûte presque rien. Un banc de transit prend
+260 s au lieu de 32. `--work-width 480 --target-sigma 0 --threshold 25 --noise-factor 0`
+retrouve l'ancien réglage et son temps.

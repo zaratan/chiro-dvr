@@ -34,6 +34,18 @@ def add_detection_arguments(ap: argparse.ArgumentParser) -> None:
         "--merge-radius", type=float, default=d.merge_radius, help="source pixels bridged between fragments"
     )
     detect.add_argument("--work-width", type=int, default=d.work_width)
+    detect.add_argument(
+        "--noise-factor",
+        type=float,
+        default=d.noise_factor,
+        help="raises --threshold to this many times the local noise of each pixel; 0 disables",
+    )
+    detect.add_argument(
+        "--target-sigma",
+        type=float,
+        default=d.target_sigma,
+        help="source pixels; Gaussian blur matched to the target size before the background; 0 disables",
+    )
     s = StabilityConfig()
     detect.add_argument(
         "--max-blobs",
@@ -72,6 +84,8 @@ def build_detect_config(ns: argparse.Namespace) -> DetectConfig:
         osd_regions=tuple(ns.osd_region),
         merge_radius=ns.merge_radius,
         work_width=ns.work_width,
+        noise_factor=ns.noise_factor,
+        target_sigma=ns.target_sigma,
     )
 
 

@@ -6,14 +6,15 @@ encode directement chaque extrait (et la vidéo annotée complète avec `--annot
 
 Toutes les distances et surfaces des réglages, des pistes et du CSV sont en **pixels de
 la vidéo d'origine**. Pour détecter, la vidéo est réduite à `work_width` px de large
-(480 par défaut, jamais plus que la vidéo elle-même) ; les détections sont reconverties
-en pixels d'origine dès leur création. Changer `work_width` ne change donc pas le sens
-des autres réglages, **à l'arrondi près** : à 480 px de large sur une vidéo 1440×1080, un
-pixel de travail vaut 3 px d'origine et 9 px². Toute valeur de `min_area` jusqu'à 9 px²
-revient à « un pixel de travail suffit », et `merge_radius` est arrondi au pixel de
+(960 par défaut depuis le 6 octobre 2026, 480 auparavant ; jamais plus que la vidéo
+elle-même) ; les détections sont reconverties en pixels d'origine dès leur création.
+Changer `work_width` ne change donc pas le sens des autres réglages, **à l'arrondi
+près** : à 960 px de large sur une vidéo 1440×1080, un pixel de travail vaut 1,5 px
+d'origine et 2,25 px² ; à 480 px, 3 px et 9 px². `merge_radius` est arrondi au pixel de
 travail. Les pixels d'origine ne sont pas une unité physique : une autre caméra, avec une
-autre résolution, demandera peut-être d'autres valeurs. Les valeurs par défaut sont celles
-qui donnaient les résultats documentés à 480 px sur une vidéo 1440×1080.
+autre résolution, demandera peut-être d'autres valeurs. Les valeurs par défaut ont été
+choisies sur sept vidéos 1440×1080 de la falaise (092, 089, 090, 091, 125, 126, 127 ;
+[08](08-banc-de-mesure.md#sur-six-autres-vidéos)).
 
 La détection tourne par défaut dans un seul processus. Avec `--workers` > 1, elle peut
 être découpée en tranches de temps traitées en parallèle, si la vidéo est assez longue,
@@ -33,9 +34,11 @@ Pour chaque image *t*, le fond est la médiane, pixel par pixel, des images de
   lentement.
 - La médiane est calculée par un tri par comparaisons partiel (`median.py`) : des
   `minimum` et `maximum` sur des images entières, jusqu'à fixer la ou les valeurs
-  centrales, sur la fenêtre gardée en uint8. Résultat identique au bit près à
-  `np.median`, en 0,7 ms par image sur un cœur, contre 12,6 à 18 ms avec `np.median`
-  ([09](09-profilage.md)).
+  centrales. Résultat identique au bit près à `np.median` (sur des flottants, la moyenne
+  des deux valeurs centrales se fait en double précision). Sans filtre, la fenêtre est
+  gardée en uint8 : 0,7 ms par image à 480 px sur un cœur, contre 12,6 à 18 ms avec
+  `np.median`. Avec le filtre à la taille de la cible (défaut), elle est en float32 et
+  la médiane coûte plus cher ([09](09-profilage.md)).
 - Aux bords de la vidéo, la fenêtre est tronquée : la première et la dernière demi-seconde
   sont analysées avec moins d'images.
 
@@ -43,17 +46,52 @@ Pour chaque image *t*, le fond est la médiane, pixel par pixel, des images de
 
 Les jumelles ajustent leur gain : toute l'image peut s'éclaircir d'un coup. On retire
 au résidu l'écart entre la luminosité moyenne de l'image et celle des images du fond.
-Un saut global de 30 niveaux ne produit ainsi aucune détection (testé).
+Le fond médian, lui, n'est pas corrigé : pendant la demi-seconde où la fenêtre mélange
+des images avant et après un saut, le résidu garde une partie du saut. Avec l'ancien
+seuil fixe de 25, un saut global de 30 niveaux ne produisait aucune détection. Avec les
+réglages par défaut (seuil 12, filtre, seuil par pixel), mesuré sur des images
+fabriquées : un saut de 10 donne au plus une tache, un saut de 20 jusqu'à 10 taches par
+image sur 11 images, un saut de 30 à 40 des centaines de taches par image. Aucune piste
+n'en sort (testé de 10 à 40) : pour 30 et 40, le filtre des images saturées
+(§ 4 bis) ignore 2,6 à 2,8 s autour du saut.
 
 ## 3. Seuil dans les deux sens
 
-Un pixel est retenu si |image − fond − écart de gain| > `threshold`.
+Un pixel est retenu si |image − fond − écart de gain| > max(`threshold`, `noise_factor` × σ du
+pixel), sur l'image filtrée.
 
-- `threshold` = 25 niveaux de gris sur 255. Sur la 092, le bruit de fond reste sous ce
-  seuil (aucun pixel retenu sur la plupart des images) et les passages montent de 49 à
-  130 (`peak_amplitude` du CSV).
+- `threshold` = 12 niveaux de gris sur 255, mesurés sur l'image filtrée : c'est le
+  **plancher** du seuil par pixel ci-dessous. Seul, sans seuil par pixel, il laisse
+  passer le bruit de fond de certaines vidéos (089, 090, 091 : des centaines de pistes) ;
+  avant le 6 octobre 2026, le seuil était fixe à 25 sur l'image non filtrée à 480 px.
 - La valeur absolue rend la détection indifférente au signe : tache sombre sur roche
   chaude ou tache claire sur ciel froid.
+- **Filtre à la taille de la cible** (`--target-sigma s`, en pixels d'origine, 1,5 par
+  défaut, 0 pour le désactiver) : chaque image réduite passe par un flou gaussien
+  d'écart-type `s` avant le fond et la compensation du gain. Le filtre étant linéaire, le
+  fond, le résidu, le bruit du seuil par pixel et `peak_amplitude` sont tous mesurés sur
+  l'image filtrée. C'est le filtre adapté à une tache gaussienne : il moyenne le bruit
+  d'un pixel à l'autre et garde une tache de la même taille. Il remplace le débruitage
+  qu'apporte la réduction à 480 px, et rend utilisables des largeurs de travail plus
+  grandes. Les images filtrées sont gardées en flottants, ce qui rend la médiane plus
+  lente. Une zone `--osd-region` est élargie de 3 `s` pour couvrir l'étalement de
+  l'affichage par le flou. `min_area` et `max_area` s'appliquent à la tache filtrée,
+  plus large que la tache brute. Mesures : [08](08-banc-de-mesure.md#filtre-à-la-taille-de-la-cible-b2).
+- **Seuil par pixel** (`--noise-factor k`, 8 par défaut, 0 pour revenir au seuil fixe) : le
+  seuil d'un pixel devient max(`threshold`, k × σ), où σ = 1,4826 × la MAD des écarts au
+  fond des images de la fenêtre (celles de la médiane, 11 à 30 i/s), chacune corrigée de son
+  écart de gain et centrée sur leur médiane. Elle n'est calculée que sur les pixels dont
+  le résidu dépasse déjà `threshold`, seuls à pouvoir être retenus. `threshold` devient
+  le plancher : on l'abaisse pour gagner en sensibilité sur la roche calme, et la MAD
+  relève le seuil là où l'image s'agite. C'est lui qui empêche le bruit de fond des vidéos
+  agitées de devenir des pistes. La carte ne dépend que de la fenêtre : la détection parallèle reste
+  identique au bit près. Aux bords de la vidéo, quand la fenêtre tronquée compte moins de
+  7 images, le seuil fixe s'applique seul. Pour la même raison, le seuil par pixel est
+  **désactivé sur toute la vidéo** sous 17,5 images par seconde avec `bg_step` = 3, ou
+  dès `bg_step` = 6 à 30 i/s : il ne reste que le plancher de 12, qui laisse passer le
+  bruit de fond des vidéos agitées. Toutes nos vidéos sont à 30 i/s. Le ciel saturé à 0 a une MAD nulle et aucun
+  résidu sombre possible : le seuil par pixel n'y gagne rien. Mesures et coût :
+  [08](08-banc-de-mesure.md#seuil-par-pixel-d1).
 - Aucun masque par défaut (voir [01](01-contexte.md)). `--osd-region x0,y0,x1,y1`,
   répétable, en fractions de l'image, met à zéro une zone d'affichage qui bougerait,
   et la masque aussi sur le fond de l'image résumé. Pour les Symbion, `0,0,1,0.07`
@@ -67,11 +105,13 @@ Un pixel est retenu si |image − fond − écart de gain| > `threshold`.
   animal séparés de moins de ~12 px. Sur la 092 à 3:51, une seule chauve-souris sortait
   en deux taches distantes de 12 à 18 px.
 - `min_area` = 4 et `max_area` = 2 700 px². L'aire compte les pixels réellement
-  au-dessus du seuil, pas ceux ajoutés par la fermeture. À 480 px de large, 4 px²
-  d'origine laisse passer une tache d'un seul pixel de travail : mesuré au banc
-  ([08](08-banc-de-mesure.md)), c'est ce qui permet de trouver les petites cibles, sans
-  piste de bruit en plus. L'ancienne valeur (18 px²) rejetait les taches de moins de deux
-  pixels de travail. À plus haute résolution, ce réglage laisse passer le bruit.
+  au-dessus du seuil, pas ceux ajoutés par la fermeture, sur l'image filtrée. **À 960 px
+  de large, un pixel de travail vaut 2,25 px² : `min_area` 4 demande donc deux pixels de
+  travail.** Une tache d'un seul pixel est rejetée ; c'est ce qui fait perdre une image du
+  passage de 3:42.10 sur la 092 à 960 px sans seuil par pixel
+  ([08](08-banc-de-mesure.md#sur-six-autres-vidéos)). À 480 px, 4 px² laissait passer
+  un seul pixel de travail. Mesuré au banc : 9 ou 18 px² perdent les petites cibles
+  faibles sans retirer de bruit.
 
 ## 4 bis. Images saturées de taches
 
@@ -88,7 +128,11 @@ avec un seuil de détection bas, où même une vidéo stable compte des dizaines
 par image : sur l'extrait de la 092 à `--threshold 15`, une limite fixe de 20 excluait
 toute la vidéo, la limite relative n'exclut rien. Non mesuré : avec un seuil bas, la
 limite monte (872 taches à `--threshold 12`) et un vrai mouvement pourrait passer
-dessous ; la règle a été réglée au seuil par défaut. Les périodes ignorées sont ces images
+dessous ; la règle a été réglée à l'ancien seuil fixe de 25. Avec les réglages par
+défaut actuels (seuil par pixel), la médiane reste à 0 tache par image sur 089, 090 et 091
+et la limite à 20. Secondes ignorées : 089 8,3 s contre 19,5 avec l'ancien réglage,
+091 20,6 s contre 22,3 ; le glissement de la 089 produit moins de taches au-dessus du
+seuil par pixel. Les périodes ignorées sont ces images
 élargies de `pad_s` = 1 s (`--unstable-pad`) de chaque côté (la fenêtre du fond déborde de ½ s, et
 les images calmes au milieu d'un mouvement restent suspectes), fusionnées quand au plus
 1 s les sépare. Leurs détections sont retirées avant le suivi ; la détection elle-même
@@ -223,5 +267,7 @@ La liste des fichiers produits est dans le [README](../README.md#utilisation).
 Colonnes du CSV : `id`, `start`, `end`, `start_s` (début en secondes), `duration_s`, `hits` (nombre de détections),
 `chord_px` (distance de bout en bout), `path_px` (chemin parcouru), `speed_px_s`
 (chemin ÷ durée), `max_area_px` (plus grande tache, en pixels d'origine),
-`peak_amplitude` (plus fort écart au fond, en niveaux de gris), `filled_frames` (images
+`peak_amplitude` (plus fort écart au fond, en niveaux de gris ; avec `--target-sigma`,
+écart mesuré sur l'image filtrée, donc plus bas que l'écart brut pour une petite tache),
+`filled_frames` (images
 comblées par interpolation à l'affichage).

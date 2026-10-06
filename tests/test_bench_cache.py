@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pytest
 
-from batdetect.bench.cache import cache_key
+from batdetect.bench.cache import PACKAGE_ROOT, cache_key, code_fingerprint
 from batdetect.detect import DetectConfig
 from batdetect.stability import StabilityConfig
 from batdetect.synthetic.sampling import Sampling
@@ -46,3 +47,7 @@ def test_cache_key_changes_with_the_ffprobe_version_since_it_finds_the_damage(
     monkeypatch.setattr("batdetect.bench.cache.ffprobe_version", lambda: "ffprobe version 6.1")
 
     assert cache_key(video, DetectConfig(), sampling, StabilityConfig()) != before
+
+
+def test_noise_module_is_part_of_the_code_fingerprint_so_editing_it_invalidates_the_cache() -> None:
+    assert hashlib.sha256((PACKAGE_ROOT / "noise.py").read_bytes()).hexdigest() in code_fingerprint()

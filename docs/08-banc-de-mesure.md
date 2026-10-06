@@ -221,3 +221,252 @@ réglages : transit 115 trouvées sur 253 visibles, 0 fausse piste ; chasse 357 
 qu'une cible est visible et trouvée : à `min_hits` 6 pour le suivi seul (critère resté à
 5), la chasse perd 11 cibles au lieu de 14. Un critère « trouvée » indépendant du suivi
 rendrait la comparaison plus honnête.
+
+## Seuil par pixel (D1)
+
+5 octobre 2026, 480 px, graine 1, transit, `--workers 1` (le décodeur d'OpenCV occupe
+plusieurs cœurs), temps sur un second lancement.
+`threshold` est le plancher, `noise_factor` (k) le relèvement local
+([02](02-methode.md#3-seuil-dans-les-deux-sens)) ; k = 0 est le seuil fixe actuel. Entre
+parenthèses : complétude médiane. Les classes à −15 ne sont trouvées par aucun réglage
+sauf à seuil 15 et 12, où le bruit domine (colonne −15). « Mêmes cibles » : les cibles
+tirées sont identiques à celles du réglage par défaut (le placement suit les pistes de
+référence de chaque réglage) ; sinon la ligne ne se lit qu'en ordre de grandeur.
+
+| Seuil, k | −60, σ 1,5 | −60, σ 3 | −60, σ 5 | −30, σ 1,5 | −30, σ 3 | −30, σ 5 | −15 | Pistes de réf. | Fausses | Mêmes cibles | Temps | CPU | Mémoire |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **25, 0 (défaut)** | 27/28 (0,66) | 24/26 (0,95) | 28/30 (0,97) | 0/28 | 10/27 (0) | 26/27 (0,43) | 0 | **14** | 0 | oui | 32 s | 224 s | 205 Mo |
+| 25, 4 | 27/28 (0,66) | 24/26 (0,95) | 28/30 (0,97) | 0/28 | 10/27 (0) | 26/27 (0,43) | 0 | 14 | 0 | oui | 155 s | 343 s | 265 Mo |
+| 25, 6 | 27/28 (0,62) | 24/26 (0,94) | 28/30 (0,97) | 0/28 | 8/27 (0) | 24/27 (0,39) | 0 | 14 | 0 | oui | 154 s | 343 s | 263 Mo |
+| 25, 8 | 25/28 (0,51) | 24/26 (0,92) | 28/30 (0,97) | 0/28 | 3/27 (0) | 22/27 (0,32) | 0 | 13 | 0 | non | 154 s | 343 s | 255 Mo |
+| 18, 0 | 27/28 (0,93) | 26/26 (0,98) | 28/30 (0,97) | 7/28 | 26/27 (0,77) | 27/27 (0,93) | 1 | 91 | 6 | non | 33 s | 224 s | 222 Mo |
+| 18, 4 | 27/28 (0,93) | 26/26 (0,97) | 28/30 (0,98) | 6/28 | 26/27 (0,73) | 27/27 (0,92) | 1 | 25 | 2 | oui | 156 s | 344 s | 271 Mo |
+| 18, 6 | 27/28 (0,87) | 26/26 (0,97) | 28/30 (0,98) | 1/28 | 24/27 (0,66) | 27/27 (0,89) | 0 | 15 | 0 | oui | 155 s | 343 s | 262 Mo |
+| **18, 8** | 26/28 (0,70) | 26/26 (0,95) | 28/30 (0,98) | 0/28 | **22/27 (0,47)** | **27/27 (0,76)** | 0 | **14** | **0** | oui | 155 s | 343 s | 256 Mo |
+| 15, 0 | 22/27 (0,83) | 25/27 (0,97) | 26/29 (0,93) | 13/27 (0,16) | 22/26 (0,88) | 22/25 (0,94) | 4 | 2 801 | 1 841 | non | 43 s | 233 s | 412 Mo |
+| 15, 4 | 26/28 (0,90) | 26/26 (0,97) | 27/29 (0,97) | 16/27 (0,25) | 25/27 (0,93) | 24/27 (0,94) | 4 | 1 219 | 213 | non | 159 s | 348 s | 347 Mo |
+| 15, 6 | 27/28 (0,87) | 26/26 (0,98) | 28/30 (0,98) | 10/27 | 25/27 (0,80) | 27/27 (0,93) | 3 | 136 | 7 | non | 156 s | 345 s | 281 Mo |
+| 15, 8 | 26/28 (0,73) | 26/26 (0,96) | 28/30 (0,98) | 5/28 | 26/27 (0,63) | 27/27 (0,87) | 1 | 29 | 2 | non | 155 s | 344 s | 272 Mo |
+| 12, 0 | 4/20 | 7/21 | 9/26 | 1/21 | 6/22 | 4/17 | 8 | 13 857 | 11 387 | non | 320 s | 512 s | 1 954 Mo |
+| 12, 4 | 10/23 | 12/23 (0,60) | 10/27 | 5/21 | 12/22 (0,42) | 11/21 (0,46) | 11 | 9 409 | 6 907 | non | 206 s | 395 s | 917 Mo |
+| 12, 6 | 16/26 (0,74) | 23/25 (0,94) | 23/29 (0,90) | 5/26 | 25/28 (0,79) | 24/25 (0,93) | 9 | 3 351 | 2 172 | non | 163 s | 352 s | 448 Mo |
+| 12, 8 | 24/26 (0,71) | 27/27 (0,96) | 28/30 (0,94) | 4/27 | 25/27 (0,71) | 26/28 (0,89) | 5 | 1 258 | 329 | non | 158 s | 347 s | 339 Mo |
+
+Les temps de ce tableau sont ceux de la première version de la carte de bruit, calculée
+sur toute l'image ; elle ne l'est plus que sur les pixels au-dessus du plancher (voir
+« Coût » plus bas).
+
+Banc de chasse (`--motions hunt circle --amplitudes -60 -30 --per-class 60`), cibles
+trouvées sur les visibles, toutes classes :
+
+| Seuil, k | Trouvées | −30, σ 3 (hunt / circle) | −30, σ 5 (hunt / circle) | Pistes de réf. | Fausses | Temps |
+| --- | --- | --- | --- | --- | --- | --- |
+| 25, 0 (défaut) | 357 / 584 | 14/48 · 12/48 | 38/51 · 38/48 | 14 | 0 | 34 s |
+| 18, 0 | 459 / 579 | 40/48 · 41/48 | 49/51 · 43/47 | 91 | 6 | 34 s |
+| 18, 6 | 448 / 584 | 42/48 · 41/48 | 49/51 · 44/48 | 15 | 0 | 156 s |
+| 18, 8 | 430 / 584 | 39/48 · 36/48 | 48/51 · 44/48 | 14 | 0 | 156 s |
+
+Sur la 092 (commande complète) :
+
+- **18, 8** : les 14 pistes, aucune en plus, 3:36 et 3:58 toujours suivis. Cinq pistes
+  commencent plus tôt : 1:49 de 0,30 s, 3:57 de 0,14 s (4 images, 3:57.18 au lieu de
+  3:57.32), 3:51 de 0,10 s, 1:12 de 0,07 s, 2:24 de 0,04 s. 0:51 (ignorable) commence
+  0,07 s plus tard et tombe de 9 à 6 détections, **exactement `min_hits`** : à la limite,
+  une détection de moins et elle disparaît. 2:44 perd une détection ; les autres en
+  gagnent de 0 à 5. 90 s au lieu de 29 en mesure initiale, 31 à 35 s depuis que le bruit
+  n'est calculé que sur les pixels au-dessus du plancher (voir plus bas).
+- **18, 6, écarté** : 15 pistes. La nouvelle (2:45.02 → 2:45.38, 9 détections) chevauche
+  la fin de 2:44, qui passe de 44 à 39 détections. Verdict de l'utilisateur (5 octobre) :
+  ce n'est pas un second animal, c'est la même chauve-souris que celle de 2:43.95, sortie
+  en double. La fusion des jumelles n'est pas modifiée pour autant (#26).
+- **18, 0** : 91 pistes.
+
+Lecture :
+
+- **Baisser le seuil fixe est ce qui apporte le gain**, D1 ce qui le rend utilisable. À 18
+  sans relèvement, les cibles à −30 de σ 3 passent de 10 à 26 sur 27, mais la vraie vidéo
+  donne 91 pistes et le banc 6 fausses pistes. Avec k = 8, 22 sur 27 restent trouvées, et
+  la vidéo revient à ses 14 pistes, sans fausse piste.
+- **À seuil 25, D1 ne fait que perdre** : il ne peut que relever le seuil. À k = 8, une
+  piste de référence disparaît.
+- **En dessous de 18, le plancher ne tient plus** : à 15 ou 12, même k = 8 laisse des
+  dizaines à des milliers de pistes de bruit. La MAD sur 11 images est trop instable pour
+  servir seule.
+- **Coût** : 2 médianes de plus par image, en flottants, calculées sur un seul fil. En
+  première version, sur toute l'image : banc 32 → 155 s, CPU 224 → 343 s, mémoire +50 Mo.
+  Depuis, le bruit n'est calculé que sur les pixels dont le résidu dépasse déjà le
+  plancher (les autres ne peuvent pas être retenus) : mêmes détections au bit près, banc
+  à 18 et 8 en 45 s et 236 s de CPU (machine chargée), 092 en 31 à 35 s au lieu de 93 à
+  96 s ([09](09-profilage.md)).
+- Les petites cibles faibles (−30, σ 1,5) restent introuvables à 480 px sans bruit en
+  plus : c'est la cible du filtrage à la taille de la cible et de la pleine résolution
+  (B2 et B1 dans [07](07-ameliorer-la-detection.md)).
+
+
+## Filtre à la taille de la cible (B2)
+
+5 octobre 2026, graine 1, transit, `--workers 1`, `min_area` 4 sauf mention. σ est
+`--target-sigma` en pixels d'origine, k est `--noise-factor`. Entre parenthèses :
+complétude médiane. « À la limite » : pistes de référence qui ont exactement `min_hits`
+détections. « Mêmes cibles » : cibles tirées identiques à celles du réglage par défaut
+(le placement suit les pistes de référence de chaque réglage) ; sinon la ligne ne se lit
+qu'en ordre de grandeur. Temps marqués * : pris sous charge, deux bancs à la fois ; les
+autres sous le verrou de mesure, un banc à la fois, avec un autre agent qui alterne ses
+propres mesures. Les comptes ne dépendent pas de la charge.
+
+Témoins et changements pris séparément :
+
+| Réglage | −60, σ 1,5 | −60, σ 3 | −60, σ 5 | −30, σ 1,5 | −30, σ 3 | −30, σ 5 | −15 | Pistes de réf. | À la limite | Fausses | Non visibles | Mêmes cibles | Temps | CPU | Mémoire |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **480 px, défaut** | 27/28 (0,66) | 24/26 (0,95) | 28/30 (0,97) | 0/28 | 10/27 (0,00) | 26/27 (0,43) | 0 | 14 | 0 | 0 | 17 | oui | 32 s | 222 s | 205 Mo |
+| 480 px, σ 0, seuil 18, k 8 (D1 seul) | 26/28 (0,70) | 26/26 (0,95) | 28/30 (0,98) | 0/28 | 22/27 (0,47) | 27/27 (0,76) | 0 | 14 | 1 | 0 | 17 | oui | 45 s * | 236 s * | 205 Mo |
+| 960 px, σ 0, seuil 18, k 8 (D1 seul) | 24/27 (0,62) | 26/26 (0,94) | 28/30 (0,97) | 0/28 (0,00) | 22/27 (0,41) | 27/27 (0,61) | 0 | 16 | 1 | 0 | 18 | non | 140 s | 529 s | 320 Mo |
+| 960 px, σ 0, seuil 25, k 0 (résolution seule) | 27/28 (0,94) | 25/26 (0,96) | 28/30 (0,98) | 1/28 (0,00) | 17/27 (0,35) | 26/27 (0,62) | 0 | 118 | 39 | 5 | 17 | non | 119 s | 509 s | 311 Mo |
+
+À 960 px, filtre seul (k 0) et filtre avec seuil par pixel (k 8) :
+
+| Réglage | −60, σ 1,5 | −60, σ 3 | −60, σ 5 | −30, σ 1,5 | −30, σ 3 | −30, σ 5 | −15 | Pistes de réf. | À la limite | Fausses | Non visibles | Mêmes cibles | Temps | CPU | Mémoire |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 960 px, σ 1, seuil 8, k 8 | 26/27 (0,87) | 26/26 (1,00) | 29/30 (1,00) | 16/28 (0,18) | 27/27 (0,90) | 27/27 (0,96) | 42 | 42 | 12 | 2 | 18 | non | 416 s * | 710 s * | 383 Mo |
+| 960 px, σ 1, seuil 12, k 0 | 26/28 (0,93) | 25/25 (0,97) | 26/29 (0,96) | 21/25 (0,50) | 24/26 (0,93) | 24/26 (0,96) | 34 | 1408 | 372 | 493 | 32 | non | 275 s * | 664 s * | 467 Mo |
+| 960 px, σ 1, seuil 12, k 8 | 27/28 (0,86) | 26/26 (1,00) | 30/30 (0,99) | 8/28 (0,00) | 26/27 (0,86) | 27/27 (0,96) | 15 | 14 | 0 | 0 | 17 | oui | 324 s * | 702 s * | 363 Mo |
+| 960 px, σ 1, seuil 16, k 0 | 27/28 (0,98) | 26/26 (1,00) | 28/30 (0,98) | 11/28 (0,00) | 26/27 (0,91) | 27/27 (1,00) | 4 | 16 | 1 | 0 | 17 | oui | 318 s * | 691 s * | 351 Mo |
+| 960 px, σ 1, seuil 16, k 8 | 27/28 (0,84) | 26/26 (0,98) | 28/30 (0,98) | 0/28 (0,00) | 26/27 (0,75) | 27/27 (0,93) | 0 | 14 | 0 | 0 | 17 | non | 301 s | 660 s | 348 Mo |
+| 960 px, σ 1,5, seuil 8, k 0 | 20/26 (0,86) | 21/24 (0,95) | 22/28 (0,93) | 19/23 (0,70) | 21/25 (0,94) | 20/26 (0,87) | 35 | 4078 | 798 | 2575 | 45 | non | 318 s | 675 s | 659 Mo |
+| 960 px, σ 1,5, seuil 8, k 8 | 26/27 (0,93) | 26/26 (1,00) | 29/30 (1,00) | 22/28 (0,29) | 27/27 (0,96) | 27/27 (1,00) | 48 | 21 | 1 | 1 | 18 | oui | 298 s | 667 s | 359 Mo |
+| 960 px, σ 1,5, seuil 12, k 0 | 27/28 (0,98) | 26/26 (1,00) | 30/30 (0,99) | 14/28 (0,08) | 26/27 (0,98) | 27/27 (1,00) | 26 | 14 | 0 | 1 | 17 | oui | 274 s | 650 s | 360 Mo |
+| 960 px, σ 1,5, seuil 12, k 8 | 27/28 (0,89) | 26/26 (1,00) | 29/30 (0,98) | 1/28 (0,00) | 26/27 (0,91) | 27/27 (1,00) | 12 | 14 | 0 | 0 | 17 | oui | 292 s | 661 s | 342 Mo |
+| 960 px, σ 1,5, seuil 16, k 0 | 27/28 (0,88) | 25/26 (0,97) | 28/30 (0,98) | 0/28 (0,00) | 25/27 (0,72) | 27/27 (0,95) | 0 | 14 | 0 | 0 | 17 | oui | 243 s | 635 s | 374 Mo |
+| 960 px, σ 1,5, seuil 16, k 8 | 27/28 (0,81) | 25/26 (0,97) | 28/30 (0,98) | 0/28 (0,00) | 25/27 (0,68) | 27/27 (0,92) | 0 | 14 | 0 | 0 | 17 | oui | 245 s | 639 s | 351 Mo |
+| 960 px, σ 2, seuil 8, k 0 | 27/28 (0,99) | 26/26 (1,00) | 29/30 (0,99) | 23/28 (0,45) | 27/27 (1,00) | 27/27 (1,00) | 56 | 18 | 2 | 0 | 17 | non | 248 s | 644 s | 346 Mo |
+| 960 px, σ 2, seuil 8, k 8 | 27/28 (0,90) | 26/26 (1,00) | 28/30 (0,98) | 5/28 (0,00) | 26/27 (0,94) | 27/27 (1,00) | 48 | 16 | 2 | 0 | 17 | oui | 276 s | 660 s | 353 Mo |
+| 960 px, σ 2, seuil 12, k 0 | 27/28 (0,90) | 26/26 (0,98) | 28/30 (0,98) | 0/28 (0,00) | 26/27 (0,91) | 27/27 (1,00) | 12 | 15 | 0 | 0 | 17 | oui | 264 s | 645 s | 363 Mo |
+| 960 px, σ 2, seuil 12, k 8 | 27/28 (0,79) | 26/26 (0,98) | 28/30 (0,98) | 0/28 (0,00) | 26/27 (0,88) | 27/27 (1,00) | 8 | 15 | 0 | 0 | 17 | oui | 260 s | 647 s | 347 Mo |
+| 960 px, σ 2, seuil 16, k 0 | 23/28 (0,41) | 25/26 (0,95) | 28/30 (0,98) | 0/28 (0,00) | 22/27 (0,47) | 27/27 (0,88) | 0 | 14 | 0 | 0 | 17 | oui | 242 s | 632 s | 345 Mo |
+| 960 px, σ 2, seuil 16, k 8 | 21/28 (0,37) | 25/26 (0,95) | 28/30 (0,98) | 0/28 (0,00) | 21/27 (0,46) | 27/27 (0,88) | 0 | 14 | 1 | 0 | 17 | oui | 250 s | 641 s | 346 Mo |
+
+Le réglage 960 px, σ 1, seuil 8, k 0 a été arrêté par le garde-fou après 12 minutes (son
+voisin au seuil 12 donnait déjà 1 408 pistes de référence).
+
+Autres largeurs, et `min_area` :
+
+| Réglage | −60, σ 1,5 | −60, σ 3 | −60, σ 5 | −30, σ 1,5 | −30, σ 3 | −30, σ 5 | −15 | Pistes de réf. | À la limite | Fausses | Non visibles | Mêmes cibles | Temps | CPU | Mémoire |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 480 px, σ 1,5, seuil 12, k 0 | 27/28 (0,97) | 26/26 (1,00) | 28/30 (0,98) | 18/28 (0,30) | 26/27 (0,97) | 27/27 (1,00) | 30 | 33 | 9 | 0 | 17 | non | 66 s | 258 s | 276 Mo |
+| 480 px, σ 1,5, seuil 16, k 0 | 27/28 (0,86) | 25/26 (0,98) | 28/30 (0,98) | 0/28 (0,00) | 24/27 (0,69) | 27/27 (0,95) | 0 | 14 | 0 | 0 | 17 | oui | 65 s | 257 s | 246 Mo |
+| 1440 px, σ 1,5, seuil 12, k 0 | 27/28 (1,00) | 26/26 (1,00) | 29/30 (0,99) | 18/28 (0,29) | 26/27 (0,98) | 27/27 (1,00) | 30 | 16 | 1 | 0 | 17 | oui | 561 s | 921 s | 511 Mo |
+| 1440 px, σ 1,5, seuil 12, k 8 | 27/28 (0,91) | 26/26 (1,00) | 29/30 (0,98) | 2/28 (0,00) | 26/27 (0,92) | 27/27 (1,00) | 15 | 14 | 0 | 0 | 17 | oui | 585 s | 948 s | 521 Mo |
+| 1440 px, σ 1,5, seuil 16, k 0 | 27/28 (0,92) | 25/26 (0,97) | 28/30 (0,98) | 0/28 (0,00) | 25/27 (0,76) | 27/27 (0,95) | 0 | 14 | 0 | 0 | 17 | oui | 543 s | 908 s | 514 Mo |
+| 1440 px, σ 1,5, seuil 16, k 8 | 27/28 (0,84) | 25/26 (0,97) | 28/30 (0,98) | 0/28 (0,00) | 25/27 (0,73) | 27/27 (0,94) | 0 | 14 | 0 | 0 | 17 | oui | 568 s | 936 s | 523 Mo |
+| 1440 px, σ 2, seuil 12, k 0 | 27/28 (0,93) | 26/26 (0,98) | 28/30 (0,98) | 0/28 (0,00) | 26/27 (0,93) | 27/27 (1,00) | 13 | 15 | 0 | 0 | 17 | oui | 542 s | 921 s | 515 Mo |
+| 960 px, σ 1,5, seuil 12, k 0, min_area 9 | 27/28 (0,96) | 26/26 (0,99) | 29/30 (0,98) | 1/28 (0,00) | 26/27 (0,96) | 27/27 (1,00) | 19 | 14 | 0 | 0 | 17 | oui | 238 s | 630 s | 351 Mo |
+| 960 px, σ 1,5, seuil 12, k 0, min_area 18 | 27/28 (0,67) | 26/26 (0,98) | 28/30 (0,98) | 0/28 (0,00) | 26/27 (0,85) | 27/27 (1,00) | 9 | 14 | 0 | 0 | 17 | oui | 236 s | 632 s | 349 Mo |
+| 1440 px, σ 1,5, seuil 12, k 0, min_area 9 | 27/28 (0,95) | 26/26 (1,00) | 28/30 (0,98) | 1/28 (0,00) | 26/27 (0,97) | 27/27 (1,00) | 19 | 14 | 0 | 0 | 17 | oui | 533 s | 913 s | 523 Mo |
+| 1440 px, σ 1,5, seuil 12, k 0, min_area 18 | 26/28 (0,68) | 26/26 (0,98) | 28/30 (0,98) | 0/28 (0,00) | 26/27 (0,88) | 27/27 (1,00) | 9 | 14 | 0 | 0 | 17 | oui | 540 s | 917 s | 524 Mo |
+
+Banc de chasse (`--motions hunt circle --amplitudes -60 -30 --per-class 60`), cibles
+trouvées sur 584 visibles, 0 fausse piste partout :
+
+| Réglage | Trouvées | −30, σ 1,5 (hunt · circle) | −30, σ 3 | Pistes de réf. | Temps |
+| --- | --- | --- | --- | --- | --- |
+| 480 px, défaut | 357 | 0/48 · 0/53 | 14/48 · 12/48 | 14 | 34 s |
+| 480 px, seuil 18, k 8 (D1) | 430 | 0/48 · 3/53 | 39/48 · 36/48 | 14 | 156 s * |
+| **C1** : 960 px, σ 1,5, seuil 12, k 0 | 510 | 30/48 · 28/53 | 46/48 · 43/48 | 14 | 234 s |
+| **C2** : 1440 px, σ 1,5, seuil 12, k 0 | 525 | 38/48 · 34/53 | 46/48 · 43/48 | 16 | 533 s |
+| **C3** : 960 px, σ 1,5, seuil 12, k 8 | 456 | 3/48 · 6/53 | 45/48 · 42/48 | 14 | 243 s |
+| **C4** : 960 px, σ 2, seuil 8, k 0 | 540 | 43/48 · 43/53 | 46/48 · 45/48 | 18 | 238 s |
+| **C5** : 1440 px, σ 1,5, seuil 12, k 8 | 470 | 11/48 · 11/53 | 45/48 · 41/48 | 14 | 556 s |
+
+(Le temps D1 est celui de la première version de la carte de bruit.)
+
+Sur la 092 (commande complète, sous le verrou, `pgrep` vide) : défaut 30 s, 175 s de
+CPU, 627 Mo ; C1 135 s, 378 s, 702 Mo ; C2 283 s, 518 s, 838 Mo ; C3 135 s, 379 s,
+707 Mo. Les passages confirmés de 3:36 et 3:58 restent suivis par les trois.
+Écart de début en images (négatif : plus tôt), et de détections :
+
+| Passage (défaut) | C1 | C2 | C3 |
+| --- | --- | --- | --- |
+| 0:07.39, 17 | 0, +3 | 0, +4 | 0, +3 |
+| 0:33.94, 39 | 0, +2 | 0, +2 | 0, +1 |
+| 0:51.62, 9 | 0, 0 | 0, 0 | 0, −2 |
+| 0:53.75, 34 | 0, +2 | 0, +2 | 0, 0 |
+| 1:12.67, 31 | −10, +7 | −10, +7 | −2, +4 |
+| 1:49.23, 23 | −9, +10 | −9, +10 | −9, +9 |
+| 2:02.82, 12 | 0, +7 | 0, +7 | 0, +5 |
+| 2:24.67, 11 | −4, +6 | −4, +6 | −1, +2 |
+| **2:36.99, 7** (valide) | **+5**, +1 | −4, +6 | 0, +3 |
+| 2:43.95, 44 | 0, +1 | 0, +1 | 0, 0 |
+| 3:29.61, 287 | 0, +3 | 0, +3 | 0, +3 |
+| 3:48.29, 16 | 0, +2 | 0, +2 | 0, +1 |
+| 3:51.02, 21 | −4, +3 | −4, +3 | −4, +3 |
+| 3:57.32, 18 | −4, +9 | −4, +9 | −4, +9 |
+| Pistes nouvelles | aucune | 3:42.10 → 3:42.30, 6 détections (**à la limite**), 1 431 px/s, amplitude 22 ; 3:51.22 → 3:51.69, 8 détections, qui chevauche 3:50.89 → 3:51.69 | aucune |
+
+Lecture :
+
+- **Le filtre apporte le plus gros gain mesuré, mais il ne paie qu'avec la résolution** : à
+  960 px, σ 1,5 et seuil 12 sans carte de bruit (C1), les petites cibles faibles
+  (−30, σ 1,5) passent de 0 à 14 sur 28, les −30 σ 3 de 10 à 26 avec une complétude de
+  0 à 0,98, et 26 cibles à −15 apparaissent, pour 14 pistes de référence et 1 fausse
+  piste. Le même filtre à 480 px donne 33 pistes de référence, dont 9 à la limite.
+- **La résolution seule** (960 px sans filtre) laisse passer le bruit : 118 pistes de
+  référence, 5 fausses. **D1 seul** à 960 px : 16 pistes de référence, dont 1 à la
+  limite, 0 fausse, peu de gain.
+- **Filtre et seuil par pixel ensemble** (C3) : 0 fausse piste, mais la carte de bruit
+  reprend l'essentiel du gain sur les petites cibles faibles (−30 σ 1,5 : 1 sur 28 ; chasse
+  456 contre 510). Le filtre fait déjà le travail de débruitage.
+- **1440 px** (C2) gagne encore un peu (−30 σ 1,5 : 18 sur 28 ; chasse 525) pour deux fois
+  le temps de 960 px, et sort deux pistes nouvelles sur la 092.
+- **σ et seuil vont ensemble**, car le filtre abaisse le pic d'une petite tache d'autant
+  plus que σ est grand. σ 1 laisse passer le bruit sans carte (1 408 pistes de référence
+  au seuil 12). σ 2 perd les petites cibles faibles au seuil 12 (0 sur 28) mais, au
+  seuil 8, donne l'un des meilleurs résultats (−30 σ 1,5 : 23 sur 28, −15 : 56) pour
+  18 pistes de référence, dont 2 à la limite, et 0 fausse piste. σ 1,5 au seuil 12 est
+  le meilleur réglage qui garde 14 pistes de référence. Au seuil 8, σ 1,5 explose sans
+  carte (4 078) ; au seuil 16, les cibles faibles sont perdues.
+  **`min_area`** 9 ou 18 perd les petites cibles faibles (14 → 1 ou 0 sur 28) et ne
+  retire qu'une fausse piste (1 → 0) : 4 reste.
+- **Coût** : la médiane sur des images en flottants et le flou. Banc 32 s → 4 min à
+  960 px, 9 min à 1440 px ; la 092 passe de 30 s à 135 s (960 px) ou 283 s (1440 px).
+
+### Sur six autres vidéos
+
+Les quatre candidats et le défaut ont été passés sur la 092 et sur six autres vidéos
+sans erreur de décodage (089, 090, 091, 125, 126, 127 ; comparaison détaillée hors
+dépôt). Avec un seuil fixe abaissé et sans seuil par pixel (C1, C2, C4), la 089, la 090
+et la 091 donnent des centaines à des milliers de pistes (C1 : 560, 374, 394 ; C4 :
+5 479, 4 925, 3 974), alors que la 092 et la 125 restent propres. Ces vidéos ont en
+permanence 3 à 5 taches de bruit par image avec C1 (0 sur la 092 et la 125), d'un pixel
+de travail et d'amplitude juste au-dessus du seuil, que le suivi enchaîne en fausses
+pistes ; ce n'est pas un effet des mouvements de jumelles (la 090 n'en a aucun). C3, avec
+le seuil par pixel, garde une médiane de 0 tache par image et 1, 20 et 21 pistes sur ces
+trois vidéos (4, 12 et 23 au défaut). **Un seuil fixe abaissé ne se règle pas sur une
+seule vidéo calme** : le banc, fait sur la 092, ne le montrait pas.
+
+C5 (C3 en pleine résolution, 1440 px) tient aussi sur les sept vidéos (14, 1, 17, 22, 48,
+10 et 7 pistes) pour plus du double du temps de C3. Ni C3 ni C5 ne trouvent le passage
+réel de 3:42.10 sur la 092 : la cible n'y dépasse le plancher que de 1 à 10 niveaux, et
+le seuil par pixel la perd sur 2 de ses 6 images, où 8σ vaut 22 à 36. Elle tombe alors
+sous `min_hits`. C1 la perd autrement : à 960 px, une de ses images n'a qu'un pixel de
+travail au-dessus du seuil, sous `min_area`.
+
+## Décision du 6 octobre 2026
+
+C3 devient le réglage par défaut : 960 px, filtre de 1,5 px, seuil 12, facteur de bruit 8.
+L'utilisateur a regardé une à une les six pistes de l'ancien réglage que C3 ne sort
+plus (089 : 1:34.91, 1:46.27, 3:13.33 ; 091 : 0:00.23 ; 125 : 2:03.35, 4:04.18) : toutes
+fausses. Il a validé comme réelles les pistes 8 et 9 de C3 sur la 125.
+
+Sur les sept vidéos :
+
+| | 092 | 089 | 090 | 091 | 125 | 126 | 127 | Total | Calcul (réel / CPU) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Ancien réglage | 14 | 4 | 12 | 23 | 18 | 4 | 0 | 75 | 4 / 20 min |
+| **C3 (défaut)** | 14 | 1 | 20 | 21 | 47 | 12 | 7 | 122 | 16 / 45 min |
+| C5 (C3 à 1440 px) | 14 | 1 | 17 | 22 | 48 | 10 | 7 | 119 | 38 / 67 min |
+| C1, C2, C4 (sans seuil par pixel) | 14 à 18 | 560 à 5 479 | 374 à 4 925 | 394 à 3 974 | 48 à 57 | 11 à 13 | 7 à 13 | | |
+
+Bancs refaits avec les nouveaux défauts, identiques clé par clé à ceux de C3 : transit
+148 cibles trouvées, 14 pistes de référence, 0 fausse piste (260 s, 640 s de CPU) ;
+chasse 456 sur 584, 0 fausse piste (254 s). Limite connue : le passage réel de 3:42.10
+sur la 092 est manqué ([03](03-resultats-092.md#cibles-connues-pour-les-issues-suivantes)).

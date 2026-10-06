@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+import numpy as np
 import pytest
 
-from batdetect.detect import Detection
-from batdetect.spans import Span
+from batdetect.detect import DetectConfig, Detection, detect_frames
+from batdetect.spans import Span, without_spans
 from batdetect.stability import StabilityConfig, unstable_spans
-from helpers import detection
+from batdetect.track import TrackConfig, track_detections
+from batdetect.video import GrayFrame
+from helpers import background, detection
 
 FPS = 10.0
 CFG = StabilityConfig(max_blobs=20, pad_s=0.2)
@@ -81,3 +84,39 @@ def test_zero_max_blobs_disables_the_filter() -> None:
 def test_invalid_stability_config_is_rejected(build: Callable[[], object]) -> None:
     with pytest.raises(ValueError, match="must be"):
         build()
+
+
+JUMP_FRAME = 45
+
+
+def frames_with_brightness_jump(jump: int) -> list[GrayFrame]:
+    frames = [background(160, 120, seed=i) for i in range(2 * JUMP_FRAME)]
+    return [
+        f if i < JUMP_FRAME else np.clip(f.astype(np.int16) + jump, 0, 255).astype(np.uint8)
+        for i, f in enumerate(frames)
+    ]
+
+
+@pytest.mark.parametrize("jump", [20, 30, 40])
+def test_global_brightness_jump_leaves_no_track_with_the_default_settings(jump: int) -> None:
+    detections = detect_frames(frames_with_brightness_jump(jump), 30.0, DetectConfig(), 3.0)
+    spans = unstable_spans(detections, 30.0, StabilityConfig())
+
+    assert track_detections(without_spans(detections, spans), TrackConfig()) == []
+
+
+def test_large_brightness_jump_is_ignored_around_the_jump_rather_than_tracked() -> None:
+    detections = detect_frames(frames_with_brightness_jump(30), 30.0, DetectConfig(), 3.0)
+
+    spans = unstable_spans(detections, 30.0, StabilityConfig())
+
+    assert spans
+    assert all(s.first <= JUMP_FRAME + 15 and s.last >= JUMP_FRAME - 15 for s in spans)
+    assert sum(s.last - s.first + 1 for s in spans) <= 3 * 30
+
+
+def test_moderate_brightness_jump_gives_a_few_blobs_but_ignores_nothing() -> None:
+    detections = detect_frames(frames_with_brightness_jump(20), 30.0, DetectConfig(), 3.0)
+
+    assert any(detections.values())
+    assert unstable_spans(detections, 30.0, StabilityConfig()) == []

@@ -15,6 +15,6 @@ def test_whole_092_keeps_its_fourteen_tracks_within_the_noise_between_platforms(
 
     assert_matches_reference(
         tracks,
-        start_frames=[222, 1019, 1550, 1614, 2182, 3280, 3688, 4344, 4714, 4923, 6294, 6855, 6937, 7126],
-        hits=[17, 39, 9, 34, 31, 23, 12, 11, 7, 44, 287, 16, 21, 18],
+        start_frames=[222, 1019, 1550, 1614, 2180, 3271, 3688, 4343, 4714, 4923, 6294, 6855, 6933, 7122],
+        hits=[20, 40, 7, 34, 35, 32, 17, 13, 10, 44, 290, 17, 24, 27],
     )

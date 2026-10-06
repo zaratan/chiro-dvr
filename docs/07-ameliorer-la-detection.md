@@ -254,7 +254,13 @@ jumelles.
   ou bien on ne passe en pleine résolution qu'autour des pistes (voir D3).
 - **B2. Filtrage adapté** (gaussienne, LoG ou DoG à l'échelle de la cible) sur le
   résidu signé, à la place ou en plus de la fermeture morphologique. C'est l'optimum
-  théorique pour une tache dans du bruit. Coût négligeable.
+  théorique pour une tache dans du bruit. Coût négligeable. **Fait, réglage par défaut
+  depuis le 6 octobre 2026** (`--target-sigma 1.5`), sous forme d'un flou gaussien
+  appliqué aux images avant le fond, et mesuré au banc
+  ([08](08-banc-de-mesure.md#filtre-à-la-taille-de-la-cible-b2)) : à 960 px, σ 1,5 et
+  seuil 12, les cibles à −30 de σ 1,5 passent de 0 à 14 sur 28 et celles de σ 3 de 10 à
+  26, avec 14 pistes de référence. Le coût n'est pas négligeable : la médiane se fait
+  sur des flottants, la 092 passe de 30 s à 135 s.
 - **B3. Débloquage spatial** (`deblock`, `spp` ou `pp7` d'ffmpeg) avant la détection,
   pour réduire les fragments dus aux blocs. **Pas de débruitage temporel** (`hqdn3d`,
   `atadenoise`) : il efface précisément les petits objets rapides.
@@ -282,7 +288,12 @@ jumelles.
 - **D1. Seuil par pixel** : résidu ÷ bruit local (MAD temporelle), avec un plancher
   puisque le fond est figé au bit près. Masquer explicitement le ciel saturé. Les zones
   calmes (roche) peuvent alors descendre plus bas que 25, et les zones agitées
-  (végétation au vent) restent protégées.
+  (végétation au vent) restent protégées. **Fait, réglage par défaut depuis le 6 octobre
+  2026** (`--noise-factor 8`, plancher `--threshold 12`), mesuré au banc
+  ([08](08-banc-de-mesure.md#seuil-par-pixel-d1)) et sur sept vidéos : c'est lui qui
+  empêche le bruit de fond de la 089, de la 090 et de la 091 de devenir des centaines de
+  pistes quand le seuil descend. Le ciel saturé n'est pas masqué : la MAD y est nulle et
+  le plancher s'applique.
 - **D2. Hystérésis 3D (x, y, t)** : on garde un pixel faible (seuil bas, par exemple 12)
   s'il est relié dans l'espace **ou dans le temps** à un pixel fort (seuil haut, 25).
   C'est exactement le mécanisme qui récupère les débuts et fins de piste et comble les
@@ -357,14 +368,14 @@ jumelles.
   (par exemple, la piste 12 commence au plus tard à 7118) dès qu'une amélioration est en
   place.
 
-## État au 4 octobre 2026
+## État au 6 octobre 2026
 
 Fait et mesuré (voir [08](08-banc-de-mesure.md)) :
 
 - **G2** : banc de cibles synthétiques (`batdetect-bench`) ;
 - **A0** : vidéos copiées en USB ;
-- **B1, partiellement** : réglages en pixels d'origine. Monter la résolution sans seuil
-  adapté au bruit fait exploser les pistes de bruit, on reste donc à 480 px ;
+- **B1** : réglages en pixels d'origine ; détection à 960 px depuis le 6 octobre (1440 px
+  donne presque les mêmes pistes pour 2,4 fois le temps) ;
 - **`min_area` 18 → 4** : le vrai verrou des petites cibles ;
 - **E1 bis** : vitesse sur 3 images ;
 - **E1** : interpolation à l'affichage ;
@@ -372,8 +383,14 @@ Fait et mesuré (voir [08](08-banc-de-mesure.md)) :
   indépendant de l'appareil ;
 - **détection parallèle** par tranches de temps.
 
-Prochaine étape côté détection : **B2 + D1** (filtrage à la taille de la cible et seuil
-par pixel), seule voie mesurée pour profiter de la pleine résolution, puis D2 et D3.
+- **B2 et D1** : filtre à la taille de la cible (σ 1,5 px) et seuil par pixel (plancher
+  12, facteur 8), réglages par défaut depuis le 6 octobre (#7), choisis sur sept vidéos
+  ([08](08-banc-de-mesure.md#sur-six-autres-vidéos)). Sur la 092 : mêmes 14 pistes,
+  plus complètes ; sur les six autres vidéos, 75 → 122 pistes, les 6 disparues jugées
+  fausses par l'utilisateur. Limite connue : le passage réel de 3:42.10 sur la 092 est
+  manqué ([03](03-resultats-092.md#cibles-connues-pour-les-issues-suivantes)).
+
+Prochaine étape côté détection : D2 et D3 (extrémités de pistes, #8).
 
 ## Proposition d'ordre
 
