@@ -21,10 +21,22 @@ run = "uv run pytest"
 [tasks.coverage]
 run = "uv run pytest --cov=batdetect --cov-report=term-missing"
 
-[tasks.check]
+[tasks.static]
 run = [
   "uv run ruff check",
   "uv run ruff format --check",
   "uv run basedpyright",
-  "uv run pytest",
+]
+
+[tasks."test:fast"]
+run = "uv run pytest -n auto -m 'not slow and not reference' --cov=batdetect --cov-report=term-missing --cov-fail-under=95"
+
+[tasks."test:slow"]
+run = "uv run pytest -m slow"
+
+[tasks.check]
+run = [
+  { task = "static" },
+  { task = "test:fast" },
+  { task = "test:slow" },
 ]

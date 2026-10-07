@@ -40,7 +40,7 @@ binaire unique à des naturalistes sans Python.
 - **lefthook** plutôt que prek ou pre-commit : binaire unique, `{staged_files}` natif,
   et les hooks lancent `uv run ruff`, donc la version de `uv.lock`.
 - **Extrait réel en LFS** (5,3 Mo) : GitHub refusait le fichier dans git. La tâche
-  `check` de la CI ne télécharge que lui, et le garde en cache.
+  `slow-tests` de la CI ne télécharge que lui, et le garde en cache.
 - **092 entière en LFS** (454 Mo, accord de la naturaliste) : test à marqueur `reference`,
   exclu de `pytest` par défaut, dans une tâche de CI parallèle qui garde l'objet LFS en
   cache pour ne pas entamer le quota de téléchargement LFS de GitHub à chaque passage.
@@ -53,10 +53,22 @@ binaire unique à des naturalistes sans Python.
   5.0.0). Sur l'extrait, ces tolérances attrapent `threshold` 35 et 45 ; sur la 092
   entière, tous les réglages dégradés essayés sauf `merge_radius` 0, absorbé par la
   fusion des jumelles.
-- **Pas de seuil de couverture** (`mise run coverage` pour la voir) : un pourcentage
-  bloquant n'a pas de sens sur un outil de cette taille.
+- **Seuil de couverture à 95 %**, mesuré sur les tests rapides seuls (`mise run test:fast`,
+  97 % en octobre 2026) : sous ce seuil, la CI échoue. Le rapport s'affiche dans le résumé
+  de la tâche `fast-tests`.
+- **pytest-xdist** sur les tests rapides (`-n auto`) : 26 s → 12 s en local sur 4
+  processus, mesuré en octobre 2026. Les tests `slow` et `reference` restent séquentiels.
+- **CI en quatre tâches parallèles** : `static` (lint, format, types, sans ffmpeg ni LFS),
+  `fast-tests` (tests rapides et couverture), `slow-tests` (l'extrait LFS) et `reference`
+  (la 092 entière). Chacune a sa tâche mise (`static`, `test:fast`, `test:slow`) ;
+  `mise run check` enchaîne les trois premières en local.
+- **ffmpeg par `apt-get`, sans cache** (environ 30 s par tâche) : le paquet du runner
+  (ffmpeg 6). `awalsh128/cache-apt-pkgs-action`, essayée, exécute à cache vide un script
+  d'installation d'apt-fast pris sur `master`, non épinglé, et ne fait pas
+  d'`apt-get update`.
 - **CI** : `jdx/mise-action` installe les versions de `mise.toml`, actions épinglées
-  par SHA (audit zizmor propre).
+  par SHA. L'installation commune est dans `.github/actions/setup` ; zizmor la signale à
+  chaque appel local (`self-repository`, niveau le plus bas), rien d'autre.
 
 ## Pièges rencontrés
 
