@@ -70,9 +70,11 @@ Le détail de la méthode et des réglages est dans [docs/02-methode.md](docs/02
 ## Développement
 
 ```bash
-mise run check      # lint + format + types + tests, doit être vert avant tout commit
-mise run test       # tests seuls, sans la 092 entière
-uv run pytest -m "not slow and not reference"   # sans aucune vraie vidéo
+mise run check      # static, test:fast et test:slow, doit être vert avant tout commit
+mise run static     # lint + format + types
+mise run test:fast  # tests sans aucune vraie vidéo, en parallèle, couverture ≥ 95 %
+mise run test:slow  # tests sur l'extrait réel
+mise run test       # tous les tests, sans la 092 entière
 uv run pytest -m reference                       # la 092 entière, ses 14 pistes (environ 40 s)
 mise run coverage
 mise run format

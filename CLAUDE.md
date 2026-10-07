@@ -32,7 +32,7 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
   pointeur (garde dans `tests/conftest.py`). La 092 entière `video_092_original.mp4` est
   une copie exacte de `in/`. Son test, marqueur `reference`, est exclu de `pytest` par
   défaut et tourne dans sa propre tâche de CI : `uv run pytest -m reference`. La tâche
-  `check` ne récupère que l'extrait.
+  `slow-tests` ne récupère que l'extrait.
   Tolérances du test de référence, sur les deux vidéos : nombre de pistes exact, début ±5
   images, points ±3, qui couvrent l'écart mesuré entre Mac et Linux (4 images, 2 points).
 - **Les vidéos se copient depuis les jumelles en USB**, jamais par l'export Stream Vision 2,
