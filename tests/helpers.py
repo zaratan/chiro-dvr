@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
+import sys
 import threading
 from collections.abc import Callable, Iterable
 from pathlib import Path
@@ -18,7 +20,7 @@ from batdetect.parallel import detect_video
 from batdetect.probe import probing
 from batdetect.stability import StabilityConfig
 from batdetect.track import Track, TrackConfig, track_detections
-from batdetect.video import GrayFrame, open_video
+from batdetect.video import FFMPEG_LOG_LEVEL, GrayFrame, open_video
 
 BACKGROUND = 200
 GUARD_TIMEOUT_S = 5.0
@@ -31,6 +33,8 @@ NAL_TYPE_MASK = 0x1F
 CUT_FRACTION = 1 / 3
 SYNTHETIC_FRAMES = 120
 SYNTHETIC_GOP = 15
+DAMAGED_PICTURES = {20, 21, 50}
+DECODER_ERROR = "error while decoding"
 
 
 def detection(frame: int, x: float, y: float, area: int = 9) -> Detection:
@@ -179,3 +183,27 @@ def damaged_video(path: Path, pictures: set[int], fraction: float = CUT_FRACTION
     subprocess.run(["ffmpeg", "-v", "quiet", "-y", "-r", "30", "-i", str(raw), "-c", "copy", str(path)], check=True)
     raw.unlink()
     return path
+
+
+def decoder_log(video: Path, *call: str) -> str:
+    script = "\n".join(
+        [
+            "from pathlib import Path",
+            "from batdetect.video import VideoInfo",
+            f"video = Path({str(video)!r})",
+            f"info = VideoInfo(30.0, {SYNTHETIC_FRAMES}, 320, 240, 160, 120)",
+            *call,
+        ]
+    )
+    env = {k: v for k, v in os.environ.items() if k != FFMPEG_LOG_LEVEL}
+    done = subprocess.run([sys.executable, "-c", script], env=env, capture_output=True, text=True, check=False)
+    assert done.returncode == 0, done.stderr
+    return done.stdout + done.stderr
+
+
+def noisy_damaged_video(path: Path) -> Path:
+    video = damaged_video(path, DAMAGED_PICTURES)
+    assert DECODER_ERROR in decoder_log(
+        video, "import cv2", "cap = cv2.VideoCapture(str(video))", "while cap.grab(): pass"
+    )
+    return video

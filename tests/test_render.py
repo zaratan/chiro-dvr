@@ -13,7 +13,16 @@ from batdetect.output.overlay import track_overlay
 from batdetect.output.render import MAX_WRITERS, VideoOutputs, render_videos
 from batdetect.track import Track
 from batdetect.video import ColorFrame, GrayFrame, VideoError, VideoInfo, open_video, read_frames
-from helpers import EVERY_ENCODER, line, requires_ffmpeg, small_video, write_video
+from helpers import (
+    DECODER_ERROR,
+    EVERY_ENCODER,
+    decoder_log,
+    line,
+    noisy_damaged_video,
+    requires_ffmpeg,
+    small_video,
+    write_video,
+)
 
 FRAMES = 30
 BAND = 10
@@ -152,3 +161,22 @@ def test_encoder_failure_stops_the_render_without_partial_clips(tmp_path: Path) 
 def test_missing_video_raises_a_video_error(tmp_path: Path) -> None:
     with pytest.raises(VideoError, match="cannot open"):
         render_videos(tmp_path / "missing.mp4", INFO, outputs(tmp_path, (0, 3)), leave_as_is, RenderConfig())
+
+
+@requires_ffmpeg
+def test_rendering_a_damaged_video_writes_no_decoder_message(tmp_path: Path) -> None:
+    video = noisy_damaged_video(tmp_path / "cut.mp4")
+    clip = tmp_path / "out" / "clip.mp4"
+
+    log = decoder_log(
+        video,
+        "from batdetect.output.clips import ClipWindow",
+        "from batdetect.output.config import X264, RenderConfig",
+        "from batdetect.output.render import VideoOutputs, render_videos",
+        f"clips = [ClipWindow(0, 119, Path({str(clip)!r}))]",
+        f"outputs = VideoOutputs(Path({str(clip.parent)!r}), clips, Path({str(tmp_path / 'whole.mp4')!r}))",
+        "render_videos(video, info, outputs, lambda frame, frame_no: None, RenderConfig(encoder=X264))",
+    )
+
+    assert clip.exists()
+    assert DECODER_ERROR not in log

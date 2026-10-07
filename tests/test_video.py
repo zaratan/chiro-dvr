@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from batdetect.video import VideoError, open_video, read_frames, read_gray_frames, to_work_gray
-from helpers import small_video
+from helpers import DECODER_ERROR, decoder_log, noisy_damaged_video, requires_ffmpeg, small_video
 
 
 def test_video_info_reports_size_rate_and_proportional_work_size(tmp_path: Path) -> None:
@@ -58,3 +58,17 @@ def test_native_work_size_skips_the_reduction(tmp_path: Path) -> None:
     cap.release()
 
     assert to_work_gray(frame, info).shape == (240, 320)
+
+
+@requires_ffmpeg
+def test_reading_a_damaged_video_writes_no_decoder_message(tmp_path: Path) -> None:
+    video = noisy_damaged_video(tmp_path / "cut.mp4")
+
+    log = decoder_log(
+        video,
+        "from batdetect.video import open_video, read_frames",
+        "cap, _ = open_video(video, 160)",
+        "for _ in read_frames(cap): pass",
+    )
+
+    assert DECODER_ERROR not in log

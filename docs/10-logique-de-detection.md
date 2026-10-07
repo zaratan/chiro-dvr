@@ -195,6 +195,17 @@ comparés. L'ordre des
 messages sur la sortie d'erreur d'`ffmpeg`, lui, est décalé d'une à deux images, et
 ffprobe sur plusieurs fils rattache mal les messages : la passe tourne sur un seul fil.
 
+**Pourquoi le journal du décodeur d'OpenCV est coupé.** À chaque lecture, le décodeur
+d'OpenCV écrit sur la sortie d'erreur un message `[h264 @ …]` par image réparée : 410
+lignes sur la 122 (détection, fond de l'image résumé, rendu), qui noyaient la sortie de la
+commande. Ces messages ne disent pas quelle image ils concernent, et ffprobe donne déjà
+chaque image abîmée, comptée et située, dans la sortie et `params.json`. Toute ouverture de
+vidéo par OpenCV passe donc par `open_capture` (`video.py`), qui pose
+`OPENCV_FFMPEG_LOGLEVEL=-8` (silence), même si l'utilisateur l'a posée autrement. OpenCV ne lit cette variable qu'une fois par
+processus, à sa première ouverture d'une vidéo par ffmpeg : posée plus tard, elle ne change
+rien. `cv2.utils.logging.setLogLevel` n'agit pas sur ce journal. Chaque processus de
+détection parallèle ouvre sa vidéo par la même fonction.
+
 **Ce que la sortie en dit.** Le temps écarté est signalé à part des mouvements :
 « illisible 3 min 22 s (79 plages) » dans le bandeau, une ligne `damaged` en console,
 `damaged_s` dans `params.json`. Ce temps **inclut la marge**. `damaged_frames` compte les
@@ -228,8 +239,6 @@ traitement de toute vidéo, abîmée ou non ([09](09-profilage.md), #36).
   image B. Un autre appareil pourrait ne pas respecter cette hypothèse.
 - Après un trou d'images, les temps calculés par numéro d'image avancent sur l'horloge de
   la vidéo (0,43 s sur la 122, #35).
-- OpenCV écrit ses messages `[h264 @ …]` sur la sortie d'erreur pour chaque image réparée,
-  ce qui noie la sortie de la commande (#34).
 - La lecture d'une image réparée par OpenCV n'est pas reproductible quand la conversion
   suit la lecture de trop près : sans marge, deux traitements de la 122 ne donnaient pas
   les mêmes plages instables. La marge couvre tout l'effet mesuré (cinq traitements

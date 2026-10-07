@@ -7,13 +7,13 @@ import numpy as np
 
 from batdetect.detect import DetectConfig, osd_mask
 from batdetect.output.style import PANEL_COLOR
-from batdetect.video import ColorFrame, VideoError, VideoInfo
+from batdetect.video import ColorFrame, VideoError, VideoInfo, open_capture
 
 BACKGROUND_SAMPLES = 25
 
 
 def median_background(video: Path, info: VideoInfo, samples: int = BACKGROUND_SAMPLES) -> ColorFrame:
-    cap = cv2.VideoCapture(str(video))
+    cap = open_capture(video)
     if not cap.isOpened():
         raise VideoError(f"cannot open {video}")
     count = max(1, min(samples, info.frame_count))
