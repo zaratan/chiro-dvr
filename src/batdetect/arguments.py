@@ -15,6 +15,13 @@ def parse_region(text: str) -> Region:
         raise argparse.ArgumentTypeError(f"expected x0,y0,x1,y1 fractions, got {text!r}: {err}") from err
 
 
+def positive_int(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be >= 1, got {value}")
+    return value
+
+
 def add_detection_arguments(ap: argparse.ArgumentParser) -> None:
     d = DetectConfig()
     detect = ap.add_argument_group("detection")
