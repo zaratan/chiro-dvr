@@ -56,6 +56,16 @@ def test_invalid_option_value_exits_with_a_usage_error(capsys: pytest.CaptureFix
     assert "threshold must be > 0" in capsys.readouterr().err
 
 
+def test_zero_workers_exits_with_a_usage_error_instead_of_silently_running_one(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        main(["in", "--workers", "0"])
+
+    assert exit_info.value.code == 2
+    assert "--workers: must be >= 1, got 0" in capsys.readouterr().err
+
+
 def test_folder_without_video_exits_with_a_usage_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exit_info:
         main([str(tmp_path)])

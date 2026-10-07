@@ -12,6 +12,7 @@ from batdetect.arguments import (
     build_detect_config,
     build_stability_config,
     build_track_config,
+    positive_int,
 )
 from batdetect.detect import DetectConfig
 from batdetect.exclusion import exclude
@@ -47,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="batdetect", description="Detect and track bats in thermal videos.")
     ap.add_argument("inputs", nargs="+", type=Path, help="video files or folders")
     ap.add_argument("-o", "--out-dir", type=Path, default=Path("out"))
-    ap.add_argument("--workers", type=int, default=DEFAULT_WORKERS, help="parallel processes for detection")
+    ap.add_argument("--workers", type=positive_int, default=DEFAULT_WORKERS, help="parallel processes for detection")
     add_detection_arguments(ap)
     add_tracking_arguments(ap)
     render = ap.add_argument_group("output")
@@ -159,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
     failures = 0
     for job in jobs:
         try:
-            process(job, settings, max(1, ns.workers), ffprobe)
+            process(job, settings, ns.workers, ffprobe)
         except (VideoError, ValueError, OSError) as err:
             failures += 1
             print(f"{job.video}: {err}", file=sys.stderr)

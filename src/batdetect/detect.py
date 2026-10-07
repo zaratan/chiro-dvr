@@ -70,8 +70,13 @@ class DetectConfig:
 
     def half_window(self, fps: float) -> int:
         half = round(self.bg_window_s * fps / 2)
-        if 2 * half + 1 < MIN_BACKGROUND_FRAMES:
+        window = 2 * half + 1
+        if window < MIN_BACKGROUND_FRAMES:
             raise ValueError(f"bg_window_s={self.bg_window_s} covers fewer than {MIN_BACKGROUND_FRAMES} frames")
+        if len(range(0, window, self.bg_step)) < MIN_BACKGROUND_FRAMES:
+            raise ValueError(
+                f"bg_step={self.bg_step} keeps fewer than {MIN_BACKGROUND_FRAMES} of {window} window frames"
+            )
         return half
 
 

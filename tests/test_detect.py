@@ -124,6 +124,17 @@ def test_background_window_too_short_for_the_frame_rate_is_rejected() -> None:
         DetectConfig(bg_window_s=0.01).half_window(FPS)
 
 
+def test_background_step_leaving_under_three_frames_is_rejected_rather_than_using_one_frame_as_background() -> None:
+    with pytest.raises(ValueError, match="bg_step=40 keeps fewer than"):
+        DetectConfig(bg_step=40).half_window(FPS)
+
+
+def test_background_step_leaving_exactly_three_frames_is_accepted_and_one_more_is_rejected() -> None:
+    assert DetectConfig(bg_step=15).half_window(FPS) == 15
+    with pytest.raises(ValueError, match="bg_step=16"):
+        DetectConfig(bg_step=16).half_window(FPS)
+
+
 @pytest.mark.parametrize(
     "build",
     [

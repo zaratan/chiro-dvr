@@ -34,3 +34,34 @@ def test_bench_without_ffprobe_exits_with_a_usage_error(
         main([str(tmp_path / "v.mp4")])
 
     assert "ffprobe not found" in capsys.readouterr().err
+
+
+def test_bench_with_zero_workers_exits_with_a_usage_error(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        main(["v.mp4", "--workers", "0"])
+
+    assert exit_info.value.code == 2
+    assert "--workers: must be >= 1, got 0" in capsys.readouterr().err
+
+
+def test_bench_with_a_background_step_too_large_for_the_frame_rate_fails_with_a_message(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    video = tmp_path / "plain.mp4"
+    write_video(video, [background(320, 240, seed=i) for i in range(40)], fps=30)
+
+    code = main([str(video), "-o", str(tmp_path / "bench"), "--bg-step", "40"])
+
+    assert code == 1
+    assert "bg_step=40 keeps fewer than 3" in capsys.readouterr().err
+
+
+def test_bench_on_a_missing_video_fails_with_a_message_instead_of_a_traceback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    missing = tmp_path / "missing.mp4"
+
+    code = main([str(missing), "-o", str(tmp_path / "bench")])
+
+    assert code == 1
+    assert f"{missing}: [Errno 2] No such file or directory" in capsys.readouterr().err

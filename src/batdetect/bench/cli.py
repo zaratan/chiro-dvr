@@ -13,6 +13,7 @@ from batdetect.arguments import (
     build_detect_config,
     build_stability_config,
     build_track_config,
+    positive_int,
 )
 from batdetect.bench.cache import load_or_collect
 from batdetect.bench.config import DEFAULT_AMPLITUDES, DEFAULT_SIGMAS, BenchSetup, MatchConfig, bench_classes
@@ -36,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--motions", nargs="+", choices=MOTIONS, default=["pass"], help="pass: smooth crossing; hunt, circle: turns"
     )
     ap.add_argument("--seed", type=int, default=1)
-    ap.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
+    ap.add_argument("--workers", type=positive_int, default=DEFAULT_WORKERS)
     ap.add_argument("--match-radius", type=float, default=MatchConfig().radius, help="source pixels")
     add_detection_arguments(ap)
     add_tracking_arguments(ap)
@@ -62,9 +63,9 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("ffprobe not found in PATH")
     dest = out_dir / video.stem
     try:
-        setup = BenchSetup(video, detect, track, stability, sampling, max(1, ns.workers))
+        setup = BenchSetup(video, detect, track, stability, sampling, ns.workers)
         run = load_or_collect(setup, dest / "cache.pkl")
-    except VideoError as err:
+    except (VideoError, ValueError, OSError) as err:
         print(f"{video}: {err}", file=sys.stderr)
         return 1
     evaluation = evaluate(run, track, match, detect.osd_regions, stability)

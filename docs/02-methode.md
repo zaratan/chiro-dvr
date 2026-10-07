@@ -31,7 +31,9 @@ Pour chaque image *t*, le fond est la médiane, pixel par pixel, des images de
   donc la médiane l'efface. Une fenêtre plus longue suivrait mal les changements de
   lumière ; plus courte, elle garderait l'animal dans le fond.
 - `bg_step` = 3 : 11 images au lieu de 31 pour la médiane, puisque le fond change
-  lentement.
+  lentement. Un `bg_step` qui laisse moins de 3 images dans la fenêtre (16 et plus à
+  30 i/s) est refusé : le fond ne serait plus une médiane mais une ou deux images
+  (moyennées).
 - La médiane est calculée par un tri par comparaisons partiel (`median.py`) : des
   `minimum` et `maximum` sur des images entières, jusqu'à fixer la ou les valeurs
   centrales. Résultat identique au bit près à `np.median` (sur des flottants, la moyenne
