@@ -10,3 +10,5 @@ in/
 out/
 *.mp4
 !tests/fixtures/*.mp4
+
+.claude/tower-control/lot-*.sh
