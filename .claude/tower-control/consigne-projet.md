@@ -23,7 +23,7 @@ worktree, sous `~/Projects/dvr-wt/`. Ton compte rendu s'écrit dans
   complète dans `/Users/zaratan/Projects/dvr-wt/MESURES.md`. Les séries durent plus longtemps :
   n'écourte rien pour compenser.
 - Avant chaque traitement d'une vidéo entière, vérifie qu'il reste au moins 20 Go libres
-  (`df -g .`) ; au-delà de 200 pistes, supprime les extraits produits et garde le CSV.
+  (`/bin/df -g .` : `df` est un alias de `duf` sur ce poste) ; au-delà de 200 pistes, supprime les extraits produits et garde le CSV.
 - Un réglage bon sur la 092 et au banc n'est pas un réglage : avant de le proposer, lance-le
   sur toutes les vidéos de `in/` sans défaut connu et donne le nombre de pistes de chacune.
 - Un verdict à l'œil se consigne avec le temps de la piste (mm:ss.ii), jamais son numéro, qui
