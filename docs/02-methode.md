@@ -171,8 +171,9 @@ de 4. La 122 (195 erreurs, 13 images jamais décodées) a 201,2 s illisibles en 
 plus aucune période instable, et plus aucune piste au lieu de 25. Sans la marge, il
 restait sur la 122 50,3 s instables et 4 pistes, toutes collées aux plages. Les raisons, la
 preuve de la correspondance entre ffprobe et OpenCV et les limites sont dans
-[10](10-logique-de-detection.md) ; le coût de la passe est dans [09](09-profilage.md)
-(#36).
+[10](10-logique-de-detection.md). La passe coûte 55 à 75 s de CPU pour 5 min de vidéo,
+mais elle finit avant la détection à `--workers 1` et n'allonge pas la commande
+([09](09-profilage.md#avec-les-réglages-du-6-octobre-issue-36)).
 
 ## 5. Suivi
 

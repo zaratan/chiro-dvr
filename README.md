@@ -36,9 +36,10 @@ Les images que le décodeur a dû réparer (fichier abîmé) sont repérées par
 `ffprobe` qui tourne pendant la détection, et ignorées jusqu'à l'image-clé suivante, plus
 une demi-seconde de chaque côté : le fond médian les voit encore
 ([docs/10](docs/10-logique-de-detection.md)). Ce filtre ne se désactive pas. La passe
-double environ le temps de traitement (#36). Si ffprobe et OpenCV ne voient pas le même
-nombre d'images, la vidéo échoue avec les deux nombres, et les autres vidéos du lot
-continuent.
+finit avant la détection avec les réglages par défaut : elle ajoute 55 à 75 s de CPU par
+5 min de vidéo, mais pas d'attente ([docs/09](docs/09-profilage.md)). Si ffprobe et
+OpenCV ne voient pas le même nombre d'images, la vidéo échoue avec les deux nombres, et
+les autres vidéos du lot continuent.
 
 Pour chaque vidéo, `out/<nom>/` contient :
 

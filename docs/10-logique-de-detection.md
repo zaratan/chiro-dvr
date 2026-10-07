@@ -223,8 +223,9 @@ ne se correspondent plus : la vidéo échoue, et les autres vidéos du lot conti
 
 Sur une vidéo très abîmée, la marge coûte cher : sans elle, la 122 gardait 77,8 s
 illisibles, mais aussi 50,3 s instables et 4 pistes collées aux plages. Avec 15 images de
-marge, il reste environ 98 s analysées sur les 300 de la vidéo. La passe ffprobe double environ le temps de
-traitement de toute vidéo, abîmée ou non ([09](09-profilage.md), #36).
+marge, il reste environ 98 s analysées sur les 300 de la vidéo. La passe ffprobe coûte 55 à 75 s de
+CPU pour 5 min de vidéo, abîmée ou non, sur un cœur. Avec les réglages par défaut, elle finit
+avant la détection et n'allonge pas la commande ([09](09-profilage.md)).
 
 **Limites.**
 
