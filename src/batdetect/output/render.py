@@ -7,13 +7,12 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 
-import cv2
 import numpy as np
 
 from batdetect.output.clips import ClipWindow, in_passes
 from batdetect.output.config import RenderConfig
 from batdetect.output.writer import FrameWriter
-from batdetect.video import ColorFrame, VideoError, VideoInfo
+from batdetect.video import ColorFrame, VideoError, VideoInfo, open_capture
 
 MAX_WRITERS = 6
 WHOLE_VIDEO = sys.maxsize
@@ -44,7 +43,7 @@ def render_pass(video: Path, info: VideoInfo, windows: list[ClipWindow], draw: D
     for window in windows:
         starting.setdefault(window.first, []).append(window)
     end = max(w.last for w in windows)
-    cap = cv2.VideoCapture(str(video))
+    cap = open_capture(video)
     if not cap.isOpened():
         raise VideoError(f"cannot open {video}")
     try:

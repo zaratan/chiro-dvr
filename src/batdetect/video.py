@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +11,9 @@ import numpy.typing as npt
 
 GrayFrame = npt.NDArray[np.uint8]
 ColorFrame = npt.NDArray[np.uint8]
+
+FFMPEG_LOG_LEVEL = "OPENCV_FFMPEG_LOGLEVEL"
+AV_LOG_QUIET = "-8"
 
 
 class VideoError(Exception):
@@ -30,8 +34,14 @@ class VideoInfo:
         return self.width / self.work_width
 
 
+def open_capture(path: Path) -> cv2.VideoCapture:
+    if os.environ.get(FFMPEG_LOG_LEVEL) != AV_LOG_QUIET:
+        os.environ[FFMPEG_LOG_LEVEL] = AV_LOG_QUIET
+    return cv2.VideoCapture(str(path))
+
+
 def open_video(path: Path, work_width: int) -> tuple[cv2.VideoCapture, VideoInfo]:
-    cap = cv2.VideoCapture(str(path))
+    cap = open_capture(path)
     if not cap.isOpened():
         raise VideoError(f"cannot open {path}")
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))

@@ -9,7 +9,16 @@ from batdetect.parallel import Chunk, detect_video, exit_with_parent, plan_chunk
 from batdetect.synthetic.injection import Injector
 from batdetect.synthetic.trajectory import SyntheticBat
 from batdetect.video import ColorFrame, open_video, read_gray_frames
-from helpers import background, moving_square_frames, with_square, write_video
+from helpers import (
+    DECODER_ERROR,
+    background,
+    decoder_log,
+    moving_square_frames,
+    noisy_damaged_video,
+    requires_ffmpeg,
+    with_square,
+    write_video,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "video_092_original_3m24-4m05.mp4"
 FAILING_FRAME = 450
@@ -145,3 +154,20 @@ def test_split_detection_with_a_per_pixel_threshold_on_the_real_clip_matches_a_s
 
 def test_watching_the_parent_is_a_no_op_in_the_main_process() -> None:
     exit_with_parent()
+
+
+@requires_ffmpeg
+def test_detection_processes_write_no_decoder_message(tmp_path: Path) -> None:
+    video = noisy_damaged_video(tmp_path / "cut.mp4")
+
+    log = decoder_log(
+        video,
+        "from batdetect.detect import DetectConfig",
+        "from batdetect.parallel import MIN_CHUNK_WINDOWS, detect_video, plan_chunks",
+        "cfg = DetectConfig(bg_window_s=0.2)",
+        "assert len(plan_chunks(info.frame_count, 2, MIN_CHUNK_WINDOWS * 2 * cfg.half_window(info.fps))) == 2",
+        "if __name__ == '__main__':",
+        "    detect_video(video, cfg, info, workers=2)",
+    )
+
+    assert DECODER_ERROR not in log
