@@ -6,6 +6,12 @@ from batdetect.detect import DetectConfig, Region
 from batdetect.stability import StabilityConfig
 from batdetect.track import TrackConfig
 
+MODES = {
+    "normal": DetectConfig(),
+    "quick": DetectConfig(work_width=480, threshold=25, target_sigma=0, noise_factor=0),
+}
+DEFAULT_MODE = "normal"
+
 
 def parse_region(text: str) -> Region:
     try:
@@ -13,6 +19,18 @@ def parse_region(text: str) -> Region:
         return Region(x0, y0, x1, y1)
     except ValueError as err:
         raise argparse.ArgumentTypeError(f"expected x0,y0,x1,y1 fractions, got {text!r}: {err}") from err
+
+
+def mode_help(name: str) -> str:
+    m = MODES[name]
+    return (
+        f"{name}: {m.work_width} px, threshold {m.threshold:g}, "
+        f"target sigma {m.target_sigma:g}, noise factor {m.noise_factor:g}"
+    )
+
+
+def chosen[T](explicit: T | None, mode_value: T) -> T:
+    return mode_value if explicit is None else explicit
 
 
 def positive_int(text: str) -> int:
@@ -25,7 +43,13 @@ def positive_int(text: str) -> int:
 def add_detection_arguments(ap: argparse.ArgumentParser) -> None:
     d = DetectConfig()
     detect = ap.add_argument_group("detection")
-    detect.add_argument("--threshold", type=float, default=d.threshold)
+    detect.add_argument(
+        "--mode",
+        choices=tuple(MODES),
+        default=DEFAULT_MODE,
+        help=f"{mode_help('normal')} (default); {mode_help('quick')}; explicit options win",
+    )
+    detect.add_argument("--threshold", type=float, help="default set by --mode")
     detect.add_argument("--min-area", type=float, default=d.min_area, help="source pixels²")
     detect.add_argument("--max-area", type=float, default=d.max_area, help="source pixels²")
     detect.add_argument("--bg-window", type=float, default=d.bg_window_s, help="seconds of rolling median background")
@@ -40,17 +64,15 @@ def add_detection_arguments(ap: argparse.ArgumentParser) -> None:
     detect.add_argument(
         "--merge-radius", type=float, default=d.merge_radius, help="source pixels bridged between fragments"
     )
-    detect.add_argument("--work-width", type=int, default=d.work_width)
+    detect.add_argument("--work-width", type=int, help="default set by --mode")
     detect.add_argument(
         "--noise-factor",
         type=float,
-        default=d.noise_factor,
         help="raises --threshold to this many times the local noise of each pixel; 0 disables",
     )
     detect.add_argument(
         "--target-sigma",
         type=float,
-        default=d.target_sigma,
         help="source pixels; Gaussian blur matched to the target size before the background; 0 disables",
     )
     s = StabilityConfig()
@@ -82,17 +104,18 @@ def add_tracking_arguments(ap: argparse.ArgumentParser) -> None:
 
 
 def build_detect_config(ns: argparse.Namespace) -> DetectConfig:
+    mode = MODES[ns.mode]
     return DetectConfig(
-        threshold=ns.threshold,
+        threshold=chosen(ns.threshold, mode.threshold),
         min_area=ns.min_area,
         max_area=ns.max_area,
         bg_window_s=ns.bg_window,
         bg_step=ns.bg_step,
         osd_regions=tuple(ns.osd_region),
         merge_radius=ns.merge_radius,
-        work_width=ns.work_width,
-        noise_factor=ns.noise_factor,
-        target_sigma=ns.target_sigma,
+        work_width=chosen(ns.work_width, mode.work_width),
+        noise_factor=chosen(ns.noise_factor, mode.noise_factor),
+        target_sigma=chosen(ns.target_sigma, mode.target_sigma),
     )
 
 

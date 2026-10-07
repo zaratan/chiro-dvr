@@ -16,6 +16,11 @@ autre résolution, demandera peut-être d'autres valeurs. Les valeurs par défau
 choisies sur sept vidéos 1440×1080 de la falaise (092, 089, 090, 091, 125, 126, 127 ;
 [08](08-banc-de-mesure.md#sur-six-autres-vidéos)).
 
+Deux modes : `--mode normal` (défaut) prend les valeurs décrites ici ; `--mode quick`
+reprend celles d'avant le seuil par pixel (#7 : `work_width` 480, seuil fixe 25, sans
+filtre à la taille de la cible ni seuil par pixel). Une option donnée explicitement
+l'emporte sur le mode.
+
 La détection tourne par défaut dans un seul processus. Avec `--workers` > 1, elle peut
 être découpée en tranches de temps traitées en parallèle, si la vidéo est assez longue,
 avec une demi-fenêtre de recouvrement : le résultat est identique au traitement d'un seul

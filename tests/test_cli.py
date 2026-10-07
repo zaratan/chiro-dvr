@@ -48,6 +48,13 @@ def test_options_become_validated_configs() -> None:
     assert (settings.stability.max_blobs, settings.stability.pad_s) == (0, 2.5)
 
 
+def test_mode_is_kept_in_the_settings_for_params_json() -> None:
+    settings = build_configs(build_parser().parse_args(["in", "--mode", "quick"]))
+
+    assert settings.mode == "quick"
+    assert settings.detect.work_width == 480
+
+
 def test_invalid_option_value_exits_with_a_usage_error(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exit_info:
         main(["in", "--threshold", "0"])

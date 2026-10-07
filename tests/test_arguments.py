@@ -36,3 +36,32 @@ def test_target_sigma_reaches_the_detection_config_and_zero_turns_it_off() -> No
     assert build_detect_config(parser.parse_args([])).target_sigma == DetectConfig().target_sigma
     assert build_detect_config(parser.parse_args(["--target-sigma", "2"])).target_sigma == 2
     assert build_detect_config(parser.parse_args(["--target-sigma", "0"])).target_sigma == 0
+
+
+def detect_config_from(argv: list[str]) -> DetectConfig:
+    parser = argparse.ArgumentParser()
+    add_detection_arguments(parser)
+    return build_detect_config(parser.parse_args(argv))
+
+
+def test_normal_mode_is_the_default_and_keeps_the_current_defaults() -> None:
+    assert detect_config_from([]) == DetectConfig()
+    assert detect_config_from(["--mode", "normal"]) == DetectConfig()
+
+
+def test_quick_mode_sets_only_the_four_settings_used_before_the_noise_threshold() -> None:
+    expected = DetectConfig(work_width=480, threshold=25, target_sigma=0, noise_factor=0)
+
+    assert detect_config_from(["--mode", "quick"]) == expected
+
+
+def test_explicit_option_wins_over_the_mode_whatever_their_order() -> None:
+    assert detect_config_from(["--threshold", "30", "--mode", "quick"]).threshold == 30
+    assert detect_config_from(["--mode", "quick", "--work-width", "960"]).work_width == 960
+    assert detect_config_from(["--mode", "quick", "--noise-factor", "8"]).noise_factor == 8
+    assert detect_config_from(["--mode", "quick", "--target-sigma", "1.5"]).target_sigma == 1.5
+
+
+def test_unknown_mode_is_refused() -> None:
+    with pytest.raises(SystemExit):
+        detect_config_from(["--mode", "fine"])
