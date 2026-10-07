@@ -85,8 +85,8 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   (palette, tailles selon la largeur), `geometry.py` (longueur d'arc), `colors.py`,
   `placement.py` (pastilles), `arrows.py`, `marker.py`, `legend.py`, `periods.py`
   (tranches de 10 min).
-- `jobs.py` (vidéos à traiter, dossiers de sortie), `arguments.py` (options partagées et
-  construction des configs), `cli.py` (commande `batdetect`).
+- `jobs.py` (vidéos à traiter, dossiers de sortie), `arguments.py` (options partagées,
+  modes `--mode quick|normal` dans `MODES`, construction des configs), `cli.py` (commande `batdetect`).
 - `parallel.py` : détection découpée en tranches de temps, une par processus (`--workers`,
   1 par défaut : plus de tranches ajoutent surtout de la relecture, voir
   [docs/09](docs/09-profilage.md)). Chaque tranche lit la vidéo depuis le début et saute

@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from batdetect.bench.cli import main
+from batdetect.arguments import MODES, build_detect_config
+from batdetect.bench.cli import build_parser, main
 from helpers import background, write_video
 
 
@@ -65,3 +66,7 @@ def test_bench_on_a_missing_video_fails_with_a_message_instead_of_a_traceback(
 
     assert code == 1
     assert f"{missing}: [Errno 2] No such file or directory" in capsys.readouterr().err
+
+
+def test_bench_measures_the_same_quick_mode_as_the_command() -> None:
+    assert build_detect_config(build_parser().parse_args(["v.mp4", "--mode", "quick"])) == MODES["quick"]

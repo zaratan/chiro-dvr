@@ -25,6 +25,45 @@ uv run batdetect a.mp4 b.mov -o res # fichiers précis, sorties dans res/
 uv run batdetect --help             # tous les réglages
 ```
 
+### Modes
+
+`--mode normal` (défaut) détecte au mieux. `--mode quick` reprend les réglages d'avant
+le seuil par pixel : image réduite à 480 px, seuil fixe 25, sans filtre à la taille de la
+cible ni seuil par pixel. Il demande à peu près deux fois moins de calcul (sur la 092 :
+241 s de temps processeur contre 437 s), mais il manque des choses :
+
+- les cibles de moins de 3 px perdent 30 à 50 % de leur contraste à 480 px ;
+- une cible qui s'écarte du fond de moins de 25 niveaux n'est pas vue, alors que `normal`
+  descend jusqu'à 12 là où le bruit le permet ;
+- sur la 092, les 14 passages sont les mêmes, mais avec moins de points (2:37 : 7 contre
+  10 ; 3:57 : 18 contre 27), et certains commencent plus tard (3:57.32 contre 3:57.18).
+  Une piste courte et faible peut donc tomber sous `min_hits` et disparaître.
+
+Une option donnée explicitement l'emporte sur le mode (`--mode quick --threshold 20`).
+
+Pistes par vidéo, `normal` contre `quick`, mesurées du 4 au 7 octobre 2026 :
+
+| Vidéo | `normal` | `quick` |
+| --- | ---: | ---: |
+| 089 | 1 | 4 |
+| 090 | 20 | 12 |
+| 091 | 21 | 23 |
+| 092 | 14 | 14 |
+| 093 | 6 | 3 |
+| 094 | 14 | 9 |
+| 095 | 78 | 63 |
+| 096 | 136 | 110 |
+| 097 | 148 | 116 |
+| 099 | 115 | 98 |
+| 125 | 47 | 18 |
+| 126 | 12 | 4 |
+| 127 | 7 | 0 |
+
+Sur les vidéos calmes, `quick` trouve entre 3 pistes de plus et 8 de moins, sauf la 125
+(18 au lieu de 47, dont deux validées à l'œil). Sur les vidéos à beaucoup de pistes
+(095 à 099), les deux modes en sortent des dizaines : ce bruit est propre à ces fichiers,
+ce n'est pas un effet du mode.
+
 Sur un Mac Apple Silicon, les vidéos sont encodées par le moteur multimédia de la puce ;
 ailleurs par `libx264`. `--encoder x264` force l'encodeur logiciel.
 

@@ -71,6 +71,7 @@ def test_folder_run_writes_every_output_for_each_video(tmp_path: Path) -> None:
     assert [p.name for p in (dest / "split").iterdir()] == ["01_0m00s00.mp4"]
     params = json.loads((dest / "params.json").read_text())
     assert params["TrackConfig"]["min_hits"] == 6
+    assert params["mode"] == "normal"
     assert params["RenderConfig"]["encoder"] in {"x264", "videotoolbox"}
     assert (params["damaged_s"], params["damaged_frames"]) == ([], 0)
     assert params["ffprobe"].startswith("ffprobe version")

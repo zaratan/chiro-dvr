@@ -57,7 +57,8 @@ perd du contraste. À 960 px, un pixel de travail vaut 2,25 px² : `min_area` 4 
 pixels, et une cible qui n'en allume qu'un sur une image perd cette image. La médiane
 sur des images en flottants coûte plus cher qu'en entiers de 8 bits : la 092 se traite
 en 135 à 151 s au lieu de 30 ([09](09-profilage.md)). `--target-sigma 0 --work-width 480`
-revient à l'ancienne lecture.
+revient à l'ancienne lecture. `--mode quick` fait cela et revient aussi au seuil fixe 25
+(étape 4) ; `--mode normal`, le défaut, garde tout ce qui est décrit ici.
 
 **Détail technique.** Un fil d'exécution décode et réduit en avance (4 images) pendant
 que le fil principal détecte. Toutes les coordonnées ressortent en pixels d'origine : le

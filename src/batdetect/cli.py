@@ -41,6 +41,7 @@ class Settings:
     track: TrackConfig
     stability: StabilityConfig
     render: RenderConfig
+    mode: str
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -76,7 +77,7 @@ def build_configs(ns: argparse.Namespace) -> Settings:
         vt_quality=ns.vt_quality,
         annotated=ns.annotated,
     )
-    return Settings(build_detect_config(ns), build_track_config(ns), build_stability_config(ns), render)
+    return Settings(build_detect_config(ns), build_track_config(ns), build_stability_config(ns), render, ns.mode)
 
 
 def seconds(span: Span, fps: float) -> tuple[float, float]:
@@ -99,6 +100,7 @@ def process(job: Job, settings: Settings, workers: int, ffprobe: str) -> None:
         {
             "video": str(job.video),
             "fps": info.fps,
+            "mode": settings.mode,
             **config_params(detect, settings.track, settings.stability, render),
             "ignored_s": [[round(t, 2) for t in seconds(span, info.fps)] for span in unstable],
             "damaged_s": [[round(t, 2) for t in seconds(span, info.fps)] for span in analysis.damaged],
