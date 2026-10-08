@@ -211,7 +211,40 @@ commande varient jusqu'à 30 % d'un lancement à l'autre ; le temps CPU, lui, es
 - **L'ordre des messages sur la sortie d'erreur d'`ffmpeg`** : décalé d'une à deux images
   avec ffmpeg 9, donc inutilisable.
 
-L'accélération de la passe se mesure dans l'issue #36.
+### Avec les réglages du 6 octobre (issue #36)
+
+Les 55 s de surcoût ci-dessus dataient d'une détection à 480 px, qui durait 33,8 s sur la
+092 : la passe était alors l'étape la plus longue. Avec les réglages par défaut actuels
+(960 px, filtre à la taille de la cible, seuil par pixel) et `--workers 1`, la détection
+dure plus longtemps que la passe, qui est donc masquée. Mesures du 7 octobre 2026 sur la
+092, sous verrou, sur une machine où d'autres agents mesuraient aussi : le temps réel est
+bruité, le temps CPU est stable.
+
+| | Temps réel | CPU (user + sys) |
+| --- | --- | --- |
+| Passe seule, un fil (`-threads 1`) | 61,0 s | 55,4 s |
+| Passe seule, multifil (`-threads 0`) | 16,1 s | 62,0 s |
+| Commande avec passe (4 lancements) | 140 à 590 s | 440 à 514 s, 478 s en moyenne |
+| Commande sans passe (3 lancements) | 150 à 309 s | 395 à 410 s, 404 s en moyenne |
+
+Dans deux lancements chronométrés de l'intérieur, la détection a duré 122,6 s et 199,3 s,
+et la commande a attendu la fin de la passe **0,0 s** les deux fois. La passe n'allonge
+donc pas la commande à `--workers 1`. Il reste environ 75 s de CPU en plus, soit 18 %,
+à peser sur la machine de la naturaliste (#10). Le surcoût en temps réel ne se chiffre pas
+sur une machine partagée : les écarts entre lancements dépassent largement 15 s.
+
+Les deux pistes d'accélération n'ont pas été retenues : elles ne gagnent que du temps
+réel, déjà masqué, et pas de CPU.
+
+- **Contrôle multifil**, avec passe complète seulement en cas d'erreur : 8 à 16 s au lieu
+  de 57 à 86 s, pour 58 à 62 s de CPU. Sur les cinq vidéos saines balayées (089 à 092 et
+  la 092 d'origine), même nombre d'images, mêmes images-clés et mêmes trous qu'avec un
+  seul fil, et aucune erreur. Balayage arrêté avant les vidéos abîmées.
+- **Tranches parallèles partant d'une image-clé** (`-read_intervals`) : non mesurées, pour
+  la même raison.
+
+Si la détection redevient plus courte qu'environ 60 s (plusieurs `--workers`, réglage plus
+léger), la passe redevient l'étape la plus longue, et ces deux pistes reprennent leur intérêt.
 
 ## Mesure des taches en une passe (5 octobre 2026)
 
