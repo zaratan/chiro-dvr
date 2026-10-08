@@ -25,7 +25,7 @@ from batdetect.output.config import ENCODERS, ZOOMS, RenderConfig
 from batdetect.output.encoder import resolve_encoder
 from batdetect.output.overlay import track_overlay
 from batdetect.output.periods import split_by_period
-from batdetect.output.render import VideoOutputs, render_videos
+from batdetect.output.render import VideoOutputs, discard_videos, render_videos
 from batdetect.output.summary import summary_image
 from batdetect.output.tables import config_params, write_params, write_tracks_csv
 from batdetect.output.timefmt import format_time
@@ -101,11 +101,6 @@ def build_configs(ns: argparse.Namespace) -> Settings:
 
 def seconds(span: Span, fps: float) -> tuple[float, float]:
     return span.first / fps, (span.last + 1) / fps
-
-
-def discard_videos(outputs: VideoOutputs) -> None:
-    outputs.annotated.unlink(missing_ok=True)
-    shutil.rmtree(outputs.split_dir, ignore_errors=True)
 
 
 def process(job: Job, settings: Settings, workers: int, ffprobe: str) -> None:
