@@ -186,6 +186,7 @@ def test_rendering_a_damaged_video_writes_no_decoder_message(tmp_path: Path) -> 
     assert clip.exists()
     assert DECODER_ERROR not in log
 
+
 def declared_rate(path: Path) -> Fraction:
     probe = subprocess.run(
         [
