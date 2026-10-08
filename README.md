@@ -79,6 +79,16 @@ double environ le temps de traitement (#36). Si ffprobe et OpenCV ne voient pas 
 nombre d'images, la vidéo échoue avec les deux nombres, et les autres vidéos du lot
 continuent.
 
+Au-delà de 300 pistes (`--max-tracks`, 0 désactive), la vidéo est presque sûrement du
+bruit : le CSV, `params.json` et l'image résumé sont écrits, mais ni extraits ni vidéo
+annotée. Une ligne sur la sortie d'erreur donne le nombre de pistes et le seuil, la
+vidéo compte en échec (code de sortie non nul à la fin du lot) et les vidéos suivantes
+sont traitées. La liste des pistes n'est pas affichée : la ligne d'erreur, le résumé et
+le CSV suffisent. Le balayage du 7 octobre 2026 va de 0 à 148 pistes sur les vidéos sans
+explosion ; les réglages qui explosaient en donnaient 374 à 5 479. Le seuil est fixe et
+suppose des clips d'environ 5 min, comme ceux des jumelles : pour une vidéo plus longue,
+montez `--max-tracks`.
+
 Pour chaque vidéo, `out/<nom>/` contient :
 
 - `<nom>.tracks.png` : toutes les trajectoires sur le fond médian de la vidéo, une couleur,

@@ -107,6 +107,14 @@ def test_detection_runs_in_one_process_by_default_since_extra_chunks_only_add_re
     assert build_parser().parse_args(["in"]).workers == 1
 
 
+def test_max_tracks_defaults_between_the_busiest_healthy_video_and_the_smallest_known_explosion() -> None:
+    assert build_configs(build_parser().parse_args(["in"])).render.max_tracks == 300
+
+
+def test_max_tracks_option_reaches_the_render_config_so_zero_can_disable_it() -> None:
+    assert build_configs(build_parser().parse_args(["in", "--max-tracks", "0"])).render.max_tracks == 0
+
+
 def test_whole_annotated_video_is_off_by_default() -> None:
     assert not build_configs(build_parser().parse_args(["in"])).render.annotated
 
