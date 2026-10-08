@@ -50,6 +50,13 @@ def flying_square(count: int, step: tuple[int, int]) -> list[GrayFrame]:
     return [with_square(background(320, 240, seed=i), 20 + step[0] * i, 60 + step[1] * i, size=6) for i in range(count)]
 
 
+def two_squares_flying(count: int) -> list[GrayFrame]:
+    return [
+        with_square(with_square(background(320, 240, seed=i), 20 + 3 * i, 40, size=6), 20 + 3 * i, 180, size=6)
+        for i in range(count)
+    ]
+
+
 @requires_ffmpeg
 def test_folder_run_writes_every_output_for_each_video(tmp_path: Path) -> None:
     videos = tmp_path / "in"
@@ -183,3 +190,45 @@ def test_extract_keeps_its_four_tracks_within_the_noise_between_platforms(
     extract_tracks: tuple[list[Track], float],
 ) -> None:
     assert_matches_reference(extract_tracks[0], start_frames=[144, 705, 783, 972], hits=[290, 17, 24, 27])
+
+
+@requires_ffmpeg
+def test_video_above_max_tracks_keeps_its_tables_and_summary_skips_its_clips_and_fails_without_stopping_the_batch(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    videos = tmp_path / "in"
+    videos.mkdir()
+    write_video(videos / "crowded.mp4", two_squares_flying(90), fps=30)
+    write_video(videos / "flight.mp4", flying_square(90, step=(3, 1)), fps=30)
+    out = tmp_path / "out"
+    crowded = out / "crowded"
+    (crowded / "split").mkdir(parents=True)
+    (crowded / "crowded_boxes.mp4").write_bytes(b"from a previous run")
+
+    code = main([str(videos), "-o", str(out), "--max-tracks", "1", "--annotated"])
+
+    with (crowded / "crowded.tracks.csv").open() as fh:
+        assert len(list(csv.DictReader(fh))) == 2
+    assert (crowded / "crowded.tracks.png").stat().st_size > 0
+    assert json.loads((crowded / "params.json").read_text())["RenderConfig"]["max_tracks"] == 1
+    assert not (crowded / "split").exists()
+    assert not (crowded / "crowded_boxes.mp4").exists()
+    assert len(list((out / "flight" / "split").iterdir())) == 1
+    assert (out / "flight" / "flight_boxes.mp4").exists()
+    assert code == 1
+    assert "crowded.mp4: 2 tracks, above --max-tracks 1" in capsys.readouterr().err
+
+
+@requires_ffmpeg
+def test_video_above_max_tracks_prints_its_summary_line_but_not_its_track_list_which_the_csv_already_holds(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    videos = tmp_path / "in"
+    videos.mkdir()
+    write_video(videos / "crowded.mp4", two_squares_flying(90), fps=30)
+
+    main([str(videos), "-o", str(tmp_path / "out"), "--max-tracks", "1"])
+
+    printed = capsys.readouterr().out
+    assert "crowded.mp4: 90 frames, 2 tracks" in printed
+    assert "#1" not in printed

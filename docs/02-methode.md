@@ -272,6 +272,15 @@ utiliser son temps de début.
 
 La liste des fichiers produits est dans le [README](../README.md#utilisation).
 
+Garde-fou : au-delà de `max_tracks` pistes (300 par défaut, 0 désactive), les extraits
+et la vidéo annotée ne sont pas produits, et la vidéo compte en échec. Le CSV,
+`params.json` (avec le seuil, dans `RenderConfig`) et l'image résumé restent écrits. 300
+est au-dessus de la vidéo la plus chargée sans explosion (148 pistes, 097) et en dessous
+de la plus petite explosion connue (374 pistes, seuil 12 sans facteur de bruit). Le
+seuil est fixe, pas un taux par minute : il suppose des clips d'environ 5 min, comme ceux
+des jumelles, et se monte avec `--max-tracks` pour une vidéo plus longue. Au-delà, la
+liste des pistes n'est pas affichée en console.
+
 Colonnes du CSV : `id`, `start`, `end`, `start_s` (début en secondes), `duration_s`, `hits` (nombre de détections),
 `chord_px` (distance de bout en bout), `path_px` (chemin parcouru), `speed_px_s`
 (chemin ÷ durée), `max_area_px` (plus grande tache, en pixels d'origine),

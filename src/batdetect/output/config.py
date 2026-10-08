@@ -21,6 +21,7 @@ class RenderConfig:
     encoder: Encoder = AUTO
     vt_quality: int = 65
     annotated: bool = False
+    max_tracks: int = 300
 
     def __post_init__(self) -> None:
         if self.box_pad < 0:
@@ -35,3 +36,8 @@ class RenderConfig:
             raise ValueError(f"encoder must be one of {', '.join(ENCODERS)}")
         if not 1 <= self.vt_quality <= MAX_VT_QUALITY:
             raise ValueError(f"vt_quality must be between 1 and {MAX_VT_QUALITY}")
+        if self.max_tracks < 0:
+            raise ValueError("max_tracks must be >= 0")
+
+    def renders_videos_for(self, track_count: int) -> bool:
+        return self.max_tracks == 0 or track_count <= self.max_tracks

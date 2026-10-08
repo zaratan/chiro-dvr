@@ -18,8 +18,20 @@ from batdetect.output.config import Encoder, RenderConfig
         lambda: RenderConfig(encoder=cast("Encoder", "hevc")),
         lambda: RenderConfig(vt_quality=0),
         lambda: RenderConfig(vt_quality=101),
+        lambda: RenderConfig(max_tracks=-1),
     ],
 )
 def test_invalid_render_config_is_rejected(build: Callable[[], object]) -> None:
     with pytest.raises(ValueError, match="must be"):
         build()
+
+
+def test_videos_are_rendered_up_to_max_tracks_and_skipped_above() -> None:
+    cfg = RenderConfig(max_tracks=300)
+
+    assert cfg.renders_videos_for(300)
+    assert not cfg.renders_videos_for(301)
+
+
+def test_zero_max_tracks_renders_videos_whatever_the_track_count() -> None:
+    assert RenderConfig(max_tracks=0).renders_videos_for(100_000)

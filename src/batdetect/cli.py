@@ -35,6 +35,10 @@ from batdetect.track import TrackConfig, track_detections
 from batdetect.video import VideoError, open_video
 
 
+class TooManyTracksError(Exception):
+    pass
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     detect: DetectConfig
@@ -64,6 +68,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--vt-quality", type=int, default=r.vt_quality, help="quality for videotoolbox (higher is better)"
     )
     render.add_argument("--annotated", action="store_true", help="also write the whole annotated video")
+    render.add_argument(
+        "--max-tracks",
+        type=int,
+        default=r.max_tracks,
+        help="above this many tracks, skip clips and annotated video and count the video as failed; 0 disables",
+    )
     return ap
 
 
@@ -76,12 +86,18 @@ def build_configs(ns: argparse.Namespace) -> Settings:
         encoder=ns.encoder,
         vt_quality=ns.vt_quality,
         annotated=ns.annotated,
+        max_tracks=ns.max_tracks,
     )
     return Settings(build_detect_config(ns), build_track_config(ns), build_stability_config(ns), render, ns.mode)
 
 
 def seconds(span: Span, fps: float) -> tuple[float, float]:
     return span.first / fps, (span.last + 1) / fps
+
+
+def discard_videos(outputs: VideoOutputs) -> None:
+    outputs.annotated.unlink(missing_ok=True)
+    shutil.rmtree(outputs.split_dir, ignore_errors=True)
 
 
 def process(job: Job, settings: Settings, workers: int, ffprobe: str) -> None:
@@ -120,7 +136,11 @@ def process(job: Job, settings: Settings, workers: int, ffprobe: str) -> None:
     outputs = VideoOutputs(
         split_dir, clip_windows(tracks, info.fps, render.clip_margin_s, split_dir), job.dest / f"{stem}_boxes.mp4"
     )
-    render_videos(job.video, info, outputs, track_overlay(tracks, info, render), render)
+    renders_videos = render.renders_videos_for(len(tracks))
+    if renders_videos:
+        render_videos(job.video, info, outputs, track_overlay(tracks, info, render), render)
+    else:
+        discard_videos(outputs)
     ignored = len(analysis.ignored_frames) / info.fps
     print(f"{job.video.name}: {len(detections)} frames, {len(tracks)} tracks, {ignored:.1f} s ignored -> {job.dest}")
     if analysis.damaged:
@@ -130,9 +150,14 @@ def process(job: Job, settings: Settings, workers: int, ffprobe: str) -> None:
     for span in unstable:
         start, end = (format_time(t) for t in seconds(span, info.fps))
         print(f"  unstable {start} -> {end}, detections ignored")
-    for t in tracks:
-        start, end = format_time(t.first.frame / info.fps), format_time(t.last.frame / info.fps)
-        print(f"  #{t.id:<3} {start} -> {end}  hits={len(t.points)}")
+    if renders_videos:
+        for t in tracks:
+            start, end = format_time(t.first.frame / info.fps), format_time(t.last.frame / info.fps)
+            print(f"  #{t.id:<3} {start} -> {end}  hits={len(t.points)}")
+    else:
+        raise TooManyTracksError(
+            f"{len(tracks)} tracks, above --max-tracks {render.max_tracks}: clips and annotated video skipped"
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -163,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
     for job in jobs:
         try:
             process(job, settings, ns.workers, ffprobe)
-        except (VideoError, ValueError, OSError) as err:
+        except (VideoError, ValueError, OSError, TooManyTracksError) as err:
             failures += 1
             print(f"{job.video}: {err}", file=sys.stderr)
     return 1 if failures else 0
