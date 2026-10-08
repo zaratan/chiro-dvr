@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import subprocess
 from dataclasses import replace
+from fractions import Fraction
 from pathlib import Path
 
 import cv2
@@ -11,6 +13,8 @@ from batdetect.output.clips import ClipWindow
 from batdetect.output.config import X264, Encoder, RenderConfig
 from batdetect.output.overlay import track_overlay
 from batdetect.output.render import MAX_WRITERS, VideoOutputs, render_videos
+from batdetect.output.zoom import SLOW_MOTION, Crop
+from batdetect.output.zoomview import zoom_view, zoom_windows
 from batdetect.track import Track
 from batdetect.video import ColorFrame, GrayFrame, VideoError, VideoInfo, open_video, read_frames
 from helpers import (
@@ -27,6 +31,7 @@ from helpers import (
 FRAMES = 30
 BAND = 10
 DARK = 40
+BINOCULARS_FPS = 30.02738820371172
 INFO = VideoInfo(fps=30.0, frame_count=FRAMES, width=320, height=240, work_width=320, work_height=240)
 
 
@@ -180,3 +185,131 @@ def test_rendering_a_damaged_video_writes_no_decoder_message(tmp_path: Path) -> 
 
     assert clip.exists()
     assert DECODER_ERROR not in log
+
+
+def declared_rate(path: Path) -> Fraction:
+    probe = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v",
+            "-show_entries",
+            "stream=r_frame_rate",
+            "-of",
+            "csv=p=0",
+            path,
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return Fraction(probe.stdout.strip())
+
+
+def saturated_pixels(path: Path, hue_low: int, hue_high: int) -> int:
+    cap, _ = open_video(path, 320)
+    frames = list(read_frames(cap))
+    cap.release()
+    count = 0
+    for frame in frames:
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        count += int(
+            np.sum((hsv[..., 1] > 150) & (hsv[..., 2] > 100) & (hsv[..., 0] >= hue_low) & (hsv[..., 0] <= hue_high))
+        )
+    return count
+
+
+def red_pixels(path: Path) -> int:
+    return saturated_pixels(path, 0, 9) + saturated_pixels(path, 171, 180)
+
+
+def trail_pixels(path: Path) -> int:
+    return saturated_pixels(path, 15, 35)
+
+
+def zoomed(window: ClipWindow, track: Track, crop: Crop, cfg: RenderConfig) -> ClipWindow:
+    path = window.path.with_stem(window.path.stem + "_zoom")
+    return ClipWindow(window.first, window.last, path, zoom_view(track, crop, INFO, cfg), SLOW_MOTION)
+
+
+@requires_ffmpeg
+@pytest.mark.parametrize("encoder", EVERY_ENCODER)
+def test_zoomed_clip_has_the_same_frames_declared_at_a_quarter_of_the_rate(tmp_path: Path, encoder: Encoder) -> None:
+    video = numbered_video(tmp_path / "v.mp4")
+    cfg = RenderConfig(encoder=encoder)
+    out = outputs(tmp_path, (3, 12))
+    far_away = Track(1, line(50, 6, (0, 0), (1, 0)))
+    out = replace(out, clips=[*out.clips, zoomed(out.clips[0], far_away, Crop(0, 0, 320, 240), cfg)])
+
+    render_videos(video, replace(INFO, fps=BINOCULARS_FPS), out, leave_as_is, cfg)
+
+    normal, zoom = (c.path for c in out.clips)
+    assert frame_numbers(zoom) == frame_numbers(normal) == list(range(3, 13))
+    assert float(declared_rate(normal) / declared_rate(zoom)) == pytest.approx(SLOW_MOTION, rel=1e-6)
+
+
+@requires_ffmpeg
+@pytest.mark.parametrize("crop", [Crop(80, 60, 80, 60), Crop(0, 0, 320, 240)])
+def test_normal_clip_bytes_do_not_change_when_a_zoom_runs_alongside(tmp_path: Path, crop: Crop) -> None:
+    video = small_video(tmp_path / "v.mp4", frames=30)
+    track = Track(1, line(5, 10, (100, 80), (3, 1)))
+    cfg = RenderConfig(encoder=X264)
+    alone = outputs(tmp_path, (2, 20))
+    render_videos(video, INFO, alone, leave_as_is, cfg)
+    reference = alone.clips[0].path.read_bytes()
+
+    with_zoom = replace(alone, clips=[*alone.clips, zoomed(alone.clips[0], track, crop, cfg)])
+    render_videos(video, INFO, with_zoom, leave_as_is, cfg)
+
+    assert with_zoom.clips[0].path.read_bytes() == reference
+    assert with_zoom.clips[1].path.exists()
+
+
+@requires_ffmpeg
+def test_zoomed_clip_shows_the_trail_but_not_the_box_of_the_normal_clip(tmp_path: Path) -> None:
+    video = small_video(tmp_path / "v.mp4", frames=30)
+    track = Track(1, line(5, 15, (90, 90), (3, 1)))
+    cfg = RenderConfig(box_pad=6, encoder=X264)
+    out = outputs(tmp_path, (2, 25))
+    out = replace(out, clips=[*out.clips, zoomed(out.clips[0], track, Crop(60, 60, 80, 60), cfg)])
+
+    render_videos(video, INFO, out, track_overlay([track], INFO, cfg), cfg)
+
+    normal, zoom = (c.path for c in out.clips)
+    assert red_pixels(normal) > 0
+    assert red_pixels(zoom) == 0
+    assert trail_pixels(zoom) > 0
+
+
+@requires_ffmpeg
+def test_zooms_beyond_the_writer_limit_are_rendered_in_further_passes(tmp_path: Path) -> None:
+    video = numbered_video(tmp_path / "v.mp4")
+    cfg = RenderConfig(encoder=X264, zoom="all")
+    out = outputs(tmp_path, *[(i, i + 10) for i in range(MAX_WRITERS)])
+    tracks = [Track(i, line(i + 2, 6, (100, 100), (5, 0))) for i in range(MAX_WRITERS)]
+    out = replace(out, clips=[*out.clips, *zoom_windows(tracks, out.clips, INFO, cfg)])
+
+    render_videos(video, INFO, out, leave_as_is, cfg)
+
+    assert len(out.clips) == 2 * MAX_WRITERS
+    assert [len(frame_numbers(c.path)) for c in out.clips] == [11] * (2 * MAX_WRITERS)
+
+
+@requires_ffmpeg
+def test_interruption_leaves_no_partial_zoomed_clip(tmp_path: Path) -> None:
+    video = numbered_video(tmp_path / "v.mp4")
+    cfg = RenderConfig(encoder=X264, zoom="all")
+    out = outputs(tmp_path, (0, 20))
+    track = Track(1, line(2, 8, (100, 100), (5, 0)))
+    out = replace(out, clips=[*out.clips, *zoom_windows([track], out.clips, INFO, cfg)])
+
+    def interrupt_at_ten(_frame: ColorFrame, frame_no: int) -> None:
+        if frame_no == 10:
+            raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        render_videos(video, INFO, out, interrupt_at_ten, cfg)
+
+    assert list(out.split_dir.iterdir()) == []

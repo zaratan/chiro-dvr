@@ -114,7 +114,10 @@ Pour chaque vidéo, `out/<nom>/` contient :
 - `<nom>.tracks.csv` : début, fin, durée, vitesse de chaque passage ;
 - `params.json` : les réglages utilisés ;
 - `split/` : un extrait par passage, nommé par numéro et temps de début, avec une boîte,
-  un numéro et la trace des passages visibles ;
+  un numéro et la trace des passages visibles ; pour les passages petits ou faibles,
+  aussi `<même nom>_zoom.mp4` : la même scène recadrée sur la trajectoire, agrandie
+  jusqu'à ×4 et ralentie ×0,25, avec la trace seule. `--zoom all` en fait un pour chaque
+  passage, `--zoom none` aucun ([docs/02](docs/02-methode.md#extrait-zoomé-et-ralenti)) ;
 - les périodes ignorées parce que l'image est saturée de taches (jumelles qui bougent)
   sont écrites dans l'en-tête du bandeau de l'image résumé (`hors analyse 0:00 - 0:09`,
   arrondi vers l'extérieur), affichées en console et listées dans `params.json`

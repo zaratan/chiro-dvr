@@ -45,7 +45,8 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 **Un module, une responsabilité, son fichier de tests** (`tests/test_<module>.py`, ou
 `test_<paquet>_<module>.py`). Dépendances à sens unique : `track` → `detect` → `video`, `detect` → `noise` → `median`,
 `stability` → `spans` → `detect`, `probe` → `damage` → `spans`, `damage` → `video`, `exclusion` → `damage`,
-`stability`, `spans`, `detect`.
+`stability`, `spans`, `detect`. Dans `output/` : `zoomview` → `zoom`, `overlay`, `clips`, `config`, `track`,
+`detect`, `video` ; `zoom` → `config`, `track` ; `clips` → `timefmt`, `track`, `video`.
 Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs rôles.
 
 - `video.py` : ouverture, lecture et réduction des images (`open_video`, `read_frames`,
@@ -73,12 +74,16 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   les plages abîmées et instables (clés gardées).
 - `track.py` : `TrackConfig`, `Track`, appariement, fusion des jumelles, filtres de fin
   (`min_hits`, `min_travel`, virage médian), tout dans `track_detections`. Ne dépend que de `Detection`.
+  `Track.max_area()` et `Track.peak_amplitude()` servent au CSV comme au choix du zoom.
 - `output/` : `config.py` (`RenderConfig`), `timefmt.py` (temps et noms d'extraits),
   `overlay.py` (boîtes, trace, interpolation, `track_overlay`), `render.py` (une lecture
   de l'original qui alimente les extraits et la vidéo annotée optionnelle ; au plus
   `MAX_WRITERS` encodeurs à la fois, sinon plusieurs passes), `writer.py` (`FrameWriter`,
   un ffmpeg qui reçoit des images brutes ; supprime le fichier partiel s'il est
-  abandonné), `clips.py` (fenêtres d'extraits, répartition en passes), `tables.py`
+  abandonné), `clips.py` (fenêtres d'extraits, répartition en passes ; une fenêtre peut
+  porter une vue sur l'image brute et un ralenti), `zoom.py` (pistes qui ont un zoom,
+  cadre fixe), `zoomview.py` (vue zoomée, trace coupée près de la cible, fenêtres
+  `_zoom.mp4`), `tables.py`
   (CSV, `params.json`), `encoder.py`
   (moteur multimédia ou x264, choisi au démarrage par un essai d'encodage). Image résumé :
   `summary.py` (assemblage, écriture), `background.py` (fond médian, zones d'affichage masquées), `style.py`
