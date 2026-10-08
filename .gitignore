@@ -12,3 +12,6 @@ out/
 !tests/fixtures/*.mp4
 
 .claude/tower-control/lot-*.sh
+
+build/
+dist/

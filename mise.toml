@@ -40,3 +40,48 @@ run = [
   { task = "test:fast" },
   { task = "test:slow" },
 ]
+
+[tasks.package]
+run = '''
+set -euo pipefail
+rm -rf build/pyinstaller dist/batdetect dist/batdetect-darwin-arm64.tar.gz
+uv run --group release pyinstaller --noconfirm --clean --onedir --noupx --name batdetect \
+  --copy-metadata batdetect --copy-metadata opencv-python-headless \
+  --distpath dist --workpath build/pyinstaller --specpath build/pyinstaller src/batdetect/cli.py
+cv2_dir=$(uv run python -c "import cv2, pathlib; print(pathlib.Path(cv2.__file__).parent)")
+python_license=$(uv run python -c "import sysconfig; print(sysconfig.get_path('stdlib'))")/LICENSE.txt
+cp LICENSE packaging/NOTICE packaging/GPL-3.0.txt "$cv2_dir/LICENSE-3RD-PARTY.txt" dist/batdetect/
+cp "$python_license" dist/batdetect/LICENSE-PYTHON.txt
+COPYFILE_DISABLE=1 tar -czf dist/batdetect-darwin-arm64.tar.gz -C dist batdetect
+'''
+
+[tasks."package:check"]
+env = { MACOS_MIN = "14.0", EXTRACT = "tests/fixtures/video_092_original_3m24-4m05.mp4", CHECK_DIR = "out/package-check" }
+run = '''
+set -euo pipefail
+binary=dist/batdetect/batdetect
+minos=$(find dist/batdetect -type f -exec otool -l {} + 2>/dev/null | awk '$1 == "minos" { print $2 }' | sort -V | tail -1)
+if [ -z "$minos" ] || [ "$(printf '%s\n' "$minos" "$MACOS_MIN" | sort -V | tail -1)" != "$MACOS_MIN" ]; then
+  echo "binary needs macOS $minos, the formula promises $MACOS_MIN" >&2
+  exit 1
+fi
+ffmpeg_prefix=$(grep -o '/opt/homebrew/Cellar/ffmpeg/[^)]*' packaging/NOTICE)
+if ! strings dist/batdetect/_internal/libavcodec.*.dylib | grep -- "--prefix=$ffmpeg_prefix " > /dev/null; then
+  echo "bundled FFmpeg is not $ffmpeg_prefix named in packaging/NOTICE" >&2
+  exit 1
+fi
+unlisted=$(find dist/batdetect -name '*.dylib' -exec basename {} \; | while read -r lib; do
+  grep -q "^$lib:" packaging/NOTICE || echo "$lib"
+done)
+if [ -n "$unlisted" ]; then
+  echo "libraries missing from packaging/NOTICE: $unlisted" >&2
+  exit 1
+fi
+rm -rf "$CHECK_DIR"
+uv run batdetect "$EXTRACT" -o "$CHECK_DIR/source"
+"$binary" "$EXTRACT" -o "$CHECK_DIR/binary"
+"$binary" "$EXTRACT" -o "$CHECK_DIR/binary-workers" --workers 2
+for run in binary binary-workers; do
+  cmp "$CHECK_DIR"/source/*/*.tracks.csv "$CHECK_DIR/$run"/*/*.tracks.csv
+done
+'''

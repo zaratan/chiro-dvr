@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 import pytest
 
 from batdetect.cli import build_configs, build_parser, main
 from batdetect.detect import Region
+
+PYPROJECT = Path(__file__).parents[1] / "pyproject.toml"
 
 
 def test_options_become_validated_configs() -> None:
@@ -71,6 +74,17 @@ def test_zero_workers_exits_with_a_usage_error_instead_of_silently_running_one(
 
     assert exit_info.value.code == 2
     assert "--workers: must be >= 1, got 0" in capsys.readouterr().err
+
+
+def test_version_matches_pyproject_so_the_release_can_compare_it_to_the_tag(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        main(["--version"])
+
+    assert exit_info.value.code == 0
+    project = tomllib.loads(PYPROJECT.read_text())["project"]
+    assert capsys.readouterr().out == f"batdetect {project['version']}\n"
 
 
 def test_folder_without_video_exits_with_a_usage_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

@@ -90,6 +90,17 @@
      pistes, dans deux dossiers. Traiter une série comme un flux continu (fond et suivi
      qui enjambent la frontière) donnerait une seule piste.
 9. **Distribution** aux naturalistes : binaire unique ou installation via uv.
+   - **Tranché (8 octobre, #30) : binaire autonome par Homebrew**,
+     `brew install zaratan/bat-tools/batdetect`, sans Python ni uv. Mesures sur les deux
+     prototypes :
+     - **Binaire PyInstaller** : 63 Mo à télécharger, 147 Mo installé. 14 pistes sur la 092,
+       `tracks.csv` identique à l'octet au dépôt, aussi en `--workers 2` et une fois
+       installé par Homebrew.
+     - **Formule sur le Python et l'OpenCV de Homebrew** : 91 formules de plus que ffmpeg,
+       environ 3,2 Go. Mêmes 14 pistes, avec des `hits` et des surfaces un peu différents.
+     - Limites du binaire : Mac Apple Silicon, macOS 14 minimum. Il est distribué sous
+       GPL v3 à cause du FFmpeg embarqué ; le code reste sous MIT
+       ([05-outillage-python.md](05-outillage-python.md)).
 10. **Lisibilité de l'image résumé** (`*.tracks.png`), constatée sur l'original de la 092 :
     les étiquettes des pistes qui entrent par le bord droit sortaient du cadre, celles des
     pistes groupées se chevauchaient, le rouge se lisait mal sur la roche claire, et rien

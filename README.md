@@ -5,6 +5,18 @@ extrait par passage pour validation par une naturaliste.
 
 ## Installation
 
+Sur un Mac Apple Silicon en macOS 14 ou plus récent, sans Python ni uv :
+
+```bash
+brew install zaratan/bat-tools/batdetect   # installe aussi ffmpeg
+batdetect --version
+```
+
+Le binaire est distribué sous GPL v3 (il embarque FFmpeg compilé avec x264 et x265) ; le
+code du dépôt reste sous MIT. Détail dans [docs/05](docs/05-outillage-python.md).
+
+### Depuis les sources
+
 Prérequis : [mise](https://mise.jdx.dev/), ffmpeg et ffprobe (même paquet : `brew install ffmpeg` sur macOS,
 `apt install ffmpeg` sur Debian/Ubuntu ; testé avec ffmpeg 9) et Git LFS pour les deux
 vidéos de test (l'extrait et la 092 entière).
@@ -24,6 +36,8 @@ uv run batdetect in                 # toutes les vidéos du dossier in/
 uv run batdetect a.mp4 b.mov -o res # fichiers précis, sorties dans res/
 uv run batdetect --help             # tous les réglages
 ```
+
+Installé par Homebrew, la commande s'appelle sans `uv run` : `batdetect in`.
 
 ### Modes
 
@@ -131,8 +145,25 @@ mise run format
 uv run batdetect-bench in/video_092_original.mp4   # banc de mesure (docs/08)
 ```
 
+### Publier une version
+
+1. Monter `version` dans `pyproject.toml` (`uv version 0.2.0`), commit, fusion dans `main`.
+2. Attendre que la CI de `main` passe, puis poser le tag sur ce commit :
+   `git tag v0.2.0 && git push origin v0.2.0`.
+3. `release.yml` vérifie le tag (version de `pyproject.toml`, commit sur `main`, CI
+   réussie), construit le binaire sur `macos-latest` (`mise run package`), le contrôle
+   (`mise run package:check`) et publie la release avec `batdetect-darwin-arm64.tar.gz`.
+   Un tag posé avant la fin de la CI fait échouer la release : la relancer depuis
+   l'onglet Actions.
+4. Le tap `zaratan/homebrew-bat-tools` ouvre la PR de mise à jour de la formule le
+   lendemain (`bump-formulae.yml`, chaque jour à 6 h UTC).
+
+En local : `mise run package` construit `dist/batdetect/` et l'archive,
+`mise run package:check` la contrôle sur l'extrait (`git lfs pull` et ffmpeg requis).
+
 La base de connaissances du projet est dans [docs/](docs/README.md).
 
 ## Licence
 
-MIT, voir [LICENSE](LICENSE).
+Code sous MIT, voir [LICENSE](LICENSE). Le binaire distribué par Homebrew est sous GPL v3,
+voir [packaging/NOTICE](packaging/NOTICE).
