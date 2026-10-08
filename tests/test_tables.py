@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from batdetect.detect import DetectConfig
+from batdetect.output.config import RenderConfig
 from batdetect.output.tables import config_params, write_params, write_tracks_csv
 from batdetect.track import Track, TrackConfig
 from batdetect.video import VideoInfo
@@ -34,6 +35,13 @@ def test_params_are_written_as_readable_utf8_json(tmp_path: Path) -> None:
 
     assert "vidéo" in out.read_text()
     assert json.loads(out.read_text()) == {"vidéo": "nuit_1.mp4"}
+
+
+def test_zoom_thresholds_are_recorded_with_the_render_settings() -> None:
+    params = config_params(RenderConfig())
+
+    assert params["RenderConfig"]["zoom"] == "auto"
+    assert (params["RenderConfig"]["zoom_below_area"], params["RenderConfig"]["zoom_below_amplitude"]) == (100, 40)
 
 
 def test_configs_are_keyed_by_their_class_name() -> None:

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import itertools
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 from batdetect.output.timefmt import clip_name
 from batdetect.track import Track
+from batdetect.video import ColorFrame
+
+type View = Callable[[ColorFrame, int], ColorFrame]
 
 
 @dataclass(frozen=True, slots=True)
@@ -13,6 +17,8 @@ class ClipWindow:
     first: int
     last: int
     path: Path
+    view: View | None = None
+    slowdown: int = 1
 
 
 def clip_windows(tracks: list[Track], fps: float, margin_s: float, split_dir: Path) -> list[ClipWindow]:

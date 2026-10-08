@@ -48,8 +48,8 @@ def write_tracks_csv(tracks: list[Track], info: VideoInfo, out_path: Path) -> No
                     round(t.chord(), 1),
                     round(path_px, 1),
                     round(path_px / duration, 1),
-                    round(max(p.area for p in t.points)),
-                    round(max(p.amplitude for p in t.points), 1),
+                    round(t.max_area()),
+                    round(t.peak_amplitude(), 1),
                     t.last.frame - t.first.frame + 1 - len(t.points),
                 ]
             )

@@ -2,7 +2,8 @@
 
 Le traitement d'une vidéo se fait en deux passes. La première lit la vidéo en petit,
 détecte et suit. La seconde relit la vidéo en pleine résolution, dessine les boîtes et
-encode directement chaque extrait (et la vidéo annotée complète avec `--annotated`).
+encode directement chaque extrait, l'extrait zoomé et ralenti des pistes petites ou
+faibles, et la vidéo annotée complète avec `--annotated`.
 
 Toutes les distances et surfaces des réglages, des pistes et du CSV sont en **pixels de
 la vidéo d'origine**. Pour détecter, la vidéo est réduite à `work_width` px de large
@@ -232,6 +233,49 @@ la dernière ; les images que personne n'attend sont sautées sans être convert
 6 encodeurs tournent en même temps (`MAX_WRITERS`) : au-delà, les extraits sont répartis
 en plusieurs passes, chacune relisant la vidéo. Un extrait qui échoue ou une interruption
 ne laissent pas de fichier tronqué.
+
+### Extrait zoomé et ralenti
+
+Une cible de quelques pixels qui traverse le champ en 0,2 s ne se voit pas sur l'extrait
+normal (passage de 3:42.10 de la 092, jugé faux puis reconnu réel en zoomant et en
+ralentissant dans le lecteur, #37). Pour ces pistes, un second fichier
+`split/<nom>_zoom.mp4` est écrit à côté de l'extrait normal.
+
+- **Quelles pistes** (`--zoom auto`, par défaut) : celles dont la plus grande tache fait
+  moins de 100 px² (`max_area_px`) **ou** dont le plus fort écart au fond est sous 40
+  (`peak_amplitude`), comparaisons strictes, mêmes grandeurs que le CSV. Sur la 092,
+  seule la piste 0:51.62 (36 px², 34,7) a son zoom ; le passage de 3:42.10, quand un
+  réglage le trouve (1440 px sans seuil par pixel : 70 px², 22,0), l'aurait aussi. Sur
+  le balayage du 7 octobre (14 vidéos, 848 pistes), 384 pistes ont leur zoom (45 %),
+  de 0 sur la 089 à 83 sur 136 pour la 096 ; sur 095 à 099, c'est surtout l'aire qui
+  déclenche. `--zoom all` en fait un pour chaque piste, `--zoom none` aucun. Les seuils
+  (`zoom_below_area`, `zoom_below_amplitude`) sont dans `params.json` mais pas en option.
+  **L'amplitude dépend du filtre `--target-sigma`, du seuil et de `--work-width`** : le
+  seuil de 40 se remesure quand ces réglages changent.
+- **Cadre** : fixe pour tout l'extrait. Boîte englobante des détections de la piste,
+  plus 40 px (pixels d'origine) de chaque côté, élargie au rapport de l'image source
+  (4:3 pour les jumelles) en unités entières, au moins un quart de l'image par côté
+  (360 × 270 sur 1440 × 1080), puis décalée pour rester dans l'image ; si elle dépasse
+  l'image, c'est l'image entière. Le rapport exact passe avant l'agrandissement : pour des
+  dimensions sans diviseur commun (1442 × 1081), le cadre est toujours l'image entière. L'agrandissement va donc de ×1 à ×4 : ×4 pour la piste
+  0:51.62 de la 092, ×1,29 à ×4 (médiane ×2,77) pour les 39 zooms de la 125. Une
+  traversée rapide du champ donne un cadre presque entier : le ralenti fait alors
+  l'essentiel.
+- **Agrandissement** au plus proche voisin : chaque pixel source devient un carré,
+  rien n'est lissé. La sortie a la taille de la vidéo source.
+- **Ralenti ×0,25** : les mêmes images que l'extrait normal (même fenêtre, marges
+  comprises), aucune dupliquée ni interpolée, déclarées à un quart de la cadence
+  (7,5 i/s pour 30 i/s). La piste 0:51.62 dure 3,3 s en extrait normal, 13,2 s en zoom.
+- **Dessin** : seulement la trace de la piste du fichier (`--trail`, trait de 1 px après
+  agrandissement), sans boîte ni numéro, et rien des autres pistes. Chaque segment de la
+  trace est coupé à 16 px (pixels d'origine) de la boîte de la cible, pour ne pas
+  recouvrir une cible ténue, même quand la piste revient sur elle-même. Le recadrage se
+  fait sur l'image brute, avant le dessin de l'extrait normal, qui reste identique.
+- **Coût** : chaque zoom a son propre encodeur, compté dans les 6 de `MAX_WRITERS`. Sur
+  la 092, rien de mesurable ; sur la 125 (39 zooms), une seconde passe et environ 42 s
+  de CPU de plus ([09](09-profilage.md#extraits-zoomés-issue-37)). En `libx264`, la
+  qualité `--crf` dépend de la cadence déclarée : un zoom pèse plus qu'un extrait aux
+  mêmes images.
 
 ## 7. Filtres finaux
 

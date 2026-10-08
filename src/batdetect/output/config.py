@@ -10,6 +10,10 @@ AUTO: Final = "auto"
 VIDEOTOOLBOX: Final = "videotoolbox"
 X264: Final = "x264"
 ENCODERS: tuple[Encoder, ...] = (AUTO, VIDEOTOOLBOX, X264)
+type Zoom = Literal["auto", "all", "none"]
+ZOOM_ALL: Final = "all"
+ZOOM_NONE: Final = "none"
+ZOOMS: tuple[Zoom, ...] = (AUTO, ZOOM_ALL, ZOOM_NONE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,6 +26,9 @@ class RenderConfig:
     vt_quality: int = 65
     annotated: bool = False
     max_tracks: int = 300
+    zoom: Zoom = AUTO
+    zoom_below_area: float = 100
+    zoom_below_amplitude: float = 40
 
     def __post_init__(self) -> None:
         if self.box_pad < 0:
@@ -36,6 +43,12 @@ class RenderConfig:
             raise ValueError(f"encoder must be one of {', '.join(ENCODERS)}")
         if not 1 <= self.vt_quality <= MAX_VT_QUALITY:
             raise ValueError(f"vt_quality must be between 1 and {MAX_VT_QUALITY}")
+        if self.zoom not in ZOOMS:
+            raise ValueError(f"zoom must be one of {', '.join(ZOOMS)}")
+        if not self.zoom_below_area > 0:
+            raise ValueError("zoom_below_area must be > 0")
+        if not self.zoom_below_amplitude > 0:
+            raise ValueError("zoom_below_amplitude must be > 0")
         if self.max_tracks < 0:
             raise ValueError("max_tracks must be >= 0")
 

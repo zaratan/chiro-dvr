@@ -34,6 +34,8 @@ def test_options_become_validated_configs() -> None:
             "2.5",
             "--max-median-turn",
             "1.2",
+            "--zoom",
+            "all",
         ]
     )
 
@@ -48,6 +50,7 @@ def test_options_become_validated_configs() -> None:
     assert render.encoder == "x264"
     assert render.vt_quality == 40
     assert render.annotated
+    assert render.zoom == "all"
     assert (settings.stability.max_blobs, settings.stability.pad_s) == (0, 2.5)
 
 
@@ -127,6 +130,18 @@ def test_max_tracks_defaults_between_the_busiest_healthy_video_and_the_smallest_
 
 def test_max_tracks_option_reaches_the_render_config_so_zero_can_disable_it() -> None:
     assert build_configs(build_parser().parse_args(["in", "--max-tracks", "0"])).render.max_tracks == 0
+
+
+def test_zoom_is_kept_for_small_or_faint_tracks_by_default() -> None:
+    assert build_configs(build_parser().parse_args(["in"])).render.zoom == "auto"
+
+
+def test_unknown_zoom_exits_with_a_usage_error(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        main(["in", "--zoom", "some"])
+
+    assert exit_info.value.code == 2
+    assert "--zoom" in capsys.readouterr().err
 
 
 def test_whole_annotated_video_is_off_by_default() -> None:

@@ -12,7 +12,7 @@ from batdetect.video import VideoError, VideoInfo
 
 
 class FrameWriter:
-    def __init__(self, path: Path, info: VideoInfo, cfg: RenderConfig) -> None:
+    def __init__(self, path: Path, info: VideoInfo, cfg: RenderConfig, slowdown: int = 1) -> None:
         command = [
             "ffmpeg",
             "-v",
@@ -25,7 +25,7 @@ class FrameWriter:
             "-s",
             f"{info.width}x{info.height}",
             "-r",
-            str(info.fps),
+            str(info.fps / slowdown),
             "-i",
             "-",
             *encoder_args(cfg),

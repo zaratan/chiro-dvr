@@ -5,7 +5,7 @@ from typing import cast
 
 import pytest
 
-from batdetect.output.config import Encoder, RenderConfig
+from batdetect.output.config import Encoder, RenderConfig, Zoom
 
 
 @pytest.mark.parametrize(
@@ -19,6 +19,9 @@ from batdetect.output.config import Encoder, RenderConfig
         lambda: RenderConfig(vt_quality=0),
         lambda: RenderConfig(vt_quality=101),
         lambda: RenderConfig(max_tracks=-1),
+        lambda: RenderConfig(zoom=cast("Zoom", "some")),
+        lambda: RenderConfig(zoom_below_area=0),
+        lambda: RenderConfig(zoom_below_amplitude=-1),
     ],
 )
 def test_invalid_render_config_is_rejected(build: Callable[[], object]) -> None:

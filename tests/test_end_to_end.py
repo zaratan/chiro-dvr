@@ -75,13 +75,25 @@ def test_folder_run_writes_every_output_for_each_video(tmp_path: Path) -> None:
     assert "filled_frames" in rows[0]
     assert (dest / "flight.tracks.png").stat().st_size > 0
     assert not (dest / "flight_boxes.mp4").exists()
-    assert [p.name for p in (dest / "split").iterdir()] == ["01_0m00s00.mp4"]
+    assert sorted(p.name for p in (dest / "split").iterdir()) == ["01_0m00s00.mp4", "01_0m00s00_zoom.mp4"]
     params = json.loads((dest / "params.json").read_text())
     assert params["TrackConfig"]["min_hits"] == 6
     assert params["mode"] == "normal"
     assert params["RenderConfig"]["encoder"] in {"x264", "videotoolbox"}
     assert (params["damaged_s"], params["damaged_frames"]) == ([], 0)
     assert params["ffprobe"].startswith("ffprobe version")
+
+
+@requires_ffmpeg
+def test_zoom_none_writes_only_the_normal_clip_of_a_small_target(tmp_path: Path) -> None:
+    videos = tmp_path / "in"
+    videos.mkdir()
+    write_video(videos / "flight.mp4", flying_square(90, step=(3, 1)), fps=30)
+
+    assert main([str(videos), "-o", str(tmp_path / "out"), "--zoom", "none"]) == 0
+
+    split = tmp_path / "out" / "flight" / "split"
+    assert [p.name for p in split.iterdir()] == ["01_0m00s00.mp4"]
 
 
 @requires_ffmpeg
@@ -205,7 +217,7 @@ def test_video_above_max_tracks_keeps_its_tables_and_summary_skips_its_clips_and
     (crowded / "split").mkdir(parents=True)
     (crowded / "crowded_boxes.mp4").write_bytes(b"from a previous run")
 
-    code = main([str(videos), "-o", str(out), "--max-tracks", "1", "--annotated"])
+    code = main([str(videos), "-o", str(out), "--max-tracks", "1", "--annotated", "--zoom", "none"])
 
     with (crowded / "crowded.tracks.csv").open() as fh:
         assert len(list(csv.DictReader(fh))) == 2

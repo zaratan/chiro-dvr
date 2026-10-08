@@ -71,6 +71,12 @@ class Track:
     def path_length(self) -> float:
         return sum(math.hypot(b.x - a.x, b.y - a.y) for a, b in zip(self.points, self.points[1:], strict=False))
 
+    def max_area(self) -> float:
+        return max(p.area for p in self.points)
+
+    def peak_amplitude(self) -> float:
+        return max(p.amplitude for p in self.points)
+
 
 def _match(active: list[Track], candidates: list[Detection], frame: int, max_jump: float) -> list[Detection]:
     pairs: list[tuple[bool, float, int, int]] = []

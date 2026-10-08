@@ -21,7 +21,7 @@ from batdetect.exclusion import exclude
 from batdetect.jobs import Job, collect_videos, plan_jobs
 from batdetect.output.background import hide_display, median_background
 from batdetect.output.clips import clip_windows
-from batdetect.output.config import ENCODERS, RenderConfig
+from batdetect.output.config import ENCODERS, ZOOMS, RenderConfig
 from batdetect.output.encoder import resolve_encoder
 from batdetect.output.overlay import track_overlay
 from batdetect.output.periods import split_by_period
@@ -29,6 +29,7 @@ from batdetect.output.render import VideoOutputs, render_videos
 from batdetect.output.summary import summary_image
 from batdetect.output.tables import config_params, write_params, write_tracks_csv
 from batdetect.output.timefmt import format_time
+from batdetect.output.zoomview import zoom_windows
 from batdetect.parallel import DEFAULT_WORKERS, detect_video
 from batdetect.probe import ffprobe_version, probing
 from batdetect.spans import Span, covered_frames
@@ -77,6 +78,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=r.max_tracks,
         help="above this many tracks, skip clips and annotated video and count the video as failed; 0 disables",
     )
+    render.add_argument(
+        "--zoom", choices=ZOOMS, default=r.zoom, help="slowed, magnified clip: auto for small or faint tracks only"
+    )
     return ap
 
 
@@ -90,6 +94,7 @@ def build_configs(ns: argparse.Namespace) -> Settings:
         vt_quality=ns.vt_quality,
         annotated=ns.annotated,
         max_tracks=ns.max_tracks,
+        zoom=ns.zoom,
     )
     return Settings(build_detect_config(ns), build_track_config(ns), build_stability_config(ns), render, ns.mode)
 
@@ -136,9 +141,8 @@ def process(job: Job, settings: Settings, workers: int, ffprobe: str) -> None:
     )
     summary_image(hide_display(median_background(job.video, info), detect), periods, info, job.dest / stem)
     split_dir = job.dest / "split"
-    outputs = VideoOutputs(
-        split_dir, clip_windows(tracks, info.fps, render.clip_margin_s, split_dir), job.dest / f"{stem}_boxes.mp4"
-    )
+    clips = clip_windows(tracks, info.fps, render.clip_margin_s, split_dir)
+    outputs = VideoOutputs(split_dir, clips + zoom_windows(tracks, clips, info, render), job.dest / f"{stem}_boxes.mp4")
     renders_videos = render.renders_videos_for(len(tracks))
     if renders_videos:
         render_videos(job.video, info, outputs, track_overlay(tracks, info, render), render)

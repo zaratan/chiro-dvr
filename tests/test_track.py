@@ -223,3 +223,16 @@ def test_one_sharp_turn_in_a_straight_track_does_not_reject_it() -> None:
     ]
 
     assert Track(1, points).median_turn() == 0
+
+
+def test_largest_area_and_peak_amplitude_may_come_from_different_detections() -> None:
+    track = Track(
+        1,
+        [
+            Detection(0, 10, 10, 9, 9, 3, 3, 40, 22.5),
+            Detection(1, 20, 10, 19, 9, 3, 3, 12, 61.0),
+            Detection(2, 30, 10, 29, 9, 3, 3, 25, 30.0),
+        ],
+    )
+
+    assert (track.max_area(), track.peak_amplitude()) == (40, 61.0)

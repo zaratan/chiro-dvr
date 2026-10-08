@@ -334,3 +334,31 @@ filtrées en float32, quatre fois plus de pixels qu'à 480 px ; la carte de brui
 aux pixels au-dessus du plancher, ne coûte presque rien. Un banc de transit prend
 260 s au lieu de 32. `--work-width 480 --target-sigma 0 --threshold 25 --noise-factor 0`
 retrouve l'ancien réglage et son temps.
+
+## Extraits zoomés (issue #37)
+
+Rendu seul (lecture de l'original, dessin, encodage `h264_videotoolbox`) à partir des
+pistes de `main`, sous le verrou de mesure, deux tours. D'autres agents tournaient hors
+verrou : le temps réel varie beaucoup d'un tour à l'autre, le CPU (ffmpeg compris) reste
+stable.
+
+| Vidéo, `--zoom` | Zooms | Passes | Rendu (tour 1 ; tour 2) | CPU | Volume |
+| --- | --- | --- | --- | --- | --- |
+| 092, `none` (= avant) | 0 | 1 | 18,8 ; 13,9 s | 55,9 ; 52,5 s | 154 Mo |
+| 092, `auto` | 1 | 1 | 12,8 ; 15,7 s | 53,9 ; 55,4 s | 157 Mo |
+| 092, `all` | 14 | 1 | 18,7 ; 27,3 s | 60,5 ; 62,7 s | 319 Mo |
+| 125, `none` (= avant) | 0 | 1 | 36,2 ; 30,3 s | 77,3 ; 75,8 s | 343 Mo |
+| 125, `auto` | 39 | 2 | 98,2 ; 53,7 s | 119,6 ; 118,0 s | 451 Mo |
+| 125, `all` (un tour) | 47 | — | 66,5 s | 124,2 s | |
+
+Sur la 125, les zooms doublent le nombre d'encodeurs simultanés (4 → 8) : au-delà des
+6 de `MAX_WRITERS`, une seconde passe relit la vidéo. Un essai à 8 encodeurs (une passe)
+donnait 67 s au lieu de 84 dans le prototype, mais `MAX_WRITERS` reste à 6 : un ffmpeg
+`libx264` en 1440 × 1080 prend environ 600 Mo, et une session refusée par le moteur
+multimédia ferait échouer toute la vidéo.
+
+Commande complète sur la 092 par défaut (`auto`, un zoom) : 189 s, 448 s de CPU. En
+`--encoder x264`, 187 s et 615 s de CPU avant, 254 s et 858 s avec `--zoom all`
+(14 encodeurs logiciels de plus) ; les 14 extraits normaux sont identiques octet pour
+octet. `h264_videotoolbox` n'est pas déterministe : deux rendus des mêmes images donnent
+des fichiers différents, d'où la comparaison en x264.
