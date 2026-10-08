@@ -122,8 +122,9 @@ verte à chaque merge. Retouche de clôture : doublon de nettoyage des sorties v
 **Issues créées en chemin** : #45 (couverture et outillage CI, + délai des tâches), #52 (limite d'encodeurs par
 encodeur) ; sur le tap : homebrew-bat-tools#6 (sha d'un flux vide), #7 (audit contre bump).
 
-**Reste à faire** : première release (`git tag v0.1.0` sur `main` après CI verte), puis `Formula/batdetect.rb` posée à
-la main dans le tap (modèle : `~/Projects/dvr-wt/rapports/batdetect.rb`, sha de la release) ; signalement à
+**Release v0.1.0 publiée** le 8 octobre 2026 sur `bef63a2` (un premier tag posé avant la fin de la CI de `main` a été
+refusé par la garde, puis déplacé) : `batdetect-darwin-arm64.tar.gz` et `SHA256SUMS`. **Reste à faire** :
+`Formula/batdetect.rb` à poser à la main dans le tap (fichier prêt : `~/Projects/dvr-wt/rapports/batdetect-v0.1.0.rb`) ; signalement à
 opencv-python (licence de la roue) si l'utilisateur le décide ; branches locales mergées à supprimer.
 
 **Ordres de grandeur** : 9 issues (27 points, 25 traitées), 4 worktrees, une journée et demie ; 6 à 50 min d'agent
