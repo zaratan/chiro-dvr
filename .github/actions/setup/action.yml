@@ -3,7 +3,7 @@ description: Tools from mise.toml, Python dependencies from uv.lock, and ffmpeg 
 
 inputs:
   ffmpeg:
-    description: Install ffmpeg and ffprobe from the runner's apt packages.
+    description: Install static ffmpeg and ffprobe for Linux x86-64 from a pinned BtbN/FFmpeg-Builds release.
     default: "false"
 
 runs:
@@ -15,7 +15,42 @@ runs:
         path: ~/.cache/uv
         key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
     - if: inputs.ffmpeg == 'true'
+      id: ffmpeg-build
       shell: bash
-      run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      run: |
+        name=ffmpeg-n9.0.1-11-ge47273f4d9-linux64-gpl-9.0
+        {
+          echo "name=$name"
+          echo "url=https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-08-31-13-27/$name.tar.xz"
+          echo "sha256=182c1b509720e939bb47bfb47dc29cc0c298640401128e3dce8627d10707eb5a"
+          echo "dir=$HOME/ffmpeg-static"
+        } >> "$GITHUB_OUTPUT"
+    - if: inputs.ffmpeg == 'true'
+      id: ffmpeg-cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.ffmpeg-build.outputs.dir }}
+        key: ${{ steps.ffmpeg-build.outputs.name }}-${{ steps.ffmpeg-build.outputs.sha256 }}
+    - if: inputs.ffmpeg == 'true' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        NAME: ${{ steps.ffmpeg-build.outputs.name }}
+        URL: ${{ steps.ffmpeg-build.outputs.url }}
+        SHA256: ${{ steps.ffmpeg-build.outputs.sha256 }}
+        DIR: ${{ steps.ffmpeg-build.outputs.dir }}
+      run: |
+        archive="$RUNNER_TEMP/$NAME.tar.xz"
+        curl -sSfL --retry 3 --connect-timeout 20 --max-time 300 -o "$archive" "$URL"
+        echo "$SHA256  $archive" | sha256sum -c -
+        mkdir -p "$DIR"
+        tar -xJf "$archive" -C "$DIR" --strip-components=2 "$NAME/bin/ffmpeg" "$NAME/bin/ffprobe"
+    - if: inputs.ffmpeg == 'true'
+      shell: bash
+      env:
+        DIR: ${{ steps.ffmpeg-build.outputs.dir }}
+      run: sudo install -m 755 "$DIR/ffmpeg" "$DIR/ffprobe" /usr/local/bin/
+    - if: inputs.ffmpeg == 'true'
+      shell: bash
+      run: ffmpeg -version && ffprobe -version
     - shell: bash
       run: uv sync --locked

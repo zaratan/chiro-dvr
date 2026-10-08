@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import multiprocessing
 import shutil
 import sys
 from dataclasses import dataclass, replace
+from importlib.metadata import version
 from pathlib import Path
 
 from batdetect.arguments import (
@@ -51,6 +53,7 @@ class Settings:
 def build_parser() -> argparse.ArgumentParser:
     r = RenderConfig()
     ap = argparse.ArgumentParser(prog="batdetect", description="Detect and track bats in thermal videos.")
+    ap.add_argument("--version", action="version", version=f"batdetect {version('batdetect')}")
     ap.add_argument("inputs", nargs="+", type=Path, help="video files or folders")
     ap.add_argument("-o", "--out-dir", type=Path, default=Path("out"))
     ap.add_argument("--workers", type=positive_int, default=DEFAULT_WORKERS, help="parallel processes for detection")
@@ -161,6 +164,7 @@ def process(job: Job, settings: Settings, workers: int, ffprobe: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    multiprocessing.freeze_support()
     parser = build_parser()
     ns = parser.parse_args(argv)
     try:

@@ -102,6 +102,13 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   `metrics`, `stats`, `report`, `cli`) : banc de mesure (`batdetect-bench`,
   [docs/08-banc-de-mesure.md](docs/08-banc-de-mesure.md)).
   Toute amélioration de la détection ou du suivi se mesure au banc avant et après.
+- `packaging/` : `NOTICE` (une ligne par bibliothèque du binaire, sources de FFmpeg) et
+  `GPL-3.0.txt`. Le binaire Homebrew est sous GPL v3, le code sous MIT
+  ([docs/05](docs/05-outillage-python.md)). `mise run package` construit le binaire
+  PyInstaller et son archive dans `dist/`. `mise run package:check` la contrôle : macOS
+  minimum, FFmpeg et bibliothèques présents dans le NOTICE, `tracks.csv` identique au dépôt
+  sur l'extrait. Une montée d'opencv ou de numpy se vérifie par `package:check`, et le NOTICE
+  se complète à la main.
 - Toutes les coordonnées, distances et surfaces hors de `find_blobs` sont en pixels de la
   vidéo d'origine ; seule la détection travaille à `work_width`.
 - Configs en dataclasses gelées qui valident dans `__post_init__` ; pas de `Namespace`

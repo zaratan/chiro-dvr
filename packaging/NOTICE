@@ -1,0 +1,231 @@
+batdetect binary distribution
+
+This binary is distributed under the GNU General Public License, version 3 or later
+(GPL-3.0.txt), because it bundles FFmpeg 7.1.1 built with --enable-gpl --enable-version3,
+linked to the GPL libraries x264, x265, rubberband and vidstab. FFmpeg and these libraries
+come with the opencv-python-headless wheel (LICENSE-3RD-PARTY.txt).
+
+The batdetect source code is MIT-licensed (LICENSE). The source of this binary is the
+tag v<version> printed by `batdetect --version`, built with mise.toml and uv.lock:
+https://github.com/zaratan/chiro-dvr/tags
+
+FFmpeg 7.1.1 sources:
+https://ffmpeg.org/releases/ffmpeg-7.1.1.tar.xz
+
+Homebrew formula that built this FFmpeg, with its patches (/opt/homebrew/Cellar/ffmpeg/7.1.1_3):
+https://github.com/Homebrew/homebrew-core/blob/a671b0c7ae230e99a07f541b471a974e3dbfd403/Formula/f/ffmpeg.rb
+
+Python packages:
+- opencv-python-headless 5.0.0.93 (cv2), Apache-2.0, https://github.com/opencv/opencv-python/tree/93
+- numpy 2.5.3, BSD-3-Clause, licenses in _internal/numpy-2.5.3.dist-info/licenses
+
+libpython3.14.dylib: CPython 3.14.8 from python-build-standalone 20261001, PSF-2.0 (LICENSE-PYTHON.txt)
+  https://github.com/astral-sh/python-build-standalone/releases/tag/20261001
+  Statically linked dependencies (OpenSSL, SQLite, libffi, expat, mpdecimal, bzip2, liblzma,
+  zlib, libedit, ncurses...): license texts in python/licenses/ of
+  https://github.com/astral-sh/python-build-standalone/releases/download/20261001/cpython-3.14.8%2B20261001-aarch64-apple-darwin-pgo%2Blto-full.tar.zst
+
+Shared libraries from the opencv-python-headless wheel. They are Homebrew bottles installed
+when the wheel was built (https://github.com/opencv/opencv-python/blob/93/travis_config.sh).
+Each line gives the file, the Homebrew formula, its version when the library records its
+build prefix (? otherwise; the file name carries the library version), the formula license,
+and the formula history in homebrew-core.
+
+libaom.3.12.1.dylib: aom ?, BSD-2-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/a/aom.rb
+libarchive.13.dylib: libarchive ?, BSD-2-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libarchive.rb
+libaribb24.0.dylib: aribb24 ?, LGPL-3.0-only
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/a/aribb24.rb
+libass.9.dylib: libass ?, ISC
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libass.rb
+libavcodec.61.19.101.dylib: ffmpeg 7.1.1_3, GPL-3.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/f/ffmpeg.rb
+libavdevice.61.3.100.dylib: ffmpeg 7.1.1_3, GPL-3.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/f/ffmpeg.rb
+libavfilter.10.4.100.dylib: ffmpeg 7.1.1_3, GPL-3.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/f/ffmpeg.rb
+libavformat.61.7.100.dylib: ffmpeg 7.1.1_3, GPL-3.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/f/ffmpeg.rb
+libavif.16.3.0.dylib: libavif ?, BSD-2-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libavif.rb
+libavutil.59.39.100.dylib: ffmpeg 7.1.1_3, GPL-3.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/f/ffmpeg.rb
+libb2.1.dylib: libb2 ?, CC0-1.0
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libb2.rb
+libbluray.2.dylib: libbluray ?, LGPL-2.1-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libbluray.rb
+libbrotlicommon.1.1.0.dylib: brotli ?, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/b/brotli.rb
+libbrotlidec.1.1.0.dylib: brotli ?, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/b/brotli.rb
+libbrotlienc.1.1.0.dylib: brotli ?, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/b/brotli.rb
+libcjson.1.7.18.dylib: cjson ?, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/c/cjson.rb
+libcrypto.3.dylib: openssl@3 3.6.0, Apache-2.0
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/o/openssl@3.rb
+libdav1d.7.dylib: dav1d ?, BSD-2-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/d/dav1d.rb
+libdeflate.0.dylib: libdeflate ?, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libdeflate.rb
+libfontconfig.1.dylib: fontconfig 2.16.0, HPND-sell-variant AND Unicode-3.0 AND MIT-Modern-Variant AND MIT AND LicenseRef-Homebrew-public-domain
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/f/fontconfig.rb
+libfreetype.6.dylib: freetype ?, FTL
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/f/freetype.rb
+libfribidi.0.dylib: fribidi ?, GPL-2.0-or-later AND LGPL-2.1-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/f/fribidi.rb
+libgif.7.2.0.dylib: giflib ?, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/g/giflib.rb
+libglib-2.0.0.dylib: glib 2.84.3, LGPL-2.1-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/g/glib.rb
+libgmp.10.dylib: gmp ?, LGPL-3.0-or-later OR GPL-2.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/g/gmp.rb
+libgnutls.30.dylib: gnutls 3.8.9, LGPL-2.1-or-later AND GPL-3.0-only
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/g/gnutls.rb
+libgraphite2.3.2.1.dylib: graphite2 ?, MIT OR MPL-2.0 OR LGPL-2.1-or-later OR GPL-2.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/g/graphite2.rb
+libharfbuzz.0.dylib: harfbuzz ?, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/h/harfbuzz.rb
+libhogweed.6.10.dylib: nettle ?, GPL-2.0-or-later OR LGPL-3.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/n/nettle.rb
+libhwy.1.2.0.dylib: highway ?, Apache-2.0 OR BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/h/highway.rb
+libidn2.0.dylib: libidn2 ?, (GPL-2.0-or-later OR LGPL-3.0-or-later) AND (Unicode-TOU AND Unicode-DFS-2016) AND GPL-3.0-or-later AND LGPL-2.1-or-later AND FSFAP-no-warranty-disclaimer
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libidn2.rb
+libIex-3_3.32.3.3.4.dylib: openexr ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/o/openexr.rb
+libIlmThread-3_3.32.3.3.4.dylib: openexr ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/o/openexr.rb
+libImath-3_1.29.11.0.dylib: imath ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/i/imath.rb
+libintl.8.dylib: gettext 0.25, GPL-3.0-or-later AND LGPL-2.1-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/g/gettext.rb
+libjpeg.8.3.2.dylib: jpeg-turbo ?, IJG AND Zlib AND BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/j/jpeg-turbo.rb
+libjxl.0.11.1.dylib: jpeg-xl ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/j/jpeg-xl.rb
+libjxl_cms.0.11.1.dylib: jpeg-xl ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/j/jpeg-xl.rb
+libjxl_threads.0.11.1.dylib: jpeg-xl ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/j/jpeg-xl.rb
+liblcms2.2.dylib: little-cms2 ?, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/l/little-cms2.rb
+libleptonica.6.dylib: leptonica ?, BSD-2-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/l/leptonica.rb
+liblz4.1.10.0.dylib: lz4 ?, BSD-2-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/l/lz4.rb
+liblzma.5.dylib: xz ?, 0BSD AND GPL-2.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/x/xz.rb
+libmbedcrypto.3.6.3.dylib: mbedtls ?, Apache-2.0
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/m/mbedtls.rb
+libmp3lame.0.dylib: lame ?, LGPL-2.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/l/lame.rb
+libnettle.8.10.dylib: nettle ?, GPL-2.0-or-later OR LGPL-3.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/n/nettle.rb
+libogg.0.dylib: libogg ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libogg.rb
+libopencore-amrnb.0.dylib: opencore-amr ?, Apache-2.0
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/o/opencore-amr.rb
+libopencore-amrwb.0.dylib: opencore-amr ?, Apache-2.0
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/o/opencore-amr.rb
+libOpenEXR-3_3.32.3.3.4.dylib: openexr ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/o/openexr.rb
+libOpenEXRCore-3_3.32.3.3.4.dylib: openexr ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/o/openexr.rb
+libopenjp2.2.5.3.dylib: openjpeg ?, BSD-2-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/o/openjpeg.rb
+libopus.0.dylib: opus ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/o/opus.rb
+libp11-kit.0.dylib: p11-kit 0.25.5, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/p/p11-kit.rb
+libpcre2-8.0.dylib: pcre2 ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/p/pcre2.rb
+libpng16.16.dylib: libpng ?, libpng-2.0
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libpng.rb
+libpostproc.58.3.100.dylib: ffmpeg 7.1.1_3, GPL-3.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/f/ffmpeg.rb
+librav1e.0.8.0.dylib: rav1e ?, BSD-2-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/r/rav1e.rb
+librist.4.dylib: librist ?, BSD-2-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/librist.rb
+librubberband.3.dylib: rubberband ?, GPL-2.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/r/rubberband.rb
+libsamplerate.0.2.2.dylib: libsamplerate ?, BSD-2-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libsamplerate.rb
+libSDL2-2.0.0.dylib: sdl2 2.32.8, Zlib
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/s/sdl2.rb
+libsharpyuv.0.1.1.dylib: webp ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/w/webp.rb
+libsnappy.1.2.2.dylib: snappy ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/s/snappy.rb
+libsodium.26.dylib: libsodium ?, ISC
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libsodium.rb
+libsoxr.0.1.2.dylib: libsoxr ?, LGPL-2.1-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libsoxr.rb
+libspeex.1.dylib: speex ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/s/speex.rb
+libsrt.1.5.4.dylib: srt ?, MPL-2.0
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/s/srt.rb
+libssh.4.10.1.dylib: libssh ?, LGPL-2.1-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libssh.rb
+libssl.3.dylib: openssl@3 ?, Apache-2.0
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/o/openssl@3.rb
+libSvtAv1Enc.3.0.2.dylib: svt-av1 ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/s/svt-av1.rb
+libswresample.5.3.100.dylib: ffmpeg 7.1.1_3, GPL-3.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/f/ffmpeg.rb
+libswscale.8.3.100.dylib: ffmpeg 7.1.1_3, GPL-3.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/f/ffmpeg.rb
+libtasn1.6.dylib: libtasn1 ?, LGPL-2.1-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libtasn1.rb
+libtesseract.5.dylib: tesseract ?, Apache-2.0
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/t/tesseract.rb
+libtheoradec.1.dylib: theora ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/t/theora.rb
+libtheoraenc.1.dylib: theora ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/t/theora.rb
+libtiff.6.dylib: libtiff ?, libtiff
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libtiff.rb
+libunibreak.6.dylib: libunibreak ?, Zlib
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libunibreak.rb
+libunistring.5.dylib: libunistring ?, GPL-2.0-or-later OR LGPL-3.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libunistring.rb
+libvidstab.1.2.dylib: libvidstab ?, GPL-2.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libvidstab.rb
+libvmaf.3.dylib: libvmaf ?, BSD-2-Clause-Patent
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libvmaf.rb
+libvorbis.0.dylib: libvorbis ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libvorbis.rb
+libvorbisenc.2.dylib: libvorbis ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libvorbis.rb
+libvpx.11.dylib: libvpx 1.15.2, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libvpx.rb
+libwebp.7.1.10.dylib: webp ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/w/webp.rb
+libwebpmux.3.1.1.dylib: webp ?, BSD-3-Clause
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/w/webp.rb
+libX11.6.dylib: libx11 1.8.12, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libx11.rb
+libx264.164.dylib: x264 ?, GPL-2.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/x/x264.rb
+libx265.215.dylib: x265 ?, GPL-2.0-or-later
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/x/x265.rb
+libXau.6.dylib: libxau ?, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libxau.rb
+libxcb-shape.0.0.0.dylib: libxcb ?, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libxcb.rb
+libxcb-shm.0.0.0.dylib: libxcb ?, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libxcb.rb
+libxcb-xfixes.0.0.0.dylib: libxcb ?, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libxcb.rb
+libxcb.1.1.0.dylib: libxcb ?, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libxcb.rb
+libXdmcp.6.dylib: libxdmcp ?, MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/lib/libxdmcp.rb
+libzimg.2.dylib: zimg ?, WTFPL
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/z/zimg.rb
+libzmq.5.dylib: zeromq ?, MPL-2.0
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/z/zeromq.rb
+libzstd.1.5.7.dylib: zstd ?, (BSD-3-Clause OR GPL-2.0-only) AND BSD-2-Clause AND MIT
+  https://github.com/Homebrew/homebrew-core/commits/main/Formula/z/zstd.rb
