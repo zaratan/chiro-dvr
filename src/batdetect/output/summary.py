@@ -42,10 +42,10 @@ def damaged_lines(period: Period) -> list[str]:
 
 def header_lines(stem: str, period: Period) -> list[str]:
     count = len(period.tracks)
-    passages = f"{count} passage{'s' if count > 1 else ''}"
+    track_count = f"{count} piste{'s' if count > 1 else ''}"
     return [
         stem,
-        passages,
+        track_count,
         f"{format_clock(period.start_s)} - {format_clock(period.end_s)}",
         *ignored_lines(period),
         *damaged_lines(period),
