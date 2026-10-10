@@ -86,6 +86,56 @@ binaire unique à des naturalistes sans Python.
   par SHA. L'installation commune est dans `.github/actions/setup` ; zizmor la signale à
   chaque appel local (`self-repository`, niveau le plus bas), rien d'autre.
 
+## Langue des messages
+
+L'aide, les erreurs d'arguments, les lignes de fin de traitement et le bandeau de
+l'image résumé sont en français quand la locale l'est, en anglais sinon.
+
+- **gettext de la bibliothèque standard**, aucune dépendance. Les textes source sont
+  en anglais. Le catalogue français est
+  `src/batdetect/locale/fr/LC_MESSAGES/messages.po`, et `language.py` porte `_`,
+  `ngettext`, `is_french` et `decimal`.
+- **Domaine `messages`**, lié par `gettext.bindtextdomain`. C'est le domaine d'argparse :
+  ses propres textes (`usage:`, `error:`, `the following arguments are required`,
+  `show this help message and exit`…) sont traduits par le même catalogue. Le catalogue
+  contient donc aussi toutes les chaînes d'argparse, et un test échoue si une montée de
+  Python en ajoute une sans traduction.
+- **Choix de la langue : celui de gettext.** La première variable non vide parmi
+  `LANGUAGE`, `LC_ALL`, `LC_MESSAGES` et `LANG` décide. Français si elle désigne une
+  locale française (`fr`, `fr_FR.UTF-8`, `fr_CA.UTF-8`…), anglais sinon (`C`,
+  `en_US.UTF-8`) et quand aucune n'est posée. `LANGUAGE` passe en premier comme dans
+  gettext, ce qui garde nos textes et ceux d'argparse dans la même langue. Les tests
+  retirent ces quatre variables avant chaque test (`tests/conftest.py`) et posent
+  `LANG` pour le français (fixture `french`).
+- **Virgule décimale** dans les messages français, par `decimal()` (« 1,5 s »).
+  `locale.setlocale` n'est pas appelé : le poste a `LC_NUMERIC="C"`, et ce réglage
+  changerait le comportement de tout le processus. Les temps des pistes (`0:04.80`)
+  gardent le point, comme les noms d'extraits.
+- **Espaces insécables** avant « : » et « ; » dans les textes d'aide français, et après
+  « défaut : » : argparse ne coupe pas les lignes sur `\xa0`, donc « (défaut : 20) » ne
+  se coupe jamais. Les messages imprimés et ceux d'argparse gardent des espaces simples.
+- **Bandeau en ASCII** dans les deux langues (« pistes », « hors analyse »,
+  « illisible ») : OpenCV ne dessine pas les accents.
+- **Seul le `.po` est dans le dépôt** ; `*.mo` est dans `.gitignore`. `msgfmt` n'est
+  pas dans la bibliothèque standard installée : `pofile.py`, en pur Python, écrit le
+  `.mo` à côté de chaque `.po`. À l'import, `language.py` le compile s'il manque ou
+  s'il est plus vieux que le `.po`. L'écriture passe par un fichier temporaire renommé,
+  pour que deux processus ne lisent jamais un `.mo` à moitié écrit. Si le dossier n'est
+  pas accessible en écriture, les messages restent en anglais. `mise run catalog`
+  (`python -m batdetect.pofile src/batdetect/locale`) le force. Un test compile le `.po`
+  et vérifie que le catalogue obtenu traduit. Si `msgfmt` est présent (Homebrew
+  `gettext`), un autre test vérifie que les deux compilations traduisent pareil ; sinon
+  il est sauté.
+- **Ajouter un texte** : l'écrire en anglais dans `_()` ou `ngettext()` et ajouter sa
+  traduction au `.po`. Le `.mo` se recompile au lancement suivant. Le test
+  `test_every_message_of_the_code_and_of_argparse_has_a_french_translation` liste
+  ce qui manque. Une entrée vide ou marquée `fuzzy` est ignorée, comme le fait
+  `msgfmt` : le texte anglais s'affiche à sa place.
+- **Binaire** : `mise run package` compile le `.mo` avant PyInstaller et l'embarque
+  seul (`--add-data`). Sans `.po` à côté, le binaire n'essaie jamais de le recompiler.
+  `package:check` vérifie que `LANG=fr_FR.UTF-8 dist/batdetect/batdetect --help`
+  commence par « utilisation : » et que l'aide est en anglais sans locale.
+
 ## Distribution par Homebrew
 
 - **Binaire PyInstaller plutôt que formule Python.** Mesuré en octobre 2026 (#30) :

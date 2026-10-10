@@ -102,3 +102,8 @@ def test_shared_detection_and_tracking_options_show_their_default_for_the_bench_
 
     assert silent == []
     assert "(default: 6)" in entries["--max-gap"]
+
+
+@pytest.mark.usefixtures("french")
+def test_mode_values_take_a_decimal_comma_and_a_french_separator_under_a_french_locale() -> None:
+    assert "(normal : 1,5 ; quick : 0)" in shared_option_help()["--target-sigma"]

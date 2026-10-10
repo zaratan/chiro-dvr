@@ -15,10 +15,12 @@ from batdetect.arguments import (
     build_stability_config,
     build_track_config,
     positive_int,
+    with_default,
 )
 from batdetect.detect import DetectConfig
 from batdetect.exclusion import exclude
 from batdetect.jobs import Job, collect_videos, plan_jobs
+from batdetect.language import _, decimal, ngettext
 from batdetect.output.background import hide_display, median_background
 from batdetect.output.clips import clip_windows
 from batdetect.output.config import ENCODERS, MAX_CRF, MAX_VT_QUALITY, ZOOMS, RenderConfig
@@ -53,87 +55,97 @@ class Settings:
 
 def build_parser() -> argparse.ArgumentParser:
     r = RenderConfig()
-    ap = argparse.ArgumentParser(prog="batdetect", description="Detect and track bats in thermal videos.")
+    ap = argparse.ArgumentParser(prog="batdetect", description=_("Detect and track bats in thermal videos."))
     ap.add_argument("--version", action="version", version=f"batdetect {version('batdetect')}")
-    ap.add_argument("inputs", nargs="+", type=Path, help="video files or folders")
+    ap.add_argument("inputs", nargs="+", type=Path, help=_("video files or folders"))
     ap.add_argument(
         "-o",
         "--out-dir",
         type=Path,
         default=Path("out"),
-        metavar="DIR",
-        help="folder that receives one result folder per video (default: %(default)s)",
+        metavar=_("DIR"),
+        help=with_default(_("folder that receives one result folder per video"), Path("out")),
     )
     ap.add_argument(
         "--workers",
         type=positive_int,
         default=DEFAULT_WORKERS,
-        metavar="COUNT",
-        help="processes sharing the detection; more mostly adds re-reading of the video (default: %(default)s)",
+        metavar=_("COUNT"),
+        help=with_default(
+            _("processes sharing the detection; more mostly adds re-reading of the video"), DEFAULT_WORKERS
+        ),
     )
     add_detection_arguments(ap)
     add_tracking_arguments(ap)
-    render = ap.add_argument_group("output")
+    render = ap.add_argument_group(_("output"))
     render.add_argument(
         "--box-pad",
         type=int,
         default=r.box_pad,
-        metavar="PIXELS",
-        help="space between a target and its box on the clips; source pixels (default: %(default)s)",
+        metavar=_("PIXELS"),
+        help=with_default(_("space between a target and its box on the clips; source pixels"), r.box_pad),
     )
     render.add_argument(
         "--trail",
         type=float,
         default=r.trail_s,
-        metavar="SECONDS",
-        help="length of the yellow trail behind each target on the clips; seconds (default: %(default)s)",
+        metavar=_("SECONDS"),
+        help=with_default(_("length of the yellow trail behind each target on the clips; seconds"), r.trail_s),
     )
     render.add_argument(
         "--clip-margin",
         type=float,
         default=r.clip_margin_s,
-        metavar="SECONDS",
-        help="time kept before and after each track in its clip; seconds (default: %(default)s)",
+        metavar=_("SECONDS"),
+        help=with_default(_("time kept before and after each track in its clip; seconds"), r.clip_margin_s),
     )
     render.add_argument(
         "--crf",
         type=int,
         default=r.crf,
-        metavar="QUALITY",
-        help=f"video quality with x264, lower is better and heavier; 0 to {MAX_CRF} (default: %(default)s)",
+        metavar=_("QUALITY"),
+        help=with_default(
+            _("video quality with x264, lower is better and heavier; 0 to {max}").format(max=MAX_CRF), r.crf
+        ),
     )
     render.add_argument(
         "--encoder",
         choices=ENCODERS,
         default=r.encoder,
-        help="auto uses the Apple media engine if usable, otherwise x264 (default: %(default)s)",
+        help=with_default(_("auto uses the Apple media engine if usable, otherwise x264"), r.encoder),
     )
     render.add_argument(
         "--vt-quality",
         type=int,
         default=r.vt_quality,
-        metavar="QUALITY",
-        help="video quality with the Apple media engine, higher is better and heavier; "
-        f"1 to {MAX_VT_QUALITY} (default: %(default)s)",
+        metavar=_("QUALITY"),
+        help=with_default(
+            _("video quality with the Apple media engine, higher is better and heavier; 1 to {max}").format(
+                max=MAX_VT_QUALITY
+            ),
+            r.vt_quality,
+        ),
     )
     render.add_argument(
         "--annotated",
         action="store_true",
-        help="also write the whole video with every track drawn (default: off)",
+        help=with_default(_("also write the whole video with every track drawn"), _("off")),
     )
     render.add_argument(
         "--max-tracks",
         type=int,
         default=r.max_tracks,
-        metavar="COUNT",
-        help="above this many tracks, the video counts as failed and gets no clips or annotated video; "
-        "0 disables (default: %(default)s)",
+        metavar=_("COUNT"),
+        help=with_default(
+            _("above this many tracks, the video counts as failed and gets no clips or annotated video; 0 disables"),
+            r.max_tracks,
+        ),
     )
     render.add_argument(
         "--zoom",
         choices=ZOOMS,
         default=r.zoom,
-        help="slowed, magnified clip: auto for small or faint tracks only, all, or none (default: %(default)s)",
+        help=with_default(_("slowed, magnified clip: auto for small or faint tracks only, all, or none"), r.zoom),
     )
     return ap
 
@@ -198,21 +210,39 @@ def process(job: Job, settings: Settings, workers: int, ffprobe: str) -> None:
     else:
         discard_videos(outputs)
     ignored = len(analysis.ignored_frames) / info.fps
-    print(f"{job.video.name}: {len(detections)} frames, {len(tracks)} tracks, {ignored:.1f} s ignored -> {job.dest}")
+    print(
+        _("{video}: {frames}, {tracks}, {ignored} s ignored -> {dest}").format(
+            video=job.video.name,
+            frames=ngettext("{count} frame", "{count} frames", len(detections)).format(count=len(detections)),
+            tracks=ngettext("{count} track", "{count} tracks", len(tracks)).format(count=len(tracks)),
+            ignored=decimal(ignored, ".1f"),
+            dest=job.dest,
+        )
+    )
     if analysis.damaged:
         damaged = len(covered_frames(analysis.damaged)) / info.fps
         count = len(analysis.damaged)
-        print(f"  damaged {damaged:.1f} s in {count} span{'s' if count > 1 else ''}, detections ignored")
+        line = ngettext(
+            "damaged {seconds} s in {count} span, detections ignored",
+            "damaged {seconds} s in {count} spans, detections ignored",
+            count,
+        )
+        print("  " + line.format(seconds=decimal(damaged, ".1f"), count=count))
     for span in unstable:
         start, end = (format_time(t) for t in seconds(span, info.fps))
-        print(f"  unstable {start} -> {end}, detections ignored")
+        print("  " + _("unstable {start} -> {end}, detections ignored").format(start=start, end=end))
     if renders_videos:
         for t in tracks:
             start, end = format_time(t.first.frame / info.fps), format_time(t.last.frame / info.fps)
-            print(f"  #{t.id:<3} {start} -> {end}  hits={len(t.points)}")
+            print(
+                "  "
+                + _("#{id:<3} {start} -> {end}  hits={hits}").format(id=t.id, start=start, end=end, hits=len(t.points))
+            )
     else:
         raise TooManyTracksError(
-            f"{len(tracks)} tracks, above --max-tracks {render.max_tracks}: clips and annotated video skipped"
+            _("{count} tracks, above --max-tracks {limit}: clips and annotated video skipped").format(
+                count=len(tracks), limit=render.max_tracks
+            )
         )
 
 
@@ -225,9 +255,9 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as err:
         parser.error(str(err))
     if shutil.which("ffmpeg") is None:
-        parser.error("ffmpeg not found in PATH")
+        parser.error(_("ffmpeg not found in PATH"))
     if shutil.which("ffprobe") is None:
-        parser.error("ffprobe not found in PATH")
+        parser.error(_("ffprobe not found in PATH"))
     try:
         settings = replace(configs, render=resolve_encoder(configs.render))
     except ValueError as err:
@@ -239,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as err:
         parser.error(str(err))
     if not jobs:
-        parser.error("no video found")
+        parser.error(_("no video found"))
     ffprobe = ffprobe_version()
     failures = 0
     for job in jobs:

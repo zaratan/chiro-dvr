@@ -18,6 +18,9 @@ STYLE = style_for(320)
 INFO = VideoInfo(30.0, 40, 320, 240, 320, 240)
 
 
+FIVE_SHORT_RANGES = tuple((10.0 * k, 10.0 * k + 2) for k in range(5))
+
+
 def gray(width: int = 320, height: int = 240) -> np.ndarray[tuple[int, int, int], np.dtype[np.uint8]]:
     return np.full((height, width, 3), BACKGROUND, dtype=np.uint8)
 
@@ -40,6 +43,7 @@ def test_a_later_outline_does_not_cut_an_earlier_trajectory() -> None:
     assert int(beside_the_crossing.max()) > 100
 
 
+@pytest.mark.usefixtures("french")
 def test_header_counts_tracks_not_passages_since_only_the_naturalist_confirms_one_and_shows_the_period() -> None:
     one = Period(0, 300, [Track(1, line(0, 3, (0, 0), (1, 0)))], alone=True)
 
@@ -47,18 +51,21 @@ def test_header_counts_tracks_not_passages_since_only_the_naturalist_confirms_on
     assert header_lines("v092", Period(600, 1200, [], alone=False))[1:] == ["0 piste", "10:00 - 20:00"]
 
 
+@pytest.mark.usefixtures("french")
 def test_header_puts_tracks_in_the_plural_from_two() -> None:
     two = Period(0, 300, [Track(k, line(0, 3, (0, k), (1, k))) for k in (1, 2)], alone=True)
 
     assert header_lines("v092", two)[1] == "2 pistes"
 
 
+@pytest.mark.usefixtures("french")
 def test_ignored_time_is_listed_rounded_outward_so_reviewing_it_covers_the_whole_gap() -> None:
     period = Period(0, 300, [], alone=True, ignored=((0.0, 8.59), (225.96, 251.21)))
 
     assert header_lines("v089", period)[3:] == ["hors analyse 0:00 - 0:09", "hors analyse 3:45 - 4:12"]
 
 
+@pytest.mark.usefixtures("french")
 def test_more_than_three_ignored_ranges_are_summed_up_on_a_fourth_line() -> None:
     period = Period(0, 300, [], alone=True, ignored=tuple((10.0 * k, 10.0 * k + 2) for k in range(5)))
 
@@ -70,6 +77,7 @@ def test_more_than_three_ignored_ranges_are_summed_up_on_a_fourth_line() -> None
     ]
 
 
+@pytest.mark.usefixtures("french")
 def test_damaged_time_is_summed_on_its_own_line_after_the_unstable_ranges() -> None:
     period = Period(0, 300, [], alone=True, ignored=((0.0, 8.59),), damaged=((10.0, 10.5), (40.0, 117.3)))
 
@@ -79,16 +87,37 @@ def test_damaged_time_is_summed_on_its_own_line_after_the_unstable_ranges() -> N
     ]
 
 
+def test_header_is_in_english_when_the_locale_is_not_french() -> None:
+    tracks = [Track(k, line(0, 3, (0, k), (1, k))) for k in (1, 2)]
+    period = Period(0, 300, tracks, alone=True, ignored=FIVE_SHORT_RANGES, damaged=((2.0, 3.0),))
+
+    assert header_lines("v092", period)[1:] == [
+        "2 tracks",
+        "0:00 - 5:00",
+        "not analysed 0:00 - 0:02",
+        "not analysed 0:10 - 0:12",
+        "not analysed 0:20 - 0:22",
+        "+ 2 more",
+        "unreadable 1 s (1 span)",
+    ]
+
+
+@pytest.mark.usefixtures("french")
 def test_period_without_damage_has_no_damage_line() -> None:
     assert header_lines("v092", Period(0, 300, [], alone=True)) == ["v092", "0 piste", "0:00 - 5:00"]
 
 
-def test_header_stays_ascii_since_opencv_draws_no_accents() -> None:
-    period = Period(0, 300, [], alone=True, ignored=((0.0, 1.0),), damaged=((2.0, 3.0),))
+@pytest.mark.parametrize("lang", ["C", "fr_FR.UTF-8"])
+def test_header_stays_ascii_in_every_language_since_opencv_draws_no_accents(
+    monkeypatch: pytest.MonkeyPatch, lang: str
+) -> None:
+    monkeypatch.setenv("LANG", lang)
+    period = Period(0, 300, [], alone=True, ignored=FIVE_SHORT_RANGES, damaged=((2.0, 3.0),))
 
     assert all(line.isascii() for line in header_lines("v", period))
 
 
+@pytest.mark.usefixtures("french")
 @pytest.mark.parametrize("width", [480, 640, 1440, 3840])
 def test_longest_damage_line_is_never_cut_on_the_summary(width: int) -> None:
     style = style_for(width)

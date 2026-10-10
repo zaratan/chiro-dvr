@@ -244,3 +244,37 @@ def test_video_above_max_tracks_prints_its_summary_line_but_not_its_track_list_w
     printed = capsys.readouterr().out
     assert "crowded.mp4: 90 frames, 2 tracks" in printed
     assert "#1" not in printed
+
+
+@requires_ffmpeg
+@pytest.mark.usefixtures("french")
+def test_end_of_run_lines_are_in_french_with_a_decimal_comma_under_a_french_locale(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    videos = tmp_path / "in"
+    videos.mkdir()
+    damaged_video(videos / "cut.mp4", {20, 21, 50})
+    write_video(videos / "flight.mp4", flying_square(90, step=(3, 1)), fps=30)
+
+    assert main([str(videos), "-o", str(tmp_path / "out")]) == 0
+
+    out = capsys.readouterr().out
+    assert "2,3 s ignorées" in out
+    assert "  2,3 s abîmées sur 1 plage, détections ignorées" in out
+    assert "flight.mp4 : 90 images, 1 piste, 0,0 s ignorées" in out
+    assert "  #1   0:00.00 -> " in out
+    assert "points=" in out
+
+
+@requires_ffmpeg
+@pytest.mark.usefixtures("french")
+def test_too_many_tracks_is_reported_in_french_under_a_french_locale(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    videos = tmp_path / "in"
+    videos.mkdir()
+    write_video(videos / "crowded.mp4", two_squares_flying(90), fps=30)
+
+    assert main([str(videos), "-o", str(tmp_path / "out"), "--max-tracks", "1"]) == 1
+
+    assert "2 pistes, au-delà de --max-tracks 1 : extraits et vidéo annotée non écrits" in capsys.readouterr().err

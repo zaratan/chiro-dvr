@@ -182,3 +182,47 @@ def test_value_names_say_what_the_option_expects_rather_than_repeat_its_name() -
     assert "-o DIR" in usage
     assert "--trail SECONDS" in usage
     assert "TRAIL" not in usage
+
+
+def test_every_help_text_is_translated_and_never_wrapped_before_a_colon_under_a_french_locale(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    english = option_help(build_parser().format_help())
+    monkeypatch.setenv("LANG", "fr_FR.UTF-8")
+    french_help = build_parser().format_help()
+    french = option_help(french_help)
+
+    assert french.keys() == english.keys()
+    assert [option for option in english if french[option] == english[option]] == []
+    assert french_help.startswith("utilisation : batdetect")
+    assert "(défaut : 1,5)" in french["--clip-margin"]
+    assert "(défaut\N{NO-BREAK SPACE}:\N{NO-BREAK SPACE}1,5)" in french_help
+
+
+@pytest.mark.usefixtures("french")
+def test_missing_inputs_are_reported_in_french_by_argparse_itself(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        main([])
+
+    err = capsys.readouterr().err
+    assert err.startswith("utilisation : batdetect")
+    assert "batdetect : erreur : arguments obligatoires manquants : inputs" in err
+
+
+@pytest.mark.parametrize("lang", ["C", "en_US.UTF-8"])
+def test_missing_inputs_stay_in_english_under_a_non_french_locale(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], lang: str
+) -> None:
+    monkeypatch.setenv("LANG", lang)
+    with pytest.raises(SystemExit):
+        main([])
+
+    assert "batdetect: error: the following arguments are required: inputs" in capsys.readouterr().err
+
+
+@pytest.mark.usefixtures("french")
+def test_our_own_usage_errors_are_in_french_too(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        main(["in", "--workers", "0"])
+
+    assert "argument --workers : doit être >= 1, reçu 0" in capsys.readouterr().err

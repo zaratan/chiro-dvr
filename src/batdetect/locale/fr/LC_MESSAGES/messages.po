@@ -1,0 +1,317 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: batdetect\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: fr\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+# argparse
+
+msgid "usage: "
+msgstr "utilisation : "
+
+msgid "argument %(argument_name)s: %(message)s"
+msgstr "argument %(argument_name)s : %(message)s"
+
+msgid "show program's version number and exit"
+msgstr "affiche le numéro de version et quitte"
+
+msgid "show this help message and exit"
+msgstr "affiche ce message d'aide et quitte"
+
+msgid "positional arguments"
+msgstr "arguments positionnels"
+
+msgid "options"
+msgstr "options"
+
+msgid "%(heading)s:"
+msgstr "%(heading)s :"
+
+msgid "invalid choice: %(value)r (choose from %(choices)s)"
+msgstr "choix invalide : %(value)r (choisir parmi %(choices)s)"
+
+msgid "invalid choice: %(value)r, maybe you meant %(closest)r? (choose from %(choices)s)"
+msgstr "choix invalide : %(value)r, vouliez-vous dire %(closest)r ? (choisir parmi %(choices)s)"
+
+msgid " (default: %(default)s)"
+msgstr " (défaut : %(default)s)"
+
+msgid "can't open '%(filename)s': %(error)s"
+msgstr "impossible d'ouvrir '%(filename)s' : %(error)s"
+
+msgid "subcommands"
+msgstr "sous-commandes"
+
+msgid "unrecognized arguments: %s"
+msgstr "arguments non reconnus : %s"
+
+msgid "ambiguous option: %(option)s could match %(matches)s"
+msgstr "option ambiguë : %(option)s peut correspondre à %(matches)s"
+
+msgid "expected one argument"
+msgstr "un argument attendu"
+
+msgid "expected at most one argument"
+msgstr "au plus un argument attendu"
+
+msgid "expected at least one argument"
+msgstr "au moins un argument attendu"
+
+msgid "invalid %(type)s value: %(value)r"
+msgstr "valeur %(type)s invalide : %(value)r"
+
+msgid "%(prog)s: error: %(message)s\n"
+msgstr "%(prog)s : erreur : %(message)s\n"
+
+msgid "%(prog)s: warning: %(message)s\n"
+msgstr "%(prog)s : avertissement : %(message)s\n"
+
+msgid "unknown parser %(parser_name)r (choices: %(choices)s)"
+msgstr "analyseur inconnu %(parser_name)r (choix : %(choices)s)"
+
+msgid "command '%(parser_name)s' is deprecated"
+msgstr "la commande '%(parser_name)s' est obsolète"
+
+msgid "the following arguments are required: %s"
+msgstr "arguments obligatoires manquants : %s"
+
+msgid "one of the arguments %s is required"
+msgstr "un des arguments %s est obligatoire"
+
+msgid "argument \"-\" with mode %r"
+msgstr "argument \"-\" avec le mode %r"
+
+msgid "not allowed with argument %s"
+msgstr "interdit avec l'argument %s"
+
+msgid "unexpected option string: %s"
+msgstr "option inattendue : %s"
+
+msgid "ignored explicit argument %r"
+msgstr "argument explicite ignoré %r"
+
+msgid "option '%(option)s' is deprecated"
+msgstr "l'option '%(option)s' est obsolète"
+
+msgid "argument '%(argument_name)s' is deprecated"
+msgstr "l'argument '%(argument_name)s' est obsolète"
+
+# batdetect
+
+msgid "Detect and track bats in thermal videos."
+msgstr "Détecte et suit les chauves-souris dans des vidéos thermiques."
+
+msgid "video files or folders"
+msgstr "fichiers vidéo ou dossiers"
+
+msgid "detection"
+msgstr "détection"
+
+msgid "tracking"
+msgstr "suivi"
+
+msgid "output"
+msgstr "sorties"
+
+msgid "{help} (default: {value})"
+msgstr "{help} (défaut : {value})"
+
+msgid "{mode}: {value}"
+msgstr "{mode} : {value}"
+
+msgid ", "
+msgstr " ; "
+
+msgid "none"
+msgstr "aucune"
+
+msgid "off"
+msgstr "désactivé"
+
+msgid "DIR"
+msgstr "DOSSIER"
+
+msgid "COUNT"
+msgstr "NOMBRE"
+
+msgid "LEVEL"
+msgstr "NIVEAU"
+
+msgid "PIXELS"
+msgstr "PIXELS"
+
+msgid "PIXELS2"
+msgstr "PIXELS2"
+
+msgid "SECONDS"
+msgstr "SECONDES"
+
+msgid "FRAMES"
+msgstr "IMAGES"
+
+msgid "FACTOR"
+msgstr "FACTEUR"
+
+msgid "RADIANS"
+msgstr "RADIANS"
+
+msgid "QUALITY"
+msgstr "QUALITÉ"
+
+msgid "folder that receives one result folder per video"
+msgstr "dossier qui reçoit un dossier de résultats par vidéo"
+
+msgid "processes sharing the detection; more mostly adds re-reading of the video"
+msgstr "processus qui se partagent la détection ; en ajouter fait surtout relire la vidéo"
+
+msgid "normal sees smaller and fainter targets; quick needs about half the computing time but can miss them; an option given explicitly wins over the mode"
+msgstr "normal voit des cibles plus petites et plus faibles ; quick demande environ deux fois moins de calcul mais peut les manquer ; une option donnée explicitement l'emporte sur le mode"
+
+msgid "smallest difference from the background that counts as a target; lower finds fainter targets and more noise; grey levels"
+msgstr "plus petit écart au fond qui compte comme une cible ; plus bas, il trouve des cibles plus faibles et plus de bruit ; niveaux de gris"
+
+msgid "smaller spots are dropped as noise; source pixels²"
+msgstr "les taches plus petites sont écartées comme du bruit ; pixels² de la vidéo d'origine"
+
+msgid "larger spots are dropped; source pixels²"
+msgstr "les taches plus grandes sont écartées ; pixels² de la vidéo d'origine"
+
+msgid "the background is the median of this much video around each frame; a target that stays still for more than half of it blends into it; seconds"
+msgstr "le fond est la médiane de cette durée de vidéo autour de chaque image ; une cible immobile plus de la moitié de ce temps se fond dans le fond ; secondes"
+
+msgid "the background uses one frame in this many; higher is faster but leaves fewer frames to measure the noise of each pixel; frames"
+msgstr "le fond prend une image sur ce nombre ; plus haut, c'est plus rapide mais il reste moins d'images pour mesurer le bruit de chaque pixel ; images"
+
+msgid "hides a moving on-screen display from the detection, as fractions of the frame; repeat for several"
+msgstr "cache à la détection un affichage à l'écran qui bouge, en fractions de l'image ; à répéter pour plusieurs zones"
+
+msgid "spots up to about twice this distance apart become one detection, so a fragmented target counts once; source pixels"
+msgstr "les taches écartées de moins d'environ deux fois cette distance deviennent une seule détection, pour qu'une cible fragmentée compte une fois ; pixels de la vidéo d'origine"
+
+msgid "width the frames are reduced to for detection; wider sees smaller targets but takes longer; pixels"
+msgstr "largeur à laquelle les images sont réduites pour la détection ; plus large, on voit des cibles plus petites mais c'est plus long ; pixels"
+
+msgid "raises --threshold to this many times the noise of each pixel, so noisy areas give fewer false tracks; 0 disables"
+msgstr "relève --threshold à ce multiple du bruit de chaque pixel, pour moins de fausses pistes dans les zones bruitées ; 0 désactive"
+
+msgid "blur matched to the size of a small target before the comparison with the background, so faint targets stand out from the noise; source pixels; 0 disables"
+msgstr "flou ajusté à la taille d'une petite cible avant la comparaison au fond, pour que les cibles faibles ressortent du bruit ; pixels de la vidéo d'origine ; 0 désactive"
+
+msgid "frames with at least this many spots more than six times the usual count are ignored, as when the binoculars move; 0 disables"
+msgstr "les images qui ont au moins ce nombre de taches de plus que six fois le nombre habituel sont ignorées, comme quand les jumelles bougent ; 0 désactive"
+
+msgid "time also ignored on each side of such frames; seconds"
+msgstr "durée ignorée en plus de chaque côté de ces images ; secondes"
+
+msgid "farthest a detection may lie from where a track was expected and still extend it; source pixels"
+msgstr "distance maximale entre une détection et la position attendue d'une piste pour la prolonger ; pixels de la vidéo d'origine"
+
+msgid "frames in a row without a detection that a track survives, so a faint target that briefly disappears keeps one track; frames"
+msgstr "images consécutives sans détection auxquelles une piste survit, pour qu'une cible faible qui disparaît un instant garde une seule piste ; images"
+
+msgid "tracks with fewer detections are dropped; lower keeps shorter tracks and more short flickers"
+msgstr "les pistes qui ont moins de détections sont écartées ; plus bas, on garde des pistes plus courtes et plus de brefs scintillements"
+
+msgid "tracks that move less from start to end are dropped, like a pixel flickering in place; source pixels"
+msgstr "les pistes qui se déplacent moins du début à la fin sont écartées, comme un pixel qui scintille sur place ; pixels de la vidéo d'origine"
+
+msgid "two tracks that stay this close on all their shared frames are merged as one animal; source pixels; 0 disables"
+msgstr "deux pistes qui restent à moins de cette distance sur toutes leurs images communes sont fusionnées en un seul animal ; pixels de la vidéo d'origine ; 0 désactive"
+
+msgid "tracks that zigzag more are dropped as noise; radians; 3.15 or more disables"
+msgstr "les pistes qui zigzaguent davantage sont écartées comme du bruit ; radians ; 3,15 ou plus désactive"
+
+msgid "space between a target and its box on the clips; source pixels"
+msgstr "espace entre une cible et sa boîte sur les extraits ; pixels de la vidéo d'origine"
+
+msgid "length of the yellow trail behind each target on the clips; seconds"
+msgstr "longueur de la trace jaune derrière chaque cible sur les extraits ; secondes"
+
+msgid "time kept before and after each track in its clip; seconds"
+msgstr "temps gardé avant et après chaque piste dans son extrait ; secondes"
+
+msgid "video quality with x264, lower is better and heavier; 0 to {max}"
+msgstr "qualité vidéo avec x264, plus bas est meilleur et plus lourd ; de 0 à {max}"
+
+msgid "auto uses the Apple media engine if usable, otherwise x264"
+msgstr "auto utilise le moteur multimédia d'Apple s'il est utilisable, sinon x264"
+
+msgid "video quality with the Apple media engine, higher is better and heavier; 1 to {max}"
+msgstr "qualité vidéo avec le moteur multimédia d'Apple, plus haut est meilleur et plus lourd ; de 1 à {max}"
+
+msgid "also write the whole video with every track drawn"
+msgstr "écrit aussi la vidéo entière avec toutes les pistes dessinées"
+
+msgid "above this many tracks, the video counts as failed and gets no clips or annotated video; 0 disables"
+msgstr "au-delà de ce nombre de pistes, la vidéo est comptée en échec et n'a ni extraits ni vidéo annotée ; 0 désactive"
+
+msgid "slowed, magnified clip: auto for small or faint tracks only, all, or none"
+msgstr "extrait ralenti et agrandi : auto pour les pistes petites ou faibles seulement, all pour toutes, none pour aucune"
+
+msgid "expected x0,y0,x1,y1 fractions, got {text}: {error}"
+msgstr "fractions x0,y0,x1,y1 attendues, reçu {text} : {error}"
+
+msgid "must be >= 1, got {value}"
+msgstr "doit être >= 1, reçu {value}"
+
+msgid "ffmpeg not found in PATH"
+msgstr "ffmpeg introuvable dans le PATH"
+
+msgid "ffprobe not found in PATH"
+msgstr "ffprobe introuvable dans le PATH"
+
+msgid "no video found"
+msgstr "aucune vidéo trouvée"
+
+msgid "{video}: {frames}, {tracks}, {ignored} s ignored -> {dest}"
+msgstr "{video} : {frames}, {tracks}, {ignored} s ignorées -> {dest}"
+
+msgid "unstable {start} -> {end}, detections ignored"
+msgstr "instable {start} -> {end}, détections ignorées"
+
+msgid "#{id:<3} {start} -> {end}  hits={hits}"
+msgstr "#{id:<3} {start} -> {end}  points={hits}"
+
+msgid "{count} tracks, above --max-tracks {limit}: clips and annotated video skipped"
+msgstr "{count} pistes, au-delà de --max-tracks {limit} : extraits et vidéo annotée non écrits"
+
+msgid "not analysed {start} - {end}"
+msgstr "hors analyse {start} - {end}"
+
+msgid "conflicting option string: %s"
+msgid_plural "conflicting option strings: %s"
+msgstr[0] "chaîne d'option en conflit : %s"
+msgstr[1] "chaînes d'option en conflit : %s"
+
+msgid "expected %s argument"
+msgid_plural "expected %s arguments"
+msgstr[0] "%s argument attendu"
+msgstr[1] "%s arguments attendus"
+
+msgid "{count} frame"
+msgid_plural "{count} frames"
+msgstr[0] "{count} image"
+msgstr[1] "{count} images"
+
+msgid "{count} track"
+msgid_plural "{count} tracks"
+msgstr[0] "{count} piste"
+msgstr[1] "{count} pistes"
+
+msgid "damaged {seconds} s in {count} span, detections ignored"
+msgid_plural "damaged {seconds} s in {count} spans, detections ignored"
+msgstr[0] "{seconds} s abîmées sur {count} plage, détections ignorées"
+msgstr[1] "{seconds} s abîmées sur {count} plages, détections ignorées"
+
+msgid "unreadable {duration} ({count} span)"
+msgid_plural "unreadable {duration} ({count} spans)"
+msgstr[0] "illisible {duration} ({count} plage)"
+msgstr[1] "illisible {duration} ({count} plages)"
+
+msgid "+ {count} more"
+msgid_plural "+ {count} more"
+msgstr[0] "+ {count} autre"
+msgstr[1] "+ {count} autres"

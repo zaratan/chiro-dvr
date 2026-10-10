@@ -47,7 +47,7 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 **Un module, une responsabilité, son fichier de tests** (`tests/test_<module>.py`, ou
 `test_<paquet>_<module>.py`). Dépendances à sens unique : `track` → `detect` → `video`, `detect` → `noise` → `median`,
 `stability` → `spans` → `detect`, `probe` → `damage` → `spans`, `damage` → `video`, `exclusion` → `damage`,
-`stability`, `spans`, `detect`. Dans `output/` : `zoomview` → `zoom`, `overlay`, `clips`, `config`, `track`,
+`stability`, `spans`, `detect`, `arguments`, `cli`, `pofile`, `output/summary` → `language`. Dans `output/` : `zoomview` → `zoom`, `overlay`, `clips`, `config`, `track`,
 `detect`, `video` ; `zoom` → `config`, `track` ; `clips` → `timefmt`, `track`, `video`.
 Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs rôles.
 
@@ -92,6 +92,9 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   (palette, tailles selon la largeur), `geometry.py` (longueur d'arc), `colors.py`,
   `placement.py` (pastilles), `arrows.py`, `marker.py`, `legend.py`, `periods.py`
   (tranches de 10 min).
+- `language.py` : langue des messages (gettext, domaine `messages` partagé avec argparse,
+  virgule décimale en français) ; `pofile.py` écrit le `.mo` depuis le `.po`
+  (`mise run catalog`, [docs/05](docs/05-outillage-python.md)).
 - `jobs.py` (vidéos à traiter, dossiers de sortie), `arguments.py` (options partagées,
   modes `--mode quick|normal` dans `MODES`, construction des configs), `cli.py` (commande `batdetect`).
 - `parallel.py` : détection découpée en tranches de temps, une par processus (`--workers`,
