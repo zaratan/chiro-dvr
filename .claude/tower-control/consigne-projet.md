@@ -31,7 +31,7 @@ worktree, sous `~/Projects/dvr-wt/`. Ton compte rendu s'écrit dans
 - Les temps réels sont invalides si la machine s'est mise en veille : publie le temps CPU
   (`/usr/bin/time -l`) à côté.
 - Un test fondé sur une vidéo fabriquée est « à confirmer au premier passage en CI » dans le
-  compte rendu : ffmpeg 6 du runner ne reproduit pas tout ce que ffprobe 9 fait sur Mac.
+  compte rendu : le ffmpeg BtbN 9.0.1 du runner Linux ne reproduit pas tout ce que le ffprobe 9.0.2 de Homebrew fait sur Mac.
 - Le compte rendu ne s'écrit qu'à la toute fin, quand plus aucune mesure ne tourne en arrière-plan.
 
 **Vidéos : lecture seule**
