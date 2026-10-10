@@ -8,7 +8,7 @@ seuil fixe 25).
 
 ## Réglages par défaut du 6 octobre 2026 : 14 pistes
 
-Mêmes 14 passages que l'ancien réglage, choisis sur sept vidéos
+Mêmes 14 pistes que l'ancien réglage ; réglages choisis sur sept vidéos
 ([08](08-banc-de-mesure.md#sur-six-autres-vidéos)). Commande complète : 135 à 151 s
 (30 à 34 s avec l'ancien réglage).
 
@@ -39,7 +39,7 @@ cette configuration : propre.
 
 Sur les 14 pistes de ce réglage, **13 sont des chauves-souris**, y compris 0:51 (qui passe
 surtout en bordure droite de l'écran ; elle n'est pas lente) et 2:37. La seule qui n'en est
-pas est la **piste 11, 3:29 → 3:39, la chose lente** : le passage « 3:36 » confirmé en
+pas est la **piste 3:29 → 3:39, la chose lente** : le passage « 3:36 » confirmé en
 septembre était cette chose, il n'est plus compté comme un passage. La vérité terrain de la
 092 est donc : 13 chauves-souris, 1 objet lent à 3:29, et le 3:58 reste le passage
 historique. Règle donnée le même jour : mieux vaut un faux positif facile à écarter à
