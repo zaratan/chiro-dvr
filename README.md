@@ -104,16 +104,33 @@ explosion ; les réglages qui explosaient en donnaient 374 à 5 479. Le seuil es
 suppose des clips d'environ 5 min, comme ceux des jumelles : pour une vidéo plus longue,
 montez `--max-tracks`.
 
-Pour chaque vidéo, `out/<nom>/` contient :
+Pour chaque vidéo, `out/<nom>/` contient les fichiers ci-dessous. Leurs noms suivent la
+langue de la locale, comme l'aide : en français sous une locale française, en anglais
+sinon. Les noms ne portent jamais d'accent.
 
-- `<nom>.tracks.png` : toutes les trajectoires sur le fond médian de la vidéo, une couleur,
+| Fichier | Français | Anglais |
+| --- | --- | --- |
+| Image résumé | `<nom>_resume.png` | `<nom>_summary.png` |
+| Tableau des pistes | `<nom>_pistes.csv` | `<nom>_tracks.csv` |
+| Dossier des extraits | `extraits/piste_01_0m04s.mp4` | `clips/track_01_0m04s.mp4` |
+| Extrait zoomé | `extraits/piste_01_0m04s_zoom.mp4` | `clips/track_01_0m04s_zoom.mp4` |
+| Vidéo annotée | `<nom>_annotee.mp4` | `<nom>_annotated.mp4` |
+| Réglages | `params.json` | `params.json` |
+
+Une fois la détection finie, chaque calcul efface, dans le dossier de la vidéo, les sorties des deux
+langues et celles des versions précédentes (`split/`, `<nom>.tracks.*`, `<nom>_boxes.mp4`).
+La langue du dernier calcul fait foi.
+
+- `<nom>_resume.png` : toutes les trajectoires sur le fond médian de la vidéo, une couleur,
   une flèche (sens du vol) et une pastille numérotée par passage, avec une légende à droite
   (numéro et début). Au-delà de 10 min, une image par tranche de 10 min
-  (`<nom>.tracks_000m-010m.png`, …). `--osd-region 0,0,1,0.07` y cache l'affichage
+  (`<nom>_resume_000m-010m.png`, …). `--osd-region 0,0,1,0.07` y cache l'affichage
   des jumelles Symbion ;
-- `<nom>.tracks.csv` : début, fin, durée, vitesse de chaque passage ;
+- `<nom>_pistes.csv` : début, fin, durée, vitesse de chaque passage ;
 - `params.json` : les réglages utilisés ;
-- `split/` : un extrait par passage, nommé par numéro et temps de début, avec une boîte,
+- `extraits/` : un extrait par passage, nommé par numéro de piste et temps de début à la
+  seconde (le numéro départage deux pistes de la même seconde ; deux chiffres, trois dès
+  100 pistes, pour que le Finder les range dans l'ordre), avec une boîte,
   un numéro et la trace des passages visibles ; pour les passages petits ou faibles,
   aussi `<même nom>_zoom.mp4` : la même scène recadrée sur la trajectoire, agrandie
   jusqu'à ×4 et ralentie ×0,25, avec la trace seule. `--zoom all` en fait un pour chaque
@@ -129,7 +146,7 @@ Pour chaque vidéo, `out/<nom>/` contient :
   écartées) et la version d'`ffprobe`. Le total « s ignored » de la console compte une
   seule fois le temps à la fois illisible et instable ; le bandeau, lui, liste les deux
   sans retirer leur recouvrement ;
-- avec `--annotated` seulement, `<nom>_boxes.mp4` : la vidéo annotée complète. Sans
+- avec `--annotated` seulement, `<nom>_annotee.mp4` : la vidéo annotée complète. Sans
   l'option, celle d'un traitement précédent est supprimée.
 
 Le détail de la méthode et des réglages est dans [docs/02-methode.md](docs/02-methode.md).

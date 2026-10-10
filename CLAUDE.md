@@ -47,8 +47,8 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 **Un module, une responsabilité, son fichier de tests** (`tests/test_<module>.py`, ou
 `test_<paquet>_<module>.py`). Dépendances à sens unique : `track` → `detect` → `video`, `detect` → `noise` → `median`,
 `stability` → `spans` → `detect`, `probe` → `damage` → `spans`, `damage` → `video`, `exclusion` → `damage`,
-`stability`, `spans`, `detect`, `arguments`, `cli`, `pofile`, `output/summary` → `language`. Dans `output/` : `zoomview` → `zoom`, `overlay`, `clips`, `config`, `track`,
-`detect`, `video` ; `zoom` → `config`, `track` ; `clips` → `timefmt`, `track`, `video`.
+`stability`, `spans`, `detect`, `arguments`, `cli`, `pofile`, `output/summary` → `language`. Dans `output/` : `zoomview` → `zoom`, `overlay`, `clips`, `names`, `config`, `track`,
+`detect`, `video` ; `zoom` → `config`, `track` ; `clips` → `names`, `track`, `video` ; `names` → `language`, `track` ; `summary` → `names`.
 Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs rôles.
 
 - `video.py` : ouverture, lecture et réduction des images (`open_video`, `read_frames`,
@@ -77,7 +77,7 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
 - `track.py` : `TrackConfig`, `Track`, appariement, fusion des jumelles, filtres de fin
   (`min_hits`, `min_travel`, virage médian), tout dans `track_detections`. Ne dépend que de `Detection`.
   `Track.max_area()` et `Track.peak_amplitude()` servent au CSV comme au choix du zoom.
-- `output/` : `config.py` (`RenderConfig`), `timefmt.py` (temps et noms d'extraits),
+- `output/` : `config.py` (`RenderConfig`), `timefmt.py` (temps),
   `overlay.py` (boîtes, trace, interpolation, `track_overlay`), `render.py` (une lecture
   de l'original qui alimente les extraits et la vidéo annotée optionnelle ; au plus
   `MAX_WRITERS` encodeurs à la fois, sinon plusieurs passes), `writer.py` (`FrameWriter`,
@@ -85,7 +85,8 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   abandonné), `clips.py` (fenêtres d'extraits, répartition en passes ; une fenêtre peut
   porter une vue sur l'image brute et un ralenti), `zoom.py` (pistes qui ont un zoom,
   cadre fixe), `zoomview.py` (vue zoomée, trace coupée près de la cible, fenêtres
-  `_zoom.mp4`), `tables.py`
+  `_zoom.mp4`), `names.py` (tous les noms des fichiers produits, une table par langue,
+  ménage des sorties précédentes des deux langues et des anciens noms), `tables.py`
   (CSV, `params.json`), `encoder.py`
   (moteur multimédia ou x264, choisi au démarrage par un essai d'encodage). Image résumé :
   `summary.py` (assemblage, écriture), `background.py` (fond médian, zones d'affichage masquées), `style.py`
@@ -116,7 +117,7 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   `GPL-3.0.txt`. Le binaire Homebrew est sous GPL v3, le code sous MIT
   ([docs/05](docs/05-outillage-python.md)). `mise run package` construit le binaire
   PyInstaller et son archive dans `dist/`. `mise run package:check` la contrôle : macOS
-  minimum, FFmpeg et bibliothèques présents dans le NOTICE, `tracks.csv` identique au dépôt
+  minimum, FFmpeg et bibliothèques présents dans le NOTICE, CSV des pistes identique au dépôt
   sur l'extrait. Une montée d'opencv ou de numpy se vérifie par `package:check`, et le NOTICE
   se complète à la main.
 - Toutes les coordonnées, distances et surfaces hors de `find_blobs` sont en pixels de la

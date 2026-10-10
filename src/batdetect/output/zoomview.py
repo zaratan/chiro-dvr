@@ -8,6 +8,7 @@ import numpy as np
 from batdetect.detect import Detection
 from batdetect.output.clips import ClipWindow, View
 from batdetect.output.config import RenderConfig
+from batdetect.output.names import zoom_path
 from batdetect.output.overlay import TRAIL_COLOR, filled_points
 from batdetect.output.zoom import SLOW_MOTION, Crop, needs_zoom, zoom_crop
 from batdetect.track import Track
@@ -15,7 +16,6 @@ from batdetect.video import ColorFrame, VideoInfo
 
 TRAIL_GAP_PX = 16
 TRAIL_THICKNESS = 1
-ZOOM_SUFFIX = "_zoom"
 
 type Point = tuple[float, float]
 type Segment = tuple[Point, Point]
@@ -83,7 +83,7 @@ def zoom_windows(tracks: list[Track], clips: list[ClipWindow], info: VideoInfo, 
         ClipWindow(
             clip.first,
             clip.last,
-            clip.path.with_stem(clip.path.stem + ZOOM_SUFFIX),
+            zoom_path(clip.path),
             zoom_view(track, zoom_crop(track, info.width, info.height), info, cfg),
             SLOW_MOTION,
         )

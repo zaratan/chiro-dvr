@@ -128,19 +128,12 @@ def test_longest_damage_line_is_never_cut_on_the_summary(width: int) -> None:
     assert fit_text(line, MAX_HEADER_COLUMNS * column_width(style, []) - 2 * style.margin, style) == line
 
 
-def test_summary_writes_one_image_and_removes_stale_ones(tmp_path: Path) -> None:
-    stale = tmp_path / "v.tracks_000m-010m.png"
-    stale.write_bytes(b"old")
-    table = tmp_path / "v.tracks.csv"
-    table.write_text("id\n")
-
+def test_short_video_writes_a_single_summary_named_after_the_video(tmp_path: Path) -> None:
     tracks = [Track(1, line(0, 20, (40, 200), (10, -5)))]
 
-    written = summary_image(gray(), split_by_period(tracks, INFO), INFO, tmp_path / "v")
+    written = summary_image(gray(), split_by_period(tracks, INFO), INFO, tmp_path, "v")
 
-    assert written == [tmp_path / "v.tracks.png"]
-    assert not stale.exists()
-    assert table.exists()
+    assert written == [tmp_path / "v_summary.png"]
     assert np.asarray(cv2.imread(str(written[0]))).shape[0] == 240
 
 
@@ -149,7 +142,11 @@ def test_long_video_writes_one_image_per_period(tmp_path: Path) -> None:
 
     periods = split_by_period([], two_minutes_and_more, span_s=60)
 
-    written = summary_image(gray(), periods, two_minutes_and_more, tmp_path / "v")
+    written = summary_image(gray(), periods, two_minutes_and_more, tmp_path, "v")
 
-    assert [p.name for p in written] == ["v.tracks_000m-001m.png", "v.tracks_001m-002m.png", "v.tracks_002m-003m.png"]
+    assert [p.name for p in written] == [
+        "v_summary_000m-001m.png",
+        "v_summary_001m-002m.png",
+        "v_summary_002m-003m.png",
+    ]
     assert all(p.exists() for p in written)

@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from batdetect.output.timefmt import clip_name, format_clock, format_duration, format_time
-from batdetect.track import Track
-from helpers import line
+from batdetect.output.timefmt import format_clock, format_duration, format_time
 
 
 @pytest.mark.parametrize(
@@ -13,12 +11,6 @@ from helpers import line
 )
 def test_format_time_never_shows_sixty_seconds(seconds: float, expected: str) -> None:
     assert format_time(seconds) == expected
-
-
-def test_clip_name_sorts_by_id_and_carries_start_time() -> None:
-    track = Track(7, line(7122, 5, (0, 0), (1, 0)))
-
-    assert clip_name(track, 30.0) == "07_3m57s40.mp4"
 
 
 def test_clock_drops_hundredths_and_rounds_down_to_the_second() -> None:

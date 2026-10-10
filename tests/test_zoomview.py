@@ -119,12 +119,12 @@ def test_single_position_track_has_no_trail() -> None:
 def test_zoom_window_exists_only_for_selected_tracks_and_is_named_after_its_clip() -> None:
     faint = Track(1, [Detection(f, 100 + 5 * f, 100, 99 + 5 * f, 99, 3, 3, 9, 20.0) for f in range(8)])
     bright = Track(2, [Detection(f, 100 + 5 * f, 150, 99 + 5 * f, 149, 3, 3, 400, 120.0) for f in range(8)])
-    clips = [ClipWindow(0, 50, Path("split/01_0m00s00.mp4")), ClipWindow(0, 50, Path("split/02_0m00s00.mp4"))]
+    clips = [ClipWindow(0, 50, Path("clips/track_01_0m00s.mp4")), ClipWindow(0, 50, Path("clips/track_02_0m00s.mp4"))]
 
     windows = zoom_windows([faint, bright], clips, INFO, RenderConfig())
 
     assert [(w.first, w.last, w.path, w.slowdown) for w in windows] == [
-        (0, 50, Path("split/01_0m00s00_zoom.mp4"), SLOW_MOTION)
+        (0, 50, Path("clips/track_01_0m00s_zoom.mp4"), SLOW_MOTION)
     ]
     assert windows[0].view is not None
 

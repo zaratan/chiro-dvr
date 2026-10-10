@@ -25,6 +25,7 @@ from batdetect.output.background import hide_display, median_background
 from batdetect.output.clips import clip_windows
 from batdetect.output.config import ENCODERS, MAX_CRF, MAX_VT_QUALITY, ZOOMS, RenderConfig
 from batdetect.output.encoder import resolve_encoder
+from batdetect.output.names import annotated_video, clips_dir, params_json, remove_previous_outputs, tracks_csv
 from batdetect.output.overlay import track_overlay
 from batdetect.output.periods import split_by_period
 from batdetect.output.render import VideoOutputs, discard_videos, render_videos
@@ -180,7 +181,8 @@ def process(job: Job, settings: Settings, workers: int, ffprobe: str) -> None:
     tracks = track_detections(analysis.detections, settings.track)
     job.dest.mkdir(parents=True, exist_ok=True)
     stem = job.video.stem
-    write_tracks_csv(tracks, info, job.dest / f"{stem}.tracks.csv")
+    remove_previous_outputs(job.dest, stem)
+    write_tracks_csv(tracks, info, tracks_csv(job.dest, stem))
     write_params(
         {
             "video": str(job.video),
@@ -192,7 +194,7 @@ def process(job: Job, settings: Settings, workers: int, ffprobe: str) -> None:
             "damaged_frames": analysis.reported_frames,
             "ffprobe": ffprobe,
         },
-        job.dest / "params.json",
+        params_json(job.dest),
     )
     periods = split_by_period(
         tracks,
@@ -200,10 +202,12 @@ def process(job: Job, settings: Settings, workers: int, ffprobe: str) -> None:
         ignored=[seconds(span, info.fps) for span in unstable],
         damaged=[seconds(span, info.fps) for span in analysis.damaged],
     )
-    summary_image(hide_display(median_background(job.video, info), detect), periods, info, job.dest / stem)
-    split_dir = job.dest / "split"
-    clips = clip_windows(tracks, info.fps, render.clip_margin_s, split_dir)
-    outputs = VideoOutputs(split_dir, clips + zoom_windows(tracks, clips, info, render), job.dest / f"{stem}_boxes.mp4")
+    summary_image(hide_display(median_background(job.video, info), detect), periods, info, job.dest, stem)
+    clips_folder = clips_dir(job.dest)
+    clips = clip_windows(tracks, info.fps, render.clip_margin_s, clips_folder)
+    outputs = VideoOutputs(
+        clips_folder, clips + zoom_windows(tracks, clips, info, render), annotated_video(job.dest, stem)
+    )
     renders_videos = render.renders_videos_for(len(tracks))
     if renders_videos:
         render_videos(job.video, info, outputs, track_overlay(tracks, info, render), render)

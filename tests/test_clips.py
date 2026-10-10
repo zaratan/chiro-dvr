@@ -8,11 +8,11 @@ from batdetect.output.clips import ClipWindow, clip_windows, in_passes
 from batdetect.track import Track
 from helpers import line
 
-SPLIT = Path("split")
+CLIPS = Path("clips")
 
 
 def window(first: int, last: int) -> ClipWindow:
-    return ClipWindow(first, last, SPLIT / f"{first}-{last}.mp4")
+    return ClipWindow(first, last, CLIPS / f"{first}-{last}.mp4")
 
 
 def most_simultaneous(windows: list[ClipWindow]) -> int:
@@ -23,7 +23,7 @@ def test_margin_is_counted_in_frames_and_clamped_at_the_start_only() -> None:
     early = Track(1, line(5, 10, (20, 20), (5, 0)))
     late = Track(2, line(100, 10, (20, 20), (5, 0)))
 
-    windows = clip_windows([early, late], fps=30.0, margin_s=0.5, split_dir=SPLIT)
+    windows = clip_windows([early, late], fps=30.0, margin_s=0.5, clips_dir=CLIPS)
 
     assert [(w.first, w.last) for w in windows] == [(0, 29), (85, 124)]
 
@@ -31,7 +31,7 @@ def test_margin_is_counted_in_frames_and_clamped_at_the_start_only() -> None:
 def test_clip_is_named_after_its_track_and_start() -> None:
     track = Track(3, line(45, 10, (20, 20), (5, 0)))
 
-    assert clip_windows([track], fps=30.0, margin_s=0.0, split_dir=SPLIT)[0].path == SPLIT / "03_0m01s50.mp4"
+    assert clip_windows([track], fps=30.0, margin_s=0.0, clips_dir=CLIPS)[0].path == CLIPS / "track_03_0m01s.mp4"
 
 
 def test_windows_that_never_overlap_share_a_single_pass() -> None:
@@ -61,3 +61,12 @@ def test_no_window_gives_no_pass() -> None:
 def test_at_least_one_writer_is_needed() -> None:
     with pytest.raises(ValueError, match="max_writers"):
         in_passes([window(0, 1)], max_writers=0)
+
+
+def test_clips_of_a_video_with_a_hundred_tracks_get_three_digit_numbers() -> None:
+    tracks = [Track(k, line(45, 10, (20, 20), (5, 0))) for k in range(1, 101)]
+
+    names = [w.path.name for w in clip_windows(tracks, fps=30.0, margin_s=0.0, clips_dir=CLIPS)]
+
+    assert names[0] == "track_001_0m01s.mp4"
+    assert names == sorted(names)

@@ -69,13 +69,13 @@ def test_folder_run_writes_every_output_for_each_video(tmp_path: Path) -> None:
 
     assert main([str(videos), "-o", str(out)]) == 0
 
-    with (dest / "flight.tracks.csv").open() as fh:
+    with (dest / "flight_tracks.csv").open() as fh:
         rows = list(csv.DictReader(fh))
     assert len(rows) == 1
     assert "filled_frames" in rows[0]
-    assert (dest / "flight.tracks.png").stat().st_size > 0
+    assert (dest / "flight_summary.png").stat().st_size > 0
     assert not (dest / "flight_boxes.mp4").exists()
-    assert sorted(p.name for p in (dest / "split").iterdir()) == ["01_0m00s00.mp4", "01_0m00s00_zoom.mp4"]
+    assert sorted(p.name for p in (dest / "clips").iterdir()) == ["track_01_0m00s.mp4", "track_01_0m00s_zoom.mp4"]
     params = json.loads((dest / "params.json").read_text())
     assert params["TrackConfig"]["min_hits"] == 6
     assert params["mode"] == "normal"
@@ -92,8 +92,8 @@ def test_zoom_none_writes_only_the_normal_clip_of_a_small_target(tmp_path: Path)
 
     assert main([str(videos), "-o", str(tmp_path / "out"), "--zoom", "none"]) == 0
 
-    split = tmp_path / "out" / "flight" / "split"
-    assert [p.name for p in split.iterdir()] == ["01_0m00s00.mp4"]
+    clips = tmp_path / "out" / "flight" / "clips"
+    assert [p.name for p in clips.iterdir()] == ["track_01_0m00s.mp4"]
 
 
 @requires_ffmpeg
@@ -104,7 +104,7 @@ def test_annotated_option_adds_the_whole_annotated_video(tmp_path: Path) -> None
 
     assert main([str(videos), "-o", str(tmp_path / "out"), "--annotated"]) == 0
 
-    assert (tmp_path / "out" / "flight" / "flight_boxes.mp4").stat().st_size > 0
+    assert (tmp_path / "out" / "flight" / "flight_annotated.mp4").stat().st_size > 0
 
 
 @requires_ffmpeg
@@ -117,7 +117,7 @@ def test_frames_where_the_camera_slides_are_ignored_and_reported(tmp_path: Path)
     assert main([str(videos), "-o", str(tmp_path / "out")]) == 0
 
     def starts(root: Path) -> list[float]:
-        with (root / "shaky" / "shaky.tracks.csv").open() as fh:
+        with (root / "shaky" / "shaky_tracks.csv").open() as fh:
             return [float(row["start_s"]) for row in csv.DictReader(fh)]
 
     assert sum(1 for s in starts(tmp_path / "raw") if 0.5 < s < 2.0) >= 5
@@ -134,7 +134,7 @@ def test_unreadable_video_fails_without_stopping_the_others(tmp_path: Path) -> N
     write_video(videos / "ok.mp4", flying_square(60, step=(3, 0)), fps=30)
 
     assert main([str(videos), "-o", str(tmp_path / "out")]) == 1
-    assert (tmp_path / "out" / "ok" / "ok.tracks.csv").exists()
+    assert (tmp_path / "out" / "ok" / "ok_tracks.csv").exists()
 
 
 @requires_ffmpeg
@@ -176,7 +176,7 @@ def test_video_whose_frame_numbers_cannot_be_matched_fails_without_stopping_the_
 
     assert main([str(videos), "-o", str(tmp_path / "out")]) == 1
     assert "frame numbers do not match" in capsys.readouterr().err
-    assert (tmp_path / "out" / "ok" / "ok.tracks.csv").exists()
+    assert (tmp_path / "out" / "ok" / "ok_tracks.csv").exists()
     assert not (tmp_path / "out" / "lost").exists()
 
 
@@ -219,14 +219,15 @@ def test_video_above_max_tracks_keeps_its_tables_and_summary_skips_its_clips_and
 
     code = main([str(videos), "-o", str(out), "--max-tracks", "1", "--annotated", "--zoom", "none"])
 
-    with (crowded / "crowded.tracks.csv").open() as fh:
+    with (crowded / "crowded_tracks.csv").open() as fh:
         assert len(list(csv.DictReader(fh))) == 2
-    assert (crowded / "crowded.tracks.png").stat().st_size > 0
+    assert (crowded / "crowded_summary.png").stat().st_size > 0
     assert json.loads((crowded / "params.json").read_text())["RenderConfig"]["max_tracks"] == 1
     assert not (crowded / "split").exists()
     assert not (crowded / "crowded_boxes.mp4").exists()
-    assert len(list((out / "flight" / "split").iterdir())) == 1
-    assert (out / "flight" / "flight_boxes.mp4").exists()
+    assert not (crowded / "clips").exists()
+    assert len(list((out / "flight" / "clips").iterdir())) == 1
+    assert (out / "flight" / "flight_annotated.mp4").exists()
     assert code == 1
     assert "crowded.mp4: 2 tracks, above --max-tracks 1" in capsys.readouterr().err
 
@@ -278,3 +279,26 @@ def test_too_many_tracks_is_reported_in_french_under_a_french_locale(
     assert main([str(videos), "-o", str(tmp_path / "out"), "--max-tracks", "1"]) == 1
 
     assert "2 pistes, au-delà de --max-tracks 1 : extraits et vidéo annotée non écrits" in capsys.readouterr().err
+
+
+@requires_ffmpeg
+def test_a_run_in_the_other_language_leaves_no_file_of_the_previous_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    videos = tmp_path / "in"
+    videos.mkdir()
+    write_video(videos / "flight.mp4", flying_square(90, step=(3, 1)), fps=30)
+    out = tmp_path / "out"
+    dest = out / "flight"
+
+    assert main([str(videos), "-o", str(out), "--annotated"]) == 0
+    monkeypatch.setenv("LANG", "fr_FR.UTF-8")
+    assert main([str(videos), "-o", str(out)]) == 0
+
+    assert sorted(p.name for p in dest.iterdir()) == [
+        "extraits",
+        "flight_pistes.csv",
+        "flight_resume.png",
+        "params.json",
+    ]
+    assert sorted(p.name for p in (dest / "extraits").iterdir()) == ["piste_01_0m00s.mp4", "piste_01_0m00s_zoom.mp4"]

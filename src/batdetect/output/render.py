@@ -22,19 +22,19 @@ type Draw = Callable[[ColorFrame, int], None]
 
 @dataclass(frozen=True, slots=True)
 class VideoOutputs:
-    split_dir: Path
+    clips_dir: Path
     clips: list[ClipWindow]
     annotated: Path
 
 
 def discard_videos(outputs: VideoOutputs) -> None:
     outputs.annotated.unlink(missing_ok=True)
-    shutil.rmtree(outputs.split_dir, ignore_errors=True)
+    shutil.rmtree(outputs.clips_dir, ignore_errors=True)
 
 
 def render_videos(video: Path, info: VideoInfo, outputs: VideoOutputs, draw: Draw, cfg: RenderConfig) -> None:
     discard_videos(outputs)
-    outputs.split_dir.mkdir(parents=True)
+    outputs.clips_dir.mkdir(parents=True)
     windows = list(outputs.clips)
     if cfg.annotated:
         windows.append(ClipWindow(0, WHOLE_VIDEO, outputs.annotated))
