@@ -5,15 +5,71 @@ tableau des pistes et les extraits. Il définit les mots qu'on y croise ; la fa�
 l'outil trouve les pistes est expliquée sans jargon dans
 [docs/10](10-logique-de-detection.md#les-techniques-en-simple).
 
-L'outil est réglé pour manquer le moins possible : mieux vaut une fausse piste qu'on écarte
-en quelques secondes à l'extrait qu'une chauve-souris manquée. Il sort donc des pistes qui
-ne sont pas des chauves-souris, et c'est voulu : il ne sait pas reconnaître une
-chauve-souris, c'est à Manon, la naturaliste, de trancher.
+L'outil ne sait pas reconnaître une chauve-souris : c'est à Manon, la naturaliste, de
+trancher, et la façon dont l'outil est réglé pour l'aider est dite dans
+[Ce que l'outil ne voit pas](#ce-que-loutil-ne-voit-pas).
 
 D'où deux mots distincts. Une **piste** est ce que l'outil a trouvé : quelque chose qui
 s'est déplacé dans l'image. Un **passage** est le vol d'une chauve-souris que Manon a
 confirmé sur l'extrait. L'outil compte des pistes ; seuls les verdicts comptent des
 passages.
+
+## Ce que l'outil ne voit pas
+
+L'outil dit « quelque chose a bougé ici », jamais « c'est une chauve-souris ». Ses réglages
+préfèrent une piste de trop à un passage manqué : c'est à l'œil, sur l'extrait, que vous
+l'écartez. La piste lente de 3:29 sur la 092 n'est pas une chauve-souris, et l'outil la sort
+quand même : c'est voulu. Il peut aussi manquer un passage, en couper un en deux ou en
+réunir deux : un nombre de pistes n'est pas un nombre de chauves-souris, et une zone sans
+trajectoire n'est pas une zone sans passage.
+
+Le tableau dit ce que vous pouvez voir, ce qui a pu se passer et comment le vérifier. Le
+« pourquoi » renvoie aux [techniques en simple][techniques]. Le numéro entre parenthèses
+renvoie au suivi du défaut ; une ligne sans numéro est une limite de principe.
+
+| Ce que vous voyez | Ce qui a pu se passer | Quoi faire |
+| --- | --- | --- |
+| Une piste s'arrête net dans le ciel, ou une partie du ciel n'a aucune piste | Le ciel est d'une seule teinte uniforme, tout noir sur vos vidéos : une chauve-souris sombre s'y confond, et rien ne signale cette zone ([« Un seuil propre à chaque endroit »][techniques]) | Revoir la vidéo d'origine là où la piste s'arrête, et ne pas lire ce ciel comme vide ([#9]) |
+| Deux pistes qui se suivent, la seconde repartant là où la première s'arrête | La cible a disparu trop longtemps et le vol a été coupé en deux ([« Le suivi image par image »][techniques]) | Regarder les deux extraits : si c'est le même animal, c'est un seul passage ([#24]) |
+| Une piste qui commence au tout début ou finit à la toute fin d'un clip | Le vol continue dans le clip voisin, traité séparément ; et la scène sans animal y est estimée sur moins d'images, donc la détection y est moins sûre ([« La scène sans animal »][techniques]) | Ouvrir la fin du clip précédent ou le début du suivant : un vol à cheval sur deux clips est un seul passage ([#11]) |
+| Un animal posé, en vol stationnaire, très lent ou qui tourne sur place, sans piste | Il s'est fondu dans le décor, ou son trajet n'a pas été reconnu comme un vol ([« La scène sans animal »][techniques], [« Ressembler à un vol »][techniques]) | Revoir la vidéo d'origine : l'outil voit mal ces animaux ([#22]) |
+| Une cible faible, petite ou lointaine, ou qui passe devant de la végétation qui bouge, que vous suivez à l'œil, sans piste | Sur aucune image, ou sur trop peu, elle ne se détache assez du fond : votre œil additionne plusieurs images, l'outil décide image par image ([« Le filtre à la taille de la cible »][techniques], [« Un seuil propre à chaque endroit »][techniques], [« Les taches »][techniques]) | Noter son temps et la compter vous-même : c'est un passage que l'outil a manqué ([#23]) |
+| Dans l'extrait, la boîte passe en trait fin sur quelques images | La piste n'a pas de point sur ces images ; la boîte y est à une position estimée ([« Le suivi image par image »][techniques]) | Regarder l'extrait zoomé, s'il existe, ou la vidéo d'origine pour voir où est vraiment l'animal ([#21]) |
+| L'animal est déjà visible dans l'extrait avant que la boîte n'apparaisse | La piste ne commence qu'une fois que la cible se détache assez du fond ; sur des vols de chasse fabriqués, ce retard dépasse parfois quelques images ([« Le suivi image par image »][techniques]) | Regarder l'extrait depuis son tout début : la durée et la vitesse du tableau des pistes ne couvrent alors qu'une partie du vol ([#42]) |
+| L'animal vole encore dans l'extrait après que la boîte a disparu | La piste finit à la dernière image où la cible se détache assez du fond ; sur des vols de chasse fabriqués, cette fin arrive parfois quelques images trop tôt ([« Le suivi image par image »][techniques]) | Regarder l'extrait jusqu'à sa toute fin : la durée et la vitesse du tableau des pistes ne couvrent alors qu'une partie du vol ([#42]) |
+| Une seule piste là où vous voyez deux animaux | Deux animaux restés tout près l'un de l'autre sont réunis en une piste ; cette règle n'a jamais été éprouvée sur deux vraies chauves-souris ([« La fusion des morceaux »][techniques]) | Compter les animaux à l'œil dans l'extrait, et noter ce moment : il servira à éprouver l'outil ([#26]) |
+| Une piste très lente au milieu de vols rapides | L'outil ne distingue pas un vol d'un déplacement lent : c'est le cas de la piste de 3:29 sur la 092 ([verdict](03-resultats-092.md#verdict-de-manon-9-octobre-2026), [« Ressembler à un vol »][techniques]) | Comparer sa vitesse dans le tableau des pistes, puis trancher à l'extrait ([#28]) |
+| Une chauve-souris plus claire que le ciel derrière elle | L'outil cherche dans les deux sens, plus clair ou plus sombre, mais n'a jamais été essayé sur une vraie vidéo de ce genre ([« Un seuil propre à chaque endroit »][techniques]) | Revoir la vidéo d'origine, et garder la vidéo : elle servira à éprouver l'outil ([#27]) |
+| Une période hors analyse ou illisible sur l'image résumé | Les jumelles ont bougé, la luminosité a sauté d'un coup, un essaim a rempli l'image, ou le fichier est abîmé : rien n'y a été cherché ([« Les périodes ignorées »][techniques]) | Revoir la vidéo d'origine aux moments donnés par le bandeau ; pour une période illisible, il n'en donne que la durée : si elle n'est pas négligeable, revoir la vidéo entière |
+| Une piste sur une image visiblement abîmée (blocs, morceaux d'image décalés), hors des périodes illisibles | Le fichier a été réparé à la lecture sans que rien ne le signale, et l'image passe pour une vraie scène ([« Les périodes ignorées »][techniques]) | L'écarter à l'extrait |
+| Un nombre de passages à la fin de la relecture | L'outil manque des passages, pour les raisons ci-dessus, et aucun comptage de référence ne dit encore dans quelle proportion | Le présenter comme un minimum, et ne pas le comparer tel quel à un comptage à l'œil ou à une autre soirée ([#25]) |
+
+### Prise de vue
+
+Une règle est vérifiée sur vos vidéos : les jumelles doivent rester fixes, sur trépied,
+sinon le moment est hors analyse ([docs/01](01-contexte.md#ce-que-la-prise-de-vue-impose)).
+Les conseils suivants viennent de la littérature sur l'observation en caméra thermique
+([docs/04](04-outils-existants.md)) et n'ont pas encore été essayés sur vos jumelles
+([#15]) :
+
+- palette et contraste fixes ;
+- calibrage (NUC) manuel ou semi-automatique pendant l'enregistrement ;
+- débit maximal ;
+- pas de zoom numérique.
+
+[techniques]: 10-logique-de-detection.md#les-techniques-en-simple
+[#9]: https://github.com/zaratan/chiro-dvr/issues/9
+[#11]: https://github.com/zaratan/chiro-dvr/issues/11
+[#15]: https://github.com/zaratan/chiro-dvr/issues/15
+[#21]: https://github.com/zaratan/chiro-dvr/issues/21
+[#22]: https://github.com/zaratan/chiro-dvr/issues/22
+[#23]: https://github.com/zaratan/chiro-dvr/issues/23
+[#24]: https://github.com/zaratan/chiro-dvr/issues/24
+[#25]: https://github.com/zaratan/chiro-dvr/issues/25
+[#26]: https://github.com/zaratan/chiro-dvr/issues/26
+[#27]: https://github.com/zaratan/chiro-dvr/issues/27
+[#28]: https://github.com/zaratan/chiro-dvr/issues/28
+[#42]: https://github.com/zaratan/chiro-dvr/issues/42
 
 ## Glossaire
 
