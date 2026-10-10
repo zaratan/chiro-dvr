@@ -154,7 +154,9 @@ l'image résumé sont en français quand la locale l'est, en anglais sinon.
   du tag : la release échoue si le tag diffère de `pyproject.toml`, si le commit n'est pas
   sur `main` ou si sa CI n'a pas réussi. La release est créée en brouillon et rendue
   visible seulement une fois l'archive envoyée : le tap ne voit jamais de release sans
-  archive. Pas de préversion pour l'instant.
+  archive. Le texte de la release est la section de la version dans
+  `CHANGELOG.md`, extraite par `packaging/release-notes.sh` ; sans elle, la release échoue avant
+  la construction. Pas de préversion pour l'instant.
 - **`mise run package`** construit le binaire, avec `freeze_support()` en tête de `main`
   (sans lui, un binaire gelé relance la commande dans chaque processus de `--workers`), et
   joint les licences. **`mise run package:check`** contrôle :
