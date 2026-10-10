@@ -7,7 +7,9 @@ import pytest
 
 from batdetect.cli import build_configs, build_parser, main
 from batdetect.detect import Region
+from helpers import ANSI_STYLE, option_help
 
+MODE_OPTIONS = ("--threshold", "--work-width", "--noise-factor", "--target-sigma")
 PYPROJECT = Path(__file__).parents[1] / "pyproject.toml"
 
 
@@ -160,3 +162,23 @@ def test_missing_ffprobe_exits_with_a_usage_error(
         main([str(tmp_path)])
 
     assert "ffprobe not found" in capsys.readouterr().err
+
+
+def test_every_option_describes_its_effect_and_shows_its_default_so_a_setting_can_be_changed_knowingly() -> None:
+    entries = option_help(build_parser().format_help())
+    undocumented = [
+        option
+        for option, text in entries.items()
+        if option not in {"-h", "--version", *MODE_OPTIONS} and "(default: " not in text
+    ]
+
+    assert len(entries) == 32
+    assert undocumented == []
+
+
+def test_value_names_say_what_the_option_expects_rather_than_repeat_its_name() -> None:
+    usage = ANSI_STYLE.sub("", build_parser().format_usage())
+
+    assert "-o DIR" in usage
+    assert "--trail SECONDS" in usage
+    assert "TRAIL" not in usage

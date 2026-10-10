@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -207,3 +208,12 @@ def noisy_damaged_video(path: Path) -> Path:
         video, "import cv2", "cap = cv2.VideoCapture(str(video))", "while cap.grab(): pass"
     )
     return video
+
+
+ANSI_STYLE = re.compile(r"\x1b\[[0-9;]*m")
+OPTION_ENTRY = re.compile(r"^  (-.+?)(?=^  -|^\S|\Z)", re.MULTILINE | re.DOTALL)
+
+
+def option_help(help_text: str) -> dict[str, str]:
+    entries = OPTION_ENTRY.findall(ANSI_STYLE.sub("", help_text))
+    return {entry.split()[0].rstrip(","): " ".join(entry.split()) for entry in entries}

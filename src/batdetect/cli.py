@@ -21,7 +21,7 @@ from batdetect.exclusion import exclude
 from batdetect.jobs import Job, collect_videos, plan_jobs
 from batdetect.output.background import hide_display, median_background
 from batdetect.output.clips import clip_windows
-from batdetect.output.config import ENCODERS, ZOOMS, RenderConfig
+from batdetect.output.config import ENCODERS, MAX_CRF, MAX_VT_QUALITY, ZOOMS, RenderConfig
 from batdetect.output.encoder import resolve_encoder
 from batdetect.output.overlay import track_overlay
 from batdetect.output.periods import split_by_period
@@ -56,30 +56,84 @@ def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="batdetect", description="Detect and track bats in thermal videos.")
     ap.add_argument("--version", action="version", version=f"batdetect {version('batdetect')}")
     ap.add_argument("inputs", nargs="+", type=Path, help="video files or folders")
-    ap.add_argument("-o", "--out-dir", type=Path, default=Path("out"))
-    ap.add_argument("--workers", type=positive_int, default=DEFAULT_WORKERS, help="parallel processes for detection")
+    ap.add_argument(
+        "-o",
+        "--out-dir",
+        type=Path,
+        default=Path("out"),
+        metavar="DIR",
+        help="folder that receives one result folder per video (default: %(default)s)",
+    )
+    ap.add_argument(
+        "--workers",
+        type=positive_int,
+        default=DEFAULT_WORKERS,
+        metavar="COUNT",
+        help="processes sharing the detection; more mostly adds re-reading of the video (default: %(default)s)",
+    )
     add_detection_arguments(ap)
     add_tracking_arguments(ap)
     render = ap.add_argument_group("output")
-    render.add_argument("--box-pad", type=int, default=r.box_pad)
-    render.add_argument("--trail", type=float, default=r.trail_s)
-    render.add_argument("--clip-margin", type=float, default=r.clip_margin_s)
-    render.add_argument("--crf", type=int, default=r.crf, help="quality for x264 (lower is better)")
     render.add_argument(
-        "--encoder", choices=ENCODERS, default=r.encoder, help="auto uses the Apple media engine if usable"
+        "--box-pad",
+        type=int,
+        default=r.box_pad,
+        metavar="PIXELS",
+        help="space between a target and its box on the clips; source pixels (default: %(default)s)",
     )
     render.add_argument(
-        "--vt-quality", type=int, default=r.vt_quality, help="quality for videotoolbox (higher is better)"
+        "--trail",
+        type=float,
+        default=r.trail_s,
+        metavar="SECONDS",
+        help="length of the yellow trail behind each target on the clips; seconds (default: %(default)s)",
     )
-    render.add_argument("--annotated", action="store_true", help="also write the whole annotated video")
+    render.add_argument(
+        "--clip-margin",
+        type=float,
+        default=r.clip_margin_s,
+        metavar="SECONDS",
+        help="time kept before and after each track in its clip; seconds (default: %(default)s)",
+    )
+    render.add_argument(
+        "--crf",
+        type=int,
+        default=r.crf,
+        metavar="QUALITY",
+        help=f"video quality with x264, lower is better and heavier; 0 to {MAX_CRF} (default: %(default)s)",
+    )
+    render.add_argument(
+        "--encoder",
+        choices=ENCODERS,
+        default=r.encoder,
+        help="auto uses the Apple media engine if usable, otherwise x264 (default: %(default)s)",
+    )
+    render.add_argument(
+        "--vt-quality",
+        type=int,
+        default=r.vt_quality,
+        metavar="QUALITY",
+        help="video quality with the Apple media engine, higher is better and heavier; "
+        f"1 to {MAX_VT_QUALITY} (default: %(default)s)",
+    )
+    render.add_argument(
+        "--annotated",
+        action="store_true",
+        help="also write the whole video with every track drawn (default: off)",
+    )
     render.add_argument(
         "--max-tracks",
         type=int,
         default=r.max_tracks,
-        help="above this many tracks, skip clips and annotated video and count the video as failed; 0 disables",
+        metavar="COUNT",
+        help="above this many tracks, the video counts as failed and gets no clips or annotated video; "
+        "0 disables (default: %(default)s)",
     )
     render.add_argument(
-        "--zoom", choices=ZOOMS, default=r.zoom, help="slowed, magnified clip: auto for small or faint tracks only"
+        "--zoom",
+        choices=ZOOMS,
+        default=r.zoom,
+        help="slowed, magnified clip: auto for small or faint tracks only, all, or none (default: %(default)s)",
     )
     return ap
 
