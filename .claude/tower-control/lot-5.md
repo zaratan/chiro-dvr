@@ -176,6 +176,20 @@ Créées le 10 octobre 2026, jalon « Migration Rust », toutes en Backlog avec 
 | R11 commande | #105 | 13 | P2 |
 | R12 bascule | #106 | 8 | P2 |
 
+**Sous-issues (10 octobre 2026).** Les cinq issues à 13 points sont devenues des parentes, sans points sur le
+board. La tour ne lance que leurs sous-issues, qui gardent la priorité de leur parente.
+
+| Parente | Sous-issues (points) |
+| --- | --- |
+| #97 moteur | #116 lecture et gardes (3), #117 images abîmées et canari (3), #118 détection (5), #119 comparaison et empreinte (2) |
+| #99 suivi et CSV | #120 exclusion et stabilité (3), #121 suivi (5), #122 CSV, `params.json`, noms (2), #123 commande minimale de bout en bout (3) |
+| #100 banc | #107 vidéos synthétiques (5), #108 collecte et statistiques (5), #109 rapport, commande et garde (3) |
+| #102 extraits | #110 images par `pts` (3), #111 encodage (5), #112 dessin et fenêtres (5) |
+| #105 commande | #113 options, lots et pannes (5), #114 Fluent et ICU4X (5), #115 ménage et bout en bout (3) |
+
+Il y a désormais plus de parallélisme. #121 (suivi) ne dépend que de #94 et #120. #111 (encodage) ne dépend
+que de #95.
+
 **Issues existantes modifiées.**
 - Réécrites : #93 et #10.
 - Paragraphe de décision en tête : #12, #19, #35, #56, #59, #60, #63, #64, #65, #68 (passée à 5 points),

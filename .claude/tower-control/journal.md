@@ -231,3 +231,6 @@ fermée.
 **Incidents** : la première version des textes citait des chiffres de la doc sans les remesurer (lignes, nombre
 de tests, B2). La relecture factuelle les a tous trouvés, ce qui confirme qu'elle est indispensable avant une
 création par script.
+
+**Découpage** : les cinq issues à 13 points (#97, #99, #100, #102, #105) ont 17 sous-issues natives, #107 à #123
+(65 points). Les parentes n'ont plus de points sur le board.
