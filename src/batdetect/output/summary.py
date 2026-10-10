@@ -6,6 +6,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from batdetect.language import _, ngettext
 from batdetect.output.arrows import arrow_head
 from batdetect.output.colors import assign_colors
 from batdetect.output.geometry import Points, track_points
@@ -26,9 +27,13 @@ def polyline(points: Points) -> list[np.ndarray[tuple[int, int], np.dtype[np.int
 
 
 def ignored_lines(period: Period) -> list[str]:
-    lines = [f"hors analyse {format_clock(a)} - {format_clock(math.ceil(b))}" for a, b in period.ignored]
+    lines = [
+        _("not analysed {start} - {end}").format(start=format_clock(a), end=format_clock(math.ceil(b)))
+        for a, b in period.ignored
+    ]
     if len(lines) > MAX_IGNORED_LINES:
-        return [*lines[:MAX_IGNORED_LINES], f"+ {len(lines) - MAX_IGNORED_LINES} autres"]
+        hidden = len(lines) - MAX_IGNORED_LINES
+        return [*lines[:MAX_IGNORED_LINES], ngettext("+ {count} more", "+ {count} more", hidden).format(count=hidden)]
     return lines
 
 
@@ -37,12 +42,13 @@ def damaged_lines(period: Period) -> list[str]:
         return []
     count = len(period.damaged)
     total = sum(b - a for a, b in period.damaged)
-    return [f"illisible {format_duration(total)} ({count} plage{'s' if count > 1 else ''})"]
+    line = ngettext("unreadable {duration} ({count} span)", "unreadable {duration} ({count} spans)", count)
+    return [line.format(duration=format_duration(total), count=count)]
 
 
 def header_lines(stem: str, period: Period) -> list[str]:
     count = len(period.tracks)
-    track_count = f"{count} piste{'s' if count > 1 else ''}"
+    track_count = ngettext("{count} track", "{count} tracks", count).format(count=count)
     return [
         stem,
         track_count,

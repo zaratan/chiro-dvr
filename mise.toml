@@ -41,12 +41,17 @@ run = [
   { task = "test:slow" },
 ]
 
+[tasks.catalog]
+run = "uv run python -m batdetect.pofile src/batdetect/locale"
+
 [tasks.package]
 run = '''
 set -euo pipefail
 rm -rf build/pyinstaller dist/batdetect dist/batdetect-darwin-arm64.tar.gz
+uv run python -m batdetect.pofile src/batdetect/locale
 uv run --group release pyinstaller --noconfirm --clean --onedir --noupx --name batdetect \
   --copy-metadata batdetect --copy-metadata opencv-python-headless \
+  --add-data "$PWD/src/batdetect/locale/fr/LC_MESSAGES/messages.mo:batdetect/locale/fr/LC_MESSAGES" \
   --distpath dist --workpath build/pyinstaller --specpath build/pyinstaller src/batdetect/cli.py
 cv2_dir=$(uv run python -c "import cv2, pathlib; print(pathlib.Path(cv2.__file__).parent)")
 python_license=$(uv run python -c "import sysconfig; print(sysconfig.get_path('stdlib'))")/LICENSE.txt
@@ -77,6 +82,16 @@ if [ -n "$unlisted" ]; then
   echo "libraries missing from packaging/NOTICE: $unlisted" >&2
   exit 1
 fi
+french_help=$(env -u LC_ALL -u LC_MESSAGES -u LANGUAGE LANG=fr_FR.UTF-8 "$binary" --help)
+case "$french_help" in
+  "utilisation : batdetect"*"affiche ce message d'aide et quitte"*) ;;
+  *) echo "binary help is not in French under LANG=fr_FR.UTF-8" >&2; exit 1 ;;
+esac
+english_help=$(env -u LC_ALL -u LC_MESSAGES -u LANGUAGE -u LANG "$binary" --help)
+case "$english_help" in
+  "usage: batdetect"*) ;;
+  *) echo "binary help is not in English without a locale" >&2; exit 1 ;;
+esac
 rm -rf "$CHECK_DIR"
 uv run batdetect "$EXTRACT" -o "$CHECK_DIR/source"
 "$binary" "$EXTRACT" -o "$CHECK_DIR/binary"
