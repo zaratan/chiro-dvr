@@ -35,6 +35,17 @@ la piste 14). Cinq pistes commencent plus tôt, de 1 à 9 images (1:49 : 9 image
 détections ; 0:51, jugée ignorable, en perd 2. Verdict de l'utilisateur à l'œil sur
 cette configuration : propre.
 
+## Verdict de Manon (9 octobre 2026)
+
+Sur les 14 pistes de ce réglage, **13 sont des chauves-souris**, y compris 0:51 (qui passe
+surtout en bordure droite de l'écran ; elle n'est pas lente) et 2:37. La seule qui n'en est
+pas est la **piste 11, 3:29 → 3:39, la chose lente** : le passage « 3:36 » confirmé en
+septembre était cette chose, il n'est plus compté comme un passage. La vérité terrain de la
+092 est donc : 13 chauves-souris, 1 objet lent à 3:29, et le 3:58 reste le passage
+historique. Règle donnée le même jour : mieux vaut un faux positif facile à écarter à
+l'extrait, comme cette piste lente, qu'un passage manqué ([02](02-methode.md)). Le 3:42.10
+ci-dessous reste à lui montrer.
+
 ## Cibles connues, pour les issues suivantes
 
 - **092, 3:42.10 → 3:42.30** : objet réel confirmé par l'utilisateur (zoom, vitesse
@@ -140,7 +151,9 @@ Une tache sombre qui avance lentement et sans à-coups pendant 9,4 s, de la gauc
 le centre, puis remonte la paroi : 95 px/s contre 600 à 1900 pour les autres. Ce n'est
 pas un vol. Rien d'autre ne bouge à 3:36. Hypothèses non tranchées : chauve-souris qui
 rampe sur la roche, autre animal, ou passage vu par Manon que le détecteur ne capte pas.
-À montrer à Manon (`split/09_3m29s63.mp4`).
+**Tranché le 9 octobre 2026** : ce n'est pas une chauve-souris, et le « 3:36 » de septembre
+était cette chose (voir « Verdict de Manon » plus haut). La piste reste produite : un faux
+positif facile à écarter vaut mieux qu'un passage manqué.
 
 ## Historique des réglages sur cette vidéo
 

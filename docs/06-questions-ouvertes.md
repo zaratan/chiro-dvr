@@ -1,9 +1,11 @@
 # Questions ouvertes
 
-1. **Validation par Manon** des 14 pistes de la 092 : lesquelles sont des chauves-souris,
-   lesquelles sont autre chose (insecte proche, oiseau). Donnera le taux de vraies et
-   fausses détections, et permettra d'ajuster `threshold`, `min_hits` et `min_area`.
-2. **Nature de la piste 9** (3:29 à 3:39, lente) : voir [03-resultats-092.md](03-resultats-092.md).
+1. **Validation par Manon** des 14 pistes de la 092. **Fait (9 octobre 2026)** : 13 sont des
+   chauves-souris, seule la piste lente 3:29 → 3:39 n'en est pas une
+   ([03](03-resultats-092.md#verdict-de-manon-9-octobre-2026)). Règle qui en sort : mieux
+   vaut un faux positif facile à écarter qu'un passage manqué ([02](02-methode.md)). #6 fermée.
+2. **Nature de la piste 9** (3:29 à 3:39, lente). **Tranché (9 octobre 2026)** : pas une
+   chauve-souris ; le « 3:36 » de septembre était cette chose.
 3. **Deux chauves-souris simultanées** : la fusion des jumelles n'a été testée que sur
    des trajectoires fabriquées. Il faut un extrait réel où Manon sait qu'il y en a deux.
 4. **Contraste inversé sur le ciel** : aucune vidéo avec des passages sur ciel froid

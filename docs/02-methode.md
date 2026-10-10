@@ -5,6 +5,11 @@ détecte et suit. La seconde relit la vidéo en pleine résolution, dessine les 
 encode directement chaque extrait, l'extrait zoomé et ralenti des pistes petites ou
 faibles, et la vidéo annotée complète avec `--annotated`.
 
+**Règle de réglage** (décision du 9 octobre 2026, après le verdict de Manon sur la 092) : mieux
+vaut un faux positif facile à écarter à l'extrait qu'un passage manqué. Quand un seuil
+hésite, il penche vers la sensibilité ; l'extrait, zoomé et ralenti s'il le faut, sert à
+écarter. La piste lente de 3:29 sur la 092 reste produite pour cette raison.
+
 Toutes les distances et surfaces des réglages, des pistes et du CSV sont en **pixels de
 la vidéo d'origine**. Pour détecter, la vidéo est réduite à `work_width` px de large
 (960 par défaut depuis le 6 octobre 2026, 480 auparavant ; jamais plus que la vidéo

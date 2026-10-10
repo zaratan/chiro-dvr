@@ -131,3 +131,45 @@ opencv-python (licence de la roue) si l'utilisateur le décide ; branches locale
 par issue, 2 plans (#30, #37) relus avant code, 7 retouches après vérification de la tour, 0 compte rendu faux sur
 ses chiffres, 5 prémisses de consigne fausses (toutes sans effet sur le résultat), ~40 questions directes à
 l'utilisateur, 2 issues jetées ou rendues sans code (#5, #36).
+
+## Lot 3 — 9 octobre 2026 (zaratan) : planification ergonomie, sans code
+
+**Forme** : interview de l'utilisateur (cinq tours de questions, décisions dans `lot-3.md`), audit du code
+et des docs par quatre agents de lecture (une zone chacun : avancement, aide, fichiers, docs), 38 questions
+d'agents tranchées en quatre tours, textes d'issues rédigés par les agents puis créés par script. Aucune
+issue existante traitée, aucune écriture git.
+
+**Résultat** : 34 issues, 101 points, #54 à #87, label `ergonomie`, jalon « Prise en main naturaliste »,
+toutes en Backlog. Ordre voulu : avancement et bilan, puis aide/langue/complétion/doctor, puis fichiers
+produits, puis README et docs. Les docs #80 et #81 dépendent des trois autres zones et passent en dernier.
+
+**Décisions structurantes** : refus avant tout calcul d'une entrée fautive, mais une vidéo qui casse en
+cours n'arrête pas la soirée ; aucune nouvelle dépendance Python (barre à la main, table déclarative pour
+la complétion, gettext standard) ; `doctor`/`completion` par aiguillage dans `main` ; piste = sortie de
+l'outil, passage = confirmé par Manon ; langue selon la locale jusque dans les noms de fichiers, anglais
+sans locale ; reprise sur `params.json` écrit en dernier (version, état, taille) ; `pistes.csv` porte le
+verdict et reprend la feuille de #6.
+
+**État mesuré de départ** : extrait de 41 s en 22,45 s, rien à l'écran puis 5 lignes ; 31 options, 7 sans
+description ; même message pour un fichier absent et un fichier illisible ; refus d'écriture découvert après
+17 s ; relance recalcule tout et efface les extraits ; README 139 lignes, 54 % naturaliste, 26 termes non
+définis ; 437 s CPU du README contre 373–386 s de docs/09 (à corriger dans #73).
+
+**Accord de Manon** reçu le soir même pour les captures (#77, #79, #80). Priorités P1/P2/P3 posées par valeur
+perçue (13/17/4), proposition de la tour validée telle quelle. **Reste à l'utilisateur** :
+commit de `lot-3.md`, de ce journal et du `.gitignore` déjà en place ; tri du Backlog vers « À faire ».
+
+**Incidents** : `gh project item-list` ne montrait que 6, puis 19, puis 27 des 34 items ajoutés par
+`item-add` (réussi, id rendu) ; le script a échoué sur `board-field.py` (KeyError) ; les champs ont été
+posés avec l'id rendu par `item-add`, sans relire le projet. Les six premiers items visibles étaient en
+« À faire » : un workflow du board pose ce statut à l'ajout, Backlog doit être posé explicitement. Les
+agents citent leurs voisines sous forme courte (`avancement-05`) autant que par nom de fichier : le
+remplacement par numéro doit couvrir les deux.
+
+**Ordres de grandeur** : 4 agents, 7 min d'audit chacun en parallèle, 1 à 2 min d'alignement ; 38
+questions d'agents, 100 % tranchées par l'utilisateur avant création ; 3 constats revérifiés par la tour,
+3 confirmés ; 2 h 30 de l'interview aux issues créées.
+
+**Suite du soir** : verdict de Manon consigné (092 : 13 chauves-souris sur 14 pistes, la lente 3:29 n'en est pas une,
+le « 3:36 » de septembre était cette chose), règle de sensibilité écrite dans docs/02 et CLAUDE.md, #6 fermée, #83
+reformulée en commodité de comptage. Prémisse corrigée : CLAUDE.md et docs/03 donnaient 3:36 comme passage confirmé.

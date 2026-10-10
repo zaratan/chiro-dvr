@@ -12,8 +12,10 @@ uv run batdetect in/video_092_original.mp4 # référence : 5 min, 14 pistes, ~2 
 
 ## Rôles
 
-Manon, naturaliste, confirme les passages à l'œil. Ses confirmations sur la 092 (3:36 et
-3:58) sont la vérité terrain du test `slow`. Une question sur ce qui est ou n'est pas une
+Manon, naturaliste, confirme les passages à l'œil. Son verdict sur la 092 (9 octobre 2026 :
+13 chauves-souris sur 14 pistes, seule la piste lente 3:29 n'en est pas une) est la vérité
+terrain du test `slow` ([docs/03](docs/03-resultats-092.md)). Mieux vaut un faux positif
+facile à écarter qu'un passage manqué. Une question sur ce qui est ou n'est pas une
 chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 
 ## Règles
