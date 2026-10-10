@@ -11,6 +11,67 @@ Une chauve-souris est **une petite tache qui s'écarte du fond pendant quelques 
 qui se déplace de façon régulière**. Tout le traitement découle de ces trois mots : fond,
 tache, régularité.
 
+## Les techniques en simple
+
+Huit techniques font le travail, dans l'ordre où elles s'appliquent. Chacune se lit en trois
+temps : ce qu'elle fait, une image de la vie courante, ce qu'elle rate.
+
+**Le filtre à la taille de la cible.** Chaque image est d'abord adoucie à la mesure d'une
+petite chauve-souris lointaine : le grain du capteur s'atténue plus qu'une tache de cette
+taille. C'est le peintre qui plisse les yeux : les petits détails se fondent, les formes
+de la bonne taille restent. Une cible bien plus petite que prévu y perd du contraste et
+peut passer inaperçue.
+
+**La scène sans animal** ([§ 2](#2-estimer-le-fond--la-médiane-temporelle)). Pour chaque
+endroit de l'image, l'outil range les valeurs des images voisines dans le temps et garde
+celle du milieu : la scène telle qu'elle est quand rien ne la traverse. C'est le
+photographe qui prend une dizaine de photos d'un monument envahi de touristes et garde,
+pour chaque endroit, ce que la plupart des photos montrent : les passants disparaissent,
+le monument reste. Elle rate un animal qui s'attarde au même endroit : il entre dans le
+décor.
+
+**Un seuil propre à chaque endroit** ([§ 4](#4-décider-pixel-par-pixel--le-seuil)). Après
+avoir corrigé les changements de luminosité de toute l'image
+([§ 3](#3-compenser-le-gain-automatique)), l'outil retient un pixel s'il s'écarte assez de
+la scène sans animal, plus clair ou plus sombre ; « assez » vaut un minimum partout, relevé
+là où l'endroit s'agite dans les instants qui entourent l'image. Il faut toujours parler
+assez fort pour être entendu ; près d'une route, il faut crier. Il rate une cible faible
+qui passe devant de la végétation agitée.
+
+**Les taches** ([§ 5](#5-regrouper-les-pixels-en-taches)). Les pixels retenus qui se
+touchent, ou presque, forment une tache ; une tache de taille plausible sur une image est
+un point. C'est entourer d'un seul trait les gouttes d'une même éclaboussure. Elles ratent
+une cible qui n'allume presque aucun pixel sur une image : elle n'y laisse pas de point.
+
+**Les périodes ignorées** ([§ 6](#6-écarter-les-images-où-les-jumelles-bougent)). Quand
+l'image se remplit soudain de taches, le plus souvent parce que les jumelles ont bougé, ou
+quand le fichier vidéo est abîmé, l'outil ne cherche rien sur ce moment et ses abords, et
+le signale sur l'image résumé. C'est un observateur qui note « je n'ai pas regardé » plutôt
+que d'inventer. Une chauve-souris qui passe pendant ces périodes est manquée, et un essaim
+qui remplit l'image passe pour un mouvement des jumelles : ces périodes sont à revoir à
+l'œil.
+
+**Le suivi image par image** ([§ 7](#7-relier-les-taches-dans-le-temps--le-suivi)).
+L'outil prolonge le trajet de chaque piste pour prédire où elle sera à l'image suivante, et
+lui donne le point le plus proche de cette prédiction, s'il n'est pas trop loin ; un point
+resté seul ouvre une nouvelle piste. C'est suivre des yeux un ballon lancé en devinant sa
+course. Il coupe en deux pistes un vol qui disparaît trop longtemps, et une piste ne
+commence qu'une fois que la cible se détache assez du fond, après l'arrivée réelle de
+l'animal.
+
+**La fusion des morceaux** ([§ 8](#8-fusionner-les-pistes-jumelles)). Deux pistes qui
+restent tout près l'une de l'autre sur toutes leurs images communes sont réunies : ce sont
+deux morceaux du même animal, comme les deux phares d'une même voiture la nuit. Deux
+animaux qui volent côte à côte, tout près, du début à la fin sont comptés pour un seul.
+
+**Ressembler à un vol** ([§ 9](#9-garder-ce-qui-ressemble-à-un-vol)). Une piste n'est
+gardée que si elle a assez de points, si elle finit assez loin de son point de départ et si
+elle garde à peu près sa direction d'une image à l'autre. Un oiseau traverse le jardin ;
+une poussière danse sur place dans un rayon de soleil. Ce filtre peut rejeter un vol très
+lent, qui paraît hésitant, ou une boucle qui revient à son point de départ.
+
+## La chaîne de traitement
+
 ```
 vidéo ─► image grise réduite et filtrée ─► fond (médiane) ─► résidu ─► seuil par pixel ─► taches
                                                                         │
@@ -295,7 +356,7 @@ plus proche voisin**.
 glouton donne le même résultat, et il se lit en vingt lignes. Kalman deviendra utile pour
 élargir la porte pendant un trou (issue #21).
 
-**Limites.** Une interruption de plus de 6 images coupe le passage en deux pistes (issue
+**Limites.** Une interruption de plus de 6 images coupe le vol en deux pistes (issue
 #24). La piste commence quand la tache dépasse le seuil, donc après l'arrivée réelle de
 l'animal (issue #8).
 
@@ -351,8 +412,9 @@ Sans vérité terrain, tout réglage est un pari. Deux outils y répondent.
   connus, sur des courbes de Bézier ou des vols de chasse simulés, avec la saccade des
   jumelles. On compte ce que l'outil retrouve, avec un **intervalle de Wilson** qui dit
   si un écart entre deux réglages est réel ou dû au hasard.
-- **La vidéo de référence** : 14 pistes sur la 092, dont deux passages confirmés par la
-  naturaliste, vérifiés par un test automatique.
+- **La vidéo de référence** : 14 pistes sur la 092, vérifiées par un test automatique.
+  Selon le verdict de la naturaliste du 9 octobre 2026, 13 sont des chauves-souris ; la
+  piste lente de 3:29 n'en est pas une ([03](03-resultats-092.md#verdict-de-manon-9-octobre-2026)).
 
 Ce que le banc ne dit pas : si une piste réelle est une chauve-souris. Cela reste le
 jugement de la naturaliste.

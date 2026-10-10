@@ -1,7 +1,9 @@
 # Lire les résultats
 
 Ce document s'adresse à qui relit les résultats de `batdetect` : l'image résumé, le
-tableau des pistes et les extraits. Il définit les mots qu'on y croise.
+tableau des pistes et les extraits. Il définit les mots qu'on y croise ; la façon dont
+l'outil trouve les pistes est expliquée sans jargon dans
+[docs/10](10-logique-de-detection.md#les-techniques-en-simple).
 
 L'outil est réglé pour manquer le moins possible : mieux vaut une fausse piste qu'on écarte
 en quelques secondes à l'extrait qu'une chauve-souris manquée. Il sort donc des pistes qui
