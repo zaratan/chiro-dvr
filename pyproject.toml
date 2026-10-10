@@ -46,7 +46,7 @@ ignore = ["S301", "S603", "S607"]
 "tests/**" = ["S101", "PLR2004"]
 
 [tool.basedpyright]
-include = ["src", "tests"]
+include = ["src", "tests", "tools"]
 typeCheckingMode = "strict"
 pythonVersion = "3.14"
 
