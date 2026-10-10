@@ -115,3 +115,7 @@ Attendu : extrait traité sous `LANG=fr_FR.UTF-8` → `extraits/piste_01_0m04s.m
 `<nom>_tracks.csv`, `<nom>_summary.png` ; un second passage sous l'autre langue ne laisse aucun fichier de
 la première ; le CSV est identique au bit près à celui d'avant (`cmp` avec `main`) ; `mise run check` vert ;
 `mise run package:check` vert.
+
+**Décision #57 (10 octobre 2026)** : le `.mo` n'est pas suivi par git. `.po` seul dans le dépôt, `*.mo` ignoré, compilation à la volée si absent ou périmé, générée par `mise run package` pour le binaire.
+
+**#57, décisions validées (10 octobre 2026)** : `LANGUAGE` avant `LC_ALL` ; image résumé en anglais hors locale française ; noms de valeur traduits, `hits=` → `points=` ; temps des pistes avec un point. Erreurs de validation en anglais : reliquat sur #55. Banc non traduit. README:122,129 : reliquat sur #81.
