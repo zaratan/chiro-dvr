@@ -158,6 +158,31 @@ lancer.
 
 ## Issues
 
-Textes : `~/Projects/dvr-wt/rapports/lot5-issues/` (r00 à r12 nouvelles ; edit-93 et edit-10 réécrivent ;
-amend-* ajoutent un paragraphe en tête ; comments.md). Création par `lot5-apply.py`. La liste des numéros
-sera ajoutée ici.
+Créées le 10 octobre 2026, jalon « Migration Rust », toutes en Backlog avec points et priorités.
+
+| Repère | Issue | Points | Priorité |
+| --- | --- | --- | --- |
+| R0 référence v0.1.1 | #94 | 3 | P1 |
+| R1 construction macOS et Linux | #95 | 5 | P1 |
+| R2 construction Windows | #96 | 8 | P3 |
+| R3 moteur | #97 | 13 | P1 |
+| R4 moteur générique | #98 | 8 | P2 |
+| R5 suivi et CSV | #99 | 13 | P1 |
+| R6 banc | #100 | 13 | P2 |
+| R7 socle de dessin | #101 | 2 | P2 |
+| R8 extraits et encodage | #102 | 13 | P2 |
+| R9 zoom, ralenti, vue brute, vidéo annotée | #103 | 8 | P2 |
+| R10 image résumé | #104 | 8 | P2 |
+| R11 commande | #105 | 13 | P2 |
+| R12 bascule | #106 | 8 | P2 |
+
+**Issues existantes modifiées.**
+- Réécrites : #93 et #10.
+- Paragraphe de décision en tête : #12, #19, #35, #56, #59, #60, #63, #64, #65, #68 (passée à 5 points),
+  #86, #91.
+- Passées dans « Migration Rust » : #10, #12, #19, #35, #56, #59, #60, #93.
+- Commentées : #16, #45, #52, #73, #76, #83.
+- Fermée : #67, fusionnée dans #68.
+
+Textes sources dans `~/Projects/dvr-wt/rapports/lot5-issues/`, créés par `lot5-apply.py`. Prototype et
+rapport sur la branche `exploration/rust` (f3faf66), dans `rust-proto/archive/`.

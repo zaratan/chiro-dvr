@@ -198,3 +198,36 @@ compte sans relance.
 
 **Ordres de grandeur** : 13 points, 4 issues, une matinée ; 10 à 40 min d'agent par issue ; 1 retouche après
 vérification de la tour ; 8 décisions d'agent posées en questions directes, 2 non validées et corrigées.
+
+## Lot 5 — 10 octobre 2026 (zaratan) : planification de la migration vers Rust
+
+**Origine** : l'exploration du jour (worktree `rust`, branche `exploration/rust` poussée, f3faf66). Le prototype
+traite la 092 en 19,0 s au lieu de 134 s, avec les mêmes 14 pistes (mesure de la tour). Manon juge acceptables
+les 9 divergences relevées sur 26 vidéos. Lot sans code : décisions, plan d'ordonnancement, issues.
+
+**Décisions de l'utilisateur** : 19 décisions, consignées dans `lot-5.md`. Les principales :
+- tout en Rust, construit à côté d'un Python figé ;
+- rien de publié avant la 0.2.0 (migration et ergonomie) ;
+- ergonomie codée une fois, sur la commande Rust ;
+- mode `quick` supprimé et commande réduite à 13 options, le reste au banc ;
+- Fluent et ICU4X ;
+- openh264 hors Mac ;
+- FFmpeg statique sous LGPL ;
+- bascule dès la parité, avec validation à l'aveugle par l'utilisateur ;
+- #67 fusionnée dans #68.
+
+**Relectures** : quatre agents (architecte, expert Rust, ingénieur principal, UX), puis une seconde passe.
+- 18 erreurs de fait corrigées. Exemples : B2 était déjà fait ; seuls 2 tests sont `slow` ; le fond de l'image
+  résumé n'est pas celui de la détection ; un critère de R3 contredisait une mesure du rapport.
+- Ajoutés sur leur avis : R0 (référence v0.1.1 enregistrée une fois), R1 coupée en deux (Windows à part), le
+  socle de dessin, les extraits en deux issues.
+- Points relevés : de 109 à 140 pour le jalon.
+
+**Issues** : #94 à #106 créées (115 points). #10 et #93 réécrites ; 12 issues amendées ; 6 commentées ; #67
+fermée.
+- Jalon « Migration Rust » : 140 points.
+- 0.2.0 en tout : environ 217 points.
+
+**Incidents** : la première version des textes citait des chiffres de la doc sans les remesurer (lignes, nombre
+de tests, B2). La relecture factuelle les a tous trouvés, ce qui confirme qu'elle est indispensable avant une
+création par script.
