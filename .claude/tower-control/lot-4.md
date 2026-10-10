@@ -57,6 +57,9 @@ Attendu : image résumé de l'extrait avec « 4 pistes » ; `grep -rn passage sr
 
 ## #57 — Français ou anglais selon la locale
 
+Reliquat de #54 : préciser `--max-median-turn` (« 0.8 rad ≈ 46° », angle médian entre pas successifs) en
+même temps que sa traduction.
+
 Issue : `gh issue view 57 --repo zaratan/chiro-dvr` (la piste est détaillée, l'essai gettext a été fait).
 Worktree : `~/Projects/dvr-wt/socle`, branche `produit/57-langue` depuis `origin/main` (ou sur #87).
 
