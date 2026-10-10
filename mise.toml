@@ -2,6 +2,9 @@
 python = "3.14.8"
 uv = "0.12.22"
 lefthook = "2.1.16"
+"github:taiki-e/cargo-llvm-cov" = "0.9.1"
+cargo-deny = "0.20.2"
+"github:Boshen/cargo-shear" = "1.14.0"
 
 [tasks.lint]
 run = "uv run ruff check"
@@ -39,7 +42,97 @@ run = [
   { task = "static" },
   { task = "test:fast" },
   { task = "test:slow" },
+  { task = "rust:static" },
+  { task = "rust:test" },
+  { task = "rust:slow" },
 ]
+
+[tasks."rust:ffmpeg"]
+run = "bash packaging/ffmpeg-unix.sh"
+
+[tasks."rust:link"]
+run = "bash packaging/ffmpeg-unix.sh --link"
+
+[tasks."rust:static"]
+depends = ["rust:link"]
+run = [
+  "cargo fmt --all --check",
+  "cargo clippy --workspace --all-targets --locked -- -D warnings",
+  { task = "rust:rules" },
+  "cargo deny check",
+  "cargo shear --deny-warnings",
+]
+
+[tasks."rust:rules"]
+run = '''
+python3 -I - <<'EOF'
+import glob
+import re
+import sys
+import tomllib
+
+failures = []
+sources = {path: open(path, encoding="utf-8").read() for path in glob.glob("crates/**/*.rs", recursive=True)}
+manifests = {path: tomllib.load(open(path, "rb")) for path in glob.glob("crates/*/Cargo.toml")}
+
+def lines_matching(pattern, files, flags=0):
+    return [f"{path}:{number}" for path, text in files.items()
+            for number, line in enumerate(text.splitlines(), 1) if re.search(pattern, line, flags)]
+
+for found in lines_matching(r"#!?\[\s*(allow|expect)\b|cfg_attr\(.*\b(allow|expect)\b", sources):
+    failures.append(f"C4 allow or expect attribute: {found}")
+
+workspace = tomllib.load(open("Cargo.toml", "rb"))
+expected = {table: dict(lints) for table, lints in workspace["workspace"]["lints"].items()}
+expected["rust"].pop("unsafe_code", None)
+for path, manifest in manifests.items():
+    lints = manifest.get("lints")
+    if path == "crates/media/Cargo.toml":
+        if lints != expected:
+            failures.append(f"C6 {path}: lints differ from the workspace table without unsafe_code")
+    elif lints != {"workspace": True}:
+        failures.append(f"C5 {path}: lints must be `workspace = true`")
+    for table in ("dependencies", "dev-dependencies", "build-dependencies"):
+        for name, spec in manifest.get(table, {}).items():
+            if not (isinstance(spec, dict) and spec.get("workspace") is True) or {"version", "path", "git"} & set(spec):
+                failures.append(f"C8 {path}: {name} must come from the workspace")
+
+outside_media = {path: text for path, text in sources.items() if not path.startswith("crates/media/")}
+outside_media |= {path: open(path).read() for path in manifests if not path.startswith("crates/media/")}
+for found in lines_matching(r"ffmpeg[_-](next|sys[_-]next)", outside_media):
+    failures.append(f"C7 FFmpeg outside media: {found}")
+
+if sum(text.count("catch_unwind") for text in sources.values()) > 1:
+    failures.append("C9 more than one catch_unwind")
+profiles = workspace.get("profile", {}).values()
+if any(profile.get("panic") == "abort" for profile in profiles):
+    failures.append("C9 a profile aborts on panic")
+
+code = [line for text in sources.values() for line in text.splitlines() if line.strip()]
+comments = [line for line in code if line.lstrip().startswith("//")]
+if code and len(comments) > 0.02 * len(code):
+    failures.append(f"C10 {len(comments)} comment lines out of {len(code)}, above 2 %")
+
+for found in lines_matching(r"round_ties_even|opencv|numpy|python|pairwise", sources, re.IGNORECASE):
+    failures.append(f"C11 imitation: {found}")
+
+for failure in failures:
+    print(failure, file=sys.stderr)
+sys.exit(1 if failures else 0)
+EOF
+'''
+
+[tasks."rust:test"]
+depends = ["rust:link"]
+run = "cargo llvm-cov --profile ci --workspace --locked --fail-under-lines 95"
+
+[tasks."rust:slow"]
+depends = ["rust:link"]
+run = "cargo test --workspace --locked --profile ci --test 'slow_*' -- --include-ignored"
+
+[tasks."rust:reference"]
+depends = ["rust:link"]
+run = "cargo test --workspace --locked --profile ci --test 'reference_*' -- --include-ignored"
 
 [tasks.catalog]
 run = "uv run python -m batdetect.pofile src/batdetect/locale"

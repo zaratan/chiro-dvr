@@ -1,0 +1,54 @@
+[package]
+name = "media"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ffmpeg-next.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+types.workspace = true
+
+[dev-dependencies]
+reference.workspace = true
+tempfile.workspace = true
+
+[lints.rust]
+rust_2018_idioms = { level = "warn", priority = -1 }
+missing_debug_implementations = "warn"
+trivial_numeric_casts = "warn"
+unreachable_pub = "warn"
+non_ascii_idents = "deny"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+allow_attributes = "warn"
+clone_on_ref_ptr = "warn"
+dbg_macro = "warn"
+exit = "warn"
+expect_used = "warn"
+iter_over_hash_type = "warn"
+let_underscore_must_use = "warn"
+map_err_ignore = "warn"
+mod_module_files = "warn"
+multiple_unsafe_ops_per_block = "warn"
+panic = "warn"
+print_stderr = "warn"
+print_stdout = "warn"
+string_slice = "warn"
+todo = "warn"
+undocumented_unsafe_blocks = "warn"
+unimplemented = "warn"
+unnecessary_safety_comment = "warn"
+unused_result_ok = "warn"
+unwrap_used = "warn"

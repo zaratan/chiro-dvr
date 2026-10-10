@@ -1,0 +1,9 @@
+FFMPEG_VERSION=7.1.1
+FFMPEG_URL=https://ffmpeg.org/releases/ffmpeg-7.1.1.tar.xz
+FFMPEG_SHA256=733984395e0dbbe5c046abda2dc49a5544e7e0e1e2366bba849222ae9e3a03b1
+OPENH264_VERSION=2.6.0
+OPENH264_URL=https://github.com/cisco/openh264/archive/refs/tags/v2.6.0.tar.gz
+OPENH264_SHA256=558544ad358283a7ab2930d69a9ceddf913f4a51ee9bf1bfb9e377322af81a69
+NASM_VERSION=2.16.03
+NASM_URL=https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.xz
+NASM_SHA256=1412a1c760bbd05db026b6c0d1657affd6631cd0a63cddb6f73cc6d4aa616148
