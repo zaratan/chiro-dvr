@@ -173,3 +173,28 @@ questions d'agents, 100 % tranchées par l'utilisateur avant création ; 3 const
 **Suite du soir** : verdict de Manon consigné (092 : 13 chauves-souris sur 14 pistes, la lente 3:29 n'en est pas une,
 le « 3:36 » de septembre était cette chose), règle de sensibilité écrite dans docs/02 et CLAUDE.md, #6 fermée, #83
 reformulée en commodité de comptage. Prémisse corrigée : CLAUDE.md et docs/03 donnaient 3:36 comme passage confirmé.
+
+## Lot 4 — 10 octobre 2026 (zaratan) : socle langue et noms
+
+**Issues traitées** : #54 (options décrites, PR 88), #87 (bandeau « pistes », PR 89), #57 (français ou anglais
+selon la locale, PR 90), #85 (noms des fichiers produits selon la langue, PR 92). Un worktree `socle`, quatre
+branches à la suite, CI verte à chaque merge et sur `main` après le dernier (f58a717).
+
+**Décisions de l'utilisateur** : table déclarative des options renvoyée à #59 ; aucun accent dans les noms
+produits ; `.mo` non suivi par git, compilé à l'import ou par `package` ; `LANGUAGE` avant `LC_ALL` ; image
+résumé en anglais hors locale française ; `hits=` → `points=` ; temps des pistes avec un point ; erreurs de
+réglage restées en anglais, reliquat sur #55 ; banc ni décrit ni traduit ; ménage après la détection, noms
+exacts seulement ; temps d'extrait arrondi vers le bas ; numéro de piste à la largeur du nombre de pistes.
+
+**Chiffres** : tests rapides 496 → 555, couverture 98 %, CSV de l'extrait identique au bit près à `main` d'avant
+le lot.
+
+**Issues créées ou rattachées** : #91 (deux vidéos dont les noms ne diffèrent que par la casse) en Backlog ;
+reliquats commentés sur #55 et #81 ; #6 fermée la veille, #83 reformulée.
+
+**Incidents** : l'agent a lancé deux fois des tests lourds hors du verrou de mesure (aucune autre mesure en
+cours) ; une décision de l'utilisateur (`.mo`) est arrivée pendant que l'agent travaillait et a été prise en
+compte sans relance.
+
+**Ordres de grandeur** : 13 points, 4 issues, une matinée ; 10 à 40 min d'agent par issue ; 1 retouche après
+vérification de la tour ; 8 décisions d'agent posées en questions directes, 2 non validées et corrigées.

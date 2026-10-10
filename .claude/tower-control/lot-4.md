@@ -119,3 +119,5 @@ la première ; le CSV est identique au bit près à celui d'avant (`cmp` avec `m
 **Décision #57 (10 octobre 2026)** : le `.mo` n'est pas suivi par git. `.po` seul dans le dépôt, `*.mo` ignoré, compilation à la volée si absent ou périmé, générée par `mise run package` pour le binaire.
 
 **#57, décisions validées (10 octobre 2026)** : `LANGUAGE` avant `LC_ALL` ; image résumé en anglais hors locale française ; noms de valeur traduits, `hits=` → `points=` ; temps des pistes avec un point. Erreurs de validation en anglais : reliquat sur #55. Banc non traduit. README:122,129 : reliquat sur #81.
+
+**#85, décisions validées (10 octobre 2026)** : ménage après la détection ; seuls les noms exacts sont effacés (copies annotées gardées) ; temps de l'extrait arrondi vers le bas. Numérotation : largeur selon le nombre de pistes, au moins deux chiffres (retouche demandée). Bug de casse repéré : #91 en Backlog.
