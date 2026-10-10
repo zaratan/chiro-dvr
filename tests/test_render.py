@@ -58,9 +58,9 @@ def leave_as_is(_frame: ColorFrame, _frame_no: int) -> None:
 
 
 def outputs(tmp_path: Path, *spans: tuple[int, int]) -> VideoOutputs:
-    split = tmp_path / "split"
-    clips = [ClipWindow(first, last, split / f"{first:02d}-{last:02d}.mp4") for first, last in spans]
-    return VideoOutputs(split, clips, tmp_path / "boxes.mp4")
+    folder = tmp_path / "clips"
+    clips = [ClipWindow(first, last, folder / f"{first:02d}-{last:02d}.mp4") for first, last in spans]
+    return VideoOutputs(folder, clips, tmp_path / "annotated.mp4")
 
 
 @requires_ffmpeg
@@ -107,7 +107,7 @@ def test_interruption_while_drawing_leaves_no_partial_clip(tmp_path: Path) -> No
     with pytest.raises(KeyboardInterrupt):
         render_videos(video, INFO, out, interrupt_at_ten, RenderConfig(encoder=X264))
 
-    assert list(out.split_dir.iterdir()) == []
+    assert list(out.clips_dir.iterdir()) == []
 
 
 @requires_ffmpeg
@@ -143,12 +143,12 @@ def test_clips_show_the_drawn_box(tmp_path: Path) -> None:
 def test_previous_clips_are_removed(tmp_path: Path) -> None:
     video = numbered_video(tmp_path / "v.mp4")
     out = outputs(tmp_path)
-    out.split_dir.mkdir()
-    (out.split_dir / "99_old.mp4").write_bytes(b"stale")
+    out.clips_dir.mkdir()
+    (out.clips_dir / "99_old.mp4").write_bytes(b"stale")
 
     render_videos(video, INFO, out, leave_as_is, RenderConfig(encoder=X264))
 
-    assert list(out.split_dir.iterdir()) == []
+    assert list(out.clips_dir.iterdir()) == []
 
 
 @requires_ffmpeg
@@ -160,7 +160,7 @@ def test_encoder_failure_stops_the_render_without_partial_clips(tmp_path: Path) 
     with pytest.raises(VideoError, match="ffmpeg failed"):
         render_videos(video, width_x264_refuses, out, leave_as_is, RenderConfig(encoder=X264))
 
-    assert list(out.split_dir.iterdir()) == []
+    assert list(out.clips_dir.iterdir()) == []
 
 
 def test_missing_video_raises_a_video_error(tmp_path: Path) -> None:
@@ -312,4 +312,4 @@ def test_interruption_leaves_no_partial_zoomed_clip(tmp_path: Path) -> None:
     with pytest.raises(KeyboardInterrupt):
         render_videos(video, INFO, out, interrupt_at_ten, cfg)
 
-    assert list(out.split_dir.iterdir()) == []
+    assert list(out.clips_dir.iterdir()) == []

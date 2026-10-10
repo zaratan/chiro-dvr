@@ -142,7 +142,7 @@ l'image résumé sont en français quand la locale l'est, en anglais sinon.
   - le binaire (`--onedir`) pèse 63 Mo à télécharger et 147 Mo installé. Une formule sur
     `python@3.14`, `opencv` et `numpy` de Homebrew ajoute 91 formules à celles de ffmpeg,
     environ 3,2 Go ;
-  - le binaire donne sur la 092 un `tracks.csv` identique à l'octet à celui du dépôt.
+  - le binaire donne sur la 092 un CSV des pistes identique à l'octet à celui du dépôt.
     La formule donne les mêmes 14 pistes, mais des `hits` et surfaces un peu différents :
     l'OpenCV de Homebrew décode par son propre ffmpeg ;
   - ses versions sont celles d'`uv.lock`, alors que celles de Homebrew changeraient les
@@ -162,8 +162,8 @@ l'image résumé sont en français quand la locale l'est, en anglais sinon.
   - que le FFmpeg embarqué est celui que nomme `packaging/NOTICE` ;
   - que chaque bibliothèque embarquée y est listée ;
   - que dépôt, binaire et binaire `--workers 2` donnent sur l'extrait le même
-    `tracks.csv`. Cela prouve l'emballage, pas les 14 pistes : celles-ci restent la tâche
-    du test `reference`.
+    CSV des pistes (`*.csv`, quel que soit son nom selon la langue). Cela prouve
+    l'emballage, pas les 14 pistes : celles-ci restent la tâche du test `reference`.
 - **Formule `batdetect` du tap `zaratan/homebrew-bat-tools`**, de la même forme que
   `chiro` pour que `bump-formulae.yml` la mette à jour. `preserve_rpath` empêche Homebrew
   de réécrire et de re-signer la centaine de bibliothèques du binaire. Sans lui,

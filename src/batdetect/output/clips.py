@@ -5,7 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from batdetect.output.timefmt import clip_name
+from batdetect.output.names import clip_name
 from batdetect.track import Track
 from batdetect.video import ColorFrame
 
@@ -21,10 +21,11 @@ class ClipWindow:
     slowdown: int = 1
 
 
-def clip_windows(tracks: list[Track], fps: float, margin_s: float, split_dir: Path) -> list[ClipWindow]:
+def clip_windows(tracks: list[Track], fps: float, margin_s: float, clips_dir: Path) -> list[ClipWindow]:
     margin = round(margin_s * fps)
     return [
-        ClipWindow(max(0, t.first.frame - margin), t.last.frame + margin, split_dir / clip_name(t, fps)) for t in tracks
+        ClipWindow(max(0, t.first.frame - margin), t.last.frame + margin, clips_dir / clip_name(t, fps, len(tracks)))
+        for t in tracks
     ]
 
 

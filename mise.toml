@@ -97,6 +97,6 @@ uv run batdetect "$EXTRACT" -o "$CHECK_DIR/source"
 "$binary" "$EXTRACT" -o "$CHECK_DIR/binary"
 "$binary" "$EXTRACT" -o "$CHECK_DIR/binary-workers" --workers 2
 for run in binary binary-workers; do
-  cmp "$CHECK_DIR"/source/*/*.tracks.csv "$CHECK_DIR/$run"/*/*.tracks.csv
+  cmp "$CHECK_DIR"/source/*/*.csv "$CHECK_DIR/$run"/*/*.csv
 done
 '''

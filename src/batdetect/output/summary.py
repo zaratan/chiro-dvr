@@ -12,6 +12,7 @@ from batdetect.output.colors import assign_colors
 from batdetect.output.geometry import Points, track_points
 from batdetect.output.legend import LegendEntry, legend_panel
 from batdetect.output.marker import draw_marker
+from batdetect.output.names import summary_png
 from batdetect.output.periods import Period
 from batdetect.output.placement import place_markers
 from batdetect.output.style import BACKGROUND_DIM, INK, PALETTE, SEPARATOR, SummaryStyle, style_for
@@ -86,19 +87,12 @@ def compose_summary(
     return np.hstack([image, panel])
 
 
-def remove_old_summaries(base: Path) -> None:
-    for old in base.parent.iterdir():
-        if old.name.startswith(f"{base.name}.tracks") and old.suffix == ".png":
-            old.unlink()
-
-
-def summary_image(background: ColorFrame, periods: list[Period], info: VideoInfo, base: Path) -> list[Path]:
+def summary_image(background: ColorFrame, periods: list[Period], info: VideoInfo, dest: Path, stem: str) -> list[Path]:
     style = style_for(info.width, str(max((t.id for p in periods for t in p.tracks), default=0)))
-    remove_old_summaries(base)
     written: list[Path] = []
     for period in periods:
-        image = compose_summary(background, period.tracks, info.fps, header_lines(base.name, period), style)
-        out = base.with_name(f"{base.name}.tracks{period.suffix}.png")
+        image = compose_summary(background, period.tracks, info.fps, header_lines(stem, period), style)
+        out = summary_png(dest, stem, period.suffix)
         if not cv2.imwrite(str(out), image):
             raise VideoError(f"cannot write {out}")
         written.append(out)

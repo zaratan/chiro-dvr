@@ -244,7 +244,7 @@ ne laissent pas de fichier tronqué.
 Une cible de quelques pixels qui traverse le champ en 0,2 s ne se voit pas sur l'extrait
 normal (passage de 3:42.10 de la 092, jugé faux puis reconnu réel en zoomant et en
 ralentissant dans le lecteur, #37). Pour ces pistes, un second fichier
-`split/<nom>_zoom.mp4` est écrit à côté de l'extrait normal.
+`extraits/<nom>_zoom.mp4` (`clips/` en anglais) est écrit à côté de l'extrait normal.
 
 - **Quelles pistes** (`--zoom auto`, par défaut) : celles dont la plus grande tache fait
   moins de 100 px² (`max_area_px`) **ou** dont le plus fort écart au fond est sous 40
