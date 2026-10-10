@@ -1,0 +1,27 @@
+089 | 9011/9011 = | errors 0/0 = | gaps 0/0 = | keys = | spans =
+090 | 9011/9011 = | errors 0/0 = | gaps 0/0 = | keys = | spans =
+091 | 9011/9011 = | errors 0/0 = | gaps 0/0 = | keys = | spans =
+092 | 9011/9011 = | errors 0/0 = | gaps 0/0 = | keys = | spans =
+093 | 9011/9011 = | errors 11/11 = | gaps 0/0 = | keys = | spans =
+094 | 9011/9011 = | errors 13/13 = | gaps 0/0 = | keys = | spans =
+095 | 9011/9011 = | errors 13/13 = | gaps 0/0 = | keys = | spans =
+096 | 9011/9011 = | errors 16/16 = | gaps 0/0 = | keys = | spans =
+097 | 9011/9011 = | errors 15/15 = | gaps 0/0 = | keys = | spans =
+098 | 9011/9011 = | errors 11/11 = | gaps 0/0 = | keys = | spans =
+099 | 9011/9011 = | errors 23/23 = | gaps 0/0 = | keys = | spans =
+100 | 9011/9011 = | errors 7/7 = | gaps 0/0 = | keys = | spans =
+101 | 9011/9011 = | errors 16/16 = | gaps 0/0 = | keys = | spans =
+102 | 9011/9011 = | errors 17/17 = | gaps 0/0 = | keys = | spans =
+103 | 8998/8998 = | errors 10/10 = | gaps 2/2 = | keys = | spans =
+120 | 8996/8996 = | errors 64/64 = | gaps 2/2 = | keys = | spans =
+121 | 9011/9011 = | errors 144/144 = | gaps 0/0 = | keys = | spans =
+122 | 8998/8998 = | errors 195/195 = | gaps 1/1 = | keys = | spans =
+123 | 9011/9011 = | errors 240/240 = | gaps 0/0 = | keys = | spans =
+124 | 9011/9011 = | errors 309/310 DIFF | gaps 0/0 = | keys = | spans DIFF
+125 | 9011/9011 = | errors 0/0 = | gaps 0/0 = | keys = | spans =
+126 | 9011/9011 = | errors 0/0 = | gaps 0/0 = | keys = | spans =
+127 | 9011/9011 = | errors 0/0 = | gaps 0/0 = | keys = | spans =
+128 | 9011/9011 = | errors 36/36 = | gaps 0/0 = | keys = | spans =
+129 | 9011/9011 = | errors 17/17 = | gaps 0/0 = | keys = | spans =
+130 | 5241/5241 = | errors 7/7 = | gaps 0/0 = | keys = | spans =
+PROBECHECK_DONE

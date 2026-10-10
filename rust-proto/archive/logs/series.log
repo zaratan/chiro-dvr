@@ -1,0 +1,37 @@
+/dev/disk3s1       926  564       319    64% 5172030 3354429960    0%   /System/Volumes/Data
+== A python detection only
+120.70 s, 780 detections
+      120.91 real       313.81 user         5.53 sys
+           349208576  maximum resident set size
+== B rust standalone lgpl, rayon
+reader: decode+sws 16.97 s, resize 16.29 s, gray+blur 5.92 s, mean 1.51 s
+detector busy 23.38 s
+9011 frames, 780 detections, 41.35 s, fps 30.02738820371172
+       41.66 real       295.68 user        40.92 sys
+           225738752  maximum resident set size
+python 780 detections, rust 780: identical
+== C rust standalone lgpl, one core for kernels
+reader: decode+sws 16.09 s, resize 94.74 s, gray+blur 28.82 s, mean 1.43 s
+detector busy 67.48 s
+9011 frames, 780 detections, 141.53 s, fps 30.02738820371172
+      141.55 real       261.86 user         1.07 sys
+           213499904  maximum resident set size
+python 780 detections, rust 780: identical
+== D fused pyo3 detection only
+47.13 s, 780 detections
+       47.30 real       299.24 user        17.87 sys
+           331202560  maximum resident set size
+fused pickle identical
+== E python full CLI (2nd)
+11:42  up 17 days, 12:37, 2 users, load averages: 12.31 7.42 5.91
+video_092_original.mp4 : 9011 images, 14 pistes, 0,0 s ignorées -> out/ref-py2/video_092_original
+      136.03 real       428.22 user        11.06 sys
+           723320832  maximum resident set size
+== F fused full CLI (2nd)
+11:44  up 17 days, 12:39, 2 users, load averages: 7.37 7.16 6.04
+video_092_original.mp4 : 9011 images, 14 pistes, 0,0 s ignorées -> out/rs-fused2/video_092_original
+       71.50 real       415.51 user        22.76 sys
+           669876224  maximum resident set size
+py2 csv identical
+fused2 csv identical
+SERIES_DONE

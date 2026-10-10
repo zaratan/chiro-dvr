@@ -1,0 +1,9 @@
+[package]
+name = "decode-check"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+ffmpeg-next = { version = "9", default-features = false, features = ["codec", "format", "software-scaling"] }
+batdetect-core = { path = "../core" }

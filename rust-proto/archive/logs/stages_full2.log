@@ -1,0 +1,8 @@
+resize INTER_AREA fma=False        identical 1230/1230  max diff 0
+resize INTER_AREA fma=True         identical 1230/1230  max diff 0
+cvtColor BGR2GRAY                  identical 1230/1230  max diff 0
+GaussianBlur f32                   identical 1230/1230  max diff 0
+mean f32 (numpy)                   identical 1230/1230  max diff 0
+morphologyEx CLOSE ellipse         identical 1228/1228  max diff 0
+connectedComponentsWithStats       identical 1228/1228  max diff 0
+find_blobs (detections)            identical 1228/1228  max diff 0

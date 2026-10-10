@@ -1,0 +1,14 @@
+prefix=/private/tmp/claude-501/-Users-zaratan-Projects-dvr-wt-rust/92f76348-e995-4d7b-9b06-27b06c85b422/scratchpad/ff711-vt
+exec_prefix=${prefix}
+libdir=/private/tmp/claude-501/-Users-zaratan-Projects-dvr-wt-rust/92f76348-e995-4d7b-9b06-27b06c85b422/scratchpad/ff711-vt/lib
+includedir=/private/tmp/claude-501/-Users-zaratan-Projects-dvr-wt-rust/92f76348-e995-4d7b-9b06-27b06c85b422/scratchpad/ff711-vt/include
+
+Name: libavutil
+Description: FFmpeg utility library
+Version: 59.39.100
+Requires: 
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lavutil -pthread -lm -framework VideoToolbox -framework CoreFoundation -framework CoreMedia -framework CoreVideo -framework CoreServices
+Libs.private: 
+Cflags: -I${includedir}

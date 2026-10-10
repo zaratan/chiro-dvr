@@ -1,0 +1,90 @@
+== A workers 2
+11:54  up 17 days, 12:49, 2 users, load averages: 6.99 7.68 6.91
+video_092_original.mp4 : 9011 images, 14 pistes, 0,0 s ignorées -> out/py-w2/video_092_original
+       91.08 real       480.17 user        12.40 sys
+           611368960  maximum resident set size
+w2 csv identical
+== A workers 3
+11:55  up 17 days, 12:50, 2 users, load averages: 15.34 11.40 8.50
+video_092_original.mp4 : 9011 images, 14 pistes, 0,0 s ignorées -> out/py-w3/video_092_original
+       84.34 real       554.26 user        12.75 sys
+           601980928  maximum resident set size
+w3 csv identical
+== B fused instrumented
+{
+ "detect.find_blobs": {
+  "wall_s": 16.5,
+  "thread_cpu_s": 16.16,
+  "calls": 9011
+ },
+ "detect.target_blur": {
+  "wall_s": 7.82,
+  "thread_cpu_s": 7.65,
+  "calls": 9011
+ },
+ "reader.decode": {
+  "wall_s": 5.75,
+  "thread_cpu_s": 3.48,
+  "calls": 9012
+ },
+ "reader.to_work_gray": {
+  "wall_s": 27.94,
+  "thread_cpu_s": 19.4,
+  "calls": 9011
+ },
+ "stage.detect_video": {
+  "wall_s": 49.84,
+  "thread_cpu_s": 29.56,
+  "calls": 1
+ },
+ "stage.exclude": {
+  "wall_s": 0.0,
+  "thread_cpu_s": 0.0,
+  "calls": 1
+ },
+ "stage.median_background": {
+  "wall_s": 1.4,
+  "thread_cpu_s": 0.61,
+  "calls": 1
+ },
+ "stage.probe_wait_after_detection": {
+  "wall_s": 7.18,
+  "thread_cpu_s": 0.0,
+  "calls": 0
+ },
+ "stage.render_videos": {
+  "wall_s": 12.1,
+  "thread_cpu_s": 2.27,
+  "calls": 1
+ },
+ "stage.summary_image": {
+  "wall_s": 0.07,
+  "thread_cpu_s": 0.07,
+  "calls": 1
+ },
+ "stage.track_detections": {
+  "wall_s": 0.01,
+  "thread_cpu_s": 0.01,
+  "calls": 1
+ },
+ "stage.track_overlay": {
+  "wall_s": 0.0,
+  "thread_cpu_s": 0.0,
+  "calls": 1
+ },
+ "stage.write_tracks_csv": {
+  "wall_s": 0.0,
+  "thread_cpu_s": 0.0,
+  "calls": 1
+ },
+ "stage.zoom_windows": {
+  "wall_s": 0.0,
+  "thread_cpu_s": 0.0,
+  "calls": 1
+ },
+ "total_wall_s": 70.84
+}
+video_092_original.mp4 : 9011 images, 14 pistes, 0,0 s ignorées -> out/rs-fused3/video_092_original
+       71.02 real       414.41 user        21.87 sys
+           676429824  maximum resident set size
+SERIES3_DONE

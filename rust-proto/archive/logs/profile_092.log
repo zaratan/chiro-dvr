@@ -1,0 +1,128 @@
+11:08  up 17 days, 12:03, 2 users, load averages: 6.41 4.05 3.65
+{
+ "detect.detect_frames": {
+  "wall_s": 119.85,
+  "thread_cpu_s": 119.17,
+  "calls": 1
+ },
+ "detect.find_blobs": {
+  "wall_s": 16.29,
+  "thread_cpu_s": 15.96,
+  "calls": 9011
+ },
+ "detect.raised_threshold": {
+  "wall_s": 4.51,
+  "thread_cpu_s": 4.5,
+  "calls": 9005
+ },
+ "detect.target_blur": {
+  "wall_s": 7.75,
+  "thread_cpu_s": 7.68,
+  "calls": 9011
+ },
+ "detect.temporal_median": {
+  "wall_s": 81.81,
+  "thread_cpu_s": 81.68,
+  "calls": 9011
+ },
+ "noise.temporal_median": {
+  "wall_s": 0.2,
+  "thread_cpu_s": 0.2,
+  "calls": 5984
+ },
+ "reader.decode": {
+  "wall_s": 5.14,
+  "thread_cpu_s": 3.21,
+  "calls": 9012
+ },
+ "reader.to_work_gray": {
+  "wall_s": 20.66,
+  "thread_cpu_s": 19.33,
+  "calls": 9011
+ },
+ "stage.detect_video": {
+  "wall_s": 119.86,
+  "thread_cpu_s": 119.19,
+  "calls": 1
+ },
+ "stage.exclude": {
+  "wall_s": 0.0,
+  "thread_cpu_s": 0.0,
+  "calls": 1
+ },
+ "stage.median_background": {
+  "wall_s": 1.42,
+  "thread_cpu_s": 0.64,
+  "calls": 1
+ },
+ "stage.probe_wait_after_detection": {
+  "wall_s": 0.01,
+  "thread_cpu_s": 0.0,
+  "calls": 0
+ },
+ "stage.render_videos": {
+  "wall_s": 12.12,
+  "thread_cpu_s": 2.26,
+  "calls": 1
+ },
+ "stage.summary_image": {
+  "wall_s": 0.07,
+  "thread_cpu_s": 0.07,
+  "calls": 1
+ },
+ "stage.track_detections": {
+  "wall_s": 0.01,
+  "thread_cpu_s": 0.01,
+  "calls": 1
+ },
+ "stage.track_overlay": {
+  "wall_s": 0.0,
+  "thread_cpu_s": 0.0,
+  "calls": 1
+ },
+ "stage.write_tracks_csv": {
+  "wall_s": 0.0,
+  "thread_cpu_s": 0.0,
+  "calls": 1
+ },
+ "stage.zoom_windows": {
+  "wall_s": 0.0,
+  "thread_cpu_s": 0.0,
+  "calls": 1
+ },
+ "total_wall_s": 133.77
+}
+video_092_original.mp4 : 9011 images, 14 pistes, 0,0 s ignorées -> out/ref-py/video_092_original
+  #1   0:07.39 -> 0:08.13  points=20
+  #2   0:33.94 -> 0:35.27  points=40
+  #3   0:51.62 -> 0:51.89  points=7
+  #4   0:53.75 -> 0:54.88  points=34
+  #5   1:12.60 -> 1:13.87  points=35
+  #6   1:48.93 -> 1:50.00  points=32
+  #7   2:02.82 -> 2:03.49  points=17
+  #8   2:24.63 -> 2:25.13  points=13
+  #9   2:36.99 -> 2:37.46  points=10
+  #10  2:43.95 -> 2:45.38  points=44
+  #11  3:29.61 -> 3:39.23  points=290
+  #12  3:48.29 -> 3:48.86  points=17
+  #13  3:50.89 -> 3:51.69  points=24
+  #14  3:57.18 -> 3:58.05  points=27
+      134.00 real       425.78 user        11.45 sys
+           704708608  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+              283190  page reclaims
+                1805  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   1  messages sent
+                   1  messages received
+                   1  signals received
+              288123  voluntary context switches
+              836229  involuntary context switches
+            92184839  instructions retired
+            39297254  cycles elapsed
+            10813968  peak memory footprint
+11:10  up 17 days, 12:05, 2 users, load averages: 6.61 5.35 4.26

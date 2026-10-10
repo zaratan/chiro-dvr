@@ -1,0 +1,31 @@
+/dev/disk3s1       926  565       319    64% 5172121 3351186360    0%   /System/Volumes/Data
+== 089 python
+124.49 s, 4791 detections
+      124.70 real       319.16 user         5.58 sys
+           374063104  maximum resident set size
+== 089 rust standalone
+9011 frames, 4791 detections, 44.18 s, fps 30.026897915878035
+       44.22 real       298.02 user        40.68 sys
+           236601344  maximum resident set size
+python 4791 detections, rust 4791: identical
+== 089 fused
+48.93 s, 4791 detections
+       49.12 real       303.47 user        18.03 sys
+           337035264  maximum resident set size
+089 fused identical
+/dev/disk3s1       926  565       319    64% 5172119 3351149600    0%   /System/Volumes/Data
+== 091 python
+122.27 s, 34524 detections
+      122.50 real       314.97 user         5.61 sys
+           519929856  maximum resident set size
+== 091 rust standalone
+9011 frames, 34524 detections, 42.20 s, fps 30.028318794041923
+       42.23 real       302.12 user        41.05 sys
+           239763456  maximum resident set size
+python 34524 detections, rust 34524: identical
+== 091 fused
+50.72 s, 34524 detections
+       50.95 real       311.50 user        18.29 sys
+           371261440  maximum resident set size
+091 fused identical
+SERIES2_DONE

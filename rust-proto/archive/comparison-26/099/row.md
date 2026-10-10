@@ -1,0 +1,1 @@
+| 099 | 13518 | 13567 | 93.16% (99.76% hors ignorées) | 115 | 117 | 112/117 | fast 00:19.42 (79); fast 00:27.91 (6); hors tol. py 00:14.29 75/fast 119 pts; hors tol. py 00:16.95 60/fast 16 pts; hors tol. py 00:17.92 127/fast 50 pts | 122 (det 122 s, RSS 347 Mo) | 11.5 / 103.3 |

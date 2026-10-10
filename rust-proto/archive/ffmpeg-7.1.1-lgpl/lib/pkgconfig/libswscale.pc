@@ -1,0 +1,14 @@
+prefix=/private/tmp/claude-501/-Users-zaratan-Projects-dvr-wt-rust/92f76348-e995-4d7b-9b06-27b06c85b422/scratchpad/ff711-vt
+exec_prefix=${prefix}
+libdir=/private/tmp/claude-501/-Users-zaratan-Projects-dvr-wt-rust/92f76348-e995-4d7b-9b06-27b06c85b422/scratchpad/ff711-vt/lib
+includedir=/private/tmp/claude-501/-Users-zaratan-Projects-dvr-wt-rust/92f76348-e995-4d7b-9b06-27b06c85b422/scratchpad/ff711-vt/include
+
+Name: libswscale
+Description: FFmpeg image rescaling library
+Version: 8.3.100
+Requires: libavutil >= 59.39.100
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lswscale -lm
+Libs.private: 
+Cflags: -I${includedir}

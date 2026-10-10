@@ -1,0 +1,19 @@
+8998 frames, 8998 targets, 30410 detections, 13.05 s total; decode thread 13.00 s, waiting 6.03 s, prep 2.18 s, detect 4.80 s, fps 30.03003003003003
+       13.05 real        98.98 user         2.02 sys
+           515571712  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               31718  page reclaims
+                   0  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   0  voluntary context switches
+              320446  involuntary context switches
+        874265756812  instructions retired
+        293921188947  cycles elapsed
+           508822440  peak memory footprint
