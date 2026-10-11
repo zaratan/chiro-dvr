@@ -278,7 +278,7 @@ Forme et tests :
 | slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv` |
 | reference | `tests/reference_*.rs`, `#[ignore = "reference"]` | `mise run rust:reference` | la 092 : 9 011 images, cadence moyenne 90110000/3000927 |
 | matériel | `tests/hardware_*.rs`, `#[ignore = "hardware"]` | étape d'essai de la CI macOS | VideoToolbox sans repli logiciel |
-| local | `tests/local_*.rs`, `#[ignore = "local"]` | `BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… cargo test -p reference --locked --profile ci --test 'local_*' -- --include-ignored` | les 26 vidéos de la référence, hors dépôt, jamais en CI |
+| local | `tests/local_*.rs`, `#[ignore = "local"]` | `BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… cargo test -p reference -p tracking --locked --profile ci --test 'local_*' -- --include-ignored` | les 26 vidéos de la référence, hors dépôt, jamais en CI |
 
 - Le niveau d'un test se choisit par le nom de son fichier. Ajouter un test ne demande
   de toucher ni la CI ni `mise.toml`.
@@ -407,9 +407,36 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
 - **`cli`** : paquet `batdetect`, binaire `batdetect-rs`. En #95, `--version` affiche la
   version et la ligne de licence de FFmpeg. Tout texte vu par l'utilisateur vit dans
   `messages.rs`.
+- **`tracking`** → `types` : exclusion des images abîmées et instables (#120) ; le suivi
+  arrive avec #121.
+  - `exclusion` : seul point d'entrée. `exclude` reçoit les détections, les plages
+    abîmées toutes faites, le nombre d'images signalées et la `FrameRate`. Les images
+    abîmées sont retirées du calcul de stabilité, puis les détections des plages
+    abîmées et instables sont vidées, images gardées. `Exclusion` rend aussi le nombre
+    d'images ignorées et celui des images abîmées, chacune comptée une fois. Le
+    contrôle du nombre d'images reste à #116.
+  - `stability` : `StabilityConfig::new(max_blobs, pad_s)`, par défaut 20 et 1,0 s ;
+    `max_blobs` est un `Option<NonZeroU32>`, `None` coupe le filtre (la commande
+    traduira `--max-blobs 0`) ; `pad_s` fini, positif ou nul. Limite de foule :
+    `max_blobs + 6 × médiane` du nombre de détections des images lisibles, vides
+    comprises, calculée en entiers. Une image qui l'atteint donne une plage de
+    `pad_s × cadence` images de chaque côté, arrondi au plus proche, moitié vers le
+    haut (la v0.1.1 arrondit au pair : une image d'écart quand ce produit vaut x,5,
+    jamais avec les réglages par défaut). Le rembourrage est borné à la longueur de la
+    vidéo. Seuls les bords sont bornés aux premières et dernières images lisibles : au
+    milieu, une plage instable peut recouvrir une plage abîmée (093, 097). Deux plages
+    séparées d'au plus le rembourrage se fondent.
+  - `spans` (interne) : images couvertes par des plages, bornées à la vidéo, et
+    détections vidées.
+  - Les 3 tests Python de saut de luminosité (`test_stability.py`) attendent la
+    détection (#118).
+  - La médiane porte sur toute la vidéo : la stabilité dépend de sa longueur (la
+    concaténation 089-091 ignore 27,9 s, contre 28,9 s en morceaux, mesuré par #94 ;
+    la médiane comme cause est une hypothèse, non vérifiée).
+  - Sur les 26 vidéos de la référence, plages instables et détections gardées sont
+    égales à la v0.1.1 (test local `crates/tracking/tests/local_exclusion.rs`).
 - **À venir** :
   - `engine` (#116, lecture, images abîmées, détection) ;
-  - `tracking` (#120, plages, stabilité, suivi) ;
   - `files` (#122, noms, CSV, `params.json`) ;
   - `draw` (#101, dessin) ;
   - `compare` (#119, écarts à la référence).
