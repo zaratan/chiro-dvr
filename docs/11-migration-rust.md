@@ -300,9 +300,10 @@ Forme et tests :
   « IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver », sans effet sur le
   résultat.
 - **Conclusion** : l'encodeur matériel répond sur le runner macOS de GitHub, donc #19
-  peut se fermer par la CI. Le repli logiciel est testé à chaque passage. Le matériel
-  l'est par une étape en `continue-on-error` : tant qu'elle le reste, une régression de
-  l'encodeur matériel ne fait pas échouer la CI et ne se voit que dans le journal.
+  se ferme par la CI. Le repli logiciel est testé à chaque passage, le matériel par une
+  étape qui bloque la CI (décision de l'utilisateur, 11 octobre 2026). Si elle casse à
+  cause d'une machine de GitHub plutôt que du code, la question se rouvre avec
+  l'utilisateur.
 
 ## Crates
 

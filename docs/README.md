@@ -25,6 +25,7 @@ pas, et pourquoi les choses sont comme elles sont.
 | [08-banc-de-mesure.md](08-banc-de-mesure.md) | Développeur | Le banc de cibles synthétiques : méthode, métriques, limites, résultats |
 | [09-profilage.md](09-profilage.md) | Développeur | Où part le temps de calcul : étapes, médiane CPU contre GPU, encodeurs |
 | [10-logique-de-detection.md](10-logique-de-detection.md) | Naturaliste et développeur | La logique expliquée : outil mathématique de chaque étape, choix et limites |
+| [11-migration-rust.md](11-migration-rust.md) | Développeur | La réécriture en Rust : construction de FFmpeg, licences, charte, tests, crates |
 
 Toute modification de comportement du code met à jour le document concerné dans la
 même série de changements.
