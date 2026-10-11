@@ -6,11 +6,11 @@ use ffmpeg::format::Pixel;
 use ffmpeg::util::color::Range;
 use ffmpeg::util::error::EAGAIN;
 use ffmpeg_next as ffmpeg;
-use tempfile::NamedTempFile;
+use tempfile::TempPath;
 use types::rational::Rational;
 
 use crate::failure::LibraryError;
-use crate::frame::YuvFrame;
+use crate::frame::{ColorRange, YuvFrame};
 use crate::{init, path, planes};
 
 #[cfg(test)]
@@ -24,7 +24,7 @@ pub enum Error {
     FrameRate { frame_rate: Rational },
     #[error("this FFmpeg has no {name} encoder")]
     EncoderMissing { name: &'static str },
-    #[error("FFmpeg cannot write {}: the path is not UTF-8 or holds a NUL byte", path.display())]
+    #[error("cannot write {}: the path is not UTF-8 or holds a NUL byte", path.display())]
     UnusablePath { path: PathBuf },
     #[error("cannot create {}", path.display())]
     Create {
@@ -45,6 +45,8 @@ pub enum Error {
         found_width: u32,
         found_height: u32,
     },
+    #[error("the encoder writes limited-range video, not a full-range frame")]
+    FullRange,
     #[error("the encoder frame cannot hold the pushed planes")]
     FrameLayout,
     #[error("the encoder failed")]
@@ -109,7 +111,7 @@ pub struct Encoder {
     codec_time_base: ffmpeg::Rational,
     stream_time_base: ffmpeg::Rational,
     next_pts: i64,
-    temporary: NamedTempFile,
+    temporary: TempPath,
     destination: PathBuf,
 }
 
@@ -139,11 +141,13 @@ impl Encoder {
             .prefix(".encoding-")
             .suffix(".mp4")
             .tempfile_in(folder);
-        let temporary = created.map_err(|source| Error::Create {
-            path: path.to_path_buf(),
-            source,
-        })?;
-        let location = path::for_ffmpeg(temporary.path()).ok_or_else(unusable)?;
+        let temporary = created
+            .map_err(|source| Error::Create {
+                path: path.to_path_buf(),
+                source,
+            })?
+            .into_temp_path();
+        let location = path::for_ffmpeg(&temporary).ok_or_else(unusable)?;
         let mut output = ffmpeg::format::output_as(location, "mp4")
             .map_err(LibraryError::new)
             .map_err(Error::Write)?;
@@ -204,6 +208,9 @@ impl Encoder {
                 found_height,
             });
         }
+        if frame.range() == ColorRange::Full {
+            return Err(Error::FullRange);
+        }
         self.make_writable()?;
         for (index, (plane, row)) in frame.planes().into_iter().enumerate() {
             let stride = self.frame.stride(index);
@@ -248,10 +255,12 @@ impl Encoder {
     fn make_writable(&mut self) -> Result<(), Error> {
         // SAFETY: the frame owns its AVFrame for as long as `self`, and nothing else borrows it here.
         let pointer = unsafe { self.frame.as_mut_ptr() };
-        // SAFETY: `pointer` is a valid AVFrame allocated by `frame::Video::new`, as av_frame_make_writable requires.
+        // SAFETY: `pointer` is a live AVFrame from `frame::Video::new`; the call may replace its buffers, and `&mut self` keeps every slice of the old ones out of scope.
         let status = unsafe { ffmpeg::ffi::av_frame_make_writable(pointer) };
-        let failed = (status < 0).then(|| Error::Encode(LibraryError::new(ffmpeg::Error::from(status))));
-        failed.map_or(Ok(()), Err)
+        if status < 0 {
+            return Err(Error::Encode(LibraryError::new(ffmpeg::Error::from(status))));
+        }
+        Ok(())
     }
 
     fn drain(&mut self) -> Result<(), Error> {

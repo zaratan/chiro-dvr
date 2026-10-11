@@ -86,8 +86,18 @@ impl StreamInfo {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct FrameInfo {
-    pub key: bool,
-    pub unreadable_packets: u32,
+    key: bool,
+    unreadable_packets: u32,
+}
+
+impl FrameInfo {
+    pub fn key(self) -> bool {
+        self.key
+    }
+
+    pub fn unreadable_packets(self) -> u32 {
+        self.unreadable_packets
+    }
 }
 
 /// Unreadable packets are counted, not fatal; after an `Err` the decoder is unusable.
@@ -155,12 +165,16 @@ impl Decoder {
         &self.info
     }
 
+    pub fn unreadable_packets_after_last_frame(&self) -> u32 {
+        self.unreadable
+    }
+
     pub fn next(&mut self, into: &mut YuvFrame) -> Result<Option<FrameInfo>, Error> {
         loop {
             match self.codec.receive_frame(&mut self.decoded) {
                 Ok(()) => return self.deliver(into).map(Some),
                 Err(ffmpeg::Error::Eof) => return Ok(None),
-                Err(ffmpeg::Error::InvalidData) => self.unreadable += 1,
+                Err(ffmpeg::Error::InvalidData) => self.unreadable = self.unreadable.saturating_add(1),
                 Err(ffmpeg::Error::Other { errno }) if errno == EAGAIN => self.feed()?,
                 Err(source) => return Err(Error::Decode(LibraryError::new(source))),
             }
@@ -184,7 +198,7 @@ impl Decoder {
     fn send(&mut self, packet: &ffmpeg::Packet) -> Result<(), Error> {
         match self.codec.send_packet(packet) {
             Err(ffmpeg::Error::InvalidData) => {
-                self.unreadable += 1;
+                self.unreadable = self.unreadable.saturating_add(1);
                 Ok(())
             }
             sent => sent.map_err(LibraryError::new).map_err(Error::Decode),
@@ -226,7 +240,7 @@ fn color_range(format: Pixel, range: Range) -> Result<ColorRange, Error> {
         (Pixel::YUV420P, Range::JPEG) | (Pixel::YUVJ420P, _) => Ok(ColorRange::Full),
         (Pixel::YUV420P, Range::Unspecified) => Ok(ColorRange::Unspecified),
         (other, _) => Err(Error::UnsupportedPixelFormat {
-            format: other.descriptor().map_or("unknown", |d| d.name()),
+            format: other.descriptor().map_or("unknown", |descriptor| descriptor.name()),
         }),
     }
 }

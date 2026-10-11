@@ -45,7 +45,7 @@ fetch() {
   sum=$(pinned "${name}_SHA256")
   archive=$work/downloads/$(basename "$url")
   mkdir -p "$work/downloads" "$work/src/$name"
-  curl -sSfL --retry 3 --connect-timeout 20 -o "$archive" "$url"
+  curl -sSfL --retry 3 --retry-all-errors --connect-timeout 20 -o "$archive" "$url"
   [ "$(sha256 < "$archive")" = "$sum" ] || fail "$archive does not match its pinned sha256"
   tar -xf "$archive" -C "$work/src/$name" --strip-components 1
 }
@@ -108,9 +108,18 @@ relocate() {
 
 work=
 
+require_tools() {
+  local tool tools="pkg-config make cc c++ curl tar"
+  [ "$os" = darwin ] || tools="$tools xz"
+  for tool in $tools; do
+    command -v "$tool" > /dev/null || fail "$tool is required to build FFmpeg"
+  done
+}
+
 build() {
   local prefix jobs
-  command -v pkg-config make cc curl tar > /dev/null || fail "pkg-config, make, cc, curl and tar are required"
+  require_tools
+  [ ! -e "$target" ] || fail "$target is incomplete: remove it, then build again"
   jobs=$(getconf _NPROCESSORS_ONLN)
   mkdir -p "$cache"
   work=$(mktemp -d "$cache/.build.XXXXXX")
@@ -123,21 +132,19 @@ build() {
   build_openh264 "$work" "$prefix" "$jobs"
   build_ffmpeg "$work" "$prefix" "$jobs"
   relocate "$prefix"
-  if ! complete "$target"; then
-    mv "$prefix" "$cache/" || complete "$target" || fail "could not move the build to $target"
-  fi
-  [ ! -e "$target/$(basename "$target")" ] || fail "a concurrent build was moved inside $target"
+  mv "$prefix" "$cache/" || complete "$target" || fail "could not move the build to $target"
 }
 
 clean_bindings() {
-  local directory build profile
+  local directory profile folder
   [ -f "$repository/Cargo.toml" ] || return 0
   for directory in "$repository/target" "$repository/target/llvm-cov-target"; do
-    for build in "$directory"/*/build; do
-      [ -d "$build" ] || continue
-      profile=$(basename "$(dirname "$build")")
-      [ "$profile" != debug ] || profile=dev
-      (cd "$repository" && cargo clean --quiet -p ffmpeg-sys-next --target-dir "$directory" --profile "$profile")
+    for profile in dev release ci; do
+      folder=$profile
+      [ "$profile" != dev ] || folder=debug
+      if [ -d "$directory/$folder/build" ]; then
+        (cd "$repository" && cargo clean --quiet -p ffmpeg-sys-next --target-dir "$directory" --profile "$profile")
+      fi
     done
   done
 }
@@ -145,10 +152,10 @@ clean_bindings() {
 point_link() {
   local previous
   previous=$(readlink "$link" || true)
-  ln -sfn "$target" "$link"
   if [ -n "$previous" ] && [ "$previous" != "$target" ]; then
     clean_bindings
   fi
+  ln -sfn "$target" "$link"
 }
 
 verify() {

@@ -42,7 +42,7 @@ fn reshaping_to_the_same_size_keeps_the_buffers() {
 }
 
 #[test]
-fn planes_report_their_row_widths() {
+fn each_plane_comes_with_its_own_row_width_for_the_stride_copy() {
     let mut frame = YuvFrame::new(5, 3, ColorRange::Limited).unwrap();
     frame.y_mut()[0] = 7;
     frame.u_mut()[0] = 8;

@@ -11,7 +11,7 @@ fn the_extract_decodes_1230_frames_of_1440x1080_at_10000_333_limited_range() {
     let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     let mut frames = 0;
     while let Some(info) = decoder.next(&mut frame).unwrap() {
-        assert_eq!(info.unreadable_packets, 0);
+        assert_eq!(info.unreadable_packets(), 0);
         frames += 1;
     }
     assert_eq!(frames, 1230);

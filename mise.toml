@@ -76,10 +76,11 @@ sources = {path: open(path, encoding="utf-8").read() for path in glob.glob("crat
 manifests = {path: tomllib.load(open(path, "rb")) for path in glob.glob("crates/*/Cargo.toml")}
 
 def lines_matching(pattern, files, flags=0):
-    return [f"{path}:{number}" for path, text in files.items()
-            for number, line in enumerate(text.splitlines(), 1) if re.search(pattern, line, flags)]
+    return [f"{path}:{text.count(chr(10), 0, found.start()) + 1}" for path, text in files.items()
+            for found in re.finditer(pattern, text, flags)]
 
-for found in lines_matching(r"#!?\[\s*(allow|expect)\b|cfg_attr\(.*\b(allow|expect)\b", sources):
+attribute = r"#!?\[\s*(allow|expect)\b|cfg_attr\s*\((?:[^()]|\([^()]*\))*?\b(allow|expect)\b"
+for found in lines_matching(attribute, sources):
     failures.append(f"C4 allow or expect attribute: {found}")
 
 workspace = tomllib.load(open("Cargo.toml", "rb"))
@@ -92,8 +93,9 @@ for path, manifest in manifests.items():
             failures.append(f"C6 {path}: lints differ from the workspace table without unsafe_code")
     elif lints != {"workspace": True}:
         failures.append(f"C5 {path}: lints must be `workspace = true`")
-    for table in ("dependencies", "dev-dependencies", "build-dependencies"):
-        for name, spec in manifest.get(table, {}).items():
+    scopes = [manifest, *manifest.get("target", {}).values()]
+    for scope, table in ((scope, table) for scope in scopes for table in ("dependencies", "dev-dependencies", "build-dependencies")):
+        for name, spec in scope.get(table, {}).items():
             if not (isinstance(spec, dict) and spec.get("workspace") is True) or {"version", "path", "git"} & set(spec):
                 failures.append(f"C8 {path}: {name} must come from the workspace")
 
@@ -109,7 +111,7 @@ if any(profile.get("panic") == "abort" for profile in profiles):
     failures.append("C9 a profile aborts on panic")
 
 code = [line for text in sources.values() for line in text.splitlines() if line.strip()]
-comments = [line for line in code if line.lstrip().startswith("//")]
+comments = [line for line in code if re.search(r"(?<![:\"])//|/\*(?!/)", line)]
 if code and len(comments) > 0.02 * len(code):
     failures.append(f"C10 {len(comments)} comment lines out of {len(code)}, above 2 %")
 

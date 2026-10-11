@@ -11,7 +11,7 @@ fn the_whole_092_decodes_its_9011_frames_at_its_average_rate() {
     let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     let mut frames = 0;
     while let Some(info) = decoder.next(&mut frame).unwrap() {
-        assert_eq!(info.unreadable_packets, 0);
+        assert_eq!(info.unreadable_packets(), 0);
         frames += 1;
     }
     assert_eq!(frames, 9011);

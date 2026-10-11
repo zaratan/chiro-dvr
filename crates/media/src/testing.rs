@@ -10,10 +10,8 @@ pub(crate) const HEIGHT: u32 = 240;
 
 pub(crate) fn pattern(index: u8) -> YuvFrame {
     let mut frame = YuvFrame::new(WIDTH, HEIGHT, ColorRange::Limited).unwrap();
-    for (offset, pixel) in frame.y_mut().iter_mut().enumerate() {
-        *pixel = 16_u8
-            .wrapping_add(index.wrapping_mul(3))
-            .wrapping_add((offset % 200) as u8);
+    for (pixel, ramp) in frame.y_mut().iter_mut().zip((0..200_u8).cycle()) {
+        *pixel = 16_u8.wrapping_add(index.wrapping_mul(3)).wrapping_add(ramp);
     }
     frame.u_mut().fill(128);
     frame.v_mut().fill(128);

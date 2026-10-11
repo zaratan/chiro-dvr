@@ -143,3 +143,12 @@ fn a_destination_taken_by_a_folder_fails_at_finish_without_losing_the_folder() {
     assert_eq!(fs::read_to_string(taken.join("keep.txt")).unwrap(), "kept");
     assert_eq!(fs::read_dir(folder.path()).unwrap().count(), 1);
 }
+
+#[test]
+fn a_full_range_frame_is_refused_rather_than_written_as_limited_range() {
+    let folder = tempfile::tempdir().unwrap();
+    let settings = Settings::new(WIDTH, HEIGHT, thirty(), Codec::OpenH264).unwrap();
+    let mut encoder = Encoder::create(&folder.path().join("clip.mp4"), &settings).unwrap();
+    let full = YuvFrame::new(WIDTH, HEIGHT, ColorRange::Full).unwrap();
+    assert!(matches!(encoder.push(&full), Err(Error::FullRange)));
+}

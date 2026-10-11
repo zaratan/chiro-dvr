@@ -116,7 +116,7 @@ jobs:
       - id: ffmpeg-key
         run: |
           echo "XDG_CACHE_HOME=$HOME/.cache" >> "$GITHUB_ENV"
-          echo "key=ffmpeg-$RUNNER_OS-$RUNNER_ARCH-$(bash packaging/ffmpeg-unix.sh --fingerprint)" >> "$GITHUB_OUTPUT"
+          echo "key=ffmpeg-${ImageOS:-$RUNNER_OS}-$RUNNER_ARCH-$(bash packaging/ffmpeg-unix.sh --fingerprint)" >> "$GITHUB_OUTPUT"
       - id: ffmpeg-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -137,14 +137,14 @@ jobs:
           otool -L target/ci/batdetect-rs
           if otool -L target/ci/batdetect-rs | grep -E 'libav|libsw|openh264'; then exit 1; fi
           minos=$(vtool -show-build target/ci/batdetect-rs | awk '$1 == "minos" { print $2 }')
-          [ "$(printf '%s\n' "$minos" 14.0 | sort -V | tail -1)" = 14.0 ] || { echo "binary needs macOS $minos" >&2; exit 1; }
+          [ -n "$minos" ] && [ "$(printf '%s\n' "$minos" 14.0 | sort -V | tail -1)" = 14.0 ] || { echo "binary needs macOS $minos" >&2; exit 1; }
       - if: runner.os == 'Linux'
         run: |
           ldd target/ci/batdetect-rs
           if ldd target/ci/batdetect-rs | grep -E 'libav|libsw|openh264'; then exit 1; fi
       - if: runner.os == 'macOS'
         continue-on-error: true
-        run: cargo test -p media --locked --profile ci --test hardware_videotoolbox -- --include-ignored
+        run: cargo test -p media --locked --profile ci --test 'hardware_*' -- --include-ignored
 
   rust-reference:
     needs: rust
@@ -172,7 +172,7 @@ jobs:
       - id: ffmpeg-key
         run: |
           echo "XDG_CACHE_HOME=$HOME/.cache" >> "$GITHUB_ENV"
-          echo "key=ffmpeg-$RUNNER_OS-$RUNNER_ARCH-$(bash packaging/ffmpeg-unix.sh --fingerprint)" >> "$GITHUB_OUTPUT"
+          echo "key=ffmpeg-${ImageOS:-$RUNNER_OS}-$RUNNER_ARCH-$(bash packaging/ffmpeg-unix.sh --fingerprint)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/batdetect/ffmpeg

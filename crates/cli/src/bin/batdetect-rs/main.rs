@@ -19,9 +19,11 @@ fn main() -> ExitCode {
 fn report(error: &clap::Error) -> ExitCode {
     let text = error.render().to_string();
     let written = if error.use_stderr() {
-        io::stderr().lock().write_all(text.as_bytes())
+        let mut stderr = io::stderr().lock();
+        stderr.write_all(text.as_bytes()).and_then(|()| stderr.flush())
     } else {
-        io::stdout().lock().write_all(text.as_bytes())
+        let mut stdout = io::stdout().lock();
+        stdout.write_all(text.as_bytes()).and_then(|()| stdout.flush())
     };
     match (written, u8::try_from(error.exit_code())) {
         (Ok(()), Ok(code)) => ExitCode::from(code),
