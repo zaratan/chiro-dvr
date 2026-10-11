@@ -627,8 +627,8 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
 - **`cli`** : paquet `batdetect`, binaire `batdetect-rs`. En #95, `--version` affiche la
   version et la ligne de licence de FFmpeg. Tout texte vu par l'utilisateur vit dans
   `messages.rs`.
-- **`tracking`** → `types` : exclusion des images abîmées et instables (#120) ; le suivi
-  arrive avec #121.
+- **`tracking`** → `types` : exclusion des images abîmées et instables (#120), puis
+  suivi (#121). `cli` et `compare` enchaîneront `exclude` puis `track_detections`.
   - `exclusion` : seul point d'entrée. `exclude` reçoit les détections, les plages
     abîmées toutes faites, le nombre d'images signalées et la `FrameRate`. Les images
     abîmées sont retirées du calcul de stabilité, puis les détections des plages
@@ -655,6 +655,44 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     la médiane comme cause est une hypothèse, non vérifiée).
   - Sur les 26 vidéos de la référence, plages instables et détections gardées sont
     égales à la v0.1.1 (test local `crates/tracking/tests/local_exclusion.rs`).
+  - `track` : `track_detections(détections, TrackConfig)` rend des `Track` numérotées à
+    partir de 1, triées par (image de début, `x` du premier point).
+    - `TrackConfig::new(max_jump, max_gap, min_hits, min_travel, twin_distance,
+      max_median_turn)`, par défaut 120, 6, 6, 45, `Some(36)` et 0,8. Les accesseurs
+      portent les noms des clés de `params.json`. `max_gap` et `min_hits` sont des
+      `NonZeroUsize`, `twin_distance` un `Option<f64>` (`None` coupe la fusion ; la
+      commande traduira `0`). Un réglage hors bornes rend `Error::Setting` avec son
+      `TrackSetting`.
+    - Écarts voulus à la v0.1.1 : NaN refusé pour `max_jump`, `min_travel` et
+      `twin_distance` ; infini refusé pour les quatre réglages `f64` ; `Some(0)` refusé
+      pour `twin_distance`, le `0` de la v0.1.1 devenant `None`.
+    - Image par image : les pistes restées plus de `max_gap` images sans détection
+      finissent. Chaque piste prédit sa position par sa vitesse sur au moins 3 images
+      (l'avant-dernier point à défaut). L'appariement est glouton sur
+      (pistes qui ont une vitesse d'abord, distance ≤ `max_jump`, ordre de création,
+      ordre des détections) ; une détection restée seule ouvre une piste.
+    - Jumelles : pistes qui coexistent, partagent au moins une image et restent à
+      ≤ `twin_distance` sur chaque image commune. Groupes par union-find sur les pistes
+      triées par image de début ; les groupes sortent dans l'ordre de leur premier membre.
+      Les points
+      d'une même image se combinent : boîte englobante, surfaces additionnées,
+      barycentre pondéré, amplitude maximale.
+    - Filtres après fusion : `min_hits`, corde ≥ `min_travel`, virage médian ≤
+      `max_median_turn` (mesures de `types::track::Track`).
+    - Limite : plusieurs seuils tombent sur une distance exacte, et `f64::hypot` peut
+      différer d'un ulp de celui de Python. Le critère des tests est l'appariement avec
+      tolérances ; l'identité est mesurée en plus.
+    - Mesure (11 octobre 2026), avec en entrée les détections brutes de la référence
+      passées par `exclude` : sur les 26 vidéos (`local_tracking.rs`), 966 pistes sur
+      966 appariées, 0 piste seule, 0 écart, et les 966 paires sont identiques au bit
+      près sur les huit champs de chaque point et sur les numéros. Les fixtures
+      (`committed_tracking.rs`) donnent 4 et 14 paires, identiques de même.
+    - Critères des tests : sur l'extrait et la 092 (`committed_tracking.rs`, en CI),
+      l'identité exacte fait échouer, en plus de l'appariement. Sur les 26 vidéos
+      (`local_tracking.rs`), l'appariement avec tolérances fait échouer et l'identité
+      est rapportée (décision de l'utilisateur, 11 octobre 2026). Une amélioration voulue
+      du suivi mettra à jour l'attendu des fixtures, avec sa justification dans la même
+      série de changements.
 - **À venir** :
   - `engine` (#116, lecture, images abîmées, détection) ;
   - `files` (#122, noms, CSV, `params.json`) ;
