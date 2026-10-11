@@ -25,10 +25,8 @@ tiny-skia = { version = "0.12.0", default-features = false, features = ["std", "
 unicode-normalization = "0.1.25"
 media = { path = "crates/media" }
 reference = { path = "crates/reference" }
+tracking = { path = "crates/tracking" }
 types = { path = "crates/types" }
-
-[workspace.metadata.cargo-shear]
-ignored = ["dhat", "rayon"]
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

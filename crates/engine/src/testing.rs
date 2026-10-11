@@ -26,6 +26,20 @@ pub(crate) fn encode(folder: &Path, frames: u8) -> PathBuf {
     path
 }
 
+pub(crate) fn binoculars(path: &Path, rate: Rational, planes: impl IntoIterator<Item = Vec<u8>>) -> PathBuf {
+    let settings = Settings::new(1440, 1080, rate, Codec::OpenH264).unwrap();
+    let mut encoder = Encoder::create(path, &settings).unwrap();
+    let mut frame = YuvFrame::new(1440, 1080, ColorRange::Limited).unwrap();
+    for plane in planes {
+        frame.y_mut().copy_from_slice(&plane);
+        frame.u_mut().fill(128);
+        frame.v_mut().fill(128);
+        encoder.push(&frame).unwrap();
+    }
+    encoder.finish().unwrap();
+    path.to_path_buf()
+}
+
 pub(crate) fn damaged(folder: &Path, from_quarter: usize, to_quarter: usize) -> PathBuf {
     let path = encode(folder, FRAMES);
     let mut bytes = fs::read(&path).unwrap();

@@ -1,7 +1,7 @@
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::{Path, PathBuf};
 
-use media::decode::{self, Decoder, FrameInfo, Threads};
+use media::decode::{self, ActiveThreads, Decoder, FrameInfo, Threads};
 use media::frame::{self, ColorRange, YuvFrame};
 use types::frame::Pts;
 use types::rate::FrameRate;
@@ -154,8 +154,17 @@ impl Input {
         &self.video
     }
 
-    pub fn read<E: From<Error>>(
+    pub fn active_threads(&self) -> ActiveThreads {
+        self.decoder.active_threads()
+    }
+
+    pub fn read<E: From<Error>>(self, visit: impl FnMut(FrameInfo, &YuvFrame) -> Result<(), E>) -> Result<Reading, E> {
+        self.read_ahead_by(READ_AHEAD, visit)
+    }
+
+    pub(crate) fn read_ahead_by<E: From<Error>>(
         self,
+        ahead: NonZeroUsize,
         mut visit: impl FnMut(FrameInfo, &YuvFrame) -> Result<(), E>,
     ) -> Result<Reading, E> {
         let Self { video, mut decoder } = self;
@@ -170,7 +179,7 @@ impl Input {
             })?;
         let mut frames = Vec::new();
         let outcome = read_ahead(
-            READ_AHEAD,
+            ahead,
             || template.clone(),
             |slot| next_frame(&mut decoder, slot, path),
             |info, frame| {
