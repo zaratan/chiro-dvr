@@ -228,3 +228,100 @@ jobs:
           key: ${{ steps.ffmpeg-key.outputs.key }}
       - run: mise run rust:ffmpeg
       - run: mise run rust:reference
+
+  rust-windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      EXTRACT: tests/fixtures/video_092_original_3m24-4m05.mp4
+      VCPKGRS_DISABLE: 1
+      LIBCLANG_PATH: C:\Program Files\LLVM\bin
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: git lfs ls-files --long --include="$EXTRACT" | cut -d ' ' -f 1 > .lfs-assets-id
+      - id: lfs-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .git/lfs
+          key: lfs-extract-${{ hashFiles('.lfs-assets-id') }}
+          enableCrossOsArchive: true
+      - run: git lfs pull --include="$EXTRACT"
+      - if: steps.lfs-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .git/lfs
+          key: lfs-extract-${{ hashFiles('.lfs-assets-id') }}
+          enableCrossOsArchive: true
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
+        with:
+          msystem: UCRT64
+          path-type: inherit
+          update: false
+          install: >-
+            make
+            diffutils
+            unzip
+            mingw-w64-ucrt-x86_64-pkgconf
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        with:
+          arch: x64
+      - shell: msys2 {0}
+        run: |
+          mv /usr/bin/link.exe /usr/bin/link-coreutils.exe
+          which -a link cl lib dumpbin pkg-config cargo || true
+      - run: rustup toolchain install && cargo --version
+      - id: ffmpeg-key
+        shell: msys2 {0}
+        run: |
+          echo "XDG_CACHE_HOME=$(cygpath -m "$RUNNER_TEMP")/cache" >> "$GITHUB_ENV"
+          fingerprint=$(bash packaging/ffmpeg-windows.sh --fingerprint)
+          image=${ImageOS:-$RUNNER_OS}
+          {
+            echo "fingerprint=$fingerprint"
+            echo "image=$image"
+            echo "key=ffmpeg-$image-$RUNNER_ARCH-$fingerprint"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target
+          key: cargo-${{ github.job }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.ffmpeg-key.outputs.image }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ steps.ffmpeg-key.outputs.fingerprint }}
+      - id: ffmpeg-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.XDG_CACHE_HOME }}/batdetect/ffmpeg
+          key: ${{ steps.ffmpeg-key.outputs.key }}
+      - shell: msys2 {0}
+        run: bash packaging/ffmpeg-windows.sh
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ffmpeg-windows-logs
+          path: ${{ env.XDG_CACHE_HOME }}/batdetect/ffmpeg/logs
+          if-no-files-found: ignore
+      - if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.XDG_CACHE_HOME }}/batdetect/ffmpeg
+          key: ${{ steps.ffmpeg-key.outputs.key }}
+      - shell: msys2 {0}
+        run: cargo test --workspace --locked --profile ci --no-fail-fast
+      - shell: msys2 {0}
+        run: cargo test --workspace --locked --profile ci --no-fail-fast --test 'slow_*' -- --include-ignored
+      - shell: msys2 {0}
+        run: |
+          cargo build --locked --profile ci -p batdetect
+          dumpbin -nologo -dependents target/ci/batdetect-rs.exe | tee target/dependents.txt
+          dlls=$(grep -Eio '[^[:space:]]+\.dll' target/dependents.txt | tr '[:upper:]' '[:lower:]' | sort -u)
+          grep -qx 'kernel32\.dll' <<< "$dlls"
+          unexpected=$(grep -Evx 'kernel32\.dll|ntdll\.dll|bcrypt\.dll|bcryptprimitives\.dll|api-ms-win-core-[a-z0-9-]+\.dll' <<< "$dlls" || true)
+          if [ -n "$unexpected" ]; then
+            echo "batdetect-rs.exe needs DLLs outside Windows itself: $unexpected" >&2
+            exit 1
+          fi
+      - shell: msys2 {0}
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings

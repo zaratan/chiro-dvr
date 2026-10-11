@@ -81,13 +81,23 @@ lancent sans lui.
 - **Version liée vérifiable** : FFmpeg est construit avec `--extra-version=<empreinte>`.
   `batdetect-rs --version` affiche donc `FFmpeg 7.1.1-<empreinte>`, et un test compare
   cette empreinte à la cible de `.ffmpeg`.
-- **Reconstruction** : cargo ne suit pas les `.a`, qu'il copie dans la rlib de
-  ffmpeg-sys-next. Quand `.ffmpeg` change de cible, le script lance
-  `cargo clean -p ffmpeg-sys-next` dans chaque profil, `target/llvm-cov-target` compris.
-  Le nettoyage passe avant le changement du lien : s'il échoue, le passage suivant le
-  refait. Après une montée de version de FFmpeg, faire un `cargo clean` complet, car les
-  liaisons de bindgen changent. Un arrêt brutal (SIGKILL, délai de la CI dépassé) peut
-  laisser un dossier `.build.*` dans le cache : il se supprime à la main.
+- **Reconstruction** : cargo ne suit pas les `.a`.
+  - La rlib de ffmpeg-sys-next n'en contient aucune copie (mesuré le 11 octobre 2026
+    sous macOS) : 5 516 320 octets, dont 5 515 160 de métadonnées (les liaisons de
+    bindgen) et un objet de 336 octets sans symbole défini. `libavcodec.a` pèse, à elle
+    seule, 13 Mo.
+  - Le build script ne déclare que des `rustc-link-lib=avcodec`, sans `static=`, avec
+    la recherche dans `.ffmpeg/lib` : les `.a` sont lus à l'édition de liens de chaque
+    binaire.
+  - Mais ni le build script ni cette édition de liens ne se refont quand les `.a`
+    changent. Un FFmpeg changé laisserait donc des binaires liés à l'ancien et des
+    liaisons tirées des anciens en-têtes.
+  - Quand `.ffmpeg` change de cible, le script lance
+    `cargo clean -p ffmpeg-sys-next` dans chaque profil, `target/llvm-cov-target` compris.
+    Le nettoyage passe avant le changement du lien : s'il échoue, le passage suivant le
+    refait. Après une montée de version de FFmpeg, faire un `cargo clean` complet, car les
+    liaisons de bindgen changent. Un arrêt brutal (SIGKILL, délai de la CI dépassé) peut
+    laisser un dossier `.build.*` dans le cache : il se supprime à la main.
 - **Cible processeur** :
   - macOS arm64 garde le défaut (`apple-m1`) ;
   - Linux x86_64 compile le Rust en `x86-64-v2` (`.cargo/config.toml`). Sans SSE4.1, le
@@ -109,6 +119,91 @@ lancent sans lui.
 
   Le binaire `release` pèse 690 576 octets, mais il ne fait que `--version` et la LTO
   retire presque tout FFmpeg : ce chiffre ne prédit pas la taille de l'outil complet.
+
+### Windows
+
+Cible `x86_64-pc-windows-msvc`, construite seulement par la CI (tâche `rust-windows`) :
+`mise` n'y tourne pas, et la construction pour un poste Windows viendra avec #93.
+
+- **Script** : `packaging/ffmpeg-windows.sh`, en bash sous MSYS2, avec MSVC dans le
+  `PATH`.
+  - Il lit le même `ffmpeg-versions`, plus deux clés `WINDOWS_NASM_*` pour le binaire
+    officiel de nasm 2.16.03. Ce préfixe reste hors du filtre de l'empreinte Unix, qui ne
+    change donc pas.
+  - Son empreinte hache le script et les clés `FFMPEG_`, `OPENH264_` et `WINDOWS_`.
+  - `pinned`, `sha256`, `fetch`, `relocate` et `clean_bindings` sont recopiées ou
+    adaptées du script Unix : un fichier commun changerait `ffmpeg-unix.sh`, donc son
+    empreinte et son cache.
+    - Adaptées : `fetch` est coupée en `download` et `fetch` ; `relocate` traite le
+      chemin sous ses deux formes, POSIX et mixte.
+    - Un correctif du script Unix se reporte donc à la main.
+  - Seule option : `--fingerprint`.
+- **Même bibliothèque C partout** : `/MT` pour openh264 (`make OS=msvc`, avec son
+  `CFLAGS_OPT` redonné sans `-Zi -FS`) et
+  pour FFmpeg (`--toolchain=msvc --extra-cflags=-MT`), `+crt-static` pour le Rust
+  (`.cargo/config.toml`, avec `target-cpu=x86-64-v2`). Le binaire ne demande donc ni
+  `vcruntime140.dll` ni l'UCRT.
+- **Liaison : deux pièges, que le script corrige après `make install`, et une
+  conséquence** :
+  - **Noms des archives.** FFmpeg nomme ses archives `libavcodec.a` même sous MSVC, alors
+    que rustc passe `avcodec.lib` à `link.exe`. Le script renomme donc `libX.a` en
+    `X.lib`.
+  - **Bibliothèques système.** Le `configure` de FFmpeg écrit les bibliothèques système
+    des `.pc` à la manière de MSVC (`bcrypt.lib`, `-libpath:`). pkg-config-rs ignore en
+    silence un `bcrypt.lib` nu, et lit `-libpath:` comme `-l` suivi de `ibpath:`. Le
+    script les réécrit en `-lbcrypt` et `-L`.
+  - **Conséquence, sans correctif à faire : la liaison reste statique.** Sans la
+    feature `static`, ffmpeg-sys-next appelle pkg-config-rs en `statik(false)`, qui
+    demande ces bibliothèques sans type, donc en dylib. Sous MSVC,
+    `link.exe` prend aussi bien une archive.
+- **Autres pièges** :
+  - Sous MSVC, ffmpeg-sys-next essaie vcpkg avant pkg-config, et `msvc-dev-cmd` (vcvars)
+    définit `VCPKG_ROOT`. La tâche pose donc `VCPKGRS_DISABLE=1`.
+  - Le `link.exe` de coreutils (MSYS2) est renommé avant toute construction. Le script
+    refuse un `link` qui n'est pas celui de Microsoft.
+  - MSYS2 réécrit en chemin tout argument qui commence par `/`. Les options de MSVC
+    s'écrivent donc `-x`, et `cmd /c` passe par `MSYS2_ARG_CONV_EXCL='*'`.
+  - Le cache se donne en chemin mixte (`D:/a/...`), puis le script le normalise par
+    `cygpath`.
+  - `LIBCLANG_PATH` pointe vers le LLVM de l'image pour bindgen.
+- **Lien `.ffmpeg`** : une jonction NTFS (`mklink /J`), qui ne demande pas de droits.
+  `fs::read_link` la lit, donc le test d'empreinte de la version liée vaut aussi sous
+  Windows.
+- **Gardes du script** :
+  - LGPL 2.1+ et `HAVE_W32THREADS 1` dans `config.h`. Le multifil n'est gardé qu'à la
+    compilation : aucun test ne vérifie que le décodage tourne sur plusieurs fils ;
+  - pkg-config, interrogé sans `--static` comme le fait cargo, ne rend ni antislash, ni `.lib` nu, ni
+    `-libpath:` ;
+  - aucune archive `.a` ne reste ;
+  - chaque `.lib` demande `LIBCMT` et jamais `MSVCRT` (`dumpbin -directives`).
+- **Fins de ligne** : l'image Windows extrait le texte en CRLF (`core.autocrlf`).
+  `.gitattributes` force `eol=lf` pour les scripts `.sh`, `ffmpeg-versions` et
+  `tests/fixtures/reference/**`.
+- **Construction suivie à l'essai.** Au plus 5 essais par méthode étaient permis :
+  FFmpeg construit par nous, puis vcpkg, puis un BtbN lié en dynamique sur décision de
+  l'utilisateur. La première méthode a abouti au 2ᵉ essai (PR #132) :
+
+  | Essai | Résultat | Cause | Correctif |
+  |---|---|---|---|
+  | 1 | échec dans le script | `unzip -d` ne crée que le dernier dossier du chemin | `mkdir -p` avant `unzip` |
+  | 2 | vert | — | — |
+  | 3 | vert, à froid puis à chaud | retouches demandées : `dumpbin` en liste blanche, clippy, openh264 sans `-Zi` | — |
+
+- **Mesures du 11 octobre 2026** (runner `windows-latest`, image `windows-2025-vs2026`
+  20260925.250.1, MSVC 14.51) :
+  - construction de FFmpeg et d'openh264 : 3 min 15 s ;
+  - tâche entière, à froid : 5 min 26 s à l'essai 2 (sans clippy), 9 min 02 s à
+    l'essai 3 (avec clippy) ;
+  - à chaud (essai 3 relancé sur le même commit, caches LFS, `target/` et FFmpeg
+    restaurés) : 1 min 53 s, sans aucun LNK4099 ;
+  - `slow_decode` : 1 230 images en 2,63 s ;
+  - dépendances du binaire : `kernel32`, `ntdll`, `bcrypt` et
+    `api-ms-win-core-synch-l1-2-0`.
+
+  À l'essai 2, chaque édition de liens affichait 65 avertissements LNK4099, un par
+  objet d'openh264 compilé en `-Zi`, dont le `.pdb` n'est pas installé. Ils étaient sans
+  effet sur le binaire, mais rustc les remonte en avertissements. Depuis l'essai 3,
+  openh264 se compile sans `-Zi -FS`, c'est-à-dire sans informations de débogage.
 
 ## Licences
 
@@ -293,15 +388,26 @@ Forme et tests :
   n'installe les outils cargo et la toolchain qu'avec `rust: true`. Premier passage
   (PR #130), sans cache de `target/` : `rust` 3 min 04 sur macOS et 3 min 46 sous Linux ;
   `rust-reference` 1 min 15.
+- **Tâche `rust-windows`**, indépendante des autres. Elle construit FFmpeg, lance les
+  tests rapides et `slow`, puis `cargo clippy -- -D warnings`.
+  - `dumpbin -dependents` n'admet que des DLL de Windows : `kernel32`, `ntdll`,
+    `bcrypt`, `bcryptprimitives` et `api-ms-win-core-*`. C'est une liste blanche, et
+    `kernel32` doit y être : le contrôle ne peut pas passer à vide.
+  - Ni couverture, ni `cargo deny`, ni `mise` : ils tournent déjà sous Unix.
+  - clippy vient en dernier, pour qu'un échec propre à Windows laisse lisibles les
+    résultats des tests.
+  - Le cache LFS de l'extrait se reprend depuis Linux (`enableCrossOsArchive`).
+  - En cas d'échec, `config.log` de FFmpeg est téléversé en artefact.
 - **Cache de `target/`** (`actions/cache`, une entrée par tâche) :
   - Il contient tout `target/` : les dépendances compilées dans chaque profil (`debug`
     pour clippy, `ci` pour les tests et le binaire), `target/llvm-cov-target` pour la
     couverture, et la rlib de ffmpeg-sys-next avec ses liaisons.
   - Il se sauve en fin de tâche réussie.
   - Sa clé porte la tâche, l'OS, l'architecture, l'image du runner (`ImageOS`), le
-    `Cargo.lock`, `rust-toolchain.toml` et **l'empreinte de FFmpeg** : la rlib de
-    ffmpeg-sys-next contient une copie des `.a`, et cargo ne la refait pas quand FFmpeg
-    change. Restaurer un `target/` construit avec un autre FFmpeg lierait donc l'ancien.
+    `Cargo.lock`, `rust-toolchain.toml` et **l'empreinte de FFmpeg**. Cargo ne suit pas
+    les `.a`. Un `target/` construit avec un autre FFmpeg garderait donc des binaires
+    déjà liés à l'ancien, et les liaisons de bindgen tirées de ses en-têtes (voir
+    « Reconstruction »).
   - Pour la même raison, la clé n'a pas de `restore-keys` : une clé partielle pourrait
     mélanger deux empreintes.
 
