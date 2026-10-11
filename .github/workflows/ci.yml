@@ -316,5 +316,12 @@ jobs:
         run: |
           cargo build --locked --profile ci -p batdetect
           dumpbin -nologo -dependents target/ci/batdetect-rs.exe | tee target/dependents.txt
-          grep -iq 'kernel32\.dll' target/dependents.txt
-          if grep -Eiq '^\s*(avcodec|avformat|avutil|swscale|openh264|vcruntime|msvcp|ucrtbase|api-ms-win-crt)' target/dependents.txt; then exit 1; fi
+          dlls=$(grep -Eio '[^[:space:]]+\.dll' target/dependents.txt | tr '[:upper:]' '[:lower:]' | sort -u)
+          grep -qx 'kernel32\.dll' <<< "$dlls"
+          unexpected=$(grep -Evx 'kernel32\.dll|ntdll\.dll|bcrypt\.dll|bcryptprimitives\.dll|api-ms-win-core-[a-z0-9-]+\.dll' <<< "$dlls" || true)
+          if [ -n "$unexpected" ]; then
+            echo "batdetect-rs.exe needs DLLs outside Windows itself: $unexpected" >&2
+            exit 1
+          fi
+      - shell: msys2 {0}
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings

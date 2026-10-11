@@ -149,6 +149,9 @@ lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:slow       # l'ex
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 092 entière
 ```
 
+Windows (MSVC, `/MT`, `+crt-static`) ne se construit que dans la tâche CI `rust-windows`,
+par `packaging/ffmpeg-windows.sh` sous MSYS2 ([docs/11](docs/11-migration-rust.md#windows)).
+
 Workspace virtuel, `members = ["crates/*"]`, toolchain de `rust-toolchain.toml`. Neuf
 crates au lot 6, dépendances à sens unique :
 

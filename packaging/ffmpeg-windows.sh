@@ -48,7 +48,8 @@ download() {
   sum=$(pinned "${name}_SHA256")
   archive=$work/downloads/$(basename "$url")
   mkdir -p "$work/downloads"
-  curl -sSfL --retry 3 --retry-all-errors --connect-timeout 20 -o "$archive" "$url"
+  curl -sSfL --retry 3 --retry-all-errors --connect-timeout 20 -o "$archive" "$url" \
+    || fail "could not download $url"
   [ "$(sha256 < "$archive")" = "$sum" ] || fail "$archive does not match its pinned sha256"
   echo "$archive"
 }
@@ -71,13 +72,14 @@ install_nasm() {
 build_openh264() {
   local work=$1 prefix=$2 jobs=$3
   fetch OPENH264 "$work"
-  make -C "$work/src/OPENH264" -j "$jobs" OS=msvc ARCH=x86_64 PREFIX="$prefix" install-static
+  make -C "$work/src/OPENH264" -j "$jobs" OS=msvc ARCH=x86_64 PREFIX="$prefix" \
+    CFLAGS_OPT="-O2 -Ob1 -Oy- -GF -GS -Gy -DNDEBUG -MT" install-static
 }
 
 keep_configure_log() {
   mkdir -p "$cache/logs"
-  cp ffbuild/config.log "$cache/logs/"
-  tail -n 80 ffbuild/config.log >&2
+  cp ffbuild/config.log "$cache/logs/" || true
+  tail -n 80 ffbuild/config.log >&2 || true
 }
 
 build_ffmpeg() {
@@ -201,7 +203,7 @@ verify() {
   for flag in $flags; do
     case $flag in
       -L* | -I*) [ -d "$(cygpath -u "${flag#-?}")" ] || fail "pkg-config points to a missing directory: $flag" ;;
-      -libpath:* | *.lib) fail "pkg-config keeps an MSVC flag that pkg-config-rs ignores: $flag" ;;
+      -libpath:* | *.lib) fail "pkg-config keeps an MSVC flag that pkg-config-rs drops or misreads: $flag" ;;
     esac
   done
   case " $flags " in *" -lopenh264 "*) ;; *) fail "libavcodec.pc does not link openh264" ;; esac
