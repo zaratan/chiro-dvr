@@ -287,8 +287,19 @@ Forme et tests :
   binaire) et tâche `rust-reference` sous Linux, après `rust`. Le cache de FFmpeg est
   restauré, puis sauvé dès la construction, même si la suite échoue. L'action `setup`
   n'installe les outils cargo et la toolchain qu'avec `rust: true`. Premier passage
-  (PR #130) : `rust` 3 min 04 sur macOS et 3 min 46 sous Linux ;
+  (PR #130), sans cache de `target/` : `rust` 3 min 04 sur macOS et 3 min 46 sous Linux ;
   `rust-reference` 1 min 15.
+- **Cache de `target/`** (`actions/cache`, une entrée par tâche) :
+  - Il contient tout `target/` : les dépendances compilées dans chaque profil (`debug`
+    pour clippy, `ci` pour les tests et le binaire), `target/llvm-cov-target` pour la
+    couverture, et la rlib de ffmpeg-sys-next avec ses liaisons.
+  - Il se sauve en fin de tâche réussie.
+  - Sa clé porte la tâche, l'OS, l'architecture, l'image du runner (`ImageOS`), le
+    `Cargo.lock`, `rust-toolchain.toml` et **l'empreinte de FFmpeg** : la rlib de
+    ffmpeg-sys-next contient une copie des `.a`, et cargo ne la refait pas quand FFmpeg
+    change. Restaurer un `target/` construit avec un autre FFmpeg lierait donc l'ancien.
+  - Pour la même raison, la clé n'a pas de `restore-keys` : une clé partielle pourrait
+    mélanger deux empreintes.
 
 ## Essai VideoToolbox
 

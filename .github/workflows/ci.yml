@@ -116,7 +116,17 @@ jobs:
       - id: ffmpeg-key
         run: |
           echo "XDG_CACHE_HOME=$HOME/.cache" >> "$GITHUB_ENV"
-          echo "key=ffmpeg-${ImageOS:-$RUNNER_OS}-$RUNNER_ARCH-$(bash packaging/ffmpeg-unix.sh --fingerprint)" >> "$GITHUB_OUTPUT"
+          fingerprint=$(bash packaging/ffmpeg-unix.sh --fingerprint)
+          image=${ImageOS:-$RUNNER_OS}
+          {
+            echo "fingerprint=$fingerprint"
+            echo "image=$image"
+            echo "key=ffmpeg-$image-$RUNNER_ARCH-$fingerprint"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target
+          key: cargo-${{ github.job }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.ffmpeg-key.outputs.image }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ steps.ffmpeg-key.outputs.fingerprint }}
       - id: ffmpeg-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -171,7 +181,17 @@ jobs:
       - id: ffmpeg-key
         run: |
           echo "XDG_CACHE_HOME=$HOME/.cache" >> "$GITHUB_ENV"
-          echo "key=ffmpeg-${ImageOS:-$RUNNER_OS}-$RUNNER_ARCH-$(bash packaging/ffmpeg-unix.sh --fingerprint)" >> "$GITHUB_OUTPUT"
+          fingerprint=$(bash packaging/ffmpeg-unix.sh --fingerprint)
+          image=${ImageOS:-$RUNNER_OS}
+          {
+            echo "fingerprint=$fingerprint"
+            echo "image=$image"
+            echo "key=ffmpeg-$image-$RUNNER_ARCH-$fingerprint"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target
+          key: cargo-${{ github.job }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.ffmpeg-key.outputs.image }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ steps.ffmpeg-key.outputs.fingerprint }}
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/batdetect/ffmpeg
