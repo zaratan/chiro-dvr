@@ -162,11 +162,12 @@ crates au lot 6, dépendances à sens unique :
   `Detection`, `FrameDetections`, `Span`, `Track`, `Language`, `SourceSize`, `WorkScale`).
   Ne dépend d'aucune autre crate du workspace.
 - `media` → `types` : seule frontière avec FFmpeg et seule crate avec `unsafe`
-  (`frame`, `decode`, `encode`, `library`).
+  (`frame`, `decode`, `encode`, `convert`, `library`) ; `convert` passe du YUV au RGBA, et retour, en BT.709.
 - `reference` → `types` : chemins des fixtures et garde LFS, lecture et écriture de la
   référence v0.1.1, appariement des détections et des pistes.
 - `engine` → `media`, `types` (#116) ; `tracking` → `types` (#120) ;
-  `files` → `types` (#122) ; `draw` (#101).
+  `files` → `types` (#122).
+- `draw` : dessin pur sur une toile RGBA opaque, police Roboto embarquée, palette et tailles ; ne dépend d'aucune crate du workspace.
 - `compare` → `engine`, `tracking`, `reference`, `types` (#119) ;
   `cli` (paquet `batdetect`, binaire `batdetect-rs`) → `engine`, `tracking`, `files`,
   `media`, `types`.

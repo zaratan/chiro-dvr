@@ -1,3 +1,4 @@
+pub mod convert;
 pub mod decode;
 pub mod decode_errors;
 pub mod encode;

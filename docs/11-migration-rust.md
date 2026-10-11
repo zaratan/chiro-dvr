@@ -218,6 +218,13 @@ Cible `x86_64-pc-windows-msvc`, construite seulement par la CI (tâche `rust-win
 - **openh264 2.6.0 en BSD-2.** Il est construit depuis les sources, donc **sans** la
   licence de brevets H.264 que Cisco n'accorde qu'à ses propres binaires. C'est une
   question pour l'utilisateur avant toute distribution, pas une décision prise ici.
+- **Roboto en SIL Open Font License 1.1** (#101).
+  - Embarquée dans `draw` : `crates/draw/fonts/Roboto.ttf`, police variable `wdth` et
+    `wght`.
+  - Licence à côté : `crates/draw/fonts/OFL.txt`.
+  - Provenance : dépôt `google/fonts`, fichier `ofl/roboto/Roboto[wdth,wght].ttf`, commit
+    `6183fc0` du 27 janvier 2026. sha256 `d7598e12…872a134`.
+  - Pas de nom de police réservé. Elle entre dans `packaging/NOTICE` à #93.
 - **Crates** : `deny.toml` n'admet que MIT, Apache-2.0 (avec ou sans LLVM-exception),
   BSD-2-Clause, BSD-3-Clause, ISC, Unicode-3.0, WTFPL (ffmpeg-next, ffmpeg-sys-next) et
   Zlib. La liste a été mesurée avec toutes les dépendances déclarées, différées
@@ -351,15 +358,24 @@ Forme et tests :
 
 - Chaque dépendance se déclare une fois dans `[workspace.dependencies]`, puis
   `x.workspace = true`. `--locked` partout.
-- Déclarées d'avance pour le lot : `rayon`, `tiny-skia`, `dhat`. Tant qu'elles ne
+- Déclarées d'avance pour le lot : `rayon`, `dhat`. Tant qu'elles ne
   servent pas, elles ne sont pas dans `Cargo.lock` : leur version n'y est pas figée.
 - `serde` sert `types` et `reference` depuis #124. `serde_json` a la feature
   `float_roundtrip` : un flottant de la référence se relit au bit près. `flate2`
   (moteur `miniz_oxide`, 100 % Rust) lit et écrit les `.gz` de la référence ; `zlib-rs`
   figure dans `Cargo.lock` sans être compilé.
 - **`ab_glyph` est retiré.** Il tire `ttf-parser`, déclaré non maintenu par
-  RUSTSEC-2026-0192 sans mise à jour sûre. L'utilisateur refuse d'ignorer l'avis : #101
-  choisira une pile de polices maintenue.
+  RUSTSEC-2026-0192 sans mise à jour sûre, et l'utilisateur refuse d'ignorer l'avis.
+- **Pile de polices de #101** (accord de la tour, 11 octobre 2026) :
+  - `skrifa` 0.48.0 (fontations de Google, MIT OR Apache-2.0), suggéré par l'avis :
+    table des caractères, métriques, contours, axes variables ;
+  - le tracé par `tiny-skia` 0.12.0 (BSD-3-Clause), sans sa feature `png` ;
+  - `unicode-normalization` 0.1.25 (MIT OR Apache-2.0) pour la forme NFC.
+  - `read-fonts` tire `yoke`, `zerofrom` et `synstructure`, sous Unicode-3.0, déjà
+    admise.
+  - Écartés : `fontdue` et `rusttype` (ils tirent `ttf-parser`), `swash` (un second
+    rastériseur à côté de tiny-skia), `icu_normalizer` (une quinzaine de crates pour une
+    seule normalisation).
 - `clap` n'a que la feature `string` ; `derive` attendra la commande complète (#123).
 - `cargo deny check` :
   - échoue sur un avis de sécurité, un paquet retiré (`yanked`), une licence hors
@@ -540,6 +556,33 @@ Mesuré le 11 octobre 2026 sur le M1 Max, sous le verrou de mesure (#111) :
 - **Budget** : repère de 4 Gio pour l'ensemble des encodeurs ouverts. La borne se décide
   dans #112, avec la plus grosse empreinte de la liste de repli.
 
+## Plage réelle des sources
+
+Mesure du 11 octobre 2026 (#101) :
+
+- 20 images par vidéo, réparties hors des plages abîmées de la référence, avec une
+  marge de 15 images.
+- Programme et table brute : `~/Projects/dvr-wt/rapports/mesure-101-plage/`
+  (`plage.tsv`).
+- Les 26 vidéos annoncent une plage limitée (`tv`), sur leur conteneur comme sur chaque
+  image.
+
+| Vidéos | Y hors 16..235 | Pire image | U/V hors 16..240 | Extrêmes |
+|---|---|---|---|---|
+| 089 à 103 | 0,92 à 1,96 % | 7,81 % (094) | 0,020 à 0,035 % | Y 0-255, U 68-146, V 98-255 |
+| 120 à 130 | 0,41 à 0,62 % | 0,75 % | 0,031 à 0,033 % | Y 0-255 (0-252 pour la 120), U 75-147, V 113-255 |
+
+- **Origine des pixels hors plage**, sur l'image 716 de l'extrait :
+  - Y < 16 : surtout le haut de l'image, arbres et ciel froids ;
+  - Y > 235 : surtout le bas, sol chaud ;
+  - c'est le contenu thermique lui-même.
+- **V à 255** : un seul petit carré, vraisemblablement une icône rouge de l'affichage des
+  jumelles.
+- **Décision de l'utilisateur** : les sources se lisent en plage pleine pour l'affichage,
+  quelle que soit leur étiquette. Les fichiers produits restent en plage limitée BT.709
+  (#111), resserrés sans écrêtage. L'application aux extraits revient à #112, celle à
+  l'image résumé à #104.
+
 ## Crates
 
 Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `media`.
@@ -635,7 +678,67 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
         `Destination`, sans essayer les encodeurs suivants.
     - **L'échec en cours d'écriture** (sessions matérielles saturées) n'est pas couvert
       par `Fallback` : il revient à #112.
+  - `convert` : `Converter` passe du YUV 4:2:0 au RGBA opaque, et retour (#101).
+    - **Matrice** : BT.709 dans les deux sens (`sws_setColorspaceDetails`), décision du
+      11 octobre 2026 (#111).
+    - **Plage lue** : un paramètre explicite (`SourceRange`), pas l'étiquette de l'image.
+      Nos jumelles se lisent en plage pleine (décision de l'utilisateur, 11 octobre
+      2026, sur la mesure de [Plage réelle des sources](#plage-réelle-des-sources)).
+    - **Plage écrite** : le retour au YUV se fait toujours en plage limitée. Une source
+      pleine y est resserrée sans rien écrêter : Y 0 devient 16 et Y 255 devient 235.
+    - Aucune allocation par image.
+    - Filtres mesurés :
+      - « point » à la montée et « area » à la descente, chrominance horizontale
+        pleine ;
+      - aplats de la palette alignés sur des blocs 2×2 : aller-retour à 2 niveaux au
+        plus, contre 34 à 143 avec le bilinéaire.
+    - Image 716 de l'extrait, sans dessin :
+      - lue en plage limitée, comme le dit son étiquette : 345 704 pixels en noir pur
+        et 9 719 en blanc pur ;
+      - lue en plage pleine : 38 et 15, exactement des pixels à Y 0 et Y 255 de la
+        source ;
+      - réécrite en plage limitée, puis relue : écart moyen de 0,086, et 0,016 % des
+        valeurs au-delà de 2 niveaux (973 sur 6,2 millions, non localisées).
   - `library` : version et licence du FFmpeg lié.
+- **`draw`** (#101) : dessin pur sur une toile RGBA, sans FFmpeg ni entrée-sortie.
+  - `text` : `Typeface::roboto`, la police embarquée.
+    - Graisses 400 pour le texte et 600 pour les numéros (choix de l'utilisateur sur la
+      planche, 11 octobre 2026).
+    - Une taille est la hauteur des chiffres en pixels. Les chiffres ont tous la même
+      largeur.
+    - Texte normalisé en NFC. Un caractère absent devient U+FFFD.
+    - Ni crénage ni placement d'accent par la table GPOS : il suffit pour des numéros et
+      des légendes en caractères précomposés.
+    - `shape` prépare un texte une fois (contours et positions), que
+      `Canvas::shaped_text` redessine sans allocation, par exemple un `#N` à chaque
+      image.
+    - `TextStyle::new` refuse une taille qui n'est pas un nombre positif.
+  - `canvas` : `Canvas`, toujours opaque, si bien que ses octets sont du RGBA simple
+    pour `media::convert`. Primitives, toutes lissées (choix de l'utilisateur, même
+    planche) :
+    - rectangle aux bords nets :
+      - 1 px couvre les pixels du bord de la boîte ;
+      - chaque pixel de plus élargit le bord vers l'extérieur, si bien que la boîte de
+        2 px (image détectée) et celle de 1 px (image interpolée) gardent le même bord
+        intérieur ;
+    - polyligne, ligne, segments chacun de son épaisseur ;
+    - une épaisseur nulle ou non finie ne dessine rien ;
+    - disque avec contour, polygone plein ou contouré ;
+    - texte ;
+    - assombrissement à 0,6, arrondi au plus proche, alors que la v0.1.1 tronque :
+      écart d'un niveau au plus (règle 5 de la charte).
+  - `color` : la palette des 12 couleurs et les couleurs des extraits et du panneau, en
+    RGB. Un test épingle chacune au BGR inversé de `output/style.py`.
+  - `style` : `style_for`, les tailles du résumé selon la largeur.
+    - Mêmes proportions que le Python ; le rayon des pastilles est mesuré avec la
+      nouvelle police.
+    - L'arrondi va à l'entier le plus loin de zéro, selon la règle 5 de la charte (pas de
+      `round_ties_even` pour copier `round()`). 1440 / 64 tombe pile sur 22,5 : en 1440,
+      rayon 23 et chiffres de 21 px, contre 22 et 20 en Python, qui arrondit au pair.
+    - `TRACK_LABEL` : le `#N` des extraits, chiffres de 17 px en graisse 600, figé par un
+      test.
+  - Choix faits sur une planche de rendus : Roboto contre Noto Sans et IBM Plex Sans,
+    sur l'image 716 de l'extrait, comparée au rendu de la v0.1.1.
 - **`reference`** → `types` : la référence v0.1.1 en Rust. Gelée pour le lot depuis
   #124, comme `types`.
   - `fixture` : chemins des fixtures et garde LFS. `location` : `committed(nom)` pour
@@ -887,7 +990,6 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       Gardé (règle 5).
 - **À venir** :
   - dans `engine` : détection (#118) ;
-  - `draw` (#101, dessin) ;
   - `compare` (#119, écarts à la référence).
 
 ## Référence v0.1.1
