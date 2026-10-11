@@ -9,7 +9,31 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      python: ${{ steps.diff.outputs.python }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          python=true
+          if [ "$EVENT" = pull_request ]; then
+            changed=$(git diff --name-only HEAD^1 HEAD)
+            pattern='^(src/|tests/|tools/|\.github/|pyproject\.toml$|uv\.lock$|mise\.toml$)'
+            grep -qE "$pattern" <<< "$changed" || python=false
+          fi
+          echo "python=$python" >> "$GITHUB_OUTPUT"
+
   static:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -21,6 +45,8 @@ jobs:
       - run: uv cache prune --ci
 
   fast-tests:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -34,6 +60,8 @@ jobs:
       - run: uv cache prune --ci
 
   slow-tests:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -61,6 +89,8 @@ jobs:
       - run: uv cache prune --ci
 
   reference:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

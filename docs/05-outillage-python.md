@@ -71,6 +71,12 @@ l'utilisateur veut un seul langage et un binaire sans Python. La réécriture a 
   `rust-reference` sous Linux ([11](11-migration-rust.md)). `mise run check` enchaîne
   en local `static`, `test:fast`, `test:slow`, puis `rust:static`, `rust:test` et
   `rust:slow`.
+- **En PR, les quatre tâches Python ne tournent que si du Python change.** Le code
+  Python est figé jusqu'à la bascule vers Rust (#106) : la tâche `changes` compare la PR
+  à sa base, et les tâches Python ne tournent que si elle touche `src/`, `tests/`,
+  `tools/`, `pyproject.toml`, `uv.lock`, `mise.toml` ou `.github/`. Sur `main`, elles
+  tournent toujours. Une tâche sautée compte comme réussie pour les tâches requises de la
+  règle de branche. Un filtre `paths:` sur le workflow, lui, les laisserait en attente.
 - **ffmpeg statique, plus d'`apt-get`.** Le 8 octobre 2026, la tâche `fast-tests` de la
   PR #50 a atteint son délai de 10 min pendant `apt-get install ffmpeg`, à cause d'un miroir
   Azure lent. L'étape prenait d'habitude 22 à 35 s. L'action `setup` installe désormais
