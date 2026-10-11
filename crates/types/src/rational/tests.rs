@@ -1,6 +1,6 @@
 use proptest::prelude::*;
 
-use super::{Error, Rational, gcd};
+use super::{Error, ParseError, Rational, gcd};
 
 #[test]
 fn a_zero_denominator_is_refused() {
@@ -44,6 +44,13 @@ fn the_most_negative_numerator_reduces_when_it_can() {
 
 proptest! {
     #[test]
+    fn a_printed_rate_reads_back_to_itself(num: i32, den: i32) {
+        if let Ok(rate) = Rational::new(num, den) {
+            prop_assert_eq!(rate.to_string().parse::<Rational>(), Ok(rate));
+        }
+    }
+
+    #[test]
     fn equal_rates_compare_equal_whatever_their_terms(
         num in -10_000_i32..=10_000,
         den in -10_000_i32..=10_000,
@@ -65,4 +72,43 @@ proptest! {
             Err(Error::OutOfRange { .. }) => prop_assert!(den == -1 || den == i32::MIN || num == i32::MIN),
         }
     }
+}
+
+#[test]
+fn a_rate_reads_as_ffprobe_writes_it() {
+    assert_eq!(
+        "90110000/3000927".parse(),
+        Rational::new(90_110_000, 3_000_927).map_err(ParseError::from)
+    );
+}
+
+#[test]
+fn a_rate_without_a_slash_is_refused() {
+    let error = "30".parse::<Rational>().unwrap_err();
+    assert_eq!(error, ParseError::NoSlash("30".to_owned()));
+    assert_eq!(error.to_string(), "\"30\" is not written as num/den");
+}
+
+#[test]
+fn a_term_that_is_not_an_integer_is_refused() {
+    assert!(matches!("x/1".parse::<Rational>(), Err(ParseError::Term { .. })));
+    assert!(matches!(
+        "1/9999999999".parse::<Rational>(),
+        Err(ParseError::Term { .. })
+    ));
+}
+
+#[test]
+fn an_unknown_rate_written_0_over_0_is_refused() {
+    assert_eq!(
+        "0/0".parse::<Rational>(),
+        Err(ParseError::Value(Error::ZeroDenominator))
+    );
+}
+
+#[test]
+fn a_rate_is_a_json_string() {
+    let rate: Rational = serde_json::from_str("\"10000/333\"").unwrap();
+    assert_eq!(serde_json::to_string(&rate).unwrap(), "\"10000/333\"");
+    assert!(serde_json::from_str::<Rational>("\"30\"").is_err());
 }

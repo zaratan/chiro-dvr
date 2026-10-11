@@ -13,10 +13,11 @@ publish = false
 clap = { version = "4.6.7", features = ["string"] }
 dhat = "0.3.3"
 ffmpeg-next = { version = "9.0.0", default-features = false, features = ["codec", "format", "software-scaling"] }
+flate2 = "1.1.10"
 proptest = "1.11.0"
 rayon = "1.12.0"
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
 tempfile = "3.27.0"
 thiserror = "2.0.21"
 tiny-skia = "0.12.0"
@@ -25,7 +26,7 @@ reference = { path = "crates/reference" }
 types = { path = "crates/types" }
 
 [workspace.metadata.cargo-shear]
-ignored = ["dhat", "rayon", "serde", "serde_json", "tiny-skia"]
+ignored = ["dhat", "rayon", "tiny-skia"]
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

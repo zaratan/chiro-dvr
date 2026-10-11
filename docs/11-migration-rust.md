@@ -218,8 +218,8 @@ Sûreté et erreurs :
 
 Types et calcul :
 
-13. L'index d'image (ordre de décodage) et le `pts` ont chacun leur type (`FrameIndex`,
-    `Pts`). Pas de sentinelle : `Option<Pts>`.
+13. L'index d'image (ordre d'affichage, celui où le décodeur rend les images) et le `pts`
+    ont chacun leur type (`FrameIndex`, `Pts`). Pas de sentinelle : `Option<Pts>`.
 14. Hors de la détection, tout est en pixels de la vidéo d'origine. Seul `WorkScale`
     passe des pixels de travail aux pixels d'origine.
 15. Conversions : `From` quand elle existe. Un `as` qui perd de l'information suit un
@@ -252,9 +252,12 @@ Forme et tests :
 
 - Chaque dépendance se déclare une fois dans `[workspace.dependencies]`, puis
   `x.workspace = true`. `--locked` partout.
-- Déclarées d'avance pour le lot : `rayon`, `serde`, `serde_json`, `tiny-skia`, `dhat`.
-  Tant qu'elles ne servent pas, elles ne sont pas dans `Cargo.lock` : leur version n'y
-  est pas figée.
+- Déclarées d'avance pour le lot : `rayon`, `tiny-skia`, `dhat`. Tant qu'elles ne
+  servent pas, elles ne sont pas dans `Cargo.lock` : leur version n'y est pas figée.
+- `serde` sert `types` et `reference` depuis #124. `serde_json` a la feature
+  `float_roundtrip` : un flottant de la référence se relit au bit près. `flate2`
+  (moteur `miniz_oxide`, 100 % Rust) lit et écrit les `.gz` de la référence ; `zlib-rs`
+  figure dans `Cargo.lock` sans être compilé.
 - **`ab_glyph` est retiré.** Il tire `ttf-parser`, déclaré non maintenu par
   RUSTSEC-2026-0192 sans mise à jour sûre. L'utilisateur refuse d'ignorer l'avis : #101
   choisira une pile de polices maintenue.
@@ -275,6 +278,7 @@ Forme et tests :
 | slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv` |
 | reference | `tests/reference_*.rs`, `#[ignore = "reference"]` | `mise run rust:reference` | la 092 : 9 011 images, cadence moyenne 90110000/3000927 |
 | matériel | `tests/hardware_*.rs`, `#[ignore = "hardware"]` | étape d'essai de la CI macOS | VideoToolbox sans repli logiciel |
+| local | `tests/local_*.rs`, `#[ignore = "local"]` | `BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… cargo test -p reference --locked --profile ci --test 'local_*' -- --include-ignored` | les 26 vidéos de la référence, hors dépôt, jamais en CI |
 
 - Le niveau d'un test se choisit par le nom de son fichier. Ajouter un test ne demande
   de toucher ni la CI ni `mise.toml`.
@@ -320,9 +324,31 @@ Forme et tests :
 
 Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `media`.
 
-- **`types`** : vocabulaire commun. En #95, `Rational` seulement : réduit à la
-  construction, dénominateur positif, sans débordement (`OutOfRange` plutôt qu'une
-  panique). V ajoute le reste (`FrameIndex`, `Pts`, `Span`…).
+- **`types`** : vocabulaire commun, sans entrée-sortie ni algorithme de détection. Un
+  type n'y entre que s'il est produit par une crate et lu par au moins deux autres. Gelé
+  pour le lot depuis #124 : un besoin imprévu passe par une petite PR fusionnée d'abord.
+  - `Rational` : réduit à la construction, dénominateur positif, sans débordement
+    (`OutOfRange` plutôt qu'une panique). S'écrit et se lit `num/den`, comme ffprobe.
+  - `FrameIndex` (ordre où le décodeur rend les images, c'est-à-dire l'ordre
+    d'affichage, à partir de 0) et `Pts` (ticks de la base de
+    temps). En JSON, des nombres.
+  - `FrameRate` : cadence positive ; son propre type, pour qu'elle ne s'échange pas avec
+    la base de temps.
+  - `Timeline` : `pts` de chaque image (`Option<Pts>`), base de temps positive et
+    `FrameRate` (`avg_frame_rate`). Deux temps : `seconds_by_pts`, et `seconds_by_rate`
+    (numéro ÷ cadence), celui des temps du CSV de la v0.1.1.
+  - `Detection` : `frame`, barycentre `x`, `y`, boîte `left`, `top`, `width`, `height`,
+    `area` et `amplitude`, en `f64` et en pixels de la vidéo d'origine.
+    `FrameDetections` : une liste par image, images vides comprises, ordre gardé ; une
+    détection rangée sous une autre image est refusée.
+  - `Span` : plage d'images, bornes comprises, refusée si elle finit avant de commencer.
+  - `Track` : numéro et points, au moins un, images strictement croissantes. Mesures :
+    corde, longueur du trajet, surface maximale, amplitude de crête, virage médian
+    (médiane des changements de cap, positions répétées ignorées, 0 sans virage).
+  - `Language` (français, anglais), `SourceSize` et `WorkScale` : taille de travail
+    (largeur demandée sans agrandir, hauteur arrondie, au moins 1), et seul passage des
+    pixels de travail aux pixels d'origine (coordonnée `(c + 0,5) × échelle − 0,5`,
+    longueur × échelle, surface × échelle²).
 - **`media`** : frontière avec FFmpeg ; aucun type de `ffmpeg_next` n'en sort. Une
   erreur par module.
   - `frame` : `YuvFrame`, 4:2:0 planaire sans `stride`, avec sa plage de couleur.
@@ -345,8 +371,39 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     - openh264 n'écrit pas la plage d'une vidéo en plage limitée : relue, elle est
       `Unspecified`, ce qui veut dire limitée en H.264. #111 décidera s'il faut l'écrire.
   - `library` : version et licence du FFmpeg lié.
-- **`reference`** : chemins des fixtures et garde LFS. V y ajoute le format de la
-  référence v0.1.1 et l'appariement.
+- **`reference`** → `types` : la référence v0.1.1 en Rust. Gelée pour le lot depuis
+  #124, comme `types`.
+  - `fixture` : chemins des fixtures et garde LFS. `location` : `committed(nom)` pour
+    l'extrait et la 092 du dépôt, `recording_directories()` pour les dossiers `data/*`
+    de `BATDETECT_REFERENCE_DIR`, triés par nom ; une variable absente ou vide est
+    refusée. `recorded_video(nom)` trouve le `.mp4` d'un enregistrement par son nom
+    (`video.name` de `video.json`) dans le dossier de `BATDETECT_VIDEOS_DIR` (sur le Mac
+    de l'enregistrement : `~/dossier sans titre/img_0000/`), avec le même refus d'une
+    variable absente ou vide.
+  - Lecture et écriture des quatre fichiers, un module chacun : `video`
+    (`VideoSummary`), `frames` (`Frames` : table par image et `FrameDetections`, de même
+    longueur, vérifiée par `Frames::new`),
+    `tracks`, `table` (CSV, fins de ligne CRLF, flottants à l'écriture la plus courte).
+    `recording` les réunit et donne la `Timeline`. Un nom en `.gz` est compressé
+    (gzip sans nom ni date) ; les sections sans type de `video.json` (décodeur, réglages,
+    versions) sont gardées telles quelles dans `recorded`. Relus puis réécrits, les
+    fichiers redonnent les mêmes valeurs.
+  - Pas d'affirmation « points d'une piste ⊂ détections » : les points des pistes
+    jumelles fusionnées sont combinés (17 sur 358 dans l'extrait, 63 sur 610 dans la
+    092).
+  - `detection_matching` : même image, distance strictement inférieure à 3 px, chaque
+    détection appariée au plus une fois, la plus proche d'abord ; rend les paires et les
+    détections seules de chaque côté. Une position non finie reste seule. Un à un,
+    contrairement au prototype (plus proche voisin sans exclusivité) : écart mesuré par la
+    revue de #124 sous 0,01 % (8 détections sur 542 261 pour la 103, décalées d'1 px).
+    Les écarts de détections n'ont pas de type : `compare` en tire le temps par
+    `Detection::frame` et la `Timeline`.
+  - `track_matching` : début à ±5 images, le plus proche d'abord puis l'écart de points
+    le plus faible ; une paire s'accorde si ses points diffèrent de 3 au plus. Glouton,
+    comme le prototype : deux pistes à moins de 10 images l'une de l'autre peuvent
+    laisser une paire possible de côté (test qui le fige). Les écarts
+    à juger (piste manquée, en trop, points hors tolérance) portent la vidéo, l'image de
+    début et son temps par la cadence (`FrameRate::seconds`), triés par image.
 - **`cli`** : paquet `batdetect`, binaire `batdetect-rs`. En #95, `--version` affiche la
   version et la ligne de licence de FFmpeg. Tout texte vu par l'utilisateur vit dans
   `messages.rs`.
@@ -360,4 +417,6 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
 ## Référence v0.1.1
 
 Format, emplacement et versions de la référence que le Rust doit égaler : README de
-`tests/fixtures/reference/` (#94).
+`tests/fixtures/reference/` (#94). La crate `reference` la lit ; le test local
+`crates/reference/tests/local_reference.rs` relit les 26 vidéos (966 pistes) et les
+apparie chacune à elle-même.
