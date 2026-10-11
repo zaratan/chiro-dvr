@@ -315,6 +315,102 @@ Forme et tests :
   étape qui bloque la CI (décision de l'utilisateur, 11 octobre 2026). Si elle casse à
   cause d'une machine de GitHub plutôt que du code, la question se rouvre avec
   l'utilisateur.
+- **Depuis #111**, l'étape matérielle encode 120 images de l'extrait (images 660 à 779)
+  au réglage de production, q65 sans repli logiciel, puis les relit. Elle vérifie le
+  nombre d'images, la taille, la cadence 10000/333 exacte, la plage limitée et un PSNR de
+  luminance supérieur à 37,9 dB. Sur le M1 Max, on mesure 38,9 dB en q65 et 34,9 dB sans
+  q65. #19 se ferme avec la PR de #111.
+- **#111 retire le repli logiciel** (`allow_software`, décision de l'utilisateur,
+  11 octobre 2026) : le logiciel d'Apple refuse q65. `Codec::VideoToolbox` est donc le
+  matériel seul, et les tests rapides de VideoToolbox sur macOS passent eux aussi par le
+  matériel. Le test lent d'openh264 relit le même passage, avec un seuil de 39,1 dB :
+  - mesuré sur le M1 Max : 39,53 dB à QP 23 et 38,69 dB à QP 24 ;
+  - le seuil, à mi-chemin, rejette un QP qui ne serait pas appliqué ;
+  - l'openh264 x86 de la CI Linux reste à confirmer au premier passage.
+
+## Encodage
+
+Mesuré le 11 octobre 2026 sur le M1 Max, sous le verrou de mesure (#111) :
+
+- **Programme** : `~/Projects/dvr-wt/rapports/mesure-111/`, hors du dépôt. Il contient le
+  programme Rust jetable, lié au même FFmpeg, les scripts `one.sh` et `xpc.sh`, les
+  journaux et `RESULTATS.md`.
+- **SSIM** : filtre `ssim` du ffmpeg de Homebrew 9.0.2. Chaque sortie est comparée à
+  l'extrait d'origine (1 230 images).
+- **Temps** : médiane de 3 passages. Le décodage seul (6,98 s) est retranché.
+
+| Encodeur | Réglage | SSIM All (Y) | Taille | Encodage | CPU | Mémoire par encodeur |
+|---|---|---|---|---|---|---|
+| VideoToolbox matériel | q65, `allow_sw=0` | 0,9792 (0,9688) | 105,4 Mo | +0,4 s | ≈ 0 | ≈ 180 Mo |
+| Logiciel d'Apple | `require_sw=1`, 20 Mb/s | 0,9809 (0,9714) | 105,5 Mo | 6,5 s | 54,8 s | ≈ 495 Mo |
+| openh264 | profil high, QP 23 | 0,9799 (0,9698) | 136,9 Mo | 16,8 s | 16,3 s | ≈ 16 Mo |
+
+**Réglages retenus**, sans option pour l'utilisateur :
+
+- **VideoToolbox matériel q65, puis openh264 QP 23** (décision de l'utilisateur,
+  11 octobre 2026).
+  - La cible d'openh264 est le SSIM de VideoToolbox q65 remesuré dans le moteur Rust
+    (0,9792), avec 0,977 comme plancher.
+  - Le 0,977 de [docs/09](09-profilage.md) passait par le BGR du Python et ne se compare
+    pas tel quel.
+  - QP 24 donne 0,9761. Il faut 28 Mb/s pour égaler QP 23 en débit, et le fichier pèse
+    alors 143 Mo.
+  - **Validé à l'œil** par l'utilisateur le 11 octobre 2026 : « Franchement c'est
+    pareil ».
+    - Passage comparé : la piste 0:23.48 de l'extrait, la moins contrastée (17 points,
+      amplitude 68,7), images 660 à 767.
+    - Fichiers : 9,3 Mo en VideoToolbox q65, 12,1 Mo en openh264 QP 23.
+- **Pourquoi openh264 plutôt que le logiciel d'Apple** pour le repli :
+  - 30 fois moins de mémoire et 3 fois moins de CPU ;
+  - le même encodeur que sous Linux, donc testé partout ;
+  - le prix : des fichiers 30 % plus gros.
+- **Le logiciel d'Apple refuse q65** : l'ouverture échoue avec `-12900` (propriété
+  `Quality` non gérée). Il ne marche donc qu'en débit fixé.
+- **Couleur** : plage limitée, et BT.709 pour la matrice, le transfert et les primaires,
+  écrits dans le flux H.264 par les deux encodeurs (décision du 11 octobre 2026).
+  Hypothèse : toutes les sources sont en BT.709, ce qui est vérifié sur les 27 vidéos
+  connues.
+
+**Pièges de FFmpeg 7.1.1 relevés en mesurant** :
+
+- **`allow_sw` ne choisit pas le logiciel d'Apple.**
+  - `allow_sw=1` prend le matériel s'il répond.
+  - Seul `require_sw=1` force le logiciel.
+  - `allow_sw=0` exige le matériel.
+- **q65 dans le processus** : `global_quality = 65 × FF_QP2LAMBDA` plus le drapeau
+  `QSCALE`. Ce réglage n'existe que sur arm64.
+- **Profil d'openh264** : sans réglage, il encode en Constrained Baseline (CAVLC). Le
+  profil high (CABAC) donne le même SSIM et un fichier 8 % plus petit, mais il encode
+  38 % plus lentement (16,8 s contre 12,2 s).
+- **QP d'openh264** :
+  - `rc_mode=off` laisse le QP à 26 quel que soit `qmin`/`qmax` ;
+  - `rc_mode=quality` avec `qmin = qmax` applique le QP aux images I et P. Vérifié
+    par `trace_headers`.
+- **Fils d'openh264** : avec une tranche par image, ils ne changent rien (même fichier à
+  l'octet, même temps). Le parallélisme vient de plusieurs extraits à la fois.
+- **Options inconnues** : `open_with` les ignore sans erreur. Les tests relisent donc le
+  profil et le PSNR.
+
+**Encodeurs simultanés** (K encodeurs de 300 images chacun) :
+
+- **Mémoire relevée** : le pic du processus, plus l'empreinte du service
+  `VTEncoderXPCService` où tourne VideoToolbox.
+  - openh264 : ≈ 16 Mo par encodeur.
+  - Matériel : ≈ 130 Mo dans le service et ≈ 48 Mo dans le processus.
+  - Logiciel d'Apple : ≈ 480 Mo dans le service et ≈ 15 Mo dans le processus.
+  - Le matériel fait aussi monter la mémoire câblée du système, de +0,7 à +3,4 Go selon
+    K. La mesure est trop bruitée pour l'attribuer : elle n'entre pas dans
+    `Codec::footprint`.
+  - `Codec::footprint` vaut 17 Mo pour openh264 (16,3 Mo mesurés, arrondis au-dessus) et
+    180 Mo pour VideoToolbox.
+- **Sessions matérielles** : 17 tiennent sur le M1 Max.
+  - À partir de 18, toutes s'ouvrent, puis l'envoi d'images échoue (`-17691`).
+  - Le repli à l'ouverture ne couvre donc pas ce cas : #112 borne les sessions ou refait
+    l'extrait. Le seuil de la machine cible n'est pas mesuré.
+- **Charge réelle** : la 125 (47 pistes, 39 zooms) n'a jamais plus de 8 fenêtres ouvertes
+  à la fois.
+- **Budget** : repère de 4 Gio pour l'ensemble des encodeurs ouverts. La borne se décide
+  dans #112, avec la plus grosse empreinte de la liste de repli.
 
 ## Crates
 
@@ -338,12 +434,30 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     - Formats : `yuv420p` seul, `yuvj420p` lu comme plage pleine.
   - `encode` : `Settings::new` (taille paire, cadence positive), puis
     `Encoder::create`, `push` et `finish`, en openh264 ou VideoToolbox.
+    - Réglages fixes, détaillés dans [Encodage](#encodage) :
+      - VideoToolbox en q65, matériel seul (`allow_sw=0`) ;
+      - openh264 en profil high, `rc_mode=quality`, QP 23.
     - Le fichier s'écrit sous un nom temporaire ; seul `finish` lui donne son nom.
-    - Une image en plage pleine est refusée (`FullRange`) : l'encodeur écrit en plage
-      limitée, et la plage n'est pas encore un réglage.
+    - Une image en plage pleine est refusée (`FullRange`). L'encodeur écrit une plage
+      limitée en BT.709, dans le flux H.264.
     - Un paquet sans durée reçoit une durée d'une image.
-    - openh264 n'écrit pas la plage d'une vidéo en plage limitée : relue, elle est
-      `Unspecified`, ce qui veut dire limitée en H.264. #111 décidera s'il faut l'écrire.
+    - La cadence est un rationnel exact : 10000/333 et 2500/333 se relisent à
+      l'identique.
+    - `Encoder::codec` dit quel encodeur écrit.
+    - `Codec::footprint` donne la mémoire d'un encodeur ouvert en octets, mesurée en
+      1440×1080, service hors du processus compris.
+    - `encode::fallback::Fallback` est la liste ordonnée d'encodeurs, injectable :
+      - `for_this_platform` donne `[VideoToolbox matériel, openh264]` sur macOS, et
+        `[openh264]` ailleurs ;
+      - `trial` encode quelques images grises jusqu'à `finish` avec chacun, et retire en
+        tête de liste ceux qui échouent. C'est l'essai au démarrage ;
+      - `create` ouvre le premier qui répond. C'est le repli à l'ouverture de chaque
+        extrait. Un refus ne retire pas l'encodeur de la liste ;
+      - si aucun ne répond, `NoEncoder` liste chaque encodeur avec sa cause ;
+      - une destination inutilisable (dossier absent, chemin refusé) rend tout de suite
+        `Destination`, sans essayer les encodeurs suivants.
+    - **L'échec en cours d'écriture** (sessions matérielles saturées) n'est pas couvert
+      par `Fallback` : il revient à #112.
   - `library` : version et licence du FFmpeg lié.
 - **`reference`** : chemins des fixtures et garde LFS. V y ajoute le format de la
   référence v0.1.1 et l'appariement.

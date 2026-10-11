@@ -1,30 +1,19 @@
 #![cfg(target_os = "macos")]
 
-use media::decode::Decoder;
-use media::encode::{Codec, Encoder, Settings};
-use media::frame::{ColorRange, YuvFrame};
-use types::rational::Rational;
+use media::encode::Codec;
+use media::encode::fallback::Fallback;
+
+#[cfg(test)]
+#[path = "support/round_trip.rs"]
+mod round_trip;
+
+const VIDEOTOOLBOX_LUMA_PSNR: f64 = 37.9;
 
 #[test]
 #[ignore = "hardware"]
-fn videotoolbox_without_software_fallback_encodes_one_second() {
-    let folder = tempfile::tempdir().unwrap();
-    let path = folder.path().join("hardware.mp4");
-    let codec = Codec::VideoToolbox { allow_software: false };
-    let settings = Settings::new(1440, 1080, Rational::new(10_000, 333).unwrap(), codec).unwrap();
-    let mut encoder = Encoder::create(&path, &settings).unwrap();
-    let mut frame = YuvFrame::new(1440, 1080, ColorRange::Limited).unwrap();
-    for index in 0..30_u8 {
-        frame.y_mut().fill(16 + index * 7);
-        frame.u_mut().fill(128);
-        frame.v_mut().fill(128);
-        encoder.push(&frame).unwrap();
-    }
-    encoder.finish().unwrap();
-    let mut decoder = Decoder::open(&path).unwrap();
-    let mut frames = 0;
-    while decoder.next(&mut frame).unwrap().is_some() {
-        frames += 1;
-    }
-    assert_eq!(frames, 30);
+fn a_passage_of_the_extract_encoded_by_the_videotoolbox_hardware_at_q65_reads_back_whole_at_the_source_rate() {
+    let hardware = Codec::VideoToolbox;
+    let (stream, luma_psnr) = round_trip::round_trip(&Fallback::new(vec![hardware]).unwrap());
+    assert_eq!(stream, round_trip::expected(hardware));
+    assert!(luma_psnr > VIDEOTOOLBOX_LUMA_PSNR, "luma PSNR {luma_psnr}");
 }

@@ -3,7 +3,7 @@ use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 
 use ffmpeg::format::Pixel;
-use ffmpeg::util::color::Range;
+use ffmpeg::util::color::{Primaries, Range, Space, TransferCharacteristic};
 use ffmpeg::util::error::EAGAIN;
 use ffmpeg_next as ffmpeg;
 use tempfile::TempPath;
@@ -13,8 +13,14 @@ use crate::failure::LibraryError;
 use crate::frame::{ColorRange, YuvFrame};
 use crate::{init, path, planes};
 
+pub mod fallback;
 #[cfg(test)]
 mod tests;
+
+const VIDEOTOOLBOX_QUALITY: i32 = 65;
+const OPENH264_QP: i32 = 23;
+const OPENH264_FOOTPRINT: u64 = 17_000_000;
+const VIDEOTOOLBOX_FOOTPRINT: u64 = 180_000_000;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -64,15 +70,50 @@ pub enum Error {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Codec {
     OpenH264,
-    VideoToolbox { allow_software: bool },
+    VideoToolbox,
 }
 
 impl Codec {
+    /// Bytes one open 1440×1080 encoder holds, measured on the extract, outside-process service included.
+    pub fn footprint(self) -> u64 {
+        match self {
+            Self::OpenH264 => OPENH264_FOOTPRINT,
+            Self::VideoToolbox => VIDEOTOOLBOX_FOOTPRINT,
+        }
+    }
+
     fn encoder_name(self) -> &'static str {
         match self {
             Self::OpenH264 => "libopenh264",
-            Self::VideoToolbox { .. } => "h264_videotoolbox",
+            Self::VideoToolbox => "h264_videotoolbox",
         }
+    }
+
+    fn tune(self, context: &mut ffmpeg::encoder::video::Video) -> (ffmpeg::codec::Flags, ffmpeg::Dictionary<'static>) {
+        let mut options = ffmpeg::Dictionary::new();
+        match self {
+            Self::OpenH264 => {
+                context.set_qmin(OPENH264_QP);
+                context.set_qmax(OPENH264_QP);
+                options.set("profile", "high");
+                options.set("rc_mode", "quality");
+                (ffmpeg::codec::Flags::empty(), options)
+            }
+            Self::VideoToolbox => {
+                context.set_global_quality(VIDEOTOOLBOX_QUALITY * ffmpeg::ffi::FF_QP2LAMBDA);
+                options.set("allow_sw", "0");
+                (ffmpeg::codec::Flags::QSCALE, options)
+            }
+        }
+    }
+}
+
+impl fmt::Display for Codec {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::OpenH264 => "openh264",
+            Self::VideoToolbox => "VideoToolbox hardware",
+        })
     }
 }
 
@@ -100,12 +141,16 @@ impl Settings {
             codec,
         })
     }
+
+    pub(crate) fn with_codec(self, codec: Codec) -> Self {
+        Self { codec, ..self }
+    }
 }
 
 /// Writes an H.264 mp4 under a temporary name in the destination folder; only `finish` gives it its name.
 pub struct Encoder {
     output: ffmpeg::format::context::Output,
-    codec: ffmpeg::encoder::Video,
+    context: ffmpeg::encoder::Video,
     frame: ffmpeg::frame::Video,
     stream: usize,
     codec_time_base: ffmpeg::Rational,
@@ -113,6 +158,7 @@ pub struct Encoder {
     next_pts: i64,
     temporary: TempPath,
     destination: PathBuf,
+    codec: Codec,
 }
 
 impl fmt::Debug for Encoder {
@@ -120,6 +166,7 @@ impl fmt::Debug for Encoder {
         formatter
             .debug_struct("Encoder")
             .field("destination", &self.destination)
+            .field("codec", &self.codec)
             .finish_non_exhaustive()
     }
 }
@@ -127,7 +174,8 @@ impl fmt::Debug for Encoder {
 impl Encoder {
     pub fn create(path: &Path, settings: &Settings) -> Result<Self, Error> {
         init::ffmpeg();
-        let name = settings.codec.encoder_name();
+        let kind = settings.codec;
+        let name = kind.encoder_name();
         let codec = ffmpeg::encoder::find_by_name(name).ok_or(Error::EncoderMissing { name })?;
         let unusable = || Error::UnusablePath {
             path: path.to_path_buf(),
@@ -165,15 +213,16 @@ impl Encoder {
         context.set_height(settings.height.get());
         context.set_format(Pixel::YUV420P);
         context.set_color_range(Range::MPEG);
+        context.set_colorspace(Space::BT709);
+        context.set_color_primaries(Primaries::BT709);
+        context.set_color_transfer_characteristic(TransferCharacteristic::BT709);
         context.set_time_base(codec_time_base);
         context.set_frame_rate(Some(ffmpeg::Rational::new(rate.num(), rate.den())));
+        let (mut flags, options) = kind.tune(&mut context);
         if output.format().flags().contains(ffmpeg::format::Flags::GLOBAL_HEADER) {
-            context.set_flags(ffmpeg::codec::Flags::GLOBAL_HEADER);
+            flags |= ffmpeg::codec::Flags::GLOBAL_HEADER;
         }
-        let mut options = ffmpeg::Dictionary::new();
-        if let Codec::VideoToolbox { allow_software } = settings.codec {
-            options.set("allow_sw", if allow_software { "1" } else { "0" });
-        }
+        context.set_flags(flags);
         let encoder = context.open_with(options).map_err(failed)?;
         let mut stream = output.add_stream(codec).map_err(failed)?;
         stream.set_parameters(&encoder);
@@ -186,7 +235,7 @@ impl Encoder {
         let frame = ffmpeg::frame::Video::new(Pixel::YUV420P, settings.width.get(), settings.height.get());
         Ok(Self {
             output,
-            codec: encoder,
+            context: encoder,
             frame,
             stream: index,
             codec_time_base,
@@ -194,7 +243,12 @@ impl Encoder {
             next_pts: 0,
             temporary,
             destination: path.to_path_buf(),
+            codec: kind,
         })
+    }
+
+    pub fn codec(&self) -> Codec {
+        self.codec
     }
 
     pub fn push(&mut self, frame: &YuvFrame) -> Result<(), Error> {
@@ -220,7 +274,7 @@ impl Encoder {
         }
         self.frame.set_pts(Some(self.next_pts));
         self.next_pts += 1;
-        self.codec
+        self.context
             .send_frame(&self.frame)
             .map_err(LibraryError::new)
             .map_err(Error::Encode)?;
@@ -228,7 +282,7 @@ impl Encoder {
     }
 
     pub fn finish(mut self) -> Result<(), Error> {
-        self.codec
+        self.context
             .send_eof()
             .map_err(LibraryError::new)
             .map_err(Error::Encode)?;
@@ -266,7 +320,7 @@ impl Encoder {
     fn drain(&mut self) -> Result<(), Error> {
         loop {
             let mut packet = ffmpeg::Packet::empty();
-            match self.codec.receive_packet(&mut packet) {
+            match self.context.receive_packet(&mut packet) {
                 Ok(()) => self.write(packet)?,
                 Err(ffmpeg::Error::Eof) => return Ok(()),
                 Err(ffmpeg::Error::Other { errno }) if errno == EAGAIN => return Ok(()),

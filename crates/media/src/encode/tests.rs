@@ -1,5 +1,8 @@
 use std::fs;
+use std::path::{Path, PathBuf};
 
+use ffmpeg::util::color::{Primaries, Range, Space, TransferCharacteristic};
+use ffmpeg_next as ffmpeg;
 use types::rational::Rational;
 
 use super::{Codec, Encoder, Error, Settings};
@@ -11,7 +14,7 @@ fn thirty() -> Rational {
     Rational::new(30, 1).unwrap()
 }
 
-fn decoded_frames(path: &std::path::Path) -> (u32, u32, u32) {
+fn decoded_frames(path: &Path) -> (u32, u32, u32) {
     let mut decoder = Decoder::open(path).unwrap();
     let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     let mut count = 0;
@@ -86,7 +89,7 @@ fn a_destination_in_a_missing_folder_is_refused() {
 #[test]
 fn a_destination_ffmpeg_cannot_take_is_refused() {
     let settings = Settings::new(WIDTH, HEIGHT, thirty(), Codec::OpenH264).unwrap();
-    let path = std::path::Path::new("cl\0ip.mp4");
+    let path = Path::new("cl\0ip.mp4");
     assert!(matches!(
         Encoder::create(path, &settings),
         Err(Error::UnusablePath { .. })
@@ -95,17 +98,16 @@ fn a_destination_ffmpeg_cannot_take_is_refused() {
 
 #[cfg(target_os = "macos")]
 #[test]
-fn videotoolbox_with_software_fallback_encodes_one_second() {
+fn videotoolbox_hardware_at_q65_encodes_one_second() {
     let folder = tempfile::tempdir().unwrap();
-    let path = testing::encode(folder.path(), Codec::VideoToolbox { allow_software: true }, 30);
+    let path = testing::encode(folder.path(), Codec::VideoToolbox, 30);
     assert_eq!(decoded_frames(&path), (30, WIDTH, HEIGHT));
 }
 
 #[cfg(not(target_os = "macos"))]
 #[test]
 fn videotoolbox_is_missing_outside_macos() {
-    let codec = Codec::VideoToolbox { allow_software: true };
-    let settings = Settings::new(WIDTH, HEIGHT, thirty(), codec).unwrap();
+    let settings = Settings::new(WIDTH, HEIGHT, thirty(), Codec::VideoToolbox).unwrap();
     let folder = tempfile::tempdir().unwrap();
     assert!(matches!(
         Encoder::create(&folder.path().join("clip.mp4"), &settings),
@@ -151,4 +153,149 @@ fn a_full_range_frame_is_refused_rather_than_written_as_limited_range() {
     let mut encoder = Encoder::create(&folder.path().join("clip.mp4"), &settings).unwrap();
     let full = YuvFrame::new(WIDTH, HEIGHT, ColorRange::Full).unwrap();
     assert!(matches!(encoder.push(&full), Err(Error::FullRange)));
+}
+
+fn colors_written_in_the_h264_stream(path: &Path) -> (Range, Space, Primaries, TransferCharacteristic) {
+    let mut input = ffmpeg::format::input(path).unwrap();
+    let stream = input.streams().best(ffmpeg::media::Type::Video).unwrap();
+    let index = stream.index();
+    let mut context = ffmpeg::codec::context::Context::from_parameters(stream.parameters()).unwrap();
+    // SAFETY: `context` owns its AVCodecContext and is not shared.
+    let pointer = unsafe { context.as_mut_ptr() };
+    // SAFETY: `pointer` is the live, unopened context above, borrowed only for the next four writes.
+    let raw = unsafe { &mut *pointer };
+    raw.color_range = Range::Unspecified.into();
+    raw.colorspace = Space::Unspecified.into();
+    raw.color_primaries = Primaries::Unspecified.into();
+    raw.color_trc = TransferCharacteristic::Unspecified.into();
+    let mut decoder = context.decoder().video().unwrap();
+    let mut frame = ffmpeg::frame::Video::empty();
+    for (stream, packet) in input.packets() {
+        if stream.index() == index {
+            decoder.send_packet(&packet).unwrap();
+            if decoder.receive_frame(&mut frame).is_ok() {
+                break;
+            }
+        }
+    }
+    if frame.width() == 0 {
+        decoder.send_eof().unwrap();
+        decoder.receive_frame(&mut frame).unwrap();
+    }
+    (
+        frame.color_range(),
+        frame.color_space(),
+        frame.color_primaries(),
+        frame.color_transfer_characteristic(),
+    )
+}
+
+fn encoded_at(folder: &Path, frame_rate: Rational) -> PathBuf {
+    let path = folder.join("rate.mp4");
+    let settings = Settings::new(WIDTH, HEIGHT, frame_rate, Codec::OpenH264).unwrap();
+    let mut encoder = Encoder::create(&path, &settings).unwrap();
+    for index in 0..30 {
+        encoder.push(&testing::pattern(index)).unwrap();
+    }
+    encoder.finish().unwrap();
+    path
+}
+
+fn is_send<T: Send>() {}
+
+#[test]
+fn openh264_writes_limited_range_bt709_in_the_h264_stream_not_only_in_the_container() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = testing::encode(folder.path(), Codec::OpenH264, 3);
+    assert_eq!(
+        colors_written_in_the_h264_stream(&path),
+        (
+            Range::MPEG,
+            Space::BT709,
+            Primaries::BT709,
+            TransferCharacteristic::BT709
+        )
+    );
+}
+
+#[test]
+fn openh264_encodes_in_high_profile_rather_than_its_constrained_baseline_default() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = testing::encode(folder.path(), Codec::OpenH264, 3);
+    let input = ffmpeg::format::input(&path).unwrap();
+    let stream = input.streams().best(ffmpeg::media::Type::Video).unwrap();
+    let context = ffmpeg::codec::context::Context::from_parameters(stream.parameters()).unwrap();
+    let decoder = context.decoder().video().unwrap();
+    assert_eq!(
+        decoder.profile(),
+        ffmpeg::codec::Profile::H264(ffmpeg::codec::profile::H264::High)
+    );
+}
+
+#[test]
+fn a_non_integer_rate_reads_back_exactly() {
+    let folder = tempfile::tempdir().unwrap();
+    let rate = Rational::new(10_000, 333).unwrap();
+    let path = encoded_at(folder.path(), rate);
+    assert_eq!(Decoder::open(&path).unwrap().stream().frame_rate(), rate);
+}
+
+#[test]
+fn a_rate_four_times_slower_reads_back_exactly() {
+    let folder = tempfile::tempdir().unwrap();
+    let rate = Rational::new(10_000, 333 * 4).unwrap();
+    let path = encoded_at(folder.path(), rate);
+    assert_eq!(Decoder::open(&path).unwrap().stream().frame_rate(), rate);
+}
+
+#[test]
+fn the_destination_does_not_exist_until_finish() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().join("clip.mp4");
+    let settings = Settings::new(WIDTH, HEIGHT, thirty(), Codec::OpenH264).unwrap();
+    let mut encoder = Encoder::create(&path, &settings).unwrap();
+    encoder.push(&testing::pattern(0)).unwrap();
+    assert!(!path.exists());
+    encoder.finish().unwrap();
+    assert!(path.exists());
+}
+
+#[test]
+fn an_encoder_can_move_to_another_thread() {
+    is_send::<Encoder>();
+}
+
+#[test]
+fn an_encoder_says_which_codec_writes_it() {
+    let folder = tempfile::tempdir().unwrap();
+    let settings = Settings::new(WIDTH, HEIGHT, thirty(), Codec::OpenH264).unwrap();
+    let encoder = Encoder::create(&folder.path().join("clip.mp4"), &settings).unwrap();
+    assert_eq!(encoder.codec(), Codec::OpenH264);
+}
+
+#[test]
+fn each_codec_has_a_name_for_the_fallback_report() {
+    assert_eq!(Codec::OpenH264.to_string(), "openh264");
+    assert_eq!(Codec::VideoToolbox.to_string(), "VideoToolbox hardware");
+}
+
+#[test]
+fn a_videotoolbox_session_counts_more_memory_than_openh264_for_its_outside_process_service() {
+    assert!(Codec::OpenH264.footprint() < Codec::VideoToolbox.footprint());
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn videotoolbox_writes_limited_range_bt709_in_the_h264_stream() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = testing::encode(folder.path(), Codec::VideoToolbox, 3);
+    assert_eq!(
+        colors_written_in_the_h264_stream(&path),
+        (
+            Range::MPEG,
+            Space::BT709,
+            Primaries::BT709,
+            TransferCharacteristic::BT709
+        )
+    );
 }
