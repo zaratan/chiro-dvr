@@ -120,6 +120,11 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   minimum, FFmpeg et bibliothèques présents dans le NOTICE, CSV des pistes identique au dépôt
   sur l'extrait. Une montée d'opencv ou de numpy se vérifie par `package:check`, et le NOTICE
   se complète à la main.
+- `tools/reference_v011.py` : enregistre la référence v0.1.1 (détections, pistes, bancs) ;
+  refuse de tourner si `src/` diffère du tag `v0.1.1`.
+- `tests/fixtures/reference/` : la référence v0.1.1 de l'extrait et de la 092, fichiers git
+  ordinaires ; format, dossier des 26 vidéos (`BATDETECT_REFERENCE_DIR`) et versions dans
+  son `README.md`.
 - Toutes les coordonnées, distances et surfaces hors de `find_blobs` sont en pixels de la
   vidéo d'origine ; seule la détection travaille à `work_width`.
 - Configs en dataclasses gelées qui valident dans `__post_init__` ; pas de `Namespace`
@@ -147,11 +152,13 @@ lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 0
 Workspace virtuel, `members = ["crates/*"]`, toolchain de `rust-toolchain.toml`. Neuf
 crates au lot 6, dépendances à sens unique :
 
-- `types` : vocabulaire commun (`Rational` ; V ajoute le reste). Ne dépend de rien.
+- `types` : vocabulaire commun (`Rational`, `FrameIndex`, `Pts`, `FrameRate`, `Timeline`,
+  `Detection`, `FrameDetections`, `Span`, `Track`, `Language`, `SourceSize`, `WorkScale`).
+  Ne dépend d'aucune autre crate du workspace.
 - `media` → `types` : seule frontière avec FFmpeg et seule crate avec `unsafe`
   (`frame`, `decode`, `encode`, `library`).
-- `reference` : chemins des fixtures et garde LFS ; V y ajoute le format de la
-  référence v0.1.1 et l'appariement, et le lien vers `types`.
+- `reference` → `types` : chemins des fixtures et garde LFS, lecture et écriture de la
+  référence v0.1.1, appariement des détections et des pistes.
 - `engine` → `media`, `types` (#116) ; `tracking` → `types` (#120) ;
   `files` → `types` (#122) ; `draw` (#101).
 - `compare` → `engine`, `tracking`, `reference`, `types` (#119) ;
