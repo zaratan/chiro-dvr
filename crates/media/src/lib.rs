@@ -1,4 +1,5 @@
 pub mod decode;
+pub mod decode_errors;
 pub mod encode;
 pub mod failure;
 pub mod frame;

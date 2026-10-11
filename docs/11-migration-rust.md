@@ -10,7 +10,8 @@ Jusqu'à #106, le Python reste l'outil livré ; [02](02-methode.md) et
 
 #95 a posé le workspace, FFmpeg, l'outillage et quatre crates. La commande
 `batdetect-rs` ne fait encore que `--version`. Le moteur arrive avec #116 à #119 (#116 :
-crate `engine`, lecture et refus à l'entrée), le suivi avec #120 à #123.
+crate `engine`, lecture et refus à l'entrée ; #117 : images abîmées et canari), le suivi
+avec #120 à #123.
 
 ## Construction
 
@@ -575,15 +576,26 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     temps, plage, `pts` de départ `Option<Pts>`, nombre d'images annoncé par le conteneur
     `Option<NonZeroU64>`) et `next`, qui remplit un `YuvFrame` fourni par l'appelant
     (aucune allocation par image) et rend un `FrameInfo` : `FrameIndex`, `Option<Pts>`,
-    image-clé (`is_key`), drapeaux
-    d'erreur bruts (`decode_error_flags`, sans troncature : une tranche corrompue donne
-    12) et paquets illisibles depuis l'image précédente.
+    image-clé (`is_key`), erreurs de décodage (`DecodeErrors`) et paquets illisibles
+    depuis l'image précédente.
+    - `DecodeErrors` (module `decode_errors`) : les `decode_error_flags` de l'image, lus
+      tels quels et nommés par les constantes `FF_DECODE_ERROR_*` de FFmpeg, et non par
+      le `DecodeError` de ffmpeg-next, qui perd `CONCEALMENT_ACTIVE` et `DECODE_SLICES`
+      sans son cfg `ffmpeg_5_1`. Une image est en erreur si ses drapeaux ne sont pas
+      vides, y compris un bit inconnu. Une tranche coupée donne 12 (dissimulation et
+      tranches manquantes).
     - Fils : `Threads::Automatic` (choix de FFmpeg) ou `Threads::Exactly(n)`, en fils
-      d'image.
+      d'image. `active_threads` lit, après l'ouverture, ce que FFmpeg fait vraiment :
+      `Single`, `Frame(n)` ou `Slice(n)`. Un test vérifie qu'un fil donne `Single`, que 4
+      donnent `Frame(4)` et que l'automatique donne plusieurs fils d'image sur une machine
+      à plusieurs cœurs : un FFmpeg construit sans fils ferait échouer la CI.
     - Couture : `with_seam` reçoit un `PacketSeam` qui voit chaque paquet du flux vidéo,
-      dans l'ordre de lecture, avant `send_packet` (rang, image-clé, taille, `shrink`).
-      Un paquet raccourci est refusé en entier par le décodeur et compté illisible ;
-      raccourci à 0 octet, il fait échouer `send_packet` (`EINVAL`).
+      dans l'ordre de lecture, avant `send_packet` (rang, image-clé, taille, `data_mut`,
+      `shrink`). `data_mut` rend d'abord le paquet inscriptible
+      (`av_packet_make_writable`, sans copie quand le tampon n'a qu'une référence) et
+      rend `None` s'il ne peut pas l'être. Un paquet raccourci sans réécrire la longueur de son NAL est refusé en
+      entier par le décodeur et compté illisible ; raccourci à 0 octet, il fait échouer
+      `send_packet` (`EINVAL`).
     - Contrat : un paquet illisible est compté, pas fatal. Ceux qui suivent la dernière
       image se lisent par `unreadable_packets_after_last_frame`. `Err` rend le décodeur
       inutilisable ; après la fin, `next` rend toujours `None`.
@@ -592,8 +604,9 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       (`libavformat/demux.c:1530`) ; elle sort en erreur `Read`. Une lecture tronquée en
       fin de fichier sans erreur d'entrée-sortie donne moins d'images : la garde
       d'`engine` la refuse.
-    - Pour #117 : un `linesize` négatif (image retournée) rendrait faux le `data()` de
-      ffmpeg-next. Le décodeur h264 n'en produit pas, mais rien ne le vérifie encore.
+    - Image retournée : un `linesize` négatif rendrait faux le `data()` de ffmpeg-next
+      (longueur `linesize as usize × hauteur`). Il est refusé (`FlippedFrame`) avant tout
+      appel à `data()`. Le décodeur h264 n'en produit pas.
     - Cadence : `avg_frame_rate`, repli sur `r_frame_rate` si elle est inconnue.
     - Formats : `yuv420p` seul, `yuvj420p` lu comme plage pleine.
   - `encode` : `Settings::new` (taille paire, cadence positive), puis
@@ -661,7 +674,11 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     une taille autre que 1440×1080 (#98 lèvera ce refus), la plage pleine (`yuvj420p`
     ou `pc`, à l'ouverture et sur chaque image), 0 image annoncée, et, par `media`, un
     format autre que `yuv420p`. `Video` donne la taille, la cadence, la base de temps, le
-    `pts` de départ et le nombre annoncé avant la lecture.
+    `pts` de départ et le nombre annoncé avant la lecture. Le refus de la plage pleine
+    est à réexaminer avec #98 : la détection lit le plan Y tel quel, quelle que soit
+    l'étiquette, et les sources sont lues comme pleines pour l'affichage (décision du
+    11 octobre 2026).
+  - `Input::with_seam` passe une couture de paquets au décodeur (canari).
   - `Input::read(visite)` décode toute la vidéo et appelle la visite pour chaque image
     (`FrameInfo` et `YuvFrame` complet). Une erreur de la visite arrête la lecture et
     revient telle quelle ; une erreur de lecture revient par `From<input::Error>`.
@@ -669,7 +686,7 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
   - Lecture anticipée (`read_ahead`) : un fil de `std::thread::scope` décode jusqu'à 4
     images d'avance (`READ_AHEAD`) dans 5 tampons faits une fois puis recyclés. Le fil
     s'arrête dès que le consommateur s'arrête ou échoue.
-  - Pertes (`Losses`), que #117 transformera en plages abîmées :
+  - Pertes (`Losses`), qui deviennent des plages abîmées (`damage`) :
     - `at_jumps`, aux sauts de `pts` : le pas est la moyenne des intervalles réguliers
       selon la médiane des écarts de `pts` entre images connues (juste aussi pour un pas
       fractionnaire) ; un écart de k pas arrondis perd k − 1 images ;
@@ -682,18 +699,73 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
   - Garde du nombre d'images : décodées = annoncées − toutes les pertes. Seule une perte
     inexpliquée, qui ne laisse ni saut ni paquet illisible au bord, fait refuser la vidéo
     (`FrameCount`).
+  - `damage` : `Damage::of(lecture, marge)` rend les images en erreur (`DecodeErrors`
+    non vides), les images qui suivent un saut de `pts` et les plages abîmées
+    (`Vec<Span>`), comme `damaged_spans` de la v0.1.1, avec deux différences :
+    - une plage part d'une image en erreur ou d'une image après un saut, comme en
+      v0.1.1 ;
+    - elle part aussi de la première image s'il manque des images avant elle
+      (`before_first`, l'équivalent d'un saut), et d'un départ fictif juste après la fin
+      s'il en manque après la dernière (`after_last`) : la plage ne couvre alors que les
+      `marge` dernières images, et aucune si la marge est nulle, car les images perdues
+      n'entrent dans aucune fenêtre de fond. Ces départs aux bords sont un ajout : la
+      v0.1.1 refusait ces vidéos (`check_frame_count`), le Rust les lit et les exclut
+      (décision de l'utilisateur à #116) ;
+    - le saut se juge avec le pas des pertes (`at_jumps`) : un écart de k images en
+      vaut plus que k s'il dépasse k + ½ pas, au lieu de 1,5 × k × pas médian en
+      v0.1.1. Même résultat quand tous les `pts` sont connus (k = 1, les 26 vidéos) ;
+      à travers un `pts` inconnu (k ≥ 2), le Rust compte l'image cachée, la v0.1.1 non ;
+    - elle va jusqu'à l'image qui précède l'image-clé suivante, ou jusqu'à la fin ;
+    - elle est élargie de la marge de chaque côté, bornée à la vidéo, puis fondue avec
+      la précédente si elle la touche. La marge est la demi-fenêtre du fond, passée par
+      l'appelant (`DetectConfig` arrive avec #118).
+  - Canari (`tests/slow_canary.rs`, sur chaque système de la CI) : la couture coupe le
+    dernier tiers de la tranche des images 248 (P au milieu d'un GOP de 15), 555
+    (image-clé), 860 et 861 (consécutives) et 1222 (dernier GOP) de l'extrait, en
+    réécrivant la longueur du NAL, comme `cut_slices` du Python.
+    - Le Rust signale exactement {248, 555, 860, 861, 1222}, avec 1 fil comme en
+      automatique.
+    - ffprobe 9.0.2 (Homebrew, `-threads 1 -show_log 16`, arguments de
+      `src/batdetect/probe.py`) en signale autant sur une copie coupée de la même façon,
+      mesurée une fois : `ffmpeg -c copy -bsf:v h264_mp4toannexb -f h264`, `cut_slices`
+      sur ces images, puis `ffmpeg -framerate 10000/333 -i cut.h264 -c copy cut.mp4`.
+      L'ensemble est écrit en constante ; le test vérifie que celui du Rust le contient.
   - Fils et pixels dissimulés (règle 16) : une vidéo saine donne les mêmes pixels quel
-    que soit le nombre de fils. Sur une tranche corrompue, la table par image ne change
-    pas, mais les pixels de l'image dissimulée et des suivantes jusqu'à l'image-clé
-    peuvent changer : sur une vidéo openh264 d'avant #111, 1 et 2 fils, 3 fils, 4 fils
-    et plus donnaient trois résultats, chacun reproductible ; avec l'encodage de #111 et
-    une corruption au premier dixième, aucun écart. Ces images sont dans les plages
-    abîmées, hors de la règle.
+    que soit le nombre de fils. Sur une tranche corrompue, les images en erreur, les
+    sauts et les plages ne changent pas, mais les pixels de l'image dissimulée et des
+    suivantes jusqu'à l'image-clé peuvent changer. Mesures :
+    - vidéo openh264 d'avant #111 : 1 et 2 fils, 3 fils, 4 fils et plus donnaient trois
+      résultats, chacun reproductible ; avec l'encodage de #111 et une corruption au
+      premier dixième, aucun écart ;
+    - canari de l'extrait : 40 images diffèrent entre 1 fil et l'automatique, toutes
+      dans les plages ; les 1 190 autres sont identiques au pixel près ;
+    - 103, 122, 124 (`tests/local_threads.rs`) : 105, 1 189 et 1 472 images diffèrent,
+      puis 105, 1 151 et 1 447 à la mesure suivante, toutes dans les plages abîmées
+      (marge 15). Sur ces vidéos, les pixels dissimulés en fils d'image ne se
+      reproduisent donc pas d'une lecture à l'autre ; les images en erreur, les sauts
+      et les plages, si.
+
+    Ces images sont hors de la règle 16, qui vaut pour ce qui sort du moteur hors des
+    plages abîmées.
   - Mesures (lot 6, M1 Max, `--profile ci`) : l'extrait et la 092 donnent 1 230 et
     9 011 images, aux cadences `avg_frame_rate` de leur `video.json`, avec les `pts` et
     les images-clés de ffprobe ; la 092 se lit en 7,4 s (60 s de CPU, 177 Mo). Les 26
     vidéos de la référence donnent toutes `counts.frames` (103 : 8 998, 120 : 8 996,
     122 : 8 998), sans refus, en 229 s.
+  - Dégâts contre la référence (#117, marge 15, `tests/local_damage.rs`) : l'extrait et
+    la 092 n'ont aucune image abîmée. Sur les 26 vidéos, les images après un saut sont
+    celles d'ffprobe, et les images en erreur le contiennent. 25 vidéos ont exactement
+    ses images en erreur et ses plages (093 : 11 images, 419 abîmées ; 122 : 195 et
+    6 043). Seule la 124 diffère : 310 images en erreur contre 309, 7 458 abîmées contre
+    7 415 (+43).
+    - L'image en plus, la 2197, porte le seul drapeau `CONCEALMENT_ACTIVE`, avec 1 fil
+      comme en automatique.
+    - ffprobe ne l'écrit qu'au niveau `info` (« concealing 392 DC, 392 AC, 392 MV
+      errors in P frame »), que la v0.1.1 ne lit pas (`-show_log 16`). C'est la seule
+      image des 26 vidéos dans ce cas.
+    - Le Rust exclut donc 43 images de plus que la v0.1.1 sur la 124 (environ 1,4 s).
+      Que ce soit souhaitable (image réellement dissimulée) ou trop prudent (passage
+      possible perdu) reste à juger.
 - **`cli`** : paquet `batdetect`, binaire `batdetect-rs`. En #95, `--version` affiche la
   version et la ligne de licence de FFmpeg. Tout texte vu par l'utilisateur vit dans
   `messages.rs`.
@@ -814,7 +886,7 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       multiples de 2,25) : le Rust arrondit à mi-chemin vers le haut, la v0.1.1 au pair.
       Gardé (règle 5).
 - **À venir** :
-  - dans `engine` : images abîmées (#117), détection (#118) ;
+  - dans `engine` : détection (#118) ;
   - `draw` (#101, dessin) ;
   - `compare` (#119, écarts à la référence).
 

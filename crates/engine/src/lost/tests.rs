@@ -1,7 +1,7 @@
 use proptest::prelude::*;
-use types::frame::Pts;
+use types::frame::{FrameIndex, Pts};
 
-use super::{Losses, losses};
+use super::{Losses, frames_after_jumps, losses};
 
 fn lost_frames(pts: &[Option<Pts>]) -> usize {
     losses(pts, None, 0).at_jumps
@@ -124,4 +124,39 @@ fn without_a_step_only_the_unreadable_packets_after_the_last_frame_count() {
             after_last: 4,
         }
     );
+}
+
+#[test]
+fn the_frame_after_each_jump_is_named_and_no_other() {
+    let frames = (0..12).chain(25..40).chain(42..50);
+    let pts = known(frames.map(|frame| frame * 333));
+    assert_eq!(frames_after_jumps(&pts), [FrameIndex::new(12), FrameIndex::new(27)]);
+}
+
+#[test]
+fn neither_unknown_nor_repeated_timestamps_name_a_frame_after_a_jump() {
+    let unknown = [
+        Some(Pts::new(0)),
+        Some(Pts::new(1000)),
+        None,
+        Some(Pts::new(3000)),
+        Some(Pts::new(4000)),
+    ];
+    assert_eq!(frames_after_jumps(&unknown), []);
+    assert_eq!(frames_after_jumps(&known([0, 0, 1000, 1000, 2000, 2000])), []);
+    assert_eq!(frames_after_jumps(&[]), []);
+}
+
+#[test]
+fn a_jump_across_an_unknown_timestamp_counts_the_frame_it_hides() {
+    let pts = [
+        Some(Pts::new(0)),
+        Some(Pts::new(1000)),
+        Some(Pts::new(2000)),
+        Some(Pts::new(3000)),
+        None,
+        Some(Pts::new(6000)),
+    ];
+    assert_eq!(frames_after_jumps(&pts), [FrameIndex::new(5)]);
+    assert_eq!(lost_frames(&pts), 1);
 }
