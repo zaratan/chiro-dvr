@@ -89,7 +89,9 @@ points d'une même image sont combinés en un seul (`combine` de `track.py`), qu
 
 ### `tracks.csv`
 
-Le CSV des pistes écrit par `write_tracks_csv`, tel que la commande l'écrit.
+Le CSV des pistes écrit par `write_tracks_csv`. La v0.1.1 l'écrit avec des fins de ligne CRLF ;
+les copies du dépôt sont en LF, git les ayant normalisées au commit. Les valeurs sont les mêmes :
+comparer le CSV par ses valeurs, pas à l'octet.
 
 ## Bancs
 

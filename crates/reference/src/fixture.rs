@@ -23,7 +23,7 @@ pub fn fixture(name: &str) -> Result<PathBuf, Error> {
     checked(fixtures().join(name))
 }
 
-fn fixtures() -> PathBuf {
+pub(crate) fn fixtures() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures")
 }
 

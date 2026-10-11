@@ -1,1 +1,13 @@
+pub mod detection_matching;
+pub mod error;
+mod fields;
 pub mod fixture;
+pub mod frames;
+mod lines;
+pub mod location;
+mod measures;
+pub mod recording;
+pub mod table;
+pub mod track_matching;
+pub mod tracks;
+pub mod video;
