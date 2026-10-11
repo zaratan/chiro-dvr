@@ -130,3 +130,49 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   `type: ignore` : une valeur magique devient une constante nommée.
 - Tests sans commentaire, le nom du test porte le pourquoi. Pas de mock d'OpenCV ni de
   subprocess : images fabriquées (`tests/helpers.py`) ou vraie vidéo.
+
+## Rust
+
+Réécriture en cours, détail dans [docs/11](docs/11-migration-rust.md). Le Python reste
+l'outil livré jusqu'à #106 ; docs/02 et docs/10 le décrivent, lui.
+
+```bash
+lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:ffmpeg  # FFmpeg 7.1.1 + openh264, une fois par poste
+mise run rust:static      # fmt, clippy, règles de la charte, cargo deny, cargo shear
+mise run rust:test        # tests rapides, couverture ≥ 95 %
+lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:slow       # l'extrait LFS
+lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 092 entière
+```
+
+Workspace virtuel, `members = ["crates/*"]`, toolchain de `rust-toolchain.toml`. Neuf
+crates au lot 6, dépendances à sens unique :
+
+- `types` : vocabulaire commun (`Rational` ; V ajoute le reste). Ne dépend de rien.
+- `media` → `types` : seule frontière avec FFmpeg et seule crate avec `unsafe`
+  (`frame`, `decode`, `encode`, `library`).
+- `reference` : chemins des fixtures et garde LFS ; V y ajoute le format de la
+  référence v0.1.1 et l'appariement, et le lien vers `types`.
+- `engine` → `media`, `types` (#116) ; `tracking` → `types` (#120) ;
+  `files` → `types` (#122) ; `draw` (#101).
+- `compare` → `engine`, `tracking`, `reference`, `types` (#119) ;
+  `cli` (paquet `batdetect`, binaire `batdetect-rs`) → `engine`, `tracking`, `files`,
+  `media`, `types`.
+
+Charte (23 règles numérotées, lints et raisons dans
+[docs/11](docs/11-migration-rust.md#charte)) :
+
+- Rust idiomatique, sans imiter ni Python, ni numpy, ni OpenCV. Un écart de détection
+  se mesure par appariement, puis se juge.
+- Lints dans `[workspace.lints]` seulement ; zéro `#[allow]` ou `#[expect]`. Un lint
+  gênant se résout en réécrivant le code.
+- Erreurs typées par `thiserror`, avec leur cause. Ni `unwrap`, ni `expect`, ni
+  `panic!`, ni `println!` hors des tests ; aucun résultat jeté.
+- Aucun type de `ffmpeg_next` hors de `media`. Configurations validées à la
+  construction.
+- Un module, ses tests dans `src/<module>/tests.rs`. Le niveau d'un test se choisit par
+  le nom de son fichier : `tests/slow_*.rs`, `tests/reference_*.rs`.
+- Une dépendance se déclare une fois dans `[workspace.dependencies]`.
+- **Commentaires** : la règle du zéro commentaire vaut aussi en Rust, avec deux
+  exceptions. Chaque bloc `unsafe` contient une seule opération et porte une ligne
+  `// SAFETY:` qui dit pourquoi le contrat tient. Un `///` d'une ligne est permis sur un
+  élément public dont le nom ne dit pas le contrat externe. Au plus 2 %.

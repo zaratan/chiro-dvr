@@ -1,0 +1,9 @@
+[env]
+PKG_CONFIG_LIBDIR = { value = ".ffmpeg/lib/pkgconfig", relative = true, force = true }
+PKG_CONFIG_PATH = { value = "", force = true }
+CPATH = { value = "", force = true }
+C_INCLUDE_PATH = { value = "", force = true }
+MACOSX_DEPLOYMENT_TARGET = { value = "14.0", force = true }
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=x86-64-v2"]

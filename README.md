@@ -24,9 +24,20 @@ vidéos de test (l'extrait et la 092 entière).
 ```bash
 git lfs install     # une fois par machine, avant le clone
 git lfs pull        # après un clone fait sans LFS : sinon les tests sur vraie vidéo échouent
-mise install        # Python 3.14.8, uv, lefthook aux versions de mise.toml
+mise install        # Python 3.14.8, uv, lefthook et les outils cargo aux versions de mise.toml
 uv sync             # dépendances dans .venv/ depuis uv.lock
 lefthook install    # hooks avant commit (ruff)
+```
+
+Pour la réécriture en Rust ([docs/11](docs/11-migration-rust.md)), il faut en plus
+[rustup](https://rustup.rs/), `make`, un compilateur C et C++, `pkg-config`, `curl`, et
+`xz` sous Linux. FFmpeg
+n'est pas à installer : il se construit une fois par poste dans `~/.cache/batdetect/`
+(50 s sur un M1 Max).
+
+```bash
+rustup toolchain install   # la version de rust-toolchain.toml
+mise run rust:ffmpeg       # FFmpeg 7.1.1 (LGPL) et openh264 (BSD), liés en statique
 ```
 
 ## Utilisation
@@ -154,7 +165,7 @@ Le détail de la méthode et des réglages est dans [docs/02-methode.md](docs/02
 ## Développement
 
 ```bash
-mise run check      # static, test:fast et test:slow, doit être vert avant tout commit
+mise run check      # static, test:fast, test:slow, puis rust:static, rust:test et rust:slow : vert avant tout commit
 mise run static     # lint + format + types
 mise run test:fast  # tests sans aucune vraie vidéo, en parallèle, couverture ≥ 95 %
 mise run test:slow  # tests sur l'extrait réel
@@ -163,6 +174,8 @@ uv run pytest -m reference                       # la 092 entière, ses 14 piste
 mise run coverage
 mise run format
 uv run batdetect-bench in/video_092_original.mp4   # banc de mesure (docs/08)
+mise run rust:test       # tests rapides du Rust, couverture ≥ 95 %
+mise run rust:reference  # la 092 entière, décodée par le Rust
 ```
 
 ### Publier une version

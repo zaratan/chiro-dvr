@@ -6,9 +6,14 @@ Mesuré sur l'original de la 092 ([09](09-profilage.md)) : décodage 1,1 ms par 
 (8,6 ms de CPU, le décodeur occupe presque tous les cœurs), réduction 0,8 ms, médiane du
 fond 0,7 ms (tri par comparaisons vectorisé en uint8, contre 12,6 ms avec `np.median`), résidu et
 taches 1,9 ms. Le calcul lourd est déjà en C (numpy, OpenCV, ffmpeg) et le décodage
-domine : une réécriture en Rust ne gagnerait presque rien. L'écosystème (OpenCV, suivi,
-YOLO) est natif en Python. La question se reposera si l'outil doit être distribué en
-binaire unique à des naturalistes sans Python.
+domine : le 4 octobre 2026, on estimait qu'une réécriture en Rust ne gagnerait presque
+rien. L'écosystème (OpenCV, suivi, YOLO) est natif en Python.
+
+Le 10 octobre 2026, un prototype Rust qui ne lit la vidéo qu'une fois traite la 092 en 18 s
+contre 134 s (`rust-proto/archive/exploration-rust.md`, branche `exploration/rust`), et
+l'utilisateur veut un seul langage et un binaire sans Python. La réécriture a commencé
+(lot 6) ; le Python reste l'outil livré jusqu'à #106. Voir
+[11-migration-rust.md](11-migration-rust.md).
 
 ## Correspondances
 
@@ -30,8 +35,9 @@ binaire unique à des naturalistes sans Python.
 
 - **Python et uv fixés par mise**, comme bun et pnpm sur les autres projets. uv a
   interdiction d'utiliser ou de télécharger son propre Python
-  (`python-preference = "only-system"`, `python-downloads = "never"`) : une seule
-  source de vérité, `mise.toml`.
+  (`python-preference = "only-system"`, `python-downloads = "never"`) : `mise.toml`
+  est la source de vérité des outils. La seconde source est `rust-toolchain.toml`, qui
+  fixe la version de Rust lue par rustup ([11](11-migration-rust.md)).
 - **basedpyright** plutôt que mypy (plus proche de `strictTypeChecked`, s'installe sans
   Node) ou ty (d'Astral, encore en bêta 0.0.83 en septembre 2026).
 - **ruff** avec une liste explicite de familles de règles, pas `ALL` : `ALL` active les
@@ -39,7 +45,7 @@ binaire unique à des naturalistes sans Python.
   montée de version.
 - **lefthook** plutôt que prek ou pre-commit : binaire unique, `{staged_files}` natif,
   et les hooks lancent `uv run ruff`, donc la version de `uv.lock`.
-- **Extrait réel en LFS** (5,3 Mo) : GitHub refusait le fichier dans git. La tâche
+- **Extrait réel en LFS** (60 240 812 octets) : GitHub refusait le fichier dans git. La tâche
   `slow-tests` de la CI ne télécharge que lui, et le garde en cache.
 - **092 entière en LFS** (454 Mo, accord de la naturaliste) : test à marqueur `reference`,
   exclu de `pytest` par défaut, dans une tâche de CI parallèle qui garde l'objet LFS en
@@ -58,10 +64,19 @@ binaire unique à des naturalistes sans Python.
   de la tâche `fast-tests`.
 - **pytest-xdist** sur les tests rapides (`-n auto`) : 26 s → 12 s en local sur 4
   processus, mesuré en octobre 2026. Les tests `slow` et `reference` restent séquentiels.
-- **CI en quatre tâches parallèles** : `static` (lint, format, types, sans ffmpeg ni LFS),
-  `fast-tests` (tests rapides et couverture), `slow-tests` (l'extrait LFS) et `reference`
-  (la 092 entière). Chacune a sa tâche mise (`static`, `test:fast`, `test:slow`) ;
-  `mise run check` enchaîne les trois premières en local.
+- **CI en quatre tâches parallèles pour le Python** : `static` (lint, format, types, sans
+  ffmpeg ni LFS), `fast-tests` (tests rapides et couverture), `slow-tests` (l'extrait LFS)
+  et `reference` (la 092 entière). Chacune a sa tâche mise (`static`, `test:fast`,
+  `test:slow`). Le Rust en ajoute trois : `rust` sur macOS et sur Linux, et
+  `rust-reference` sous Linux ([11](11-migration-rust.md)). `mise run check` enchaîne
+  en local `static`, `test:fast`, `test:slow`, puis `rust:static`, `rust:test` et
+  `rust:slow`.
+- **En PR, les quatre tâches Python ne tournent que si du Python change.** Le code
+  Python est figé jusqu'à la bascule vers Rust (#106) : la tâche `changes` compare la PR
+  à sa base, et les tâches Python ne tournent que si elle touche `src/`, `tests/`,
+  `tools/`, `pyproject.toml`, `uv.lock`, `mise.toml` ou `.github/`. Sur `main`, elles
+  tournent toujours. Une tâche sautée compte comme réussie pour les tâches requises de la
+  règle de branche. Un filtre `paths:` sur le workflow, lui, les laisserait en attente.
 - **ffmpeg statique, plus d'`apt-get`.** Le 8 octobre 2026, la tâche `fast-tests` de la
   PR #50 a atteint son délai de 10 min pendant `apt-get install ffmpeg`, à cause d'un miroir
   Azure lent. L'étape prenait d'habitude 22 à 35 s. L'action `setup` installe désormais
