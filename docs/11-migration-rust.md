@@ -187,11 +187,15 @@ Cible `x86_64-pc-windows-msvc`, construite seulement par la CI (tâche `rust-win
   |---|---|---|---|
   | 1 | échec dans le script | `unzip -d` ne crée que le dernier dossier du chemin | `mkdir -p` avant `unzip` |
   | 2 | vert | — | — |
+  | 3 | vert, à froid puis à chaud | retouches demandées : `dumpbin` en liste blanche, clippy, openh264 sans `-Zi` | — |
 
 - **Mesures du 11 octobre 2026** (runner `windows-latest`, image `windows-2025-vs2026`
   20260925.250.1, MSVC 14.51) :
   - construction de FFmpeg et d'openh264 : 3 min 15 s ;
-  - tâche entière, à froid : 5 min 26 s ;
+  - tâche entière, à froid : 5 min 26 s à l'essai 2 (sans clippy), 9 min 02 s à
+    l'essai 3 (avec clippy) ;
+  - à chaud (essai 3 relancé sur le même commit, caches LFS, `target/` et FFmpeg
+    restaurés) : 1 min 53 s, sans aucun LNK4099 ;
   - `slow_decode` : 1 230 images en 2,63 s ;
   - dépendances du binaire : `kernel32`, `ntdll`, `bcrypt` et
     `api-ms-win-core-synch-l1-2-0`.
