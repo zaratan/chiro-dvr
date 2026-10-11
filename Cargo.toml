@@ -16,17 +16,19 @@ ffmpeg-next = { version = "9.0.0", default-features = false, features = ["codec"
 flate2 = "1.1.10"
 proptest = "1.11.0"
 rayon = "1.12.0"
+skrifa = "0.48.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
 tempfile = "3.27.0"
 thiserror = "2.0.21"
-tiny-skia = "0.12.0"
+tiny-skia = { version = "0.12.0", default-features = false, features = ["std", "simd"] }
+unicode-normalization = "0.1.25"
 media = { path = "crates/media" }
 reference = { path = "crates/reference" }
 types = { path = "crates/types" }
 
 [workspace.metadata.cargo-shear]
-ignored = ["dhat", "rayon", "tiny-skia"]
+ignored = ["dhat", "rayon"]
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
