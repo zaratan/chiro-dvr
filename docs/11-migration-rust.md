@@ -693,9 +693,58 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       est rapportée (décision de l'utilisateur, 11 octobre 2026). Une amélioration voulue
       du suivi mettra à jour l'attendu des fixtures, avec sa justification dans la même
       série de changements.
+- **`files`** → `types` : fichiers écrits par la commande (#122). Reçoit un
+  `types::Language` ; la langue du système viendra avec la commande (#123), puis
+  Fluent (#114).
+  - `names` : `Names::new(langue)` et ses méthodes. Français : `extraits`, `piste`,
+    `_pistes`, `_resume`, `_annotee`, sans accent. Anglais : `clips`, `track`, `_tracks`,
+    `_summary`, `_annotated`. `params.json` n'est pas traduit, `_zoom` est commun.
+    - Le nom d'extrait se construit depuis la `Track`, avec le temps de début passé par
+      l'appelant en secondes. Il s'écrit en minutes et secondes entières, tronquées comme
+      dans la v0.1.1 : à 59,996 s, le nom dit `0m59s` et le CSV `1:00.00`.
+    - Le numéro de piste prend la largeur du nombre de pistes, 2 chiffres au moins.
+    - La période de l'image résumé est donnée en minutes (`_000m-010m`).
+    - Les noms de vidéo sont des `OsStr`, gardés tels quels.
+    - Ni ménage ni anciens noms (#115).
+  - `time` : `clock` écrit `m:ss.cc` à partir de centièmes entiers.
+    - Le temps d'une image vient de son `pts` (`Timeline::seconds_by_pts`). Une image
+      sans `pts` reprend celui de la dernière image qui en a un, plus un pas de cadence
+      par image ; la cadence seule ne sert qu'en l'absence de tout `pts`.
+    - La fin d'une plage est le début de l'image suivante.
+    - Le temps n'est pas rapporté au premier `pts` : les 26 vidéos de la référence
+      commencent à `pts` 0. Un `pts` négatif reste à décider avec #116.
+  - `table` : CSV des pistes, mêmes 12 colonnes et même sens que la v0.1.1 (en-têtes
+    anglais, virgule, point décimal, CRLF, sans guillemets, même contenu dans les deux
+    langues). La forme définitive reste à #84.
+    - Les nombres sont arrondis, puis écrits sous leur forme la plus courte, avec `.0`
+      pour un entier (`12.0`) ; `-0.0` devient `0.0`.
+    - `max_area_px` est entier, arrondi à mi-chemin vers le haut.
+    - Durée = fin − début, au moins une image.
+  - `params` : `Params<S>` écrit `video` (un chemin), `fps`, les réglages de l'appelant
+    aplatis, `ignored_s` et `damaged_s` (au centième), `damaged_frames`, `version`
+    (fixée à la compilation par l'appelant) et `ffmpeg` (version liée). Ni `mode` ni
+    `ffprobe`.
+    - Le nombre de fils réel arrive avec #123.
+    - `files` n'impose pas les clés des réglages. Garder celles de la v0.1.1 (une clé
+      par configuration, au nom de sa classe, dont les seuils de zoom dans
+      `RenderConfig`) revient à l'appelant : #123 et #101 en portent les tests.
+    - Une clé `video` ou `fps` venue des réglages serait écrite en double.
+  - Mesure (11 octobre 2026), CSV écrit depuis les pistes de la référence :
+    - extrait : identique à l'octet au `tracks.csv` de la v0.1.1, aux fins de ligne près
+      (le dépôt garde la fixture en LF) ;
+    - 092 : 14 lignes. `id`, `hits`, `chord_px`, `path_px`, `peak_amplitude`,
+      `filled_frames` et `duration_s` sont égaux.
+    - Les temps sont plus tôt d'un ou deux centièmes : débuts décalés sur 11 pistes sur
+      14 (de 0:33.94 → 0:33.93 à 3:57.18 → 3:57.16), fins sur 12. La v0.1.1 divisait le
+      numéro d'image par la cadence moyenne (30,027 i/s), alors que les `pts` avancent
+      de 333/10 000 s par image (30,03 i/s).
+    - `speed_px_s` est plus haute de 0,1 à 0,2 px/s sur 10 pistes, jamais plus basse.
+    - `max_area_px` : pistes 1, 5, 6 et 10, 274 → 275, 400 → 401, 490 → 491 et
+      274 → 275. Les maxima tombent sur un demi (sur la 092, les surfaces sont des
+      multiples de 2,25) : le Rust arrondit à mi-chemin vers le haut, la v0.1.1 au pair.
+      Gardé (règle 5).
 - **À venir** :
   - `engine` (#116, lecture, images abîmées, détection) ;
-  - `files` (#122, noms, CSV, `params.json`) ;
   - `draw` (#101, dessin) ;
   - `compare` (#119, écarts à la référence).
 
