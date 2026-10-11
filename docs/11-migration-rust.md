@@ -10,7 +10,8 @@ Jusqu'à #106, le Python reste l'outil livré ; [02](02-methode.md) et
 
 #95 a posé le workspace, FFmpeg, l'outillage et quatre crates. La commande
 `batdetect-rs` ne fait encore que `--version`. Le moteur arrive avec #116 à #119 (#116 :
-crate `engine`, lecture et refus à l'entrée ; #117 : images abîmées et canari), le suivi
+crate `engine`, lecture et refus à l'entrée ; #117 : images abîmées et canari ; #118 :
+détection), le suivi
 avec #120 à #123.
 
 ## Construction
@@ -300,6 +301,10 @@ Pas d'imitation :
 5. Ni Python, ni numpy, ni OpenCV ne s'imitent : pas de `round_ties_even` pour copier
    `round()`, pas d'ordre d'opérations recopié. Le calcul s'écrit simple et juste ;
    l'écart se mesure par appariement avec tolérances (`reference`), puis se juge.
+   **Exception** (décision de l'utilisateur à #118) : le gris de la détection reprend la
+   table mesurée sur OpenCV et l'arrondi à 8 bits après la réduction, parce que les
+   seuils de la v0.1.1 sont réglés sur ce gris (mesures dans `engine`, « Gris de la
+   détection »).
 
 Sûreté et erreurs :
 
@@ -772,7 +777,9 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     laisser une paire possible de côté (test qui le fige). Les écarts
     à juger (piste manquée, en trop, points hors tolérance) portent la vidéo, l'image de
     début et son temps par la cadence (`FrameRate::seconds`), triés par image.
-- **`engine`** → `media`, `types` : le moteur. `input` en est le seul point d'entrée.
+- **`engine`** → `media`, `types` (en test local aussi `tracking`, pour la mesure au
+  niveau des pistes, que `compare` reprendra avec #119) : le moteur. `input` en est le
+  seul point d'entrée.
   - `Input::open(chemin, Threads)` refuse, par une erreur typée qui nomme la vidéo :
     une taille autre que 1440×1080 (#98 lèvera ce refus), la plage pleine (`yuvj420p`
     ou `pc`, à l'ouverture et sur chaque image), 0 image annoncée, et, par `media`, un
@@ -869,6 +876,144 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     - Le Rust exclut donc 43 images de plus que la v0.1.1 sur la 124 (environ 1,4 s).
       Que ce soit souhaitable (image réellement dissimulée) ou trop prudent (passage
       possible perdu) reste à juger.
+  - **Détection** (#118) : `detection::detect(chemin, Threads, &DetectConfig)`, ou
+    `detect_input(Input, &DetectConfig)` pour une entrée déjà ouverte (le canari y passe
+    sa couture). Réglages par défaut seulement, 1440×1080 seulement. Le pool `rayon`
+    est celui de l'appelant (`ThreadPool::install`). `Detected` rend la lecture
+    (`Reading`), les détections (`FrameDetections`, une liste par image décodée, vides
+    comprises), les dégâts (`Damage`, marge = demi-fenêtre), la demi-fenêtre, les fils
+    actifs du décodeur (`Input::active_threads`, pour `params.json`) et les images du
+    fond.
+    - `config` : `DetectConfig::default()` (seuil 12, surface 4 à 2 700, fenêtre 1,0 s,
+      une image sur 3, fusion 6, largeur 960, bruit 8, sigma 1,5), champs en lecture.
+      `half_window(cadence)` arrondit `fenêtre × cadence / 2` au plus proche, moitié
+      vers le haut (la v0.1.1 arrondit au pair : une image d'écart quand ce produit vaut
+      x,5, jamais à 30 i/s), et refuse moins de 3 images de fenêtre, moins de 3
+      échantillons, ou plus de 16 (borne du réseau, levée par #98). La 092 : 15, et 11
+      échantillons.
+    - `geometry` : réduction 3:2 seulement (1440×1080 → 960×720), refus d'un travail de
+      moins de 9 pixels de côté ou de plus de `u32::MAX` pixels. Seul `WorkScale` passe
+      aux pixels d'origine.
+    - `prepare` : Y → gris par la table, réduction 3:2 pondérée (4, 2, 2, 1 sur 9)
+      arrondie à 8 bits, gaussienne de sigma 1 pixel de travail (noyau constant
+      `[1, 18, 221, 991, 1634, …]` sur 4 096, testé contre la formule, bords en miroir
+      sans répéter le pixel du bord), un seul arrondi final en 1/64 de niveau (`u16`,
+      16 320 au plus ; passe verticale en `u32`, 255 × 4 096² tient). Le niveau d'une
+      image est la somme de ses unités.
+    - `network` : médiane par le réseau de Batcher coupé à n entrées et élagué aux
+      comparaisons qui atteignent le milieu (32 pour 11 échantillons), sur des blocs de
+      64 pixels ; test 0-1 exhaustif de 1 à 16 et proptest contre un tri. Si n est
+      pair, la médiane est la demi-somme des deux du milieu.
+    - `threshold` : résidu `f32` = image − fond − (niveau − niveau moyen), le gain en
+      entiers jusqu'à une seule division. Candidats au-dessus du plancher (12
+      niveaux) ; avec au moins 7 échantillons, seuil relevé à max(12, 8 × 1,4826 × MAD
+      des écarts corrigés du gain), pour les seuls candidats.
+    - `closing` : fermeture par le disque de rayon 4 (`round(6 / 1,5)`, demi-largeurs
+      `[0, 3, 3, 4, 4, 4, 3, 3, 0]`, testées contre la formule), creuse : seuls les
+      pixels touchés par la dilatation sont marqués, puis érodés, hors de l'image
+      compté allumé. Un seul chemin, sans la réservation `allumés × disque` du
+      prototype ; proptest contre une fermeture dense.
+    - `components` : composantes 8-connexes par union-find, dans l'ordre de balayage de
+      leur premier pixel (haut, puis gauche). La v0.1.1 suit la numérotation
+      d'OpenCV, par blocs de 2×2 pixels : une tache qui commence une ligne plus bas
+      peut sortir avant (dans sa référence, 12 280 des 29 650 images à plusieurs
+      détections ont au moins une inversion d'une ligne). Le suivi en dépend en cas
+      d'égalité ; le Rust ne l'imite pas (règle 5), et les 963 pistes sur 966
+      ci-dessous l'incluent. Boîte et barycentre de
+      la composante fermée ; surface = pixels allumés × 2,25 ; amplitude = plus grand
+      |résidu| en niveaux de gris ; filtre 4 ≤ surface ≤ 2 700.
+    - `window` : fenêtre glissante, tampons recyclés ; échantillons pris une image sur
+      3 depuis le début de la fenêtre, coupée aux bords de la vidéo.
+    - `detector` : lots de 32 images (copie du plan Y). Chaque lot est préparé, puis
+      les cibles prêtes (demi-fenêtre suivante lue, ou fin) sont détectées, en groupes
+      contigus zippés avec une réserve de tampons (un par fil `rayon`), rangés dans
+      l'ordre. La lecture anticipée passe à 36 images pour la détection, `read` en
+      garde 4.
+    - `summary_frames` : les 25 images du fond de l'image résumé, aux rangs
+      `(2i + 1) × N / 50` (N annoncé ; toutes si N < 25), gardées en YUV entier ; la
+      plage d'affichage se décide dans #104. Un rang perdu en fin de vidéo donne moins
+      d'images, comme la v0.1.1. Une image dans une plage abîmée est gardée : la
+      médiane de 25 l'absorbe. Rang exact, sans le positionnement imprécis d'OpenCV.
+    - Différences avec la v0.1.1, hors gris : gris puis réduction (la v0.1.1 réduit
+      l'image en couleur, puis passe en gris), noyau quantifié sur 4 096 (la v0.1.1
+      floute en `float32` avec le noyau exact), médiane et MAD sur des unités de 1/64
+      de niveau, résidu et écarts en `f32` (`float64` en v0.1.1), niveau moyen exact,
+      ordre des taches (ci-dessus).
+    - Tests portés : 18 de `test_detect.py` (à l'échelle réelle, sources multiples de
+      3 : tache sombre puis claire suivie à moins de 2 pixels, gain qui scintille
+      d'une image à l'autre compensé, bornes de surface, vidéo plus courte que la
+      fenêtre, vidéo vide, fragments fusionnés, 3 refus de fenêtre, nombreuses taches
+      mesurées une à une, seuil relevé par pixel, seuil fixe aux bords, relèvement des
+      seuls candidats, résidu sous le plancher, bruit d'un pixel lissé, amplitude sur
+      le résidu filtré), `test_median.py` et `test_noise.py`. Vont à #98 : les 5 tests
+      d'écran, sigma nul, facteur de bruit nul et configuration invalide (réglages par
+      défaut seulement). Le saut de luminosité à seuil fixe de la v0.1.1 n'a pas
+      d'équivalent aux réglages par défaut : un saut de 30 niveaux allume l'image au
+      bord du saut, ce que la stabilité (#119) retire.
+    - Règle 16 : même sortie au bit près avec 1, 3 ou 4 fils et des lots de 1 à 64
+      (test rapide) ; canari de l'extrait coupé (`slow`), 1 fil de décodage et 1 fil
+      `rayon` contre l'automatique, mêmes plages et mêmes détections hors plages. Sur
+      l'extrait, la 092 et les 26 vidéos, le parallèle redonne le séquentiel au bit près
+      hors plages abîmées ; dans les plages, les pixels dissimulés varient d'une lecture
+      à l'autre.
+    - Mesures (`tests/slow_detection.rs`, `reference_detection.rs`, `local_detection.rs`,
+      `local_tracks.rs` ; appariement à 3 pixels, hors plages abîmées et instables de
+      `video.json`) : extrait 100 % / 99,75 %, 092 100 % / 99,87 %, 26 vidéos toutes au
+      moins à 98 % (la plus basse, 089 : 98,19 % / 98,46 %). Au niveau des pistes, 963
+      des 966 appariées (958 concordantes), 3 perdues, 9 ajoutées.
+    - Temps de la 092 (M1 Max, sous le verrou, décodeur et `rayon` en automatique) :
+      11,4 s de détection en `release` (11,8 s réels, 102 s de CPU, 436 Mo dont environ
+      58 pour les 25 images du fond), contre
+      118,7 s pour la v0.1.1 et 11 s pour le prototype ; 16,9 s en `ci` (contrôles de
+      débordement) ; 62,9 s en séquentiel (P1, `ci`). Avec la formule (d), 12,1 s : la table ne coûte rien. Une boucle de
+      comparaisons écrite élément par élément se vectorisait mal une fois inlinée en
+      `release` (détection 4 fois plus lente qu'en `ci`) ; écrite sur des tableaux
+      entiers, elle se vectorise.
+    - Mémoire (`tests/memory_flash.rs`, `dhat`, 4 fils, 64 images) : un éclair plein
+      cadre dans chaque groupe de cibles, au premier lot, coûte 57,8 Mo de plus qu'une
+      vidéo calme, soit 20,9 octets par pixel de travail et par fil. Les deux pics
+      tombent dans la même phase de lecture, d'où une mesure stable. Arithmétique :
+      les pixels allumés (8 octets), touchés et fermés (4 octets chacun) d'un fil
+      montent jusqu'à 2²⁰ éléments, 24,3 octets par pixel, gardés jusqu'à la fin
+      (environ 170 Mo à 10 fils). Bornes du test : plus de 16, au plus 32. Les
+      allocations de FFmpeg ne sont pas vues, les mêmes dans les deux vidéos.
+  - **Gris de la détection** (#118, exception à la règle 5) : chaque Y passe par une
+    table de 256 gris mesurée sur OpenCV (`GRAY` dans `prepare` : une rampe Y = 0 à
+    255, U = V = 128, encodée sans perte en plage `tv`, lue par `cv2.VideoCapture`
+    puis `COLOR_BGR2GRAY`), puis la réduction 3:2
+    pondère ces gris et arrondit à 8 bits avant la gaussienne. La table suit
+    `(Y − 16) × 255 / 219` de 1,2 à 2,3 niveaux en dessous, en dents de scie, à 0
+    jusqu'à Y = 17 et à 255 dès Y = 237. Ablation (P1, M1 Max, un choix à la fois,
+    taux d'appariement des détections référence / Rust, hors plages abîmées et
+    instables de `video.json`) :
+
+    | Variante | Extrait | 092 | 089 | Pire des 26 | Sous 98 % | Points de piste perdus |
+    |---|---|---|---|---|---|---|
+    | (a) table et arrondi à 8 bits | 100 / 99,75 | 100 / 99,87 | 98,19 / 98,46 | 98,19 | 0 | 19 |
+    | (b) formule, écrêtée, arrondie | 98,51 / 98,75 | 96,15 / 95,30 | 70,36 / 72,92 | 70,36 | 25 | 415 |
+    | (c) formule écrêtée, exacte | 97,51 / 98,25 | 95,38 / 96,00 | 75,58 / 76,76 | 75,58 | 22 | 340 |
+    | (d) formule exacte, sans écrêtage | 97,76 / 98,74 | 95,13 / 95,13 | 72,12 / 70,61 | 70,61 | 23 | 358 |
+
+    - Les écarts de (d) sont surtout du bruit au seuil : sur la 089, 489 des 508
+      détections perdues sont des taches de 4,5 px² sous 20 niveaux, et autant
+      d'ajoutées. Un décalage de quelques dixièmes de niveau suffit à les faire
+      basculer.
+    - Au niveau des pistes (détections → `exclude` avec les plages abîmées de la
+      référence → `track_detections`, appariées aux 966 pistes par `match_tracks`) :
+      (a) apparie 963 pistes (958 concordantes), en perd 3 et en ajoute 9 ; (d) en
+      apparie 936 (912), en perd 30 et en ajoute 35. Parmi celles-ci, 13 pistes de (d)
+      et 2 de (a) reviennent avec un début décalé de 6 à 26 images.
+    - Pistes vraiment perdues par (d), sans jumelle à 1 s : 8 de 6 points (096 0:55,
+      096 4:27, 097 2:37, 099 0:21, 099 3:24, 102 0:13, 121 2:29, 126 4:19), puis 100
+      0:00 (7 points), 097 3:42 (8), 096 1:59 (9), 100 1:26 (9), 097 1:11 (10), 098
+      4:27 (10), 103 4:11 (15), 100 2:00 (24) et 097 0:34 (102 points). Par (a) : 098
+      0:41 (21 points).
+    - Pistes vraiment ajoutées par (d) : 090 2:06, 092 2:24, 092 3:51, 094 1:14, 095
+      3:20, 096 2:40, 096 3:03, 096 3:24, 097 2:43, 097 3:28, 098 1:06, 098 2:58, 098
+      4:13, 099 0:19, 099 0:27, 099 2:17, 100 0:05, 100 1:36 (deux), 100 4:15, 103 3:40,
+      125 0:15. Par (a) : 097 2:43, 098 0:05, 099 0:19, 099 0:27, 100 1:36 (deux), 126
+      1:32 ; 097 2:43, 099 0:19 et 100 1:36 sont dans les deux.
+    - La formule sera retentée après la 0.2.0 (issue en Backlog).
 - **`cli`** : paquet `batdetect`, binaire `batdetect-rs`. En #95, `--version` affiche la
   version et la ligne de licence de FFmpeg. Tout texte vu par l'utilisateur vit dans
   `messages.rs`.
@@ -893,8 +1038,8 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     séparées d'au plus le rembourrage se fondent.
   - `spans` (interne) : images couvertes par des plages, bornées à la vidéo, et
     détections vidées.
-  - Les 3 tests Python de saut de luminosité (`test_stability.py`) attendent la
-    détection (#118).
+  - Les 3 tests Python de saut de luminosité (`test_stability.py`) vont à #119 :
+    ils enchaînent détection et stabilité, le rôle de `compare`.
   - La médiane porte sur toute la vidéo : la stabilité dépend de sa longueur (la
     concaténation 089-091 ignore 27,9 s, contre 28,9 s en morceaux, mesuré par #94 ;
     la médiane comme cause est une hypothèse, non vérifiée).

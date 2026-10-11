@@ -1,0 +1,90 @@
+use crate::config::{DetectConfig, MAX_BACKGROUND_SAMPLES};
+use crate::convert::{narrowed, numbered};
+use crate::network::Network;
+use crate::prepare::to_units;
+
+#[cfg(test)]
+mod tests;
+
+pub(crate) const LANES: usize = 64;
+pub(crate) const MIN_NOISE_SAMPLES: usize = 7;
+const MAD_TO_SIGMA: f32 = 1.4826;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Lit {
+    pub(crate) pixel: u32,
+    pub(crate) magnitude: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Threshold {
+    floor: f32,
+    noise_factor: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Gains<'a> {
+    pub(crate) current: f32,
+    pub(crate) samples: &'a [f32],
+}
+
+impl Threshold {
+    pub(crate) fn new(config: &DetectConfig) -> Self {
+        Self {
+            floor: to_units(config.threshold()),
+            noise_factor: narrowed(config.noise_factor()) * MAD_TO_SIGMA,
+        }
+    }
+
+    pub(crate) fn lit(
+        self,
+        samples: &[&[u16]],
+        current: &[u16],
+        network: &Network,
+        gains: Gains<'_>,
+        lit: &mut Vec<Lit>,
+    ) {
+        lit.clear();
+        let mut lanes = [[0_u16; LANES]; MAX_BACKGROUND_SAMPLES];
+        let lanes = &mut lanes[..samples.len()];
+        let noisy = samples.len() >= MIN_NOISE_SAMPLES;
+        for (start, block) in (0..).step_by(LANES).zip(current.chunks(LANES)) {
+            for (lane, sample) in lanes.iter_mut().zip(samples) {
+                lane[..block.len()].copy_from_slice(&sample[start..start + block.len()]);
+            }
+            network.order(lanes);
+            let (low, high) = (&lanes[network.low()], &lanes[network.high()]);
+            for (offset, ((&value, &low), &high)) in block.iter().zip(low).zip(high).enumerate() {
+                let background = f32::midpoint(f32::from(low), f32::from(high));
+                let magnitude = (f32::from(value) - background - gains.current).abs();
+                if magnitude > self.floor
+                    && (!noisy || magnitude > self.raised(samples, start + offset, background, gains.samples))
+                {
+                    lit.push(Lit {
+                        pixel: numbered(start + offset),
+                        magnitude,
+                    });
+                }
+            }
+        }
+    }
+
+    fn raised(self, samples: &[&[u16]], pixel: usize, background: f32, gains: &[f32]) -> f32 {
+        let mut deviations = [0.0_f32; MAX_BACKGROUND_SAMPLES];
+        let deviations = &mut deviations[..samples.len()];
+        for ((deviation, sample), gain) in deviations.iter_mut().zip(samples).zip(gains) {
+            *deviation = f32::from(sample[pixel]) - background - gain;
+        }
+        let center = median(deviations);
+        for deviation in deviations.iter_mut() {
+            *deviation = (*deviation - center).abs();
+        }
+        self.floor.max(self.noise_factor * median(deviations))
+    }
+}
+
+fn median(values: &mut [f32]) -> f32 {
+    values.sort_unstable_by(f32::total_cmp);
+    let count = values.len();
+    f32::midpoint(values[(count - 1) / 2], values[count / 2])
+}

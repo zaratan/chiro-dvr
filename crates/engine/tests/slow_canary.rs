@@ -2,9 +2,12 @@ use std::collections::BTreeSet;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::NonZeroUsize;
 
+use engine::config::DetectConfig;
 use engine::damage::Damage;
+use engine::detection::{Detected, detect_input};
 use engine::input::{Error, Input};
 use media::decode::{FrameInfo, Threads};
+use rayon::ThreadPoolBuilder;
 use reference::fixture::fixture;
 use types::frame::FrameIndex;
 use types::span::Span;
@@ -13,6 +16,7 @@ use types::span::Span;
 #[path = "support/slices.rs"]
 mod slices;
 
+const AUTOMATIC_WORKERS: usize = 0;
 const CUT: [usize; 5] = [248, 555, 860, 861, 1222];
 const ERROR_FRAMES: [usize; 5] = [248, 555, 860, 861, 1222];
 const FFPROBE_ERROR_FRAMES: [usize; 5] = [248, 555, 860, 861, 1222];
@@ -71,4 +75,38 @@ fn outside_damaged_spans_the_frames_do_not_depend_on_the_number_of_threads() {
     };
     assert_eq!(automatic.len(), single.len());
     assert_eq!(outside(&automatic), outside(&single));
+}
+
+#[cfg(test)]
+fn detected_canary(threads: Threads, workers: usize) -> Detected {
+    let path = fixture("video_092_original_3m24-4m05.mp4").unwrap();
+    let input = Input::open(&path, threads)
+        .unwrap()
+        .with_seam(slices::cutting_the_last_third_of(BTreeSet::from(CUT)));
+    ThreadPoolBuilder::new()
+        .num_threads(workers)
+        .build()
+        .unwrap()
+        .install(|| detect_input(input, &DetectConfig::default()).unwrap())
+}
+
+#[test]
+#[ignore = "slow"]
+fn outside_damaged_spans_the_detections_do_not_depend_on_the_number_of_threads() {
+    let automatic = detected_canary(Threads::Automatic, AUTOMATIC_WORKERS);
+    let single = detected_canary(Threads::Exactly(NonZeroUsize::MIN), 1);
+    let spans = automatic.damage().spans();
+    let outside = |detected: &Detected| -> Vec<_> {
+        detected
+            .detections()
+            .iter()
+            .filter(|(frame, _)| !spans.iter().any(|span| span.contains(*frame)))
+            .map(|(_, found)| found.to_vec())
+            .collect()
+    };
+
+    assert_eq!(single.damage(), automatic.damage());
+    assert_eq!(spans.len(), SPANS.len());
+    assert_eq!(outside(&single), outside(&automatic));
+    assert!(outside(&automatic).iter().map(Vec::len).sum::<usize>() > 300);
 }
