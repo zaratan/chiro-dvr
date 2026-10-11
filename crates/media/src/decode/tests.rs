@@ -64,7 +64,7 @@ fn the_stream_describes_what_was_encoded() {
     assert_eq!((stream.width(), stream.height()), (WIDTH, HEIGHT));
     assert_eq!(stream.frame_rate(), Rational::new(30, 1).unwrap());
     assert!(stream.time_base().num() > 0);
-    assert_eq!(stream.range(), ColorRange::Unspecified);
+    assert_eq!(stream.range(), ColorRange::Limited);
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn a_debugged_decoder_shows_its_stream_not_ffmpeg_internals() {
 }
 
 #[test]
-fn the_first_frame_is_a_key_frame_with_the_encoded_pixels_and_openh264_leaves_limited_range_implicit() {
+fn the_first_frame_is_a_key_frame_with_the_encoded_pixels_in_the_written_limited_range() {
     let folder = tempfile::tempdir().unwrap();
     let mut decoder = Decoder::open(&testing::encode(folder.path(), Codec::OpenH264, 3)).unwrap();
     let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
@@ -91,7 +91,7 @@ fn the_first_frame_is_a_key_frame_with_the_encoded_pixels_and_openh264_leaves_li
     assert!(info.key());
     assert_eq!(
         (frame.width(), frame.height(), frame.range()),
-        (WIDTH, HEIGHT, ColorRange::Unspecified)
+        (WIDTH, HEIGHT, ColorRange::Limited)
     );
     assert!(error < 24, "luma differs by {error}");
 }
