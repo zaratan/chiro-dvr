@@ -1,4 +1,4 @@
-use media::decode::Decoder;
+use media::decode::{Decoder, Threads};
 use media::encode::Codec;
 use media::encode::fallback::Fallback;
 use media::frame::{ColorRange, YuvFrame};
@@ -19,7 +19,7 @@ pub(crate) struct Stream {
 
 fn skipped(frame: &mut YuvFrame) -> Decoder {
     let source = reference::fixture::fixture("video_092_original_3m24-4m05.mp4").unwrap();
-    let mut decoder = Decoder::open(&source).unwrap();
+    let mut decoder = Decoder::open(&source, Threads::Automatic).unwrap();
     for _ in 0..FIRST {
         decoder.next(frame).unwrap().unwrap();
     }
@@ -33,7 +33,7 @@ pub(crate) fn round_trip(fallback: &Fallback) -> (Stream, f64) {
     let mut original = skipped(&mut frame);
     let source = *original.stream();
     let mut encoder = fallback
-        .create(&path, source.width(), source.height(), source.frame_rate())
+        .create(&path, source.width(), source.height(), source.frame_rate().get())
         .unwrap();
     let codec = encoder.codec();
     for _ in 0..FRAMES {
@@ -42,7 +42,7 @@ pub(crate) fn round_trip(fallback: &Fallback) -> (Stream, f64) {
     }
     encoder.finish().unwrap();
     let mut original = skipped(&mut frame);
-    let mut reread = Decoder::open(&path).unwrap();
+    let mut reread = Decoder::open(&path, Threads::Automatic).unwrap();
     let written = *reread.stream();
     let mut copy = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     let (mut frames, mut squared, mut pixels) = (0, 0_u64, 0_u64);
@@ -61,7 +61,7 @@ pub(crate) fn round_trip(fallback: &Fallback) -> (Stream, f64) {
         frames,
         width: written.width(),
         height: written.height(),
-        frame_rate: written.frame_rate(),
+        frame_rate: written.frame_rate().get(),
         range: written.range(),
         codec,
     };

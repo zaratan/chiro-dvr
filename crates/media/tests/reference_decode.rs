@@ -1,4 +1,4 @@
-use media::decode::Decoder;
+use media::decode::{Decoder, Threads};
 use media::frame::{ColorRange, YuvFrame};
 use types::rational::Rational;
 
@@ -6,7 +6,7 @@ use types::rational::Rational;
 #[ignore = "reference"]
 fn the_whole_092_decodes_its_9011_frames_at_its_average_rate() {
     let path = reference::fixture::fixture("video_092_original.mp4").unwrap();
-    let mut decoder = Decoder::open(&path).unwrap();
+    let mut decoder = Decoder::open(&path, Threads::Automatic).unwrap();
     let stream = *decoder.stream();
     let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     let mut frames = 0;
@@ -15,7 +15,7 @@ fn the_whole_092_decodes_its_9011_frames_at_its_average_rate() {
         frames += 1;
     }
     assert_eq!(frames, 9011);
-    assert_eq!(stream.frame_rate(), Rational::new(90_110_000, 3_000_927).unwrap());
+    assert_eq!(stream.frame_rate().get(), Rational::new(90_110_000, 3_000_927).unwrap());
     assert_eq!(stream.time_base(), Rational::new(1, 10_000).unwrap());
     assert_eq!(
         (stream.width(), stream.height(), stream.range()),

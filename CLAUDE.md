@@ -29,9 +29,12 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 - **L'extrait `tests/fixtures/video_092_original_3m24-4m05.mp4` est coupé sans réencodage**
   sur une image-clé de l'original (image source 6150, 30,03 i/s). Le réencoder changerait
   les détections.
-- **Les deux vidéos de `tests/fixtures/` sont suivies par Git LFS** (`.gitattributes`) :
-  `git lfs pull` après un clone, sinon les tests `slow` et `reference` échouent sur un
-  pointeur (garde dans `tests/conftest.py`). La 092 entière `video_092_original.mp4` est
+- **Seules les deux vidéos de la 092 dans `tests/fixtures/` sont suivies par Git LFS**
+  (`.gitattributes`) : `git lfs pull` après un clone, sinon les tests `slow` et
+  `reference` échouent sur un pointeur (garde dans `tests/conftest.py`). Les trois petites
+  fixtures du Rust (`full_range.mp4`, `full_range_midway.mp4`, `two_gops.mp4`, quelques
+  Ko) sont des fichiers git ordinaires, faits une fois par la commande de
+  [docs/11](docs/11-migration-rust.md#tests). La 092 entière `video_092_original.mp4` est
   une copie exacte de `in/`. Son test, marqueur `reference`, est exclu de `pytest` par
   défaut et tourne dans sa propre tâche de CI : `uv run pytest -m reference`. La tâche
   `slow-tests` ne récupère que l'extrait.

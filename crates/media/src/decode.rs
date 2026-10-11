@@ -1,6 +1,6 @@
 use std::fmt;
 use std::mem;
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroU64, NonZeroUsize};
 use std::path::{Path, PathBuf};
 
 use ffmpeg::codec::threading;
@@ -8,7 +8,10 @@ use ffmpeg::format::Pixel;
 use ffmpeg::util::color::Range;
 use ffmpeg::util::error::EAGAIN;
 use ffmpeg_next as ffmpeg;
+use types::frame::{FrameIndex, Pts};
+use types::rate::FrameRate;
 use types::rational::Rational;
+use types::size::SourceSize;
 
 use crate::failure::LibraryError;
 use crate::frame::{self, ColorRange, YuvFrame};
@@ -52,13 +55,31 @@ pub enum Error {
     Decode(#[source] LibraryError),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Threads {
+    #[default]
+    Automatic,
+    Exactly(NonZeroUsize),
+}
+
+impl Threads {
+    fn count(self) -> usize {
+        match self {
+            Self::Automatic => 0,
+            Self::Exactly(count) => count.get(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StreamInfo {
     width: NonZeroU32,
     height: NonZeroU32,
-    frame_rate: Rational,
+    frame_rate: FrameRate,
     time_base: Rational,
     range: ColorRange,
+    start: Option<Pts>,
+    announced_frames: Option<NonZeroU64>,
 }
 
 impl StreamInfo {
@@ -70,7 +91,11 @@ impl StreamInfo {
         self.height.get()
     }
 
-    pub fn frame_rate(&self) -> Rational {
+    pub fn size(&self) -> SourceSize {
+        SourceSize::new(self.width, self.height)
+    }
+
+    pub fn frame_rate(&self) -> FrameRate {
         self.frame_rate
     }
 
@@ -81,22 +106,90 @@ impl StreamInfo {
     pub fn range(&self) -> ColorRange {
         self.range
     }
+
+    pub fn start(&self) -> Option<Pts> {
+        self.start
+    }
+
+    pub fn announced_frames(&self) -> Option<NonZeroU64> {
+        self.announced_frames
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct FrameInfo {
+    index: FrameIndex,
+    pts: Option<Pts>,
     key: bool,
+    error_flags: u32,
     unreadable_packets: u32,
 }
 
 impl FrameInfo {
-    pub fn key(self) -> bool {
+    pub fn index(self) -> FrameIndex {
+        self.index
+    }
+
+    pub fn pts(self) -> Option<Pts> {
+        self.pts
+    }
+
+    pub fn is_key(self) -> bool {
         self.key
+    }
+
+    /// The raw `decode_error_flags` bits of the decoded frame.
+    pub fn error_flags(self) -> u32 {
+        self.error_flags
     }
 
     pub fn unreadable_packets(self) -> u32 {
         self.unreadable_packets
+    }
+}
+
+pub struct Packet<'a> {
+    packet: &'a mut ffmpeg::Packet,
+    ordinal: usize,
+}
+
+impl Packet<'_> {
+    pub fn ordinal(&self) -> usize {
+        self.ordinal
+    }
+
+    pub fn is_key(&self) -> bool {
+        self.packet.is_key()
+    }
+
+    pub fn size(&self) -> usize {
+        self.packet.size()
+    }
+
+    pub fn shrink(&mut self, size: usize) {
+        self.packet.shrink(size);
+    }
+}
+
+impl fmt::Debug for Packet<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Packet")
+            .field("ordinal", &self.ordinal)
+            .field("key", &self.is_key())
+            .field("size", &self.size())
+            .finish()
+    }
+}
+
+/// Sees each packet of the video stream, in reading order, before the decoder does.
+pub trait PacketSeam: Send {
+    fn pass(&mut self, packet: &mut Packet<'_>);
+}
+
+impl<F: FnMut(&mut Packet<'_>) + Send> PacketSeam for F {
+    fn pass(&mut self, packet: &mut Packet<'_>) {
+        self(packet);
     }
 }
 
@@ -107,6 +200,9 @@ pub struct Decoder {
     codec: ffmpeg::decoder::Video,
     decoded: ffmpeg::frame::Video,
     info: StreamInfo,
+    seam: Option<Box<dyn PacketSeam>>,
+    packets: usize,
+    delivered: usize,
     unreadable: u32,
 }
 
@@ -120,7 +216,7 @@ impl fmt::Debug for Decoder {
 }
 
 impl Decoder {
-    pub fn open(path: &Path) -> Result<Self, Error> {
+    pub fn open(path: &Path, threads: Threads) -> Result<Self, Error> {
         init::ffmpeg();
         let unusable = || Error::UnusablePath {
             path: path.to_path_buf(),
@@ -136,8 +232,12 @@ impl Decoder {
         let index = stream.index();
         let frame_rate = frame_rate(stream.avg_frame_rate(), stream.rate())?;
         let time_base = positive(stream.time_base()).ok_or(Error::UnknownTimeBase)?;
+        let announced_frames = u64::try_from(stream.frames()).ok().and_then(NonZeroU64::new);
+        let start = known_pts(stream.start_time());
         let mut context = ffmpeg::codec::context::Context::from_parameters(stream.parameters()).map_err(failed)?;
-        context.set_threading(threading::Config::kind(threading::Type::Frame));
+        let mut threading = threading::Config::kind(threading::Type::Frame);
+        threading.count = threads.count();
+        context.set_threading(threading);
         let codec = context.decoder().video().map_err(failed)?;
         let (width, height) = (codec.width(), codec.height());
         let (Some(nonzero_width), Some(nonzero_height)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {
@@ -150,6 +250,8 @@ impl Decoder {
             frame_rate,
             time_base,
             range,
+            start,
+            announced_frames,
         };
         Ok(Self {
             input,
@@ -157,8 +259,17 @@ impl Decoder {
             codec,
             decoded: ffmpeg::frame::Video::empty(),
             info,
+            seam: None,
+            packets: 0,
+            delivered: 0,
             unreadable: 0,
         })
+    }
+
+    #[must_use]
+    pub fn with_seam(mut self, seam: Box<dyn PacketSeam>) -> Self {
+        self.seam = Some(seam);
+        self
     }
 
     pub fn stream(&self) -> &StreamInfo {
@@ -185,7 +296,7 @@ impl Decoder {
         loop {
             let mut packet = ffmpeg::Packet::empty();
             match packet.read(&mut self.input) {
-                Ok(()) if packet.stream() == self.stream => return self.send(&packet),
+                Ok(()) if packet.stream() == self.stream => return self.send(&mut packet),
                 Ok(()) => {}
                 Err(ffmpeg::Error::Eof) => {
                     return self.codec.send_eof().map_err(LibraryError::new).map_err(Error::Decode);
@@ -195,7 +306,14 @@ impl Decoder {
         }
     }
 
-    fn send(&mut self, packet: &ffmpeg::Packet) -> Result<(), Error> {
+    fn send(&mut self, packet: &mut ffmpeg::Packet) -> Result<(), Error> {
+        if let Some(seam) = self.seam.as_mut() {
+            seam.pass(&mut Packet {
+                packet,
+                ordinal: self.packets,
+            });
+        }
+        self.packets += 1;
         match self.codec.send_packet(packet) {
             Err(ffmpeg::Error::InvalidData) => {
                 self.unreadable = self.unreadable.saturating_add(1);
@@ -215,16 +333,34 @@ impl Decoder {
             [0, 1, 2].map(|index| (decoded.data(index), decoded.stride(index))),
             into,
         )?;
+        let index = FrameIndex::new(self.delivered);
+        self.delivered += 1;
         Ok(FrameInfo {
+            index,
+            pts: decoded.pts().map(Pts::new),
             key: decoded.is_key(),
+            error_flags: self.error_flags(),
             unreadable_packets: mem::take(&mut self.unreadable),
         })
     }
+
+    fn error_flags(&self) -> u32 {
+        // SAFETY: `decoded` owns its AVFrame for as long as `self`.
+        let frame = unsafe { self.decoded.as_ptr() };
+        // SAFETY: `frame` is the live AVFrame filled by the last `receive_frame`.
+        let flags = unsafe { (*frame).decode_error_flags };
+        flags.cast_unsigned()
+    }
 }
 
-fn frame_rate(average: ffmpeg::Rational, real: ffmpeg::Rational) -> Result<Rational, Error> {
+fn known_pts(ticks: i64) -> Option<Pts> {
+    (ticks != ffmpeg::ffi::AV_NOPTS_VALUE).then_some(Pts::new(ticks))
+}
+
+fn frame_rate(average: ffmpeg::Rational, real: ffmpeg::Rational) -> Result<FrameRate, Error> {
     positive(average)
         .or_else(|| positive(real))
+        .and_then(|rate| FrameRate::new(rate).ok())
         .ok_or(Error::UnknownFrameRate)
 }
 

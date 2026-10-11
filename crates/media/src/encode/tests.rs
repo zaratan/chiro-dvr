@@ -6,7 +6,7 @@ use ffmpeg_next as ffmpeg;
 use types::rational::Rational;
 
 use super::{Codec, Encoder, Error, Settings};
-use crate::decode::Decoder;
+use crate::decode::{Decoder, Threads};
 use crate::frame::{ColorRange, YuvFrame};
 use crate::testing::{self, HEIGHT, WIDTH};
 
@@ -15,7 +15,7 @@ fn thirty() -> Rational {
 }
 
 fn decoded_frames(path: &Path) -> (u32, u32, u32) {
-    let mut decoder = Decoder::open(path).unwrap();
+    let mut decoder = Decoder::open(path, Threads::Automatic).unwrap();
     let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     let mut count = 0;
     while decoder.next(&mut frame).unwrap().is_some() {
@@ -237,7 +237,14 @@ fn a_non_integer_rate_reads_back_exactly() {
     let folder = tempfile::tempdir().unwrap();
     let rate = Rational::new(10_000, 333).unwrap();
     let path = encoded_at(folder.path(), rate);
-    assert_eq!(Decoder::open(&path).unwrap().stream().frame_rate(), rate);
+    assert_eq!(
+        Decoder::open(&path, Threads::Automatic)
+            .unwrap()
+            .stream()
+            .frame_rate()
+            .get(),
+        rate
+    );
 }
 
 #[test]
@@ -245,7 +252,14 @@ fn a_rate_four_times_slower_reads_back_exactly() {
     let folder = tempfile::tempdir().unwrap();
     let rate = Rational::new(10_000, 333 * 4).unwrap();
     let path = encoded_at(folder.path(), rate);
-    assert_eq!(Decoder::open(&path).unwrap().stream().frame_rate(), rate);
+    assert_eq!(
+        Decoder::open(&path, Threads::Automatic)
+            .unwrap()
+            .stream()
+            .frame_rate()
+            .get(),
+        rate
+    );
 }
 
 #[test]
