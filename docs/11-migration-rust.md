@@ -9,8 +9,8 @@ Jusqu'à #106, le Python reste l'outil livré ; [02](02-methode.md) et
 ## État (octobre 2026)
 
 #95 a posé le workspace, FFmpeg, l'outillage et quatre crates. La commande
-`batdetect-rs` ne fait encore que `--version`. Le moteur arrive avec #116 à #119, le
-suivi avec #120 à #123.
+`batdetect-rs` ne fait encore que `--version`. Le moteur arrive avec #116 à #119 (#116 :
+crate `engine`, lecture et refus à l'entrée), le suivi avec #120 à #123.
 
 ## Construction
 
@@ -321,6 +321,9 @@ Types et calcul :
     `round` ou un `clamp` visible, ou vit dans une fonction de conversion nommée.
 16. Même entrée, même sortie, quel que soit le nombre de fils : pas d'itération sur
     `HashMap` ou `HashSet` qui atteint une sortie, pas de somme flottante parallèle.
+    La règle vaut pour ce qui sort du moteur, plages abîmées exclues : les pixels que
+    FFmpeg dissimule sur une image abîmée dépendent du nombre de fils de décodage
+    (mesure dans `engine`).
 17. Une configuration se construit par une fonction qui valide et rend un `Result`. Les
     comptes non nuls sont des `NonZero*`.
 18. Boucles chaudes : aucune allocation par pixel ni par image, tampons réutilisés ;
@@ -373,15 +376,29 @@ Forme et tests :
 | slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv` |
 | reference | `tests/reference_*.rs`, `#[ignore = "reference"]` | `mise run rust:reference` | la 092 : 9 011 images, cadence moyenne 90110000/3000927 |
 | matériel | `tests/hardware_*.rs`, `#[ignore = "hardware"]` | étape d'essai de la CI macOS | VideoToolbox sans repli logiciel |
-| local | `tests/local_*.rs`, `#[ignore = "local"]` | `BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… cargo test -p reference -p tracking --locked --profile ci --test 'local_*' -- --include-ignored` | les 26 vidéos de la référence, hors dépôt, jamais en CI |
+| local | `tests/local_*.rs`, `#[ignore = "local"]` | `BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… cargo test --workspace --locked --profile ci --test 'local_*' -- --include-ignored` | les 26 vidéos de la référence, hors dépôt, jamais en CI |
 
 - Le niveau d'un test se choisit par le nom de son fichier. Ajouter un test ne demande
   de toucher ni la CI ni `mise.toml`.
+- Un test rapide peut relancer son propre binaire sur un test `#[ignore = "run by …"]`
+  pour lire ce qu'il écrit sur stderr (aucun message du décodeur pendant la lecture).
 - Couverture mesurée sur les tests rapides, en profil `ci` (seuil 95 %). CI de la PR
   #130 : 97,95 % des lignes sous Linux et 98,14 % sous macOS. Les lignes restantes sont
   des erreurs de FFmpeg qu'aucune vidéo de test ne provoque.
 - Les fixtures se trouvent par `reference::fixture::fixture`, qui refuse un pointeur
   LFS non tiré avec le conseil `git lfs pull`.
+- Trois petites fixtures, hors LFS, faites une fois par le ffmpeg 9.0.2 de Homebrew
+  (libx264) et commitées :
+  - `full_range.mp4` (1,9 Ko, `yuvj420p`, plage `pc`, refusée à l'ouverture) :
+    `ffmpeg -f lavfi -i color=gray:size=1440x1080:rate=30 -frames:v 2 -c:v libx264 -bf 0 -pix_fmt yuvj420p -color_range pc full_range.mp4`
+  - `full_range_midway.mp4` (3,0 Ko, 2 images en plage non précisée puis 2 en `pc`,
+    refusée à la troisième image) : `tv.h264` et `pc.h264` par la commande précédente
+    avec `-x264-params repeat-headers=1 -f h264`, l'un en `-pix_fmt yuv420p -color_range tv`,
+    l'autre en `-pix_fmt yuvj420p -color_range pc`, puis
+    `cat tv.h264 pc.h264 > midway.h264 && ffmpeg -framerate 30 -i midway.h264 -c copy full_range_midway.mp4`
+  - `two_gops.mp4` (5,9 Ko, 320×240, 20 images, images-clés en 0 et 10, perte au début
+    par la couture) :
+    `ffmpeg -f lavfi -i testsrc=size=320x240:rate=30 -frames:v 20 -c:v libx264 -bf 0 -g 10 -keyint_min 10 -sc_threshold 0 -crf 40 -pix_fmt yuv420p -color_range tv two_gops.mp4`
 - **CI** : tâche `rust` sur macOS et Linux (statique, tests rapides, slow, contrôles du
   binaire) et tâche `rust-reference` sous Linux, après `rust`. Le cache de FFmpeg est
   restauré, puis sauvé dès la construction, même si la suite échoue. L'action `setup`
@@ -554,12 +571,27 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
 - **`media`** : frontière avec FFmpeg ; aucun type de `ffmpeg_next` n'en sort. Une
   erreur par module.
   - `frame` : `YuvFrame`, 4:2:0 planaire sans `stride`, avec sa plage de couleur.
-  - `decode` : `Decoder::open`, `stream` (taille, cadence, base de temps, plage) et
-    `next`, qui remplit un `YuvFrame` fourni par l'appelant (aucune allocation par
-    image) et rend un `FrameInfo` non exhaustif.
+  - `decode` : `Decoder::open(chemin, Threads)`, `stream` (taille, cadence, base de
+    temps, plage, `pts` de départ `Option<Pts>`, nombre d'images annoncé par le conteneur
+    `Option<NonZeroU64>`) et `next`, qui remplit un `YuvFrame` fourni par l'appelant
+    (aucune allocation par image) et rend un `FrameInfo` : `FrameIndex`, `Option<Pts>`,
+    image-clé (`is_key`), drapeaux
+    d'erreur bruts (`decode_error_flags`, sans troncature : une tranche corrompue donne
+    12) et paquets illisibles depuis l'image précédente.
+    - Fils : `Threads::Automatic` (choix de FFmpeg) ou `Threads::Exactly(n)`, en fils
+      d'image.
+    - Couture : `with_seam` reçoit un `PacketSeam` qui voit chaque paquet du flux vidéo,
+      dans l'ordre de lecture, avant `send_packet` (rang, image-clé, taille, `shrink`).
+      Un paquet raccourci est refusé en entier par le décodeur et compté illisible ;
+      raccourci à 0 octet, il fait échouer `send_packet` (`EINVAL`).
     - Contrat : un paquet illisible est compté, pas fatal. Ceux qui suivent la dernière
       image se lisent par `unreadable_packets_after_last_frame`. `Err` rend le décodeur
       inutilisable ; après la fin, `next` rend toujours `None`.
+    - Fin de fichier : FFmpeg 7.1.1 rend déjà l'erreur d'entrée-sortie du contexte
+      (`pb->error`, sauf `EAGAIN`) à la place d'un `EOF` du démultiplexeur
+      (`libavformat/demux.c:1530`) ; elle sort en erreur `Read`. Une lecture tronquée en
+      fin de fichier sans erreur d'entrée-sortie donne moins d'images : la garde
+      d'`engine` la refuse.
     - Pour #117 : un `linesize` négatif (image retournée) rendrait faux le `data()` de
       ffmpeg-next. Le décodeur h264 n'en produit pas, mais rien ne le vérifie encore.
     - Cadence : `avg_frame_rate`, repli sur `r_frame_rate` si elle est inconnue.
@@ -624,6 +656,44 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     laisser une paire possible de côté (test qui le fige). Les écarts
     à juger (piste manquée, en trop, points hors tolérance) portent la vidéo, l'image de
     début et son temps par la cadence (`FrameRate::seconds`), triés par image.
+- **`engine`** → `media`, `types` : le moteur. `input` en est le seul point d'entrée.
+  - `Input::open(chemin, Threads)` refuse, par une erreur typée qui nomme la vidéo :
+    une taille autre que 1440×1080 (#98 lèvera ce refus), la plage pleine (`yuvj420p`
+    ou `pc`, à l'ouverture et sur chaque image), 0 image annoncée, et, par `media`, un
+    format autre que `yuv420p`. `Video` donne la taille, la cadence, la base de temps, le
+    `pts` de départ et le nombre annoncé avant la lecture.
+  - `Input::read(visite)` décode toute la vidéo et appelle la visite pour chaque image
+    (`FrameInfo` et `YuvFrame` complet). Une erreur de la visite arrête la lecture et
+    revient telle quelle ; une erreur de lecture revient par `From<input::Error>`.
+    `Reading` garde la table par image et les pertes (`Losses`).
+  - Lecture anticipée (`read_ahead`) : un fil de `std::thread::scope` décode jusqu'à 4
+    images d'avance (`READ_AHEAD`) dans 5 tampons faits une fois puis recyclés. Le fil
+    s'arrête dès que le consommateur s'arrête ou échoue.
+  - Pertes (`Losses`), que #117 transformera en plages abîmées :
+    - `at_jumps`, aux sauts de `pts` : le pas est la moyenne des intervalles réguliers
+      selon la médiane des écarts de `pts` entre images connues (juste aussi pour un pas
+      fractionnaire) ; un écart de k pas arrondis perd k − 1 images ;
+    - `before_first`, avant la première image : écart entre son `pts` et le `pts` de
+      départ du flux, en pas arrondis, moins les images déjà rendues sans `pts` ; 0 si
+      le départ ou le pas est inconnu ;
+    - `after_last`, après la dernière : les paquets illisibles qui la suivent (un paquet
+      par image ; mesuré égal aux images perdues sur une fin abîmée, avec 1, 3 fils ou
+      en automatique).
+  - Garde du nombre d'images : décodées = annoncées − toutes les pertes. Seule une perte
+    inexpliquée, qui ne laisse ni saut ni paquet illisible au bord, fait refuser la vidéo
+    (`FrameCount`).
+  - Fils et pixels dissimulés (règle 16) : une vidéo saine donne les mêmes pixels quel
+    que soit le nombre de fils. Sur une tranche corrompue, la table par image ne change
+    pas, mais les pixels de l'image dissimulée et des suivantes jusqu'à l'image-clé
+    peuvent changer : sur une vidéo openh264 d'avant #111, 1 et 2 fils, 3 fils, 4 fils
+    et plus donnaient trois résultats, chacun reproductible ; avec l'encodage de #111 et
+    une corruption au premier dixième, aucun écart. Ces images sont dans les plages
+    abîmées, hors de la règle.
+  - Mesures (lot 6, M1 Max, `--profile ci`) : l'extrait et la 092 donnent 1 230 et
+    9 011 images, aux cadences `avg_frame_rate` de leur `video.json`, avec les `pts` et
+    les images-clés de ffprobe ; la 092 se lit en 7,4 s (60 s de CPU, 177 Mo). Les 26
+    vidéos de la référence donnent toutes `counts.frames` (103 : 8 998, 120 : 8 996,
+    122 : 8 998), sans refus, en 229 s.
 - **`cli`** : paquet `batdetect`, binaire `batdetect-rs`. En #95, `--version` affiche la
   version et la ligne de licence de FFmpeg. Tout texte vu par l'utilisateur vit dans
   `messages.rs`.
@@ -744,7 +814,7 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       multiples de 2,25) : le Rust arrondit à mi-chemin vers le haut, la v0.1.1 au pair.
       Gardé (règle 5).
 - **À venir** :
-  - `engine` (#116, lecture, images abîmées, détection) ;
+  - dans `engine` : images abîmées (#117), détection (#118) ;
   - `draw` (#101, dessin) ;
   - `compare` (#119, écarts à la référence).
 

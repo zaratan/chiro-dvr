@@ -1,15 +1,31 @@
 use std::fs;
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::Path;
 
 use ffmpeg::format::Pixel;
 use ffmpeg::util::color::Range;
 use ffmpeg_next as ffmpeg;
+use types::frame::{FrameIndex, Pts};
 use types::rational::Rational;
 
-use super::{Decoder, Error, color_range, frame_rate, same_size, unpack};
+use super::{Decoder, Error, FrameInfo, Packet, Threads, color_range, frame_rate, known_pts, same_size, unpack};
 use crate::encode::Codec;
 use crate::frame::{ColorRange, YuvFrame};
 use crate::testing::{self, HEIGHT, WIDTH};
+
+fn open(path: &Path) -> Decoder {
+    Decoder::open(path, Threads::Automatic).unwrap()
+}
+
+fn infos(mut decoder: Decoder) -> Vec<FrameInfo> {
+    let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
+    let mut infos = Vec::new();
+    while let Some(info) = decoder.next(&mut frame).unwrap() {
+        infos.push(info);
+    }
+    infos
+}
 
 fn frames(decoder: &mut Decoder) -> (u32, u32) {
     let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
@@ -19,6 +35,16 @@ fn frames(decoder: &mut Decoder) -> (u32, u32) {
         unreadable += info.unreadable_packets();
     }
     (count, unreadable + decoder.unreadable_packets_after_last_frame())
+}
+
+fn corrupted_early_in_payload(folder: &Path) -> std::path::PathBuf {
+    let path = testing::encode(folder, Codec::OpenH264, 30);
+    let mut bytes = fs::read(&path).unwrap();
+    let payload = bytes.windows(4).position(|window| window == b"mdat").unwrap() + 4;
+    let early = payload + (bytes.len() - payload) / 10;
+    bytes[early..early + 16].fill(0xff);
+    fs::write(&path, bytes).unwrap();
+    path
 }
 
 fn damaged(folder: &Path, from_quarter: usize, to_quarter: usize) -> std::path::PathBuf {
@@ -35,7 +61,7 @@ fn damaged(folder: &Path, from_quarter: usize, to_quarter: usize) -> std::path::
 #[test]
 fn a_missing_file_is_an_open_error_not_a_panic() {
     assert!(matches!(
-        Decoder::open(Path::new("absent.mp4")),
+        Decoder::open(Path::new("absent.mp4"), Threads::Automatic),
         Err(Error::Open { .. })
     ));
 }
@@ -45,13 +71,16 @@ fn a_file_without_video_is_refused() {
     let folder = tempfile::tempdir().unwrap();
     let text = folder.path().join("notes.mp4");
     fs::write(&text, "not a video").unwrap();
-    assert!(matches!(Decoder::open(&text), Err(Error::Open { .. })));
+    assert!(matches!(
+        Decoder::open(&text, Threads::Automatic),
+        Err(Error::Open { .. })
+    ));
 }
 
 #[test]
 fn a_path_ffmpeg_cannot_take_is_refused_without_panic() {
     assert!(matches!(
-        Decoder::open(Path::new("cl\0ip.mp4")),
+        Decoder::open(Path::new("cl\0ip.mp4"), Threads::Automatic),
         Err(Error::UnusablePath { .. })
     ));
 }
@@ -59,25 +88,31 @@ fn a_path_ffmpeg_cannot_take_is_refused_without_panic() {
 #[test]
 fn the_stream_describes_what_was_encoded() {
     let folder = tempfile::tempdir().unwrap();
-    let decoder = Decoder::open(&testing::encode(folder.path(), Codec::OpenH264, 3)).unwrap();
+    let decoder = open(&testing::encode(folder.path(), Codec::OpenH264, 3));
     let stream = decoder.stream();
     assert_eq!((stream.width(), stream.height()), (WIDTH, HEIGHT));
-    assert_eq!(stream.frame_rate(), Rational::new(30, 1).unwrap());
+    assert_eq!(
+        (stream.size().width().get(), stream.size().height().get()),
+        (WIDTH, HEIGHT)
+    );
+    assert_eq!(stream.frame_rate().get(), Rational::new(30, 1).unwrap());
     assert!(stream.time_base().num() > 0);
     assert_eq!(stream.range(), ColorRange::Limited);
+    assert_eq!(stream.announced_frames(), NonZeroU64::new(3));
+    assert_eq!(stream.start(), Some(Pts::new(0)));
 }
 
 #[test]
 fn a_debugged_decoder_shows_its_stream_not_ffmpeg_internals() {
     let folder = tempfile::tempdir().unwrap();
-    let decoder = Decoder::open(&testing::encode(folder.path(), Codec::OpenH264, 1)).unwrap();
+    let decoder = open(&testing::encode(folder.path(), Codec::OpenH264, 1));
     assert!(format!("{decoder:?}").contains("info: StreamInfo"));
 }
 
 #[test]
 fn the_first_frame_is_a_key_frame_with_the_encoded_pixels_in_the_written_limited_range() {
     let folder = tempfile::tempdir().unwrap();
-    let mut decoder = Decoder::open(&testing::encode(folder.path(), Codec::OpenH264, 3)).unwrap();
+    let mut decoder = open(&testing::encode(folder.path(), Codec::OpenH264, 3));
     let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     let info = decoder.next(&mut frame).unwrap().unwrap();
     let expected = testing::pattern(0);
@@ -88,7 +123,7 @@ fn the_first_frame_is_a_key_frame_with_the_encoded_pixels_in_the_written_limited
         .map(|(a, b)| u32::from(a.abs_diff(*b)))
         .max()
         .unwrap();
-    assert!(info.key());
+    assert!(info.is_key());
     assert_eq!(
         (frame.width(), frame.height(), frame.range()),
         (WIDTH, HEIGHT, ColorRange::Limited)
@@ -99,7 +134,7 @@ fn the_first_frame_is_a_key_frame_with_the_encoded_pixels_in_the_written_limited
 #[test]
 fn next_keeps_returning_none_after_the_end() {
     let folder = tempfile::tempdir().unwrap();
-    let mut decoder = Decoder::open(&testing::encode(folder.path(), Codec::OpenH264, 2)).unwrap();
+    let mut decoder = open(&testing::encode(folder.path(), Codec::OpenH264, 2));
     assert_eq!(frames(&mut decoder), (2, 0));
     let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     assert!(decoder.next(&mut frame).unwrap().is_none());
@@ -109,7 +144,7 @@ fn next_keeps_returning_none_after_the_end() {
 #[test]
 fn a_damaged_payload_is_counted_and_decoding_goes_on() {
     let folder = tempfile::tempdir().unwrap();
-    let (count, unreadable) = frames(&mut Decoder::open(&damaged(folder.path(), 2, 3)).unwrap());
+    let (count, unreadable) = frames(&mut open(&damaged(folder.path(), 2, 3)));
     assert!(
         count > 0 && unreadable > 0,
         "{count} frames, {unreadable} unreadable packets"
@@ -119,7 +154,7 @@ fn a_damaged_payload_is_counted_and_decoding_goes_on() {
 #[test]
 fn damage_after_the_last_frame_is_still_counted() {
     let folder = tempfile::tempdir().unwrap();
-    let mut decoder = Decoder::open(&damaged(folder.path(), 3, 4)).unwrap();
+    let mut decoder = open(&damaged(folder.path(), 3, 4));
     let (count, _) = frames(&mut decoder);
     assert!(count > 0);
     assert!(decoder.unreadable_packets_after_last_frame() > 0);
@@ -131,10 +166,13 @@ fn the_average_rate_wins_and_the_real_rate_replaces_an_unknown_one() {
     let real = ffmpeg::Rational::new(10_000, 333);
     let unknown = ffmpeg::Rational::new(0, 0);
     assert_eq!(
-        frame_rate(average, real).unwrap(),
+        frame_rate(average, real).unwrap().get(),
         Rational::new(90_110_000, 3_000_927).unwrap()
     );
-    assert_eq!(frame_rate(unknown, real).unwrap(), Rational::new(10_000, 333).unwrap());
+    assert_eq!(
+        frame_rate(unknown, real).unwrap().get(),
+        Rational::new(10_000, 333).unwrap()
+    );
     assert!(matches!(frame_rate(unknown, unknown), Err(Error::UnknownFrameRate)));
 }
 
@@ -196,4 +234,108 @@ fn a_decoded_plane_shorter_than_its_size_is_refused() {
         unpack([(&luma[..5], 8), (&chroma, 2), (&chroma, 2)], &mut frame),
         Err(Error::TruncatedFrame)
     ));
+}
+
+#[test]
+fn frames_are_numbered_in_decoding_order_with_one_timestamp_step_apart() {
+    let folder = tempfile::tempdir().unwrap();
+    let infos = infos(open(&testing::encode(folder.path(), Codec::OpenH264, 10)));
+    let step = infos[1].pts().unwrap().get();
+    assert!(step > 0);
+    for (position, info) in infos.iter().enumerate() {
+        assert_eq!(info.index(), FrameIndex::new(position));
+        assert_eq!(info.pts(), Some(Pts::new(step * i64::try_from(position).unwrap())));
+        assert_eq!(info.error_flags(), 0);
+    }
+}
+
+#[test]
+fn a_corrupted_slice_is_concealed_and_reports_its_raw_error_flags_untruncated() {
+    let folder = tempfile::tempdir().unwrap();
+    let infos = infos(open(&corrupted_early_in_payload(folder.path())));
+    let flagged: Vec<u32> = infos
+        .iter()
+        .map(|info| info.error_flags())
+        .filter(|flags| *flags != 0)
+        .collect();
+    assert_eq!(infos.len(), 30);
+    assert_eq!(flagged, [12]);
+}
+
+fn fingerprints(mut decoder: Decoder) -> Vec<(FrameInfo, u64)> {
+    let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
+    let mut fingerprints = Vec::new();
+    while let Some(info) = decoder.next(&mut frame).unwrap() {
+        let mut hasher = DefaultHasher::new();
+        (frame.y(), frame.u(), frame.v()).hash(&mut hasher);
+        fingerprints.push((info, hasher.finish()));
+    }
+    fingerprints
+}
+
+#[test]
+fn one_decoding_thread_gives_the_same_frames_and_pixels_as_automatic_threading() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = testing::encode(folder.path(), Codec::OpenH264, 30);
+    let single = Decoder::open(&path, Threads::Exactly(NonZeroUsize::MIN)).unwrap();
+    assert_eq!(fingerprints(single), fingerprints(open(&path)));
+}
+
+#[test]
+fn the_frame_table_of_a_concealed_slice_does_not_depend_on_threading() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = corrupted_early_in_payload(folder.path());
+    let single = Decoder::open(&path, Threads::Exactly(NonZeroUsize::MIN)).unwrap();
+    assert_eq!(infos(single), infos(open(&path)));
+}
+
+#[test]
+fn the_seam_sees_every_video_packet_once_in_reading_order() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = testing::encode(folder.path(), Codec::OpenH264, 12);
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let decoder = open(&path).with_seam(Box::new(move |packet: &mut Packet<'_>| {
+        sender.send((packet.ordinal(), packet.is_key(), packet.size())).unwrap();
+    }));
+    assert_eq!(infos(decoder).len(), 12);
+    let seen: Vec<_> = receiver.iter().collect();
+    assert_eq!(
+        seen.iter().map(|(ordinal, ..)| *ordinal).collect::<Vec<_>>(),
+        (0..12).collect::<Vec<_>>()
+    );
+    assert!(seen[0].1);
+    assert!(seen.iter().all(|(.., size)| *size > 0));
+}
+
+#[test]
+fn a_packet_cut_by_the_seam_reaches_the_decoder_as_unreadable() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = testing::encode(folder.path(), Codec::OpenH264, 12);
+    let decoder = open(&path).with_seam(Box::new(|packet: &mut Packet<'_>| {
+        if packet.ordinal() == 5 {
+            let half = packet.size() / 2;
+            packet.shrink(half);
+        }
+    }));
+    let infos = infos(decoder);
+    assert_eq!(infos.len(), 11);
+    assert_eq!(infos.iter().map(|info| info.unreadable_packets()).sum::<u32>(), 1);
+}
+
+#[test]
+fn a_debugged_packet_shows_its_rank_key_and_size() {
+    let folder = tempfile::tempdir().unwrap();
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let decoder = open(&testing::encode(folder.path(), Codec::OpenH264, 1)).with_seam(Box::new(
+        move |packet: &mut Packet<'_>| sender.send(format!("{packet:?}")).unwrap(),
+    ));
+    assert_eq!(infos(decoder).len(), 1);
+    let shown = receiver.recv().unwrap();
+    assert!(shown.starts_with("Packet { ordinal: 0, key: true, size: "), "{shown}");
+}
+
+#[test]
+fn an_unknown_start_is_none_rather_than_a_sentinel_timestamp() {
+    assert_eq!(known_pts(ffmpeg::ffi::AV_NOPTS_VALUE), None);
+    assert_eq!(known_pts(0), Some(Pts::new(0)));
 }
