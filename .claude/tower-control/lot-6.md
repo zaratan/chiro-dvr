@@ -351,3 +351,13 @@ Conflit d'une ligne attendu avec #95 (ligne docs/11) : la seconde branche fusion
 Attendu : `docs/README.md` a deux sections et une colonne « Pour qui » ; aucun lien mort (vérifie chaque lien) ;
 `mise run check` vert.
 Mesuré le 10 octobre 2026 : `docs/README.md` 20 lignes ; les dix docs 2 659 lignes (2 587 dans l'issue).
+
+## Décisions prises en cours de lot (10-11 octobre 2026)
+
+- #94 : pas de test pour `tools/reference_v011.py` (validé par ses sorties). Repérages : cache du banc → #100, jumelles
+  fusionnées → #124, stabilité et longueur → #120, CLAUDE.md (`tools/`, `tests/fixtures/reference/`) → reliquat de #124.
+- #95 : cargo-shear avec liste `ignored` qui se vide seule ; ab_glyph retiré (RUSTSEC-2026-0192), la pile de polices se
+  choisit dans le plan de #101 ; essai VideoToolbox bloquant en CI (#19 se ferme par la CI) ; `rust-reference` attend
+  les deux systèmes ; cache de `target/` en CI, clé avec l'empreinte de FFmpeg ; lefthook + `cargo fmt` → reliquat de #124.
+- #75 : titre « La chaîne de traitement » au-dessus du schéma. #78 : lignes #42 (début et fin) et #25, introduction
+  raccourcie ; bandeau → issue #127 ; copie USB → #80. #72 : phrase d'accueil pour la naturaliste.
