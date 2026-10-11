@@ -1,3 +1,4 @@
+use engine::damage::Damage;
 use engine::input::{Error, Input};
 use media::decode::Threads;
 use reference::fixture::fixture;
@@ -8,7 +9,7 @@ use reference::video::VideoSummary;
 
 #[test]
 #[ignore = "slow"]
-fn the_extract_reads_its_1230_frames_with_the_timestamps_and_key_frames_of_ffprobe() {
+fn the_extract_reads_its_1230_frames_with_the_timestamps_key_frames_and_lack_of_damage_of_ffprobe() {
     let recorded = committed("video_092_original_3m24-4m05");
     let summary = VideoSummary::read(&recorded.join(SUMMARY_FILE)).unwrap();
     let probed = Frames::read(&recorded.join(&summary.files.frames)).unwrap();
@@ -31,4 +32,9 @@ fn the_extract_reads_its_1230_frames_with_the_timestamps_and_key_frames_of_ffpro
         .map(|entry| (entry.pts, entry.key_frame))
         .collect();
     assert_eq!(read, expected);
+    let damage = Damage::of(&reading, summary.background_half_window).unwrap();
+    assert_eq!(damage.error_frames(), summary.ffprobe.error_frames);
+    assert_eq!(damage.jump_frames(), summary.ffprobe.gap_frames);
+    assert_eq!(damage.spans(), summary.damaged_spans);
+    assert_eq!(damage.spans(), []);
 }

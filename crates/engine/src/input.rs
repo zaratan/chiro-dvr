@@ -142,8 +142,8 @@ impl Input {
         Ok(Self { video, decoder })
     }
 
-    #[cfg(test)]
-    pub(crate) fn with_seam(self, seam: Box<dyn media::decode::PacketSeam>) -> Self {
+    #[must_use]
+    pub fn with_seam(self, seam: Box<dyn media::decode::PacketSeam>) -> Self {
         Self {
             decoder: self.decoder.with_seam(seam),
             ..self

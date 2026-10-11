@@ -1,3 +1,4 @@
+pub mod damage;
 pub mod input;
 pub mod lost;
 mod read_ahead;

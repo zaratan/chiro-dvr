@@ -9,7 +9,11 @@ use ffmpeg_next as ffmpeg;
 use types::frame::{FrameIndex, Pts};
 use types::rational::Rational;
 
-use super::{Decoder, Error, FrameInfo, Packet, Threads, color_range, frame_rate, known_pts, same_size, unpack};
+use super::{
+    ActiveThreads, Decoder, Error, FrameInfo, Packet, Threads, color_range, frame_rate, known_pts, same_size, unpack,
+    upright,
+};
+use crate::decode_errors::DecodeErrors;
 use crate::encode::Codec;
 use crate::frame::{ColorRange, YuvFrame};
 use crate::testing::{self, HEIGHT, WIDTH};
@@ -245,7 +249,7 @@ fn frames_are_numbered_in_decoding_order_with_one_timestamp_step_apart() {
     for (position, info) in infos.iter().enumerate() {
         assert_eq!(info.index(), FrameIndex::new(position));
         assert_eq!(info.pts(), Some(Pts::new(step * i64::try_from(position).unwrap())));
-        assert_eq!(info.error_flags(), 0);
+        assert!(info.decode_errors().is_empty());
     }
 }
 
@@ -255,8 +259,9 @@ fn a_corrupted_slice_is_concealed_and_reports_its_raw_error_flags_untruncated() 
     let infos = infos(open(&corrupted_early_in_payload(folder.path())));
     let flagged: Vec<u32> = infos
         .iter()
-        .map(|info| info.error_flags())
-        .filter(|flags| *flags != 0)
+        .map(|info| info.decode_errors())
+        .filter(|errors| !errors.is_empty())
+        .map(DecodeErrors::bits)
         .collect();
     assert_eq!(infos.len(), 30);
     assert_eq!(flagged, [12]);
@@ -338,4 +343,49 @@ fn a_debugged_packet_shows_its_rank_key_and_size() {
 fn an_unknown_start_is_none_rather_than_a_sentinel_timestamp() {
     assert_eq!(known_pts(ffmpeg::ffi::AV_NOPTS_VALUE), None);
     assert_eq!(known_pts(0), Some(Pts::new(0)));
+}
+
+#[test]
+fn a_frame_stored_bottom_up_is_refused_before_its_planes_are_read() {
+    assert!(upright([1440, 720, 720]).is_ok());
+    let negative = (-1440_isize).cast_unsigned();
+    assert!(matches!(upright([negative, 720, 720]), Err(Error::FlippedFrame)));
+    assert!(matches!(upright([1440, 720, negative]), Err(Error::FlippedFrame)));
+}
+
+#[test]
+fn one_requested_thread_runs_alone_and_more_run_as_frame_threads() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = testing::encode(folder.path(), Codec::OpenH264, 2);
+    let single = Decoder::open(&path, Threads::Exactly(NonZeroUsize::MIN)).unwrap();
+    assert_eq!(single.active_threads(), ActiveThreads::Single);
+    let four = NonZeroUsize::new(4).unwrap();
+    let several = Decoder::open(&path, Threads::Exactly(four)).unwrap();
+    assert_eq!(several.active_threads(), ActiveThreads::Frame(four));
+}
+
+#[test]
+fn automatic_threading_decodes_with_several_frame_threads_on_a_multicore_machine() {
+    let folder = tempfile::tempdir().unwrap();
+    let decoder = open(&testing::encode(folder.path(), Codec::OpenH264, 2));
+    let cores = std::thread::available_parallelism().unwrap().get();
+    let active = decoder.active_threads();
+    assert!(
+        cores == 1 || matches!(active, ActiveThreads::Frame(count) if count.get() > 1),
+        "{cores} cores, {active:?}"
+    );
+}
+
+#[test]
+fn bytes_written_by_the_seam_reach_the_decoder() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = testing::encode(folder.path(), Codec::OpenH264, 12);
+    let decoder = open(&path).with_seam(Box::new(|packet: &mut Packet<'_>| {
+        if packet.ordinal() == 5 {
+            packet.data_mut().unwrap().fill(0xff);
+        }
+    }));
+    let infos = infos(decoder);
+    assert_eq!(infos.len(), 11);
+    assert_eq!(infos.iter().map(|info| info.unreadable_packets()).sum::<u32>(), 1);
 }

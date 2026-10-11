@@ -3,6 +3,7 @@ use std::mem;
 use std::num::{NonZeroU32, NonZeroU64, NonZeroUsize};
 use std::path::{Path, PathBuf};
 
+use ffmpeg::codec::packet::Mut as _;
 use ffmpeg::codec::threading;
 use ffmpeg::format::Pixel;
 use ffmpeg::util::color::Range;
@@ -13,6 +14,7 @@ use types::rate::FrameRate;
 use types::rational::Rational;
 use types::size::SourceSize;
 
+use crate::decode_errors::DecodeErrors;
 use crate::failure::LibraryError;
 use crate::frame::{self, ColorRange, YuvFrame};
 use crate::{init, path, planes};
@@ -45,6 +47,8 @@ pub enum Error {
         found_width: u32,
         found_height: u32,
     },
+    #[error("the decoder handed back a frame stored bottom up, which is not handled")]
+    FlippedFrame,
     #[error("the decoder handed back a frame shorter than its size")]
     TruncatedFrame,
     #[error("the video stream has an unusable frame size")]
@@ -67,6 +71,23 @@ impl Threads {
         match self {
             Self::Automatic => 0,
             Self::Exactly(count) => count.get(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActiveThreads {
+    Single,
+    Frame(NonZeroUsize),
+    Slice(NonZeroUsize),
+}
+
+impl ActiveThreads {
+    fn of(config: threading::Config) -> Self {
+        match (config.kind, NonZeroUsize::new(config.count)) {
+            (threading::Type::Frame, Some(count)) if count.get() > 1 => Self::Frame(count),
+            (threading::Type::Slice, Some(count)) if count.get() > 1 => Self::Slice(count),
+            _ => Self::Single,
         }
     }
 }
@@ -121,7 +142,7 @@ pub struct FrameInfo {
     index: FrameIndex,
     pts: Option<Pts>,
     key: bool,
-    error_flags: u32,
+    decode_errors: DecodeErrors,
     unreadable_packets: u32,
 }
 
@@ -138,9 +159,8 @@ impl FrameInfo {
         self.key
     }
 
-    /// The raw `decode_error_flags` bits of the decoded frame.
-    pub fn error_flags(self) -> u32 {
-        self.error_flags
+    pub fn decode_errors(self) -> DecodeErrors {
+        self.decode_errors
     }
 
     pub fn unreadable_packets(self) -> u32 {
@@ -164,6 +184,13 @@ impl Packet<'_> {
 
     pub fn size(&self) -> usize {
         self.packet.size()
+    }
+
+    pub fn data_mut(&mut self) -> Option<&mut [u8]> {
+        let pointer = self.packet.as_mut_ptr();
+        // SAFETY: `pointer` is a live AVPacket; the call may copy its buffer, and `&mut self` keeps every slice of the old one out of scope.
+        let status = unsafe { ffmpeg::ffi::av_packet_make_writable(pointer) };
+        (status >= 0).then(|| self.packet.data_mut()).flatten()
     }
 
     pub fn shrink(&mut self, size: usize) {
@@ -276,6 +303,10 @@ impl Decoder {
         &self.info
     }
 
+    pub fn active_threads(&self) -> ActiveThreads {
+        ActiveThreads::of(self.codec.threading())
+    }
+
     pub fn unreadable_packets_after_last_frame(&self) -> u32 {
         self.unreadable
     }
@@ -329,27 +360,26 @@ impl Decoder {
         let (width, height) = (self.info.width(), self.info.height());
         same_size((width, height), (decoded.width(), decoded.height()))?;
         into.reshape(width, height, range).map_err(Error::Size)?;
-        unpack(
-            [0, 1, 2].map(|index| (decoded.data(index), decoded.stride(index))),
-            into,
-        )?;
+        let strides = [0, 1, 2].map(|index| decoded.stride(index));
+        upright(strides)?;
+        unpack([0, 1, 2].map(|index| (decoded.data(index), strides[index])), into)?;
         let index = FrameIndex::new(self.delivered);
         self.delivered += 1;
         Ok(FrameInfo {
             index,
             pts: decoded.pts().map(Pts::new),
             key: decoded.is_key(),
-            error_flags: self.error_flags(),
+            decode_errors: self.decode_errors(),
             unreadable_packets: mem::take(&mut self.unreadable),
         })
     }
 
-    fn error_flags(&self) -> u32 {
+    fn decode_errors(&self) -> DecodeErrors {
         // SAFETY: `decoded` owns its AVFrame for as long as `self`.
         let frame = unsafe { self.decoded.as_ptr() };
         // SAFETY: `frame` is the live AVFrame filled by the last `receive_frame`.
         let flags = unsafe { (*frame).decode_error_flags };
-        flags.cast_unsigned()
+        DecodeErrors::from_bits(flags)
     }
 }
 
@@ -389,6 +419,11 @@ fn same_size((width, height): (u32, u32), (found_width, found_height): (u32, u32
         found_width,
         found_height,
     })
+}
+
+fn upright(strides: [usize; 3]) -> Result<(), Error> {
+    let non_negative = strides.iter().all(|stride| isize::try_from(*stride).is_ok());
+    non_negative.then_some(()).ok_or(Error::FlippedFrame)
 }
 
 fn unpack(sources: [(&[u8], usize); 3], into: &mut YuvFrame) -> Result<(), Error> {

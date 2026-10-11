@@ -1,9 +1,10 @@
-use types::frame::Pts;
+use types::frame::{FrameIndex, Pts};
 
 #[cfg(test)]
 mod tests;
 
 struct Interval {
+    last: usize,
     frames: usize,
     ticks: f64,
 }
@@ -65,6 +66,18 @@ fn at_jumps(intervals: &[Interval], step: f64) -> usize {
         .fold(0, usize::saturating_add)
 }
 
+pub(crate) fn frames_after_jumps(pts: &[Option<Pts>]) -> Vec<FrameIndex> {
+    let intervals = intervals(pts);
+    let Some(step) = step(&intervals) else {
+        return Vec::new();
+    };
+    intervals
+        .iter()
+        .filter(|interval| interval.frames_by(step) > count(interval.frames))
+        .map(|interval| FrameIndex::new(interval.last))
+        .collect()
+}
+
 fn intervals(pts: &[Option<Pts>]) -> Vec<Interval> {
     let known: Vec<(usize, i64)> = pts
         .iter()
@@ -75,6 +88,7 @@ fn intervals(pts: &[Option<Pts>]) -> Vec<Interval> {
         .iter()
         .zip(known.iter().skip(1))
         .map(|((first, from), (last, to))| Interval {
+            last: *last,
             frames: last - first,
             ticks: ticks(i128::from(*to) - i128::from(*from)),
         })
