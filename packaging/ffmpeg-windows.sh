@@ -63,6 +63,7 @@ fetch() {
 install_nasm() {
   local work=$1 archive
   archive=$(download WINDOWS_NASM "$work")
+  mkdir -p "$work/tools/bin"
   unzip -q -j "$archive" '*/nasm.exe' -d "$work/tools/bin"
   PATH=$work/tools/bin:$PATH
 }
