@@ -234,3 +234,50 @@ création par script.
 
 **Découpage** : les cinq issues à 13 points (#97, #99, #100, #102, #105) ont 17 sous-issues natives, #107 à #123
 (65 points). Les parentes n'ont plus de points sur le board.
+
+## Lot 6 — 10 au 12 octobre 2026 (zaratan) : fondations Rust et docs de méthode
+
+**Origine** : le plan du lot 5. Neuf crates Rust (`types`, `media`, `reference`, `engine`, `tracking`, `files`,
+`draw`, `compare`, `cli`) et quatre docs de méthode. Trois files de worktrees prévues (`moteur` ; `reference` puis
+`suivi` ; `docs` puis `windows` et `encodage`), jusqu'à quatre agents en même temps, puis `ci` pour #146.
+
+**Fait** (issue → PR) : #76 → #125, #75 → #126, #78 → #128, #72 → #129, #95 → #130, #94 → #131, #96 → #132,
+#124 → #133, #120 → #134, #111 → #135 (et #19 fermée), #121 → #136, #122 → #137, #116 → #138, #101 → #139,
+#117 → #141, #118 → #143, #119 → #145, #146 → #147, #123 → #148 (et #12).
+
+**Résultats mesurés par la tour**
+- Suivi Rust identique à la v0.1.1 sur les détections de la référence : 966 pistes sur 966, au bit près.
+- Détection Rust : extrait 100 % / 99,75 %, 092 100 % / 99,87 %, aucune des 26 vidéos sous 98 % (089 à 98,19 %).
+  Pistes : 963 sur 966, et les 17 écarts sont exactement les 9 divergences du prototype que Manon a jugées
+  acceptables le 10 octobre.
+- `batdetect-rs` sur la 092 : 11,8 s et 434 Mo, contre 134 s pour la commande Python (détection seule :
+  11,2 s contre 118,7 s).
+- Le fichier de détections de l'extrait est identique au bit près sous macOS, Linux et Windows.
+- CI d'une PR Rust : 9 min 39 → 6 min 22 (#146), même liste de tests passés sur les trois systèmes.
+
+**Décisions de l'utilisateur** : 19 avant le lancement (`lot-6.md`), puis une par choix d'agent, chacune avec
+la recommandation de la tour. Les plus lourdes :
+- gris de la détection par la table d'OpenCV (exception à la règle 5, ablation de quatre variantes), formule
+  à retenter après la 0.2.0 (#142) ;
+- sources lues en pleine plage ;
+- openh264 QP 23 contre VideoToolbox q65, jugés identiques à l'œil ;
+- CI Python filtrée par chemins, puis CI Rust raccourcie (#146).
+
+**Issues créées en chemin** : #124 (V), #127, #140, #142, #144, #146.
+
+**Incidents**
+- Le lanceur a buté sur `dvr-wt/sorties`, un dossier de 21 Go du lot 2 : grappe renommée `encodage`, dossier
+  laissé intact.
+- La tour a manqué la fin de #111 parce que sa seule attente avait servi à un autre agent. Ensuite, une attente
+  par agent.
+- Un `git pull --ff-only` sur `main` par la tour, sans effet mais contraire à la règle.
+- Cinq erreurs de consigne trouvées par les agents : cadence par `av_guess_frame_rate`, `pb->error` après la
+  fin, refus du 1440×1080 oublié, `allow_sw` qui ne mesure pas le logiciel d'Apple, « pas d'accents » faux pour
+  OpenCV 5.
+- Compilations froides de l'agent `ci` hors du verrou pendant les mesures de `suivi` : repéré par l'utilisateur,
+  `MESURES.md` complété.
+- La tour a envoyé à Manon des pistes déjà jugées (les 9 divergences de #97) et annoncé à tort que #123 en
+  produirait les extraits : rapprochement fait par l'agent de #123, commentaires corrigés.
+
+**Ordres de grandeur** : 19 issues et 19 PR en trois jours ; jusqu'à quatre agents en parallèle ; chaque compte
+rendu revérifié par la tour avant la Review (statique, tests, extrait, 092, 26 vidéos sous le verrou).

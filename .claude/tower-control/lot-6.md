@@ -361,3 +361,346 @@ Mesuré le 10 octobre 2026 : `docs/README.md` 20 lignes ; les dix docs 2 659 lig
   les deux systèmes ; cache de `target/` en CI, clé avec l'empreinte de FFmpeg ; lefthook + `cargo fmt` → reliquat de #124.
 - #75 : titre « La chaîne de traitement » au-dessus du schéma. #78 : lignes #42 (début et fin) et #25, introduction
   raccourcie ; bandeau → issue #127 ; copie USB → #80. #72 : phrase d'accueil pour la naturaliste.
+
+## Vague 2 (11 octobre 2026) — #124 V, #96, #111
+
+Décision de l'utilisateur : V, #96 et #111 partent ensemble ; un 4e worktree `moteur` démarre #116 à la fusion de V.
+#95 est fusionnée (PR #130) : la charte vit dans `docs/11-migration-rust.md` (§ Charte, 23 règles) et la section Rust de
+`CLAUDE.md` ; la règle de main exige aussi les tâches Rust.
+
+**Bloc commun aux issues Rust.** La consigne projet vaut pour les vidéos, les mesures et le verrou. Le code suit la
+charte de docs/11 et la section Rust de CLAUDE.md ; la tour lance les contrôles C1 à C16 avant Review. Avant de rendre :
+`mise run check` vert (il contient `rust:static`, `rust:test`, `rust:slow`) ; `lockf … mise run rust:reference` si
+l'issue touche la lecture ou la détection. Plans (≥ 5 points) relus par `rust-expert` et `tech-architect` ; revue finale
+`rust-expert` et `lead-engineer-reviewer`. Pas de push : la tour fait pousser l'utilisateur et lit la CI. Les tâches
+Python de la CI ne tournent en PR que si `src/`, `tests/`, `tools/`, `pyproject.toml`, `uv.lock`, `mise.toml` ou
+`.github/` changent. Relectures : `~/Projects/dvr-wt/rapports/lot6-relectures/`.
+
+### #124 — Vocabulaire commun et lecture de la référence (worktree `suivi`, branche `rust/124-vocabulaire`)
+
+Complète `types` et `reference` : c'est le contrat entre les grappes, gelé après la fusion.
+- `types` : `FrameIndex`, `Pts`, `Timeline` (pts de chaque image, base de temps, cadence), `Detection` (champs en `f64`,
+  pixels de la vidéo d'origine), `FrameDetections` (une liste par image, images vides comprises, ordre gardé), `Span`
+  (bornes comprises), `Track` et ses mesures (corde, longueur du trajet, surface maximale, amplitude de crête, virage
+  médian), `Language`, `WorkScale`, `SourceSize`. Un type n'y entre que s'il est produit par une crate et lu par au moins
+  deux autres.
+- `reference` : lecture et écriture des quatre fichiers de `tests/fixtures/reference/README.md` (format écrit par #94 :
+  c'est la spécification), `.gz` compris ; chemin des 26 vidéos par `BATDETECT_REFERENCE_DIR` ; appariement des
+  détections (même image, à moins de 3 px, inégalité stricte) et des pistes (début à ±5 images, points à ±3), avec la
+  liste des écarts (vidéo, temps) à juger. Sens repris de `rust-proto/archive/comparison-26/analyze.py:47-90` (branche
+  `exploration/rust`), pas son code.
+- Les points des pistes jumelles fusionnées ne sont pas des détections brutes (63 sur 610 dans la 092) : pas
+  d'affirmation « points ⊂ détections ».
+- Reliquats décidés par l'utilisateur : deux lignes de `CLAUDE.md` pour `tools/` et `tests/fixtures/reference/` ;
+  `cargo fmt` sur les fichiers Rust indexés dans `lefthook.yml` ; la section « Référence v0.1.1 » de docs/11 renvoie au
+  README, plus une section par crate pour ce que tu ajoutes.
+- Dépendances : `serde`, `serde_json` (et un décompresseur gzip si besoin : à demander à la tour) ; retire de la liste
+  `ignored` de cargo-shear ce que tu utilises.
+Attendu : extrait et 092 lus (402 et 780 détections brutes, 4 et 14 pistes ; débuts de la 092 [222, 1019, 1550, 1614, 2180,
+3271, 3688, 4343, 4714, 4923, 6294, 6855, 6933, 7122]) ; relus puis réécrits, mêmes valeurs ; la référence s'apparie à
+elle-même à 100 % ; une détection déplacée de 2,9 px est appariée, de 3,0 px non ; en local, test `#[ignore = "local"]`
+avec `BATDETECT_REFERENCE_DIR` : 26 vidéos, 966 pistes. Mesuré le 11 octobre par lecture des fixtures et des 26 dossiers.
+
+### #96 — Construction Windows (worktree `windows`, branche `rust/96-windows`)
+
+8 points, temps limité : **plan d'abord** (`rapports/plan-96.md`), relu, puis arrêt pour validation.
+- Script à part, `packaging/ffmpeg-windows.sh` (bash sous MSYS2), qui partage `packaging/ffmpeg-versions` sans changer la
+  clé de cache Unix. MSVC : `msys2/setup-msys2` et `ilammy/msvc-dev-cmd` épinglés par SHA ; masquer le `link.exe` de
+  coreutils ; noms `.a` contre `.lib` ; FFmpeg et openh264 en `/MT`, Rust en `+crt-static` ; `x86-64-v2` ; liaison par
+  pkg-config qui lit `Libs` ; `LIBCLANG_PATH` pour bindgen ; garde du multifil (`w32threads`).
+- Tâche CI `windows-latest` en fin de `ci.yml`, LFS en `enableCrossOsArchive` ; `.gitattributes` : `eol=lf` pour
+  `tests/fixtures/reference/**`.
+- Au plus 5 essais CI par méthode : FFmpeg construit par nous → vcpkg → BtbN. On s'arrête **avant** BtbN (lié en
+  dynamique, contre la décision « statique »). Chaque essai est poussé par l'utilisateur : prépare-le et relis-le en
+  local avant de le demander.
+Attendu : sur le runner Windows, l'extrait décode 1 230 images à 10000/333 ; un encodage openh264 d'une seconde se relit ;
+`dumpbin /dependents` sans DLL de FFmpeg ni `vcruntime140.dll`. L'identité des détections avec macOS et Linux viendra
+avec #119. Aucun moyen local : la CI est le seul banc d'essai.
+
+### #111 — Encodage dans le processus (worktree `encodage`, branche `rust/111-encodage`)
+
+5 points : **plan d'abord** (`rapports/plan-111.md`), relu, puis arrêt pour validation. Étend `media::encode` (#95).
+- VideoToolbox q65 (`global_quality`) ; mesurer sur l'extrait SSIM et vitesse du **logiciel Apple** (`allow_sw=1`) et
+  d'**openh264**, et t'arrêter avec les chiffres : l'utilisateur choisit le repli sur Mac. openh264 reste le repli ailleurs.
+- openh264 : débit ou QP fixé par mesure pour un SSIM d'au moins 0,977 (VideoToolbox q65, `docs/09:76`), sans option.
+- Repli : essai au démarrage, puis à l'ouverture de chaque extrait ; liste ordonnée d'encodeurs injectable (couture de
+  test, pas de faux FFmpeg).
+- Cadence en rationnel exact (10000/333, et ÷4 pour le ralenti). Nombre d'encodeurs simultanés borné par la mémoire
+  mesurée de chaque encodeur en 1440×1080, pas par 6.
+- Plage et espace de couleur des sorties : openh264 n'écrit pas la plage (#95). Propose dans le plan ce qu'on écrit
+  (plage limitée, bt709 comme la source ?) : décision de l'utilisateur.
+Attendu : chiffres mesurés sous le verrou (SSIM, vitesse, mémoire) pour VideoToolbox q65, logiciel Apple et openh264 ;
+un extrait de l'extrait encodé et relu par chacun ; fichier partiel jamais visible. Mesuré au lot 4 : VideoToolbox q65 =
+SSIM 0,977 (`docs/09:76`), à remesurer avec le moteur Rust.
+
+## Vague 3 (11 octobre 2026) — #120 (suivi), #116 (moteur)
+
+#124 est fusionnée (PR #133) : `types` et `reference` sont gelées pour le lot ; un besoin imprévu passe par une petite
+PR fusionnée d'abord. Bloc commun Rust : celui de la vague 2.
+
+### #120 — Exclusion et stabilité (worktree `suivi`, branche `rust/120-exclusion`)
+
+Crée la crate `tracking` (dépend de `types` seulement) : modules `spans` (images couvertes, détections vidées en gardant
+les images), `stability` (`StabilityConfig` : `max_blobs` 20, `pad_s` 1,0 ; limite de foule tirée de la médiane du
+nombre de détections sur **toutes** les images, vides comprises ; plages instables), `exclusion` (reçoit les détections,
+les plages abîmées toutes faites, le nombre d'images signalées et la cadence ; rend les détections gardées et les
+plages). Pas de contrôle du nombre d'images ici (garde de #116), pas de sonde ffprobe.
+- Python à lire (pas à recopier) : `src/batdetect/spans.py`, `stability.py`, `exclusion.py` et leurs tests
+  (`test_spans.py` 3, `test_stability.py` 10 portables — les 3 qui appellent `detect_frames` attendent #118 —,
+  `test_exclusion.py` 6 à adapter). Relecture : `lot6-relectures/suivi.md` (#120).
+- Commentaire de l'issue : la stabilité dépend de la longueur de la vidéo (médiane sur toute la vidéo) ; la
+  concaténation 089-091 ignore 27,9 s contre 28,9 s en morceaux.
+Attendu : sur l'extrait et la 092 (fixtures), aucune plage instable et toutes les détections gardées (402 et 780) ; en
+local sur les 26 vidéos (`tests/local_*.rs`, `BATDETECT_REFERENCE_DIR`), plages instables et `detections_kept` égales à
+la référence pour chaque vidéo — par exemple 093 : 210 gardées, 1 plage / 153 images ; 094 : 541, 8 / 1 773 ; 103 : 1 344,
+16 / 6 637 ; 120 : 410, 0 / 0. Tout écart est listé (vidéo, plage) et expliqué, pas corrigé par imitation du Python.
+Mesuré par #94 (`reference-v0.1.1/data/*/video.json`, rapport-94.md).
+
+### #116 — Lecture et gardes (worktree `moteur`, branche `rust/116-lecture`)
+
+Étend `media::decode` (#95) et crée la crate `engine` (module `input` : le seul point d'entrée du moteur, qui porte les
+refus). 3 points, pas de plan.
+- `media::decode` expose par image : `FrameIndex`, `Option<Pts>`, image-clé, drapeaux d'erreur bruts, erreur de
+  `send_packet` ; et pour le flux : base de temps, nombre d'images annoncé, cadence moyenne (déjà en place). Réglage du
+  nombre de fils (0 = automatique). Couture « paquet → paquet » avant `send_packet`, pour le canari de #117.
+- Lecture anticipée dans un fil borné (`std::thread::scope`), comme `src/batdetect/prefetch.py` (4 images) ; aucune
+  allocation par image.
+- Après un `Eof`, lire l'erreur d'entrée-sortie du contexte : certains démultiplexeurs rendent EOF sur une lecture
+  tronquée (commentaire de l'issue).
+- `engine::input` refuse : plage pleine (`yuvj420p` ou `pc`, lus comme `Full` par `media` depuis #95), format autre que
+  4:2:0, 0 image annoncée, et un nombre d'images décodées différent du nombre attendu (annoncé moins les images perdues
+  aux sauts de `pts`, somme de Δpts/pas − 1). Chaque refus est une erreur typée qui nomme la vidéo.
+- Python à lire : `video.py`, `prefetch.py`, `damage.py:74-76` ; tests `test_video.py` 7, `test_prefetch.py` 7,
+  `test_damage.py:67`, `test_parallel.py:160`. Relecture : `lot6-relectures/moteur.md` (#116).
+Attendu : l'extrait et la 092 donnent 1 230 et 9 011 images, cadences égales à `stream.avg_frame_rate` de leur
+`video.json` ; en local sur les 26 vidéos (`BATDETECT_REFERENCE_DIR`, `BATDETECT_VIDEOS_DIR`), le nombre d'images
+décodées égale `counts.frames` de la référence pour chacune — dont 103 : 8 998, 120 : 8 996, 122 : 8 998 (images perdues
+aux sauts) — et la garde ne refuse aucune des 26. `rust:reference` sous le verrou.
+
+## Notes pour la suite (journal)
+
+- **Au dégel de `types`** : donner à `types` des constructeurs infaillibles (filtrer un `FrameDetections` sans le
+  recopier ni le revalider ; `Span` déjà valide). Les variantes d'erreur impossibles de `tracking` (`Error::Detections`,
+  `Error::Span`) disparaîtront avec. Repéré par #120, validé par l'utilisateur.
+- **#118** : reliquat — porter les 3 tests de saut de luminosité de `test_stability.py` qui appellent `detect_frames`.
+- **#96** : `rust-windows` à ajouter aux tâches requises de main après fusion.
+- **#118 → #119** (11 octobre 2026, accepté par l'utilisateur) : `detect_input` public, `rayon` dépendance d'`engine`, `tracking` en dépendance de test d'`engine` pour `local_tracks.rs` — à déplacer dans `compare` à #119, puis retirer la dépendance de test. Critère des 15 s mesuré en `release` (11,5 s à P2).
+- **#118 fin** (12 octobre 2026, accepté par l'utilisateur) : ordre des taches au balayage (pas l'ordre par blocs d'OpenCV), lots de 32 et lecture anticipée de 36, tampons gardés ; seuil des 98 % gardé (l'identité stricte de #119 couvre la régression) ; 098 0:41 perdue et 7 ajoutées : ce sont les 9 divergences du prototype déjà jugées acceptables par Manon le 10 octobre (#97), constaté à #123.
+- **#119 fin** (12 octobre 2026, accepté par l'utilisateur) : saut modéré « rien d'allumé, rien d'exclu », sauts en `slow`, `media` dans `compare`, tests de comparaison déplacés dans `compare`, fixture `tests/fixtures/rust/`. Hors périmètre : #144 (types infaillibles, `powi(2)`), commentaire sur #123 (erreurs sans nom de vidéo), chemin de fixture retouché par l'agent.
+- **#123 fin** (12 octobre 2026, accepté par l'utilisateur) : `cli` bibliothèque et binaire, messages minimaux et langue par l'environnement (`en:fr` → anglais), écarts de `params.json` listés dans docs/11, code 2 pour les erreurs d'usage. #12 se ferme avec #123 (fils réels) ; la version tirée de git va à #105 (commentaire). Panique non rattrapée : commentaire sur #113. Retouches : test du dossier illisible, tests de commande accélérés. Les 17 écarts de pistes sont les 9 divergences du prototype jugées par Manon le 10 octobre (#97).
+- **#146 fin** (12 octobre 2026, accepté) : binaire contrôlé construit avec le workspace, repli du cache en PR seulement, clé calculée dans `ffmpeg-key`, `--no-renames`. Quota de cache (11,6 Go) laissé à l'éviction de GitHub.
+
+## Vague 4 (11 octobre 2026) — #121 (suivi)
+
+### #121 — Suivi (worktree `suivi`, branche `rust/121-suivi`)
+
+5 points : **plan d'abord** (`rapports/plan-121.md`), relu par `rust-expert` et `tech-architect`, puis arrêt pour
+validation. Module `tracking::track` (crate créée par #120) ; `Track` et ses mesures viennent de `types` (gelé).
+- Appariement image par image, fusion des pistes jumelles, filtres de fin (`min_hits`, `min_travel`, virage médian),
+  `TrackConfig` validée à la construction. Python à lire, pas à recopier : `src/batdetect/track.py` (168 lignes) et
+  `tests/test_track.py` (27 tests, deux paramétrés) ; relecture `lot6-relectures/suivi.md` (#121).
+- But : pistes appariées à la référence avec les tolérances de `reference` (début ±5 images, points ±3), pas
+  l'égalité exacte ; pas d'imitation des arrondis Python. Les écarts sont listés (vidéo, temps) et jugés par
+  l'utilisateur.
+- Entrée de test : les détections brutes de la référence passées par `tracking::exclude` (#120), sans attendre #118.
+- Commentaire de l'issue : `Detection::distance` passe par le `hypot` du système (un ulp d'écart avec Python sur 16 %
+  des paires), sans effet aux tolérances ; à garder en tête si un seuil tombe sur une distance exacte.
+Attendu : extrait et 092 (fixtures) : 4 et 14 pistes appariées à la référence, aucun écart ; en local sur les 26 vidéos :
+966 pistes de référence, nombre de paires, pistes seules de chaque côté, chaque écart listé avec vidéo et temps.
+Mesuré par #94 (966 pistes) et #124 (appariement de la référence avec elle-même : 100 %).
+
+### #101 — Socle de dessin (worktree `encodage`, branche `rust/101-dessin`)
+
+Crée la crate `draw` (pure : toile RGBA, police embarquée, palette, tailles) et le module `media::convert` (conversion
+RGB ↔ YUV 4:2:0 par swscale, **matrice BT.709, plage limitée**, dans les deux sens : décision du 11 octobre, #111).
+Trois temps, avec arrêts :
+1. **Pile de polices** : `ab_glyph` est exclu (sa dépendance `ttf-parser` est déclarée non maintenue, RUSTSEC-2026-0192 ;
+   on n'ignore pas l'avis). Propose une pile maintenue (par exemple `skrifa`, suggérée par l'avis, avec le tracé par
+   tiny-skia) et sa licence ; nouvelle dépendance = accord de la tour.
+2. **Planche de rendus**, puis arrêt : 2 ou 3 polices libres (OFL) avec chiffres à largeur fixe et glyphes accentués
+   précomposés, sur une vraie image de la 092 (une piste de l'extrait), avec les boîtes et traces des extraits **lissées
+   et non lissées**, et un en-tête d'image résumé accentué (« hors analyse », « illisible »). PNG dans
+   `/Users/zaratan/Projects/dvr-wt/rapports/planche-101/` : l'utilisateur choisit sur l'image.
+3. **Code**, après le choix : primitives (rectangle 1-2 px, polyligne 2 px, texte, ligne 1 px lissée, disque et contour,
+   polyligne d'épaisseur variable, polygone plein et contour, mesure de texte, assombrissement 0,6) ; palette des 12
+   couleurs de `src/batdetect/output/style.py:11-28` stockée en RGB, avec un test qui épingle chacune au BGR inversé du
+   Python ; tailles de `style_for` recalées sur la nouvelle police (`text_px` = hauteur des chiffres, taille du `#N`
+   figée par un test) ; texte normalisé en NFC, glyphe de repli ; dessin sur fond opaque (alpha prémultiplié de
+   tiny-skia).
+- Prémisses corrigées : les extraits de la v0.1.1 ne sont pas lissés (LINE_8) ; deux polices Hershey (SIMPLEX pour le
+  `#N`, DUPLEX pour le résumé) ; palette dans `style.py`, en BGR. Relecture : `lot6-relectures/reference-sorties.md` (#101).
+Attendu : planche validée par l'utilisateur ; aller-retour RGB → YUV → RGB à 2 niveaux au plus sur des aplats alignés
+sur des blocs 2×2 ; licence de la police dans `NOTICE` à #93 (noté dans docs/11) ; `mise run check` vert.
+- **#117** : type `DecodeErrors` dans `media` au lieu des bits bruts (décision du 11 octobre) ; pertes aux bords
+  rendues par #116 → plages abîmées ; règle 16 vérifiée hors plages abîmées.
+- **#118** : en Python, le fil lecteur appliquait aussi l'injection et la réduction ; si #118 veut ce parallélisme,
+  ajouter une étape de préparation côté lecture (repérage de #116).
+- **#123** : unifier `tracking::Error::Padding(f64)` avec la forme `Setting { setting, value }` en écrivant les messages (repérage de #121).
+
+## Vague 5 (11 octobre 2026) — #122 (suivi)
+
+### #122 — CSV, params.json et noms selon la langue (worktree `suivi`, branche `rust/122-tableaux`)
+
+Crée la crate `files` (dépend de `types`) : noms des fichiers produits selon la langue, CSV des pistes, `params.json`
+(générique sur `Serialize`), format des temps. Elle reçoit un `types::Language` ; la lecture de la langue du système
+viendra avec la commande (#123) puis Fluent (#114).
+- **Noms** : les deux tables de `src/batdetect/output/names.py:28-29` (`extraits`/`piste`/`_pistes`/`_resume`/`_annotee`
+  et `clips`/`track`/`_tracks`/`_summary`/`_annotated`), `params.json` non traduit, `_zoom` commun ; numéro de piste
+  sur la largeur du nombre de pistes (2 chiffres au moins) ; le temps du nom d'extrait est passé par l'appelant (en
+  secondes, tiré des `pts` à #102). Sans le ménage ni les anciens noms (#115).
+- **CSV** : mêmes 12 colonnes, même sens et même forme que la v0.1.1 (en-têtes anglais, virgule, point décimal, CRLF,
+  sans guillemets, même contenu en français et en anglais) ; la forme définitive reste à #84. `max_area_px` entier. Les
+  temps viennent des `pts` (`Timeline`, partie CSV de #35), format `m:ss.cc` de `src/batdetect/output/timefmt.py:6-9`.
+- **`params.json`** : clés de la v0.1.1 pour les réglages fournis par l'appelant, sans `mode` ni `ffprobe` ; avec la
+  version du programme (fixée à la compilation) et la version de FFmpeg liée (#12). Le nombre de fils réel arrive avec
+  #123, qui fermera #12.
+- Tests unitaires sur des pistes fabriquées ; test sur les fixtures : le CSV écrit depuis les pistes de la référence
+  comparé **par les valeurs** au `tracks.csv` de la v0.1.1.
+- Python à lire : `output/tables.py`, `output/names.py`, `output/timefmt.py` et leurs tests ; relecture
+  `lot6-relectures/suivi.md` (#122).
+Attendu : extrait 4 lignes, 092 14 lignes, 12 colonnes ; toutes les colonnes égales à la v0.1.1 sauf les temps, dont
+chaque écart est listé (image, temps v0.1.1, temps par les `pts`) — sur l'extrait, au plus l'image 1050 (34,96 contre
+34,97, calcul de la relecture, non mesuré) ; sur la 092, des écarts de l'ordre du centième vers la fin sont possibles
+(cadence moyenne 30,027 de la v0.1.1 contre les vrais `pts`) : à mesurer, pas à supposer. `mise run check` vert.
+- **Au dégel de `types`** (suite) : `Track::path_length` rend `-0.0` pour une piste d'un seul point (somme vide) ;
+  `files` l'écrit `0.0` (repérage de #122).
+- **#123** : porter le test Python des clés de `params.json` par configuration ; ajouter `files` et `tracking` à
+  `[workspace.dependencies]` en les consommant. **#101/#103** : test des seuils de zoom dans `params.json`.
+
+## Vague 6 (11 octobre 2026) — #117 (moteur)
+
+### #117 — Images abîmées et canari (worktree `moteur`, branche `rust/117-abimees`)
+
+3 points, pas de plan. Dans `media::decode` et `engine` (module `damage`).
+- **`DecodeErrors`** : un type dans `media` pour les drapeaux d'erreur de décodage, au lieu des bits bruts (décision du
+  11 octobre). Une image est en erreur si ses drapeaux ne sont pas vides. Le bit `CONCEALMENT_ACTIVE` dépend d'un cfg de
+  ffmpeg-next : le canari tourne sur chaque système (CI macOS, Linux, Windows).
+- **`engine::damage`** : images en erreur, images après un saut de `pts` et **pertes aux bords** rendues par #116 →
+  plages abîmées (`Vec<Span>`) jusqu'à l'image-clé suivante, élargies d'une marge passée par l'appelant (la demi-fenêtre
+  du fond ; `DetectConfig` arrive avec #118). Python à lire : `src/batdetect/damage.py:13-71`, tests `test_damage.py`
+  (15, sans l. 67 ni 87) et `test_probe.py` l. 36, 45, 50, 57.
+- **Canari** : par la couture de #116 (`Packet::shrink`), corrompre l'extrait à quelques positions — une image-clé, une
+  image P au milieu d'un GOP (GOP de 15), une dans le dernier GOP, deux images consécutives — et figer l'ensemble exact
+  des images signalées. L'ensemble de ffprobe, mesuré une fois sur une copie tronquée sur disque (arguments de
+  `src/batdetect/probe.py:12-25`, version d'ffprobe écrite dans docs/11), est inscrit en constante : celui du Rust doit le
+  contenir.
+- **Règle 16 hors plages abîmées** : vérifier que les détections (après #118) ou à défaut les tables par image ne
+  dépendent pas du nombre de fils hors des plages abîmées.
+- Commentaires de l'issue : canari du multifil à l'exécution (lire le nombre et le type de fils du décodeur) ; `linesize`
+  négatif non géré par `data()` de ffmpeg-next.
+- Docs dans docs/11 (pas docs/10). Relecture : `lot6-relectures/moteur.md` (#117).
+Attendu : extrait et 092 : aucune image abîmée, aucune plage (comme la référence). En local (`BATDETECT_REFERENCE_DIR`,
+`BATDETECT_VIDEOS_DIR`) : 093, 122 et 124 comparées aux tables de #94 (`ffprobe.error_frames`, `gap_frames`,
+`damaged_spans`) — la 124 doit donner une image de plus que ffprobe (310 contre 309), écart attendu du décodeur ; puis
+les 26 vidéos, chaque écart listé (vidéo, image) et expliqué. `rust:reference` sous le verrou.
+- **Plage des sources** : lues comme pleines pour l'affichage (décision du 11 octobre). Le refus des sources marquées `pc`/`yuvj420p` par `engine::input` (#116) est à réexaminer avec #98 : la détection lit Y brut quelle que soit l'étiquette.
+- **124, image 2197 (~1:13)** : exclusion de 1,4 s gardée (image réparée par le décodeur sans message, `CONCEALMENT_ACTIVE` seul) ; l'utilisateur doit confirmer à l'œil.
+
+## Vague 7 (11 octobre 2026) — #118 (moteur)
+
+### #118 — Détection (worktree `moteur`, branche `rust/118-detection`)
+
+5 points : **plan d'abord** (`rapports/plan-118.md`), relu par `rust-expert` et `tech-architect`, arrêt pour validation.
+Dans `engine` : préparation (gris à la largeur de travail, filtre à la taille de la cible), fond médian (réseau de tri),
+bruit par pixel, seuil relevé, taches (fermeture, composantes), `DetectConfig` validée, pipeline parallèle, 25 images
+YUV gardées pour l'image résumé, sortie : vidéo, table par image, `FrameDetections`, plages abîmées (#117).
+- Réglages par défaut seulement, 1440×1080 seulement (refus de #116) ; plus de 16 échantillons de médiane refusés
+  jusqu'à #98 (le réseau n'est vérifié que jusqu'à 16).
+- Pas d'imitation d'OpenCV ni de numpy : le calcul simple et juste, les écarts mesurés par `reference` et jugés.
+  Les tests Python sont à l'échelle 3 et sans filtre : écrire les tests Rust à l'échelle réelle (1,5).
+- Prototype `rust-proto/fast/` (branche `exploration/rust`) : se porte, ne se recopie pas ; sa réservation
+  `with_capacity(above.len() * offsets.len())` (`blobs.rs:70`) est à remplacer par un chemin dense au-delà d'un seuil de
+  pixels allumés ; mémoire vérifiée par `dhat` en test (pas de `GlobalAlloc`).
+- Règle 16 : mêmes détections quel que soit le nombre de fils, plages abîmées exclues.
+- Reliquats : les 3 tests de saut de luminosité de `test_stability.py` qui appellent `detect_frames` ; si le
+  parallélisme le demande, une étape de préparation côté lecture (repérage de #116).
+- Python à lire : `detect.py`, `median.py`, `noise.py`, `video.py:67-72`, `parallel.py:60-115` et leurs tests ;
+  relecture `lot6-relectures/moteur.md` (#118). Docs dans docs/11.
+Attendu : extrait et 092 : au moins **98 % des détections appariées dans les deux sens** à la référence
+(`reference`, moins de 3 px, même image), hors plages ignorées ; en local sur les 26 vidéos, le taux par vidéo dans les
+deux sens et chaque écart groupé (vidéo, temps) à juger. Temps de détection de la 092 en profil `release` sous le verrou
+(`/usr/bin/time -l`), à côté du Python (118,7 s de détection, 134 s de commande complète) et du prototype (19 s).
+Repères du prototype (non remesurés) : 092 780 contre 781 détections, 100 % et 99,87 % ; la 089 est la plus basse des
+26 à 98,19 %.
+
+## Vague 8 (12 octobre 2026) — #119 (moteur)
+
+### #119 — Comparaison et identité entre systèmes (worktree `moteur`, branche `rust/119-comparaison`)
+
+2 points, sans plan relu. Crate `compare` → `engine`, `tracking`, `reference`, `types` : l'outil de développement
+(binaire, non livré) qui lance le moteur sur l'extrait, la 092 ou les 26 vidéos (`BATDETECT_REFERENCE_DIR`,
+`BATDETECT_VIDEOS_DIR`) et liste les taux dans les deux sens et les écarts groupés (vidéo, temps), détections et pistes.
+- Reprendre ce que #118 a posé dans `engine/tests` : `support/agreement.rs`, `local_detection.rs`, `local_tracks.rs`
+  passent dans `compare` (code de bibliothèque, tests locaux) ; `tracking` quitte les dépendances de test d'`engine` ;
+  docs/11 et l'arête de test de CLAUDE.md suivent.
+- Écrire les détections au format de la référence (`frames.jsonl`, `reference::frames::Frames::write`) depuis
+  `engine::detection::detect`.
+- **Identité entre systèmes** : le `frames.jsonl` de l'extrait, produit sur le Mac, est commité (fichier texte, pas
+  LFS) ; un test `slow_*` de `compare` le redemande au bit près. Les tâches `rust` (macOS, Ubuntu) et `rust-windows`
+  le lancent déjà. Avant de figer, relève les opérations flottantes de la chaîne dont le résultat dépend de la libm du
+  système (`exp`, `ln`, `powf`… ; `sqrt` et les quatre opérations sont exactes) et dis si l'une peut faire basculer
+  une détection. Un écart en CI remonte à l'utilisateur : ne pas le corriger seul.
+- Seuils inchangés : 98 % dans les deux sens, à moins de 3 px (strict), plages abîmées et instables de la référence
+  ignorées dans les deux sens.
+- Reliquat : les 3 tests de saut de luminosité de `tests/test_stability.py` (l. 101-125 : saut global, grand saut
+  ignoré autour du saut, saut modéré), à l'échelle réelle 1,5 ; ils passent par `engine` puis `tracking`. Le moyen
+  de fournir les images (vidéo synthétique encodée par `media`, ou entrée du détecteur) est à toi, dis-le.
+- Temps : la 092 est mesurée à #118 (11,2 s en `release`). Ne le refaire que si un fichier d'`engine` change.
+- Note de #124 : `reference::detection_matching` alloue à chaque image ; ne la toucher que si le temps de `compare`
+  sur les 26 vidéos le demande, chiffre à l'appui.
+Attendu : `mise run check` vert, `rust:slow` et `rust:reference` sous le verrou, l'outil lancé sur les 26 vidéos avec
+les mêmes chiffres qu'à #118 (963 pistes appariées, 3 perdues, 9 ajoutées ; la 089 à 98,19 %).
+
+## Vague 9 (12 octobre 2026) — #123 (suivi)
+
+### #123 — Commande de bout en bout (worktree `suivi`, branche `rust/123-commande`)
+
+3 points, sans plan relu. Le binaire `batdetect-rs` (crate `cli`, paquet `batdetect`) : vidéos en entrée, un dossier
+par vidéo sous `-o` avec le CSV des pistes et `params.json`. Rien d'autre (ni image résumé, ni extraits).
+- **`-o` obligatoire** : sans lui, la commande refuse de démarrer et le dit (le défaut se décide avec #86 et #113).
+- Chaîne : `engine::detection::detect` → `tracking::exclude` (plages abîmées et instables) → `track_detections` →
+  `files` (CSV, `params.json`, noms selon la langue). La langue vient du système (#122 l'a laissée à la commande) ;
+  messages minimaux par `messages.rs` : une ligne par vidéo traitée (nom, nombre de pistes), une par échec.
+- **Plusieurs vidéos** : un échec n'arrête pas les autres (`tests/test_end_to_end.py:130`), le code de sortie le dit, et
+  le message nomme la vidéo (`engine::detection::Error` est `transparent`, commentaire de #119 sur #123).
+- **`params.json`** : le nombre de fils réel (ferme #12) ; porter le test Python des clés par configuration.
+- Unifier `tracking::Error::Padding(f64)` avec la forme `Setting { setting, value }` (repérage de #121).
+- `files` et `engine` passent par `[workspace.dependencies]`, consommés.
+- **Tests** : `slow` sur l'extrait sur les trois systèmes (`test_end_to_end.py:189` et `:201` : 4 pistes) ; le test
+  Python qui compte 3:36 comme une chauve-souris est périmé (c'est la piste lente de 3:29, `docs/03:38-47`), le Rust
+  ne reprend pas l'affirmation. `reference` sur la 092 : Linux en CI ; la tour la relance sur le Mac avant la Review.
+- **Comparaison** : les pistes que la commande écrit, appariées à la référence (`reference`, début ±5 images,
+  points ±3) sur les 26 vidéos. Attendu : les chiffres de #118 et #119 (966, 963 appariées, 3 perdues, 9 ajoutées).
+  Toute autre divergence est listée (vidéo, temps) pour l'utilisateur. Le moyen (lecture du CSV par `compare`, ou
+  autre) est à toi, dis-le.
+- Temps et mémoire de la commande sur la 092, en `release`, sous le verrou (`/usr/bin/time -l`), à côté des 11,2 s de
+  détection seule (#118) et des 134 s de la commande Python.
+- Docs : `docs/03` (la 092 avec le Rust), `docs/11`, CLAUDE.md si une arête change.
+- Python à lire : `cli.py`, `jobs.py`, `arguments.py`, `output/tables.py` et leurs tests ; relecture
+  `lot6-relectures/suivi.md` (#123).
+Attendu : `mise run check` vert, `rust:slow` et `rust:reference` sous le verrou, la comparaison des 26 vidéos.
+
+## Vague 10 (12 octobre 2026) — #146 (ci), en parallèle de #123
+
+### #146 — Temps de la CI Rust (worktree `ci`, branche `rust/146-ci`)
+
+Sans plan relu. Les cinq leviers de l'issue, mesures du run 38205056197 (PR #145) comme « avant ».
+- `rust-reference` sans `needs: rust`.
+- **`memory_flash.rs` devient un test `slow_`** (décision de l'utilisateur) : il tourne sur les trois systèmes sans
+  l'instrumentation de la couverture. La couverture doit rester ≥ 95 % sans lui ; docs/11 et CLAUDE.md suivent.
+- **Clé de repli du cache `target`** : seule l'empreinte de `Cargo.lock` peut varier. L'image du runner, l'empreinte
+  FFmpeg et la toolchain restent dans le préfixe de repli, sinon une bibliothèque FFmpeg périmée serait liée sans
+  recompilation ; réordonner la clé en conséquence. Relève la taille des caches (`gh api repos/zaratan/chiro-dvr/actions/caches`)
+  et dis si le repli la fait grossir d'une PR à l'autre.
+- **Windows** : clippy (82 s) et `cargo build -p batdetect` (60 s). Mesure d'abord sur un run au cache chaud (PR #143,
+  run 38181305786) ce qui reste quand rien ne recompile, puis propose ; clippy reste sous Windows (code `cfg(windows)`).
+- **Filtre Python** (`changes`) : `tests/fixtures/rust/` et `tests/fixtures/reference/` ne déclenchent plus les
+  tâches Python (aucun `.py` ne les lit ; `tools/` reste dans le filtre).
+- Ne renomme aucune tâche : les vérifications requises de `main` portent leurs noms (`rust (macos-latest)`,
+  `rust (ubuntu-latest)`, `rust-reference`, `rust-windows`, `static`, `fast-tests`, `slow-tests`, `reference`).
+- Ne touche ni `crates/cli`, ni `tracking`, ni `files` (#123 y travaille en parallèle).
+- Les journaux de CI se lisent par `gh run view <run> --repo zaratan/chiro-dvr --job <id> --log` (lecture seule).
+  `actionlint` si l'outil est disponible, sinon dis-le.
+Attendu : `mise run check` vert, `rust:slow` sous le verrou (avec le test de mémoire), la liste des tests passés par
+système relevée sur le run de #145 pour que la tour la compare à celle de la PR, et le temps attendu par levier. Le
+temps « après » se lit sur la CI de la PR que l'utilisateur ouvrira.
