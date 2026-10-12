@@ -616,7 +616,7 @@ Mesure du 11 octobre 2026 (#101) :
 
 ## Crates
 
-Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `media`.
+Dix crates depuis #110, `members = ["crates/*"]`. `unsafe` n'est permis que dans `media`.
 
 - **`types`** : vocabulaire commun, sans entrée-sortie ni algorithme de détection. Un
   type n'y entre que s'il est produit par une crate et lu par au moins deux autres. Gelé
@@ -689,6 +689,15 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       appel à `data()`. Le décodeur h264 n'en produit pas.
     - Cadence : `avg_frame_rate`, repli sur `r_frame_rate` si elle est inconnue.
     - Formats : `yuv420p` seul, `yuvj420p` lu comme plage pleine.
+    - Placement (`decode::placed`, #110) : `Decoder::seek_before(pts)` se place sur la
+      dernière image-clé à ou avant ce `pts` que connaît l'index du conteneur
+      (`avformat_seek_file`, borne haute = la cible, puis `flush` du décodeur), même
+      après la fin du fichier. Il rend un `Placed`, dont les images (`PlacedFrame`)
+      n'ont qu'un `pts` : après un placement, le compte des images rendues ne les numérote
+      plus. `Decoder::at_start` lit depuis le début avec la même interface. La cible
+      passe du `pts` aux microsecondes de FFmpeg en arrondissant vers le bas, pour ne
+      jamais dépasser l'image voulue ; FFmpeg la ramène à la base de temps du flux à
+      l'arrondi le plus proche, donc au plus sur elle.
   - `encode` : `Settings::new` (taille paire, cadence positive), puis
     `Encoder::create`, `push` et `finish`, en openh264 ou VideoToolbox.
     - Réglages fixes, détaillés dans [Encodage](#encodage) :
@@ -698,6 +707,9 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     - Une image en plage pleine est refusée (`FullRange`). L'encodeur écrit une plage
       limitée en BT.709, dans le flux H.264.
     - Un paquet sans durée reçoit une durée d'une image.
+    - Images-clés : sans réglage, openh264 n'en écrit qu'une, la première.
+      `Settings::with_key_interval(n)` en écrit une toutes les n images (`gop_size`) ;
+      le défaut n'a pas changé (#110), sa valeur pour les sorties revient à #112.
     - La cadence est un rationnel exact : 10000/333 et 2500/333 se relisent à
       l'identique.
     - `Encoder::codec` dit quel encodeur écrit.
@@ -737,6 +749,11 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       - réécrite en plage limitée, puis relue : écart moyen de 0,086, et 0,016 % des
         valeurs au-delà de 2 niveaux (973 sur 6,2 millions, non localisées).
   - `library` : version et licence du FFmpeg lié.
+  - `payload`, derrière la feature `testing` (tests seulement) : `wipe(chemin, parts,
+    nombre)` écrase de `0xff` des parts égales de la boîte `mdat` d'un mp4. Les images
+    qui y tombent sont perdues (saut de `pts`) ou dissimulées. Une plage de parts vide,
+    hors de la boîte ou qui déborde est refusée. Les tests de `media`, d'`engine` et de
+    `render` y fabriquent leurs vidéos abîmées.
 - **`draw`** (#101) : dessin pur sur une toile RGBA, sans FFmpeg ni entrée-sortie.
   - `text` : `Typeface::roboto`, la police embarquée.
     - Graisses 400 pour le texte et 600 pour les numéros (choix de l'utilisateur sur la
@@ -1231,6 +1248,65 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       274 → 275. Les maxima tombent sur un demi (sur la 092, les surfaces sont des
       multiples de 2,25) : le Rust arrondit à mi-chemin vers le haut, la v0.1.1 au pair.
       Gardé (règle 5).
+- **`render`** → `media`, `types` (#110) : les images des extraits. `batdetect-rs` ne
+  s'en sert pas encore (#112).
+  - `source` : `Source::new(chemin, Timeline, images-clés, images en erreur)`, puis
+    `serve(plage, visite)`, qui rend chaque image de la plage une fois, dans l'ordre,
+    avec son `FrameIndex`. Les images-clés et les images en erreur viennent du moteur
+    (`FrameInfo::is_key`, `Damage::error_frames`) ; `render` ne dépend pas d'`engine`.
+  - Les images se choisissent par `pts` : chaque `pts` rendu par le décodeur est cherché
+    dans la `Timeline` (recherche inverse, interne à `render`). Une `Timeline` dont les
+    `pts` connus ne croissent pas strictement est refusée. Une plage qui sort de la
+    vidéo, ou dont une image n'a pas de `pts`, est refusée avant tout décodage.
+  - Contrôle de la suite servie : un `pts` inconnu de la `Timeline`, une image qui revient
+    après une plus récente, une image de la plage que le décodeur saute ou qui manque
+    en fin de fichier sont des erreurs typées. Une erreur de la visite arrête la lecture
+    et revient telle quelle, comme pour `engine::input`.
+  - Image de reprise : la dernière image-clé à ou avant le début de la plage qui n'est
+    pas elle-même en erreur. La dissimulation d'une image-clé en erreur puise dans les
+    images d'avant : seule une image-clé saine remet le décodeur à zéro. Sans marge
+    réglée : la marge de 30 du prototype supposait des GOP de 15 (ici de 8 à 16).
+  - Un fil de décodage par appel (`Threads::Exactly(1)`) : les pixels dissimulés ne se
+    reproduisent qu'à un fil (voir « Fils et pixels dissimulés »). L'appelant sert une
+    plage par groupe de fenêtres chevauchantes, pour ne décoder qu'une fois une image
+    partagée ; le parallélisme viendra des groupes (#112). Il borne aussi les fenêtres à
+    la dernière image : la v0.1.1 ne les bornait pas, `serve` refuse une plage qui
+    sort de la vidéo.
+  - Placement raté : si le placement échoue, ou si la première image rendue vient après
+    l'image de reprise (conteneur sans index), la plage est relue depuis le début.
+    `serve` rend d'où il a lu : `Origin::Key(image)`, ou `Origin::Start` avec sa raison
+    (`Restart::NoCleanKey`, `Unplaced` avec l'erreur de FFmpeg, `Overshot` avec l'image
+    de reprise et la première image rendue).
+    - Le dépassement est testé : une image-clé forgée avant la première image du mp4
+      est ramenée par FFmpeg à l'image 0 (`mov.c`), qui vient après elle.
+    - Aucun mp4 ne fait échouer le placement : une cible avant le début est ramenée à
+      la première image. `Unplaced` et l'erreur `OutOfOrder` (une image rendue après une
+      plus récente, impossible tant que le décodeur rend dans l'ordre des `pts` et que
+      la `Timeline` croît strictement) restent des gardes non couvertes.
+  - Hypothèse : une image-clé saine remet le décodeur à zéro. C'est vrai d'une IDR ;
+    FFmpeg marque aussi image-clé une image à point de reprise (SEI
+    `recovery_frame_cnt` nul), qui n'est pas forcément indépendante. Seuls l'extrait et
+    les 103, 123 et 124 le confirment. Le placement passe par le flux vidéo par défaut
+    de FFmpeg, le décodeur par `best(Video)` : ils coïncident tant que le fichier n'a
+    qu'un flux vidéo.
+  - `Source` ne garde de la `Timeline` que le nombre d'images et la table `pts` ↔ image :
+    sans durée de vie, `Send` et `Sync`. Un test sert trois plages depuis trois fils à
+    la fois.
+  - Mesures (M1 Max, `--profile ci`) : chaque plage est comparée à une lecture
+    séquentielle à un fil (empreinte de chaque image) :
+    - test rapide : vidéo openh264 1440×1080 de 48 images, une image-clé toutes les 8,
+      dont la sixième part sur douze de `mdat` est écrasée : 40 images, 8 perdues d'un
+      coup, l'image-clé 16 en erreur. Les 40 plages d'au plus 4 images et la plage entière sont
+      égales ; celles qui commencent de 16 à 23 reprennent à l'image-clé 8. Reprendre à
+      l'image-clé 16 en erreur fait échouer la plage 16–19 (essai fait une fois) ;
+    - `slow_source` : 12 plages de 1 à 380 images tirées dans l'extrait (SplitMix64,
+      graine fixe), égales, 24 s ;
+    - `local_source` : la fenêtre 6580–6684 de la 103, seul extrait des 26 vidéos qui
+      traverse une perte d'images, reprend à l'image-clé 6573 et rend ses 105 images
+      égales (63 s) ; les 8 fenêtres d'extraits de la 123 et les 3 de la 124 qui touchent
+      une plage abîmée (pistes de la référence, marge `round(1,5 × cadence)` = 45,
+      bornée à la vidéo) sont égales (140 s pour les deux). Aucune de ces 12 fenêtres
+      ne saute une image-clé en erreur : seule la vidéo fabriquée exerce cette règle.
 - **`compare`** → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré. `media` n'y sert qu'à choisir les fils du
   décodeur (`Threads::Automatic`).

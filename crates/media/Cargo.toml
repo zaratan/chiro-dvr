@@ -6,6 +6,9 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+testing = []
+
 [dependencies]
 ffmpeg-next.workspace = true
 tempfile.workspace = true

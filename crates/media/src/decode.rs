@@ -19,6 +19,7 @@ use crate::failure::LibraryError;
 use crate::frame::{self, ColorRange, YuvFrame};
 use crate::{init, path, planes};
 
+pub mod placed;
 #[cfg(test)]
 mod tests;
 
