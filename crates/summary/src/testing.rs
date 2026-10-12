@@ -58,4 +58,7 @@ impl crate::header::Labels for DebugLabels {
             other => format!("{other:?}"),
         }
     }
+    fn band(&self, band: crate::header::Band) -> String {
+        format!("{band:?}")
+    }
 }

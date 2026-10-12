@@ -9,7 +9,7 @@ use files::params::spans_in_seconds;
 use reference::recording::Recording;
 use serde::Deserialize;
 use summary::geometry::distance;
-use summary::header::HeaderLine;
+use summary::header::{HeaderLine, duration};
 use summary::layout::{PageLayout, Summary, layout};
 use summary::placement::Frame;
 
@@ -46,17 +46,30 @@ struct ExpectedTrack {
     start: String,
 }
 
-impl From<ExpectedLine> for HeaderLine {
-    fn from(line: ExpectedLine) -> Self {
+#[cfg(test)]
+fn expected_header(lines: Vec<ExpectedLine>) -> (Vec<HeaderLine>, Option<(String, usize)>) {
+    let mut header = Vec::new();
+    let mut unreadable = None;
+    for line in lines {
         match line {
-            ExpectedLine::Name { text } => Self::Name(text),
-            ExpectedLine::Tracks { count } => Self::Tracks(count),
-            ExpectedLine::Window { start, end } => Self::Window { start, end },
-            ExpectedLine::NotAnalysed { start, end } => Self::NotAnalysed { start, end },
-            ExpectedLine::More { count } => Self::More(count),
-            ExpectedLine::Unreadable { duration, spans } => Self::Unreadable { duration, spans },
+            ExpectedLine::Name { text } => header.push(HeaderLine::Name(text)),
+            ExpectedLine::Tracks { count } => header.push(HeaderLine::Tracks(count)),
+            ExpectedLine::Window { start, end } => header.push(HeaderLine::Window { start, end }),
+            ExpectedLine::NotAnalysed { start, end } => header.push(HeaderLine::NotAnalysed { start, end }),
+            ExpectedLine::More { count } => header.push(HeaderLine::More(count)),
+            ExpectedLine::Unreadable { duration, spans } => unreadable = Some((duration, spans)),
         }
     }
+    (header, unreadable)
+}
+
+#[cfg(test)]
+fn before_unreadable(lines: &[HeaderLine]) -> &[HeaderLine] {
+    let first = lines
+        .iter()
+        .position(|line| matches!(line, HeaderLine::Unreadable { .. }))
+        .unwrap_or(lines.len());
+    &lines[..first]
 }
 
 #[derive(Debug, Default)]
@@ -143,15 +156,24 @@ fn compare_page(name: &str, page: &PageLayout<'_>, period: ExpectedPeriod, diffe
     if found_suffix != period.suffix {
         differences.push(format!("{name}: suffix {found_suffix:?}, v0.1.1 {:?}", period.suffix));
     }
-    let header: Vec<HeaderLine> = period.header.into_iter().map(HeaderLine::from).collect();
-    if page.header.len() != header.len() {
+    let (header, unreadable) = expected_header(period.header);
+    let found_lines = before_unreadable(&page.header);
+    let total: f64 = page.damaged.iter().map(|[from, to]| to - from).sum();
+    let found_unreadable =
+        (!page.damaged.is_empty()).then(|| (duration(total.max(0.0).ceil() as u64), page.damaged.len()));
+    if found_unreadable != unreadable {
+        differences.push(format!(
+            "{name}: unreadable {found_unreadable:?}, v0.1.1 {unreadable:?}"
+        ));
+    }
+    if found_lines.len() != header.len() {
         differences.push(format!(
             "{name}: {} header lines, v0.1.1 {}",
-            page.header.len(),
+            found_lines.len(),
             header.len()
         ));
     }
-    for (found, expected) in page.header.iter().zip(&header) {
+    for (found, expected) in found_lines.iter().zip(&header) {
         if found != expected {
             differences.push(format!("{name}: header {found:?}, v0.1.1 {expected:?}"));
         }

@@ -7,8 +7,8 @@ use std::num::NonZeroU32;
 use batdetect::jobs::Job;
 use draw::style::style_for;
 use draw::text::Typeface;
-use summary::header::{HeaderLine, Labels};
-use summary::legend::{MAX_HEADER_COLUMNS, column_width, fit_text};
+use summary::header::{Band, HeaderLine, Labels};
+use summary::legend::{column_width, fit_text, legend_width};
 use types::language::Language;
 
 use super::{SummaryLabels, failed, processed};
@@ -97,18 +97,14 @@ fn every_kind_of_line() -> Vec<HeaderLine> {
         HeaderLine::More(1),
         HeaderLine::More(2),
         HeaderLine::Unreadable {
-            duration: "1 s".to_owned(),
-            spans: 1,
-        },
-        HeaderLine::Unreadable {
-            duration: "1 min 18 s".to_owned(),
-            spans: 2,
+            start: "1:02".to_owned(),
+            end: "1:05".to_owned(),
         },
     ]
 }
 
 #[test]
-fn the_summary_header_keeps_the_french_wording_of_v0_1_1() {
+fn the_summary_header_reads_in_french_with_the_wording_of_v0_1_1_where_it_existed() {
     assert_eq!(
         texts(Language::French, &every_kind_of_line()),
         [
@@ -120,14 +116,13 @@ fn the_summary_header_keeps_the_french_wording_of_v0_1_1() {
             "hors analyse 0:00 - 0:09",
             "+ 1 autre",
             "+ 2 autres",
-            "illisible 1 s (1 plage)",
-            "illisible 1 min 18 s (2 plages)",
+            "illisible 1:02 - 1:05",
         ]
     );
 }
 
 #[test]
-fn the_summary_header_keeps_the_english_wording_of_v0_1_1() {
+fn the_summary_header_reads_in_english_with_the_wording_of_v0_1_1_where_it_existed() {
     assert_eq!(
         texts(Language::English, &every_kind_of_line()),
         [
@@ -139,25 +134,61 @@ fn the_summary_header_keeps_the_english_wording_of_v0_1_1() {
             "not analysed 0:00 - 0:09",
             "+ 1 more",
             "+ 2 more",
-            "unreadable 1 s (1 span)",
-            "unreadable 1 min 18 s (2 spans)",
+            "unreadable 1:02 - 1:05",
         ]
     );
 }
 
 #[test]
-fn the_longest_damage_line_is_never_cut_on_the_summary() {
+fn the_longest_unreadable_total_is_never_cut_on_the_summary() {
     let typeface = Typeface::roboto().unwrap();
-    let longest = HeaderLine::Unreadable {
-        duration: "10 min 0 s".to_owned(),
-        spans: 600,
+    let longest = HeaderLine::MoreUnreadable {
+        count: 597,
+        total_seconds: 600,
     };
     for language in [Language::French, Language::English] {
-        let line = SummaryLabels(language).line(&longest);
+        let header = ["video_121".to_owned(), SummaryLabels(language).line(&longest)];
         for width in [480, 640, 1440, 3840] {
             let style = style_for(NonZeroU32::new(width).unwrap(), "99", &typeface);
-            let room = MAX_HEADER_COLUMNS * column_width(&typeface, &style, &[]) - 2.0 * style.margin;
-            assert_eq!(fit_text(&typeface, &line, room, &style), line, "{width}");
+            let column = column_width(&typeface, &style, &[]);
+            let room =
+                legend_width(&typeface, &header, column + style.margin, column, &style) as f32 - 2.0 * style.margin;
+            assert_eq!(fit_text(&typeface, &header[1], room, &style), header[1], "{width}");
         }
     }
+}
+
+#[test]
+fn the_time_strip_names_its_two_bands_in_each_language() {
+    let bands = |language| [Band::NotAnalysed, Band::Unreadable].map(|band| SummaryLabels(language).band(band));
+    assert_eq!(bands(Language::French), ["hors analyse", "illisible"]);
+    assert_eq!(bands(Language::English), ["not analysed", "unreadable"]);
+}
+
+#[test]
+fn the_hidden_unreadable_spans_carry_the_total_unreadable_time() {
+    let lines = [
+        HeaderLine::MoreUnreadable {
+            count: 84,
+            total_seconds: 202,
+        },
+        HeaderLine::MoreUnreadable {
+            count: 1,
+            total_seconds: 1,
+        },
+    ];
+    assert_eq!(
+        texts(Language::French, &lines),
+        [
+            "+ 84 autres, 3 min 22 s illisibles en tout",
+            "+ 1 autre, 1 s illisible en tout",
+        ]
+    );
+    assert_eq!(
+        texts(Language::English, &lines),
+        [
+            "+ 84 more, 3 min 22 s unreadable in all",
+            "+ 1 more, 1 s unreadable in all",
+        ]
+    );
 }

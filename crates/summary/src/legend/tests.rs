@@ -5,7 +5,7 @@ use draw::color::{PALETTE, PANEL, Rgb};
 use draw::style::{SummaryStyle, style_for};
 use draw::text::Typeface;
 
-use super::{ELLIPSIS, LegendEntry, column_width, fit_text, legend_panel, row_height};
+use super::{ELLIPSIS, LegendEntry, column_width, fit_text, legend_panel, legend_width, row_height};
 
 fn tools() -> (Typeface, SummaryStyle) {
     let typeface = Typeface::roboto().unwrap();
@@ -99,4 +99,33 @@ fn a_long_header_widens_the_panel_up_to_three_columns_and_no_further() {
     let huge = "a".repeat(400);
     let capped = legend_panel(&typeface, &[huge], &entries(1), 1080, &style).unwrap();
     assert_eq!(capped.width(), (3.0 * column).ceil() as u32);
+}
+
+#[test]
+fn the_widest_header_line_is_never_cut_by_the_rounding_of_its_own_width() {
+    let (typeface, style) = tools();
+    let header = ["video_121", "2 pistes", "0:00 - 5:00", "illisible 0:04 - 0:05"].map(String::from);
+    let column = column_width(&typeface, &style, &[]);
+    let width = legend_width(&typeface, &header, column + style.margin, column, &style);
+    for line in &header {
+        assert_eq!(
+            &fit_text(&typeface, line, width as f32 - 2.0 * style.margin, &style),
+            line
+        );
+    }
+}
+
+#[test]
+fn only_the_video_name_is_capped_at_three_columns_so_the_unreadable_total_is_never_cut() {
+    let (typeface, style) = tools();
+    let total = "+ 84 autres, 10 min 0 s illisibles en tout".to_owned();
+    let header = ["a".repeat(400), total.clone()];
+    let column = column_width(&typeface, &style, &[]);
+    let width = legend_width(&typeface, &header, column + style.margin, column, &style);
+    assert!(typeface.measure(&total, style.text) > 3.0 * column - 2.0 * style.margin);
+    assert_eq!(
+        fit_text(&typeface, &total, width as f32 - 2.0 * style.margin, &style),
+        total
+    );
+    assert!(fit_text(&typeface, &header[0], width as f32 - 2.0 * style.margin, &style).ends_with(ELLIPSIS));
 }

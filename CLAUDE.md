@@ -180,7 +180,7 @@ crates depuis #104, dépendances à sens unique :
 - `render` → `media`, `types` (#110) : images des extraits choisies par `pts` (`source`),
   reprise sur la dernière image-clé saine, un fil de décodage par plage.
 - `summary` → `draw`, `types`, `files` (#104) : l'image résumé (tranches, couleurs,
-  flèches, pastilles, bandeau, PNG), sans FFmpeg.
+  flèches, pastilles, bandeau, frise du temps, PNG), sans FFmpeg.
 - `compare` → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré ;
   `cli` (paquet `batdetect`, binaire `batdetect-rs`) → `engine`, `tracking`, `files`,
