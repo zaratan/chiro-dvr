@@ -1,4 +1,5 @@
 use std::fs;
+use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 
 use ffmpeg::util::color::{Primaries, Range, Space, TransferCharacteristic};
@@ -65,6 +66,33 @@ fn a_frame_of_another_size_is_refused() {
         encoder.push(&other),
         Err(Error::FrameSize { found_width: 160, .. })
     ));
+}
+
+fn key_frames(settings: &Settings, folder: &Path) -> Vec<usize> {
+    let path = folder.join("clip.mp4");
+    let mut encoder = Encoder::create(&path, settings).unwrap();
+    for index in 0..25 {
+        encoder.push(&testing::pattern(index)).unwrap();
+    }
+    encoder.finish().unwrap();
+    let mut decoder = Decoder::open(&path, Threads::Automatic).unwrap();
+    let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
+    let mut keys = Vec::new();
+    while let Some(info) = decoder.next(&mut frame).unwrap() {
+        if info.is_key() {
+            keys.push(info.index().get());
+        }
+    }
+    keys
+}
+
+#[test]
+fn openh264_writes_a_single_key_frame_unless_given_an_interval() {
+    let folder = tempfile::tempdir().unwrap();
+    let settings = Settings::new(WIDTH, HEIGHT, thirty(), Codec::OpenH264).unwrap();
+    assert_eq!(key_frames(&settings, folder.path()), [0]);
+    let every_ten = settings.with_key_interval(NonZeroU32::new(10).unwrap());
+    assert_eq!(key_frames(&every_ten, folder.path()), [0, 10, 20]);
 }
 
 #[test]

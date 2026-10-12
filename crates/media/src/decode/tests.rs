@@ -53,12 +53,7 @@ fn corrupted_early_in_payload(folder: &Path) -> std::path::PathBuf {
 
 fn damaged(folder: &Path, from_quarter: usize, to_quarter: usize) -> std::path::PathBuf {
     let path = testing::encode(folder, Codec::OpenH264, 30);
-    let mut bytes = fs::read(&path).unwrap();
-    let payload = bytes.windows(4).position(|window| window == b"mdat").unwrap() + 4;
-    let size: [u8; 4] = bytes[payload - 8..payload - 4].try_into().unwrap();
-    let quarter = (usize::try_from(u32::from_be_bytes(size)).unwrap() - 8) / 4;
-    bytes[payload + from_quarter * quarter..payload + to_quarter * quarter].fill(0xff);
-    fs::write(&path, bytes).unwrap();
+    crate::payload::wipe(&path, from_quarter..to_quarter, 4).unwrap();
     path
 }
 

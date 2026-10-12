@@ -1,3 +1,4 @@
+use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 
 use types::rational::Rational;
@@ -19,9 +20,22 @@ pub(crate) fn pattern(index: u8) -> YuvFrame {
 }
 
 pub(crate) fn encode(folder: &Path, codec: Codec, frames: u8) -> PathBuf {
-    let path = folder.join("sample.mp4");
     let settings = Settings::new(WIDTH, HEIGHT, Rational::new(30, 1).unwrap(), codec).unwrap();
-    let mut encoder = Encoder::create(&path, &settings).unwrap();
+    write(folder, &settings, frames)
+}
+
+pub(crate) fn encode_with_keys(folder: &Path, frames: u8, interval: u32) -> PathBuf {
+    let settings = Settings::new(WIDTH, HEIGHT, Rational::new(30, 1).unwrap(), Codec::OpenH264).unwrap();
+    write(
+        folder,
+        &settings.with_key_interval(NonZeroU32::new(interval).unwrap()),
+        frames,
+    )
+}
+
+fn write(folder: &Path, settings: &Settings, frames: u8) -> PathBuf {
+    let path = folder.join("sample.mp4");
+    let mut encoder = Encoder::create(&path, settings).unwrap();
     for index in 0..frames {
         encoder.push(&pattern(index)).unwrap();
     }

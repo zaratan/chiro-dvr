@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use media::encode::{Codec, Encoder, Settings};
@@ -42,11 +41,6 @@ pub(crate) fn binoculars(path: &Path, rate: Rational, planes: impl IntoIterator<
 
 pub(crate) fn damaged(folder: &Path, from_quarter: usize, to_quarter: usize) -> PathBuf {
     let path = encode(folder, FRAMES);
-    let mut bytes = fs::read(&path).unwrap();
-    let payload = bytes.windows(4).position(|window| window == b"mdat").unwrap() + 4;
-    let size: [u8; 4] = bytes[payload - 8..payload - 4].try_into().unwrap();
-    let quarter = (usize::try_from(u32::from_be_bytes(size)).unwrap() - 8) / 4;
-    bytes[payload + from_quarter * quarter..payload + to_quarter * quarter].fill(0xff);
-    fs::write(&path, bytes).unwrap();
+    media::payload::wipe(&path, from_quarter..to_quarter, 4).unwrap();
     path
 }

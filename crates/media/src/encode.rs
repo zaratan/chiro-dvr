@@ -123,6 +123,7 @@ pub struct Settings {
     height: NonZeroU32,
     frame_rate: Rational,
     codec: Codec,
+    key_interval: Option<NonZeroU32>,
 }
 
 impl Settings {
@@ -139,7 +140,17 @@ impl Settings {
             height,
             frame_rate,
             codec,
+            key_interval: None,
         })
+    }
+
+    /// Without it, openh264 writes a single key frame.
+    #[must_use]
+    pub fn with_key_interval(self, frames: NonZeroU32) -> Self {
+        Self {
+            key_interval: Some(frames),
+            ..self
+        }
     }
 
     pub(crate) fn with_codec(self, codec: Codec) -> Self {
@@ -218,6 +229,9 @@ impl Encoder {
         context.set_color_transfer_characteristic(TransferCharacteristic::BT709);
         context.set_time_base(codec_time_base);
         context.set_frame_rate(Some(ffmpeg::Rational::new(rate.num(), rate.den())));
+        if let Some(frames) = settings.key_interval {
+            context.set_gop(frames.get());
+        }
         let (mut flags, options) = kind.tune(&mut context);
         if output.format().flags().contains(ffmpeg::format::Flags::GLOBAL_HEADER) {
             flags |= ffmpeg::codec::Flags::GLOBAL_HEADER;
