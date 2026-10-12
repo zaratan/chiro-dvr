@@ -49,6 +49,10 @@ struct Shared<'a> {
 }
 
 impl Detector {
+    pub(crate) fn workers(&self) -> usize {
+        self.workers.len()
+    }
+
     pub(crate) fn new(geometry: Geometry, half: NonZeroUsize, config: &DetectConfig, batch: NonZeroUsize) -> Self {
         Self {
             pixels: geometry.pixels() as u64,

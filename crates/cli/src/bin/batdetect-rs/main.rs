@@ -1,19 +1,56 @@
+mod arguments;
 mod messages;
 
 use std::io::{self, Write};
 use std::process::ExitCode;
 
+use batdetect::jobs::{Job, collect_videos, plan_jobs};
+use batdetect::language::system_language;
+use batdetect::process::{Versions, process};
+use media::decode::Threads;
+use types::language::Language;
+
 fn main() -> ExitCode {
-    let command = clap::Command::new("batdetect-rs")
-        .version(messages::version())
-        .long_version(messages::long_version(
-            &media::library::version(),
-            media::library::license(),
-        ))
-        .arg_required_else_help(true);
-    command
-        .try_get_matches()
-        .map_or_else(|error| report(&error), |_| ExitCode::SUCCESS)
+    let request = match arguments::parse(std::env::args_os()) {
+        Ok(request) => request,
+        Err(error) => return report(&error),
+    };
+    let jobs = match collect_videos(&request.inputs).and_then(|videos| plan_jobs(&videos, &request.output)) {
+        Ok(jobs) if jobs.is_empty() => return report(&arguments::refusal(messages::NO_VIDEO)),
+        Ok(jobs) => jobs,
+        Err(error) => return report(&arguments::refusal(&messages::causes(&error))),
+    };
+    run(&jobs, system_language())
+}
+
+fn run(jobs: &[Job], language: Language) -> ExitCode {
+    let ffmpeg = media::library::version();
+    let versions = Versions {
+        program: messages::version(),
+        ffmpeg: &ffmpeg,
+    };
+    let mut failures = 0_usize;
+    for job in jobs {
+        let line = match process(job, language, Threads::Automatic, versions) {
+            Ok(processed) => writeln!(
+                io::stdout().lock(),
+                "{}",
+                messages::processed(language, job, processed.tracks.len())
+            ),
+            Err(error) => {
+                failures += 1;
+                writeln!(io::stderr().lock(), "{}", messages::failed(job, &error))
+            }
+        };
+        if line.is_err() {
+            return ExitCode::FAILURE;
+        }
+    }
+    if failures == 0 {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
 }
 
 fn report(error: &clap::Error) -> ExitCode {

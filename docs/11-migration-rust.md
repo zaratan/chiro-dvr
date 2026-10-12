@@ -835,7 +835,9 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     (`FrameCount`).
   - `damage` : `Damage::of(lecture, marge)` rend les images en erreur (`DecodeErrors`
     non vides), les images qui suivent un saut de `pts` et les plages abîmées
-    (`Vec<Span>`), comme `damaged_spans` de la v0.1.1, avec deux différences :
+    (`Vec<Span>`), comme `damaged_spans` de la v0.1.1. `reported_frames` compte l'union des
+    images en erreur et après un saut (`damaged_frames` de `params.json`, #123). Deux
+    différences avec la v0.1.1 :
     - une plage part d'une image en erreur ou d'une image après un saut, comme en
       v0.1.1 ;
     - elle part aussi de la première image s'il manque des images avant elle
@@ -906,8 +908,9 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     est celui de l'appelant (`ThreadPool::install`). `Detected` rend la lecture
     (`Reading`), les détections (`FrameDetections`, une liste par image décodée, vides
     comprises), les dégâts (`Damage`, marge = demi-fenêtre), la demi-fenêtre, les fils
-    actifs du décodeur (`Input::active_threads`, pour `params.json`) et les images du
-    fond.
+    actifs du décodeur (`Input::active_threads`, pour `params.json`), le nombre de fils de
+    la détection (`detection_threads`, celui que le détecteur emploie, #123) et les images
+    du fond.
     - `config` : `DetectConfig::default()` (seuil 12, surface 4 à 2 700, fenêtre 1,0 s,
       une image sur 3, fusion 6, largeur 960, bruit 8, sigma 1,5), champs en lecture.
       `half_window(cadence)` arrondit `fenêtre × cadence / 2` au plus proche, moitié
@@ -1038,11 +1041,73 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       125 0:15. Par (a) : 097 2:43, 098 0:05, 099 0:19, 099 0:27, 100 1:36 (deux), 126
       1:32 ; 097 2:43, 099 0:19 et 100 1:36 sont dans les deux.
     - La formule sera retentée après la 0.2.0 (issue en Backlog).
-- **`cli`** : paquet `batdetect`, binaire `batdetect-rs`. En #95, `--version` affiche la
-  version et la ligne de licence de FFmpeg. Tout texte vu par l'utilisateur vit dans
-  `messages.rs`.
+- **`cli`** → `engine`, `tracking`, `files`, `media`, `types` : paquet `batdetect`, binaire
+  `batdetect-rs` (#123). Tout texte vu par l'utilisateur vit dans `messages.rs`, avec la
+  ligne de commande. La bibliothèque (`jobs`, `language`, `process`, `settings`) sert aux
+  tests.
+  - `batdetect-rs VIDÉO|DOSSIER… -o DOSSIER`. `-o` est obligatoire : sans lui, la commande
+    refuse de démarrer (code 2) ; le défaut se décidera avec #86 et #113.
+  - Un dossier donne ses vidéos (`mp4`, `mov`, `avi`, `mkv`, `m4v`), par ordre de nom.
+    Chaque vidéo a son dossier, à son nom ; deux vidéos de même nom prennent
+    `<dossier parent>_<nom>_<extension>`, et deux vidéos qui écriraient au même endroit
+    sont refusées avant tout calcul (code 2).
+  - Chaîne : `engine::detection::detect` (fils automatiques), puis la `Timeline` des
+    `pts` lus, puis `exclude`. Les plages abîmées viennent du moteur, et les images
+    signalées sont l'union des images en erreur et après un saut. Puis
+    `track_detections`, puis le CSV et `params.json` de `files`.
+  - Ni image résumé, ni extraits, ni ménage des sorties précédentes (#115).
+  - Langue du système : la première variable non vide parmi `LANGUAGE`, `LC_ALL`,
+    `LC_MESSAGES` et `LANG`. Dans une liste (`LANGUAGE=de:fr`), c'est la première langue
+    qui a des messages qui compte : `fr*` pour le français, `en*` pour l'anglais. Sans
+    aucune des deux, c'est l'anglais. Le Python ne connaissait que le catalogue
+    français : `en:fr` y donnait du français, ici de l'anglais. La langue choisit le nom
+    du CSV et la ligne de chaque vidéo traitée (« nom : N pistes -> dossier »).
+  - Textes : les lignes de réussite et la ligne de commande vivent dans `messages.rs`.
+    Les causes d'un échec sont les `Display` des erreurs, en anglais, comme pour
+    `engine` et `files`, y compris celles de la bibliothèque de la commande ; Fluent les
+    traduira (#114).
+  - Une vidéo en échec écrit une ligne sur la sortie d'erreur : son chemin et la chaîne
+    des causes. Les autres continuent ; code de sortie 1 si une vidéo a échoué.
+  - `params.json` : réglages rangés par configuration, avec les clés de la v0.1.1
+    (`DetectConfig`, `TrackConfig`, `StabilityConfig`). Un filtre coupé s'écrit 0, comme
+    dans la v0.1.1. `threads` donne les fils réellement employés : `decoding` et
+    `decoding_kind` (`single`, `frame`, `slice`) pour le décodeur, `detection` pour
+    `rayon`. `version` est celle du paquet (`CARGO_PKG_VERSION`, 0.0.0 jusqu'à la
+    première version publiée : elle ne distingue pas encore deux commits), `ffmpeg` celle
+    de FFmpeg liée.
+    - Écarts à la v0.1.1 : `mode`, `ffprobe` et `RenderConfig` retirés ; `version`,
+      `ffmpeg` et `threads` ajoutés ; `osd_regions`, qui n'existe pas en Rust, n'est pas
+      écrit ; les nombres réels s'écrivent `12.0` et non `12`.
+  - Tests : `tests/command.rs` lance le binaire sur une vidéo fabriquée (openh264,
+    1440×1080) ; `slow_command.rs` passe l'extrait (4 pistes appariées, chauve-souris
+    de 3:58) ; `reference_command.rs` passe la 092 (14 pistes appariées). Le test Python
+    qui comptait 3:36 comme une chauve-souris n'est pas repris : c'est la piste lente de
+    3:29 ([03](03-resultats-092.md)).
+  - Comparaison sur les 26 vidéos (`tests/local_command.rs`, `#[ignore = "local"]`,
+    `BATDETECT_REFERENCE_DIR` et `BATDETECT_VIDEOS_DIR`). Elle passe `process` (la
+    fonction qui écrit le CSV) et apparie ses pistes à `tracks.jsonl` par
+    `match_tracks`.
+    - Mesure du 12 octobre 2026 : 966 pistes de référence, 963 appariées
+      (958 concordantes), 3 perdues, 9 ajoutées, les chiffres de #118 et #119.
+    - Les 17 écarts tombent tous sur les 9 divergences connues (#97), figées dans le
+      test :
+      - 094 1:42 : perdue, revient 26 images plus tard ;
+      - 097 0:20 : perdue, revient 7 images plus tard ;
+      - 097 2:42 : 24 points au lieu de 86, et une piste ajoutée à 2:43 ;
+      - 098 0:05 : ajoutée ;
+      - 098 0:41 : perdue ;
+      - 099 de 0:14 à 0:19 : trois écarts de points et une piste ajoutée ;
+      - 099 0:27 : ajoutée ;
+      - 100 1:36 : deux pistes ajoutées ;
+      - 126 1:31 : 27 points au lieu de 32, et une piste ajoutée à 1:32.
+    - Les plages abîmées du moteur, et non plus celles de la référence, ne changent
+      rien.
+  - Temps sur la 092 (M1 Max, `release`, sous le verrou, machine au calme) : 11,7 et
+    12,0 s réels, 103,7 s de CPU, 434 Mo. Pour comparaison : 11,8 s réels pour la
+    détection Rust seule (#118) ; 118,7 s pour la détection de la v0.1.1 et 134 s pour sa
+    commande complète, rendu compris (README de la référence).
 - **`tracking`** → `types` : exclusion des images abîmées et instables (#120), puis
-  suivi (#121). `compare` enchaîne `exclude` puis `track_detections` ; `cli` le fera aussi.
+  suivi (#121). `compare` et `cli` enchaînent `exclude` puis `track_detections`.
   - `exclusion` : seul point d'entrée. `exclude` reçoit les détections, les plages
     abîmées toutes faites, le nombre d'images signalées et la `FrameRate`. Les images
     abîmées sont retirées du calcul de stabilité, puis les détections des plages
@@ -1051,7 +1116,8 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     contrôle du nombre d'images reste à #116.
   - `stability` : `StabilityConfig::new(max_blobs, pad_s)`, par défaut 20 et 1,0 s ;
     `max_blobs` est un `Option<NonZeroU32>`, `None` coupe le filtre (la commande
-    traduira `--max-blobs 0`) ; `pad_s` fini, positif ou nul. Limite de foule :
+    traduira `--max-blobs 0`) ; `pad_s` fini, positif ou nul, sinon `Error::Setting`
+    avec `Setting::PadS` (une seule forme pour la stabilité et le suivi, depuis #123). Limite de foule :
     `max_blobs + 6 × médiane` du nombre de détections des images lisibles, vides
     comprises, calculée en entiers. Une image qui l'atteint donne une plage de
     `pad_s × cadence` images de chaque côté, arrondi au plus proche, moitié vers le
@@ -1076,7 +1142,7 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       portent les noms des clés de `params.json`. `max_gap` et `min_hits` sont des
       `NonZeroUsize`, `twin_distance` un `Option<f64>` (`None` coupe la fusion ; la
       commande traduira `0`). Un réglage hors bornes rend `Error::Setting` avec son
-      `TrackSetting`.
+      `Setting`.
     - Écarts voulus à la v0.1.1 : NaN refusé pour `max_jump`, `min_travel` et
       `twin_distance` ; infini refusé pour les quatre réglages `f64` ; `Some(0)` refusé
       pour `twin_distance`, le `0` de la v0.1.1 devenant `None`.

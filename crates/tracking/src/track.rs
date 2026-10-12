@@ -2,7 +2,6 @@ mod association;
 mod growing;
 mod twins;
 
-use std::fmt;
 use std::num::NonZeroUsize;
 
 use types::detection::FrameDetections;
@@ -10,6 +9,7 @@ use types::frame::FrameIndex;
 use types::track::Track;
 
 use crate::error::Error;
+use crate::setting::Setting;
 use crate::track::association::Association;
 use crate::track::growing::Growing;
 use crate::track::twins::merge_twins;
@@ -25,25 +25,6 @@ const DEFAULT_MIN_HITS: NonZeroUsize = match NonZeroUsize::new(6) {
     Some(points) => points,
     None => NonZeroUsize::MIN,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TrackSetting {
-    MaxJump,
-    MinTravel,
-    TwinDistance,
-    MaxMedianTurn,
-}
-
-impl fmt::Display for TrackSetting {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            Self::MaxJump => "max_jump",
-            Self::MinTravel => "min_travel",
-            Self::TwinDistance => "twin_distance",
-            Self::MaxMedianTurn => "max_median_turn",
-        })
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TrackConfig {
@@ -77,17 +58,17 @@ impl TrackConfig {
         twin_distance: Option<f64>,
         max_median_turn: f64,
     ) -> Result<Self, Error> {
-        positive(max_jump, TrackSetting::MaxJump)?;
+        positive(max_jump, Setting::MaxJump)?;
         if !(min_travel.is_finite() && min_travel >= 0.0) {
             return Err(Error::Setting {
-                setting: TrackSetting::MinTravel,
+                setting: Setting::MinTravel,
                 value: min_travel,
             });
         }
         if let Some(distance) = twin_distance {
-            positive(distance, TrackSetting::TwinDistance)?;
+            positive(distance, Setting::TwinDistance)?;
         }
-        positive(max_median_turn, TrackSetting::MaxMedianTurn)?;
+        positive(max_median_turn, Setting::MaxMedianTurn)?;
         Ok(Self {
             max_jump,
             max_gap,
@@ -133,7 +114,7 @@ impl TrackConfig {
     }
 }
 
-fn positive(value: f64, setting: TrackSetting) -> Result<(), Error> {
+fn positive(value: f64, setting: Setting) -> Result<(), Error> {
     if value.is_finite() && value > 0.0 {
         Ok(())
     } else {

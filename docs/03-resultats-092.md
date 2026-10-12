@@ -35,6 +35,37 @@ la piste 14). Cinq pistes commencent plus tôt, de 1 à 9 images (1:49 : 9 image
 détections ; 0:51, jugée ignorable, en perd 2. Verdict de l'utilisateur à l'œil sur
 cette configuration : propre.
 
+## Commande Rust (12 octobre 2026) : 14 pistes
+
+`batdetect-rs` (#123), réglages par défaut, sur l'original. Mêmes 14 pistes que la
+v0.1.1, avec le même nombre de détections chacune. Elles s'apparient toutes à la
+référence (début à ±5 images, points à ±3).
+
+Les temps viennent des `pts` : de 0 à 2 centièmes plus tôt que dans la v0.1.1, qui
+divisait par la cadence moyenne ([11](11-migration-rust.md), crate `files`).
+
+| # | Début → fin | Détections |
+| --- | --- | --- |
+| 1 | 0:07.39 → 0:08.13 | 20 |
+| 2 | 0:33.93 → 0:35.26 | 40 |
+| 3 | 0:51.62 → 0:51.88 | 7 |
+| 4 | 0:53.75 → 0:54.88 | 34 |
+| 5 | 1:12.59 → 1:13.86 | 35 |
+| 6 | 1:48.92 → 1:49.99 | 32 |
+| 7 | 2:02.81 → 2:03.48 | 17 |
+| 8 | 2:24.62 → 2:25.12 | 13 |
+| 9 | 2:36.98 → 2:37.44 | 10 |
+| 10 | 2:43.94 → 2:45.37 | 44 |
+| 11 | 3:29.59 → 3:39.21 | 290 |
+| 12 | 3:48.27 → 3:48.84 | 17 |
+| 13 | 3:50.87 → 3:51.67 | 24 |
+| 14 | 3:57.16 → 3:58.03 | 27 |
+
+Temps : 11,7 et 12,0 s réels, 103,7 s de CPU, 434 Mo de mémoire résidente (M1 Max,
+`release`, sous le verrou, machine au calme). Pour comparaison : 11,8 s réels pour la
+détection Rust seule (#118) ; pour la v0.1.1, 118,7 s de détection et 134 s pour la commande complète, rendu compris. La
+commande Rust n'écrit encore que le CSV et `params.json`, sans image résumé ni extraits.
+
 ## Verdict de Manon (9 octobre 2026)
 
 Sur les 14 pistes de ce réglage, **13 sont des chauves-souris**, y compris 0:51 (qui passe

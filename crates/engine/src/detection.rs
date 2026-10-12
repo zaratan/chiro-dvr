@@ -45,6 +45,7 @@ pub struct Detected {
     damage: Damage,
     half_window: NonZeroUsize,
     active_threads: ActiveThreads,
+    detection_threads: usize,
     summary_frames: Vec<(FrameIndex, YuvFrame)>,
 }
 
@@ -69,6 +70,10 @@ impl Detected {
         self.active_threads
     }
 
+    pub fn detection_threads(&self) -> usize {
+        self.detection_threads
+    }
+
     pub fn summary_frames(&self) -> &[(FrameIndex, YuvFrame)] {
         &self.summary_frames
     }
@@ -90,6 +95,7 @@ pub fn detect_input(input: Input, config: &DetectConfig) -> Result<Detected, Err
         .map_err(|source| Error::Config { path, source })?;
     let active_threads = input.active_threads();
     let mut detector = Detector::new(geometry, half_window, config, BATCH);
+    let detection_threads = detector.workers();
     let mut summary = SummaryFrames::new(video.announced_frames());
     let reading = input.read_ahead_by(BATCH.saturating_add(READ_AHEAD.get()), |info, frame| {
         summary.offer(info.index(), frame);
@@ -104,6 +110,7 @@ pub fn detect_input(input: Input, config: &DetectConfig) -> Result<Detected, Err
         damage,
         half_window,
         active_threads,
+        detection_threads,
         summary_frames: summary.into_frames(),
     })
 }

@@ -206,3 +206,13 @@ fn frames_lost_before_the_first_one_damage_the_start_as_far_as_the_end_of_its_gr
     assert_eq!((found.error_frames(), found.jump_frames()), (&[][..], &[][..]));
     assert_eq!(found.spans(), [span(0, 9)]);
 }
+
+#[test]
+fn a_frame_both_in_error_and_after_a_jump_is_reported_once() {
+    let damage = Damage {
+        error_frames: frames(&[17, 40]),
+        jump_frames: frames(&[40, 55]),
+        spans: Vec::new(),
+    };
+    assert_eq!(damage.reported_frames(), 3);
+}
