@@ -881,9 +881,26 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       frise (135 px en 1440). Une vidéo sans période ignorée a ses deux bandes
       vides : mêmes données de mise en page qu'à #104. Choix de l'utilisateur sur la
       planche : repères de départ gardés.
-    - La frise couvre la fenêtre de la tranche ; ses repères de départ sont ceux des
-      pistes de la page. Proposition pour #157 : une image coupée garde la frise de toute
-      sa tranche.
+    - La frise couvre toujours la fenêtre de la tranche, même sur une image coupée par
+      #157 : les départs des pistes de l'image en couleur, ceux des autres pistes de la
+      tranche en gris (choix de l'utilisateur sur la planche).
+  - **Images coupées au nombre de pistes** (#157) : une tranche de plus de
+    `MAX_TRACKS_PER_IMAGE` = 20 pistes (choix de l'utilisateur sur la planche de la 097
+    et de la 099 à 15, 20 et 25) donne `ceil(n / 20)` images, en paquets égaux de
+    pistes consécutives par départ (21 pistes : 11 + 10, et non 20 + 1).
+    - Mêmes numéros (ceux de la vidéo entière), même fond, même mise en page ; couleurs
+      et pastilles attribuées paquet par paquet (choix de l'utilisateur : des voisines
+      d'autres images ne retirent plus de couleurs à celle-ci).
+    - Bandeau : nom, « partie 3 / 8 » (« part 3 / 8 »), le nombre de pistes du paquet,
+      sa plage de temps (du premier départ à la dernière fin du paquet, fin arrondie à la
+      seconde supérieure comme les plages ignorées), puis les plages hors analyse et
+      illisibles de toute la tranche.
+    - Les pistes arrivent triées par départ depuis le suivi (`track_detections`) ; les
+      paquets suivent cet ordre sans le refaire.
+    - Une tranche de 20 pistes ou moins reste une seule image, inchangée.
+    - Mesure (pistes de la Rust, commande complète) : 097, 149 pistes, 8 images ; 099,
+      117 pistes, 6 images. Sur la référence, 10 vidéos sur 26 ont une tranche de plus de
+      20 pistes.
   - Masques de l'affichage : une liste de rectangles peints en gris de panneau avant
     l'assombrissement, vide jusqu'à #151.
   - Écarts voulus : fond lu en plage pleine, noir calé sur 16
@@ -918,7 +935,9 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
     la durée illisible totale de la 120 (1 min 14 s contre 1 min 13 s), et les plages
     hors analyse réunies à la seconde depuis #127 (089, 096, 098, 103). Pour les plages
     illisibles, la comparaison porte, sur chaque tranche, sur leur nombre et leur durée
-    totale, tirés des plages elles-mêmes et non du bandeau.
+    totale, tirés des plages elles-mêmes et non du bandeau. Une tranche coupée par #157
+    est comparée pages réunies : numéros et en-tête ; ses couleurs, attribuées par
+    paquet, ne le sont pas.
 - **`reference`** → `types` : la référence v0.1.1 en Rust. Gelée pendant le lot 6
   (#124), comme `types`.
   - `fixture` : chemins des fixtures et garde LFS. `location` : `committed(nom)` pour
@@ -1407,6 +1426,9 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       dans la v0.1.1 : à 59,996 s, le nom dit `0m59s` et le CSV `1:00.00`.
     - Le numéro de piste prend la largeur du nombre de pistes, 2 chiffres au moins.
     - La période de l'image résumé est donnée en minutes (`_000m-010m`).
+    - Une image coupée par #157 porte sa partie, numérotée à la largeur du total :
+      `_3_sur_8`, `_03_sur_12` ; `_3_of_8` en anglais. Après la période s'il y en a une
+      (`_000m-010m_2_sur_4`).
     - Les noms de vidéo sont des `OsStr`, gardés tels quels.
     - Ni ménage ni anciens noms (#115).
   - `time` : `clock` écrit `m:ss.cc` à partir de centièmes entiers.

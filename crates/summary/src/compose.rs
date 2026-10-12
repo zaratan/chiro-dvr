@@ -1,5 +1,5 @@
 use draw::canvas::{self, Canvas, Outline, PixelBox};
-use draw::color::{INK, PALETTE, PANEL, SEPARATOR};
+use draw::color::{INK, PALETTE, PANEL, Rgb, SEPARATOR};
 use draw::style::SummaryStyle;
 use draw::text::Typeface;
 
@@ -8,7 +8,7 @@ use crate::header::Labels;
 use crate::layout::PageLayout;
 use crate::legend::{LegendEntry, legend_panel};
 use crate::marker::{Marker, draw_marker};
-use crate::time_strip::{StartTick, Strip, draw_strip};
+use crate::time_strip::{OTHER_START, StartTick, Strip, draw_strip};
 
 #[cfg(test)]
 mod tests;
@@ -33,7 +33,6 @@ pub struct Pen<'a> {
 pub fn compose(backdrop: &Canvas, page: &PageLayout<'_>, pen: Pen<'_>) -> Result<Canvas, canvas::Error> {
     let style = pen.style;
     let mut image = backdrop.clone();
-    let color = |index: usize| PALETTE[index % PALETTE.len()];
     let lines: Vec<Vec<_>> = page
         .marks
         .iter()
@@ -43,7 +42,7 @@ pub fn compose(backdrop: &Canvas, page: &PageLayout<'_>, pen: Pen<'_>) -> Result
         image.polyline(line, INK, style.outline);
     }
     for (line, mark) in lines.iter().zip(&page.marks) {
-        image.polyline(line, color(mark.color), style.line);
+        image.polyline(line, palette_color(mark.color), style.line);
     }
     let ring = Outline {
         color: INK,
@@ -51,7 +50,7 @@ pub fn compose(backdrop: &Canvas, page: &PageLayout<'_>, pen: Pen<'_>) -> Result
     };
     for mark in &page.marks {
         if let Some(head) = mark.head {
-            image.polygon(&head.map(drawn), Some(color(mark.color)), Some(ring));
+            image.polygon(&head.map(drawn), Some(palette_color(mark.color)), Some(ring));
         }
     }
     let entries: Vec<LegendEntry> = page
@@ -59,7 +58,7 @@ pub fn compose(backdrop: &Canvas, page: &PageLayout<'_>, pen: Pen<'_>) -> Result
         .iter()
         .map(|mark| LegendEntry {
             label: mark.track.id().to_string(),
-            color: color(mark.color),
+            color: palette_color(mark.color),
             text: mark.start.clone(),
         })
         .collect();
@@ -67,7 +66,7 @@ pub fn compose(backdrop: &Canvas, page: &PageLayout<'_>, pen: Pen<'_>) -> Result
         .marks
         .iter()
         .filter(|mark| distance(mark.anchor, mark.center) > f64::from(style.radius))
-        .map(|mark| ([drawn(mark.anchor), drawn(mark.center)], color(mark.color)))
+        .map(|mark| ([drawn(mark.anchor), drawn(mark.center)], palette_color(mark.color)))
         .collect();
     for (leader, _) in &detached {
         image.polyline(leader, INK, style.border + LEADER_HALO);
@@ -85,14 +84,7 @@ pub fn compose(backdrop: &Canvas, page: &PageLayout<'_>, pen: Pen<'_>) -> Result
     }
     let header: Vec<String> = page.header.iter().map(|line| pen.labels.line(line)).collect();
     let panel = legend_panel(pen.typeface, &header, &entries, image.height(), style)?;
-    let starts: Vec<StartTick> = page
-        .marks
-        .iter()
-        .map(|mark| StartTick {
-            seconds: mark.start_seconds,
-            color: color(mark.color),
-        })
-        .collect();
+    let starts = start_ticks(page);
     let strip = Strip {
         window: page.window,
         ignored: &page.ignored,
@@ -113,4 +105,20 @@ pub fn compose(backdrop: &Canvas, page: &PageLayout<'_>, pen: Pen<'_>) -> Result
     };
     page_canvas.fill_rectangle(separator, SEPARATOR);
     Ok(page_canvas)
+}
+
+fn start_ticks(page: &PageLayout<'_>) -> Vec<StartTick> {
+    let others = page.other_starts.iter().map(|&seconds| StartTick {
+        seconds,
+        color: OTHER_START,
+    });
+    let mine = page.marks.iter().map(|mark| StartTick {
+        seconds: mark.start_seconds,
+        color: palette_color(mark.color),
+    });
+    others.chain(mine).collect()
+}
+
+fn palette_color(index: usize) -> Rgb {
+    PALETTE[index % PALETTE.len()]
 }

@@ -11,6 +11,7 @@ mod tests;
 
 pub(crate) const NOT_ANALYSED: Rgb = Rgb::new(150, 150, 150);
 pub(crate) const UNREADABLE: Rgb = PANEL_TEXT;
+pub(crate) const OTHER_START: Rgb = Rgb::new(110, 110, 110);
 const MIN_SPAN_PX: f32 = 2.0;
 const MINUTE_STEPS: [u32; 4] = [1, 2, 5, 10];
 const SECONDS_PER_MINUTE: f64 = 60.0;

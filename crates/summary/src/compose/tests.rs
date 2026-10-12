@@ -2,6 +2,7 @@ use draw::canvas::{Canvas, PixelBox};
 use draw::color::{PANEL, Rgb};
 
 use super::backdrop;
+use crate::layout::{Mark, PageLayout};
 
 const SCENE: Rgb = Rgb::new(200, 100, 50);
 
@@ -138,6 +139,8 @@ fn page_with_one_marker(center: [f64; 2]) -> Canvas {
         window: [0.0, 4.0],
         ignored: Vec::new(),
         damaged: Vec::new(),
+        part: None,
+        other_starts: Vec::new(),
     };
     let pen = Pen {
         typeface: &typeface,
@@ -167,4 +170,40 @@ fn the_tie_back_line_is_thinner_than_a_track_at_the_binoculars_width_so_it_does_
     let style = style_for(NonZeroU32::new(1440).unwrap(), "99", &typeface);
     assert!(style.border < style.line);
     assert!(style.border + super::LEADER_HALO < style.outline);
+}
+
+#[test]
+fn the_starts_of_the_other_parts_come_first_in_grey_so_the_tracks_of_the_part_stay_on_top() {
+    let lone = crate::testing::track(1, 0, &[[100.0, 120.0]]);
+    let page = PageLayout {
+        minutes: None,
+        part: None,
+        header: Vec::new(),
+        marks: vec![Mark {
+            track: &lone,
+            path: crate::geometry::Trajectory::of(&lone),
+            color: 3,
+            start: "0:01".to_owned(),
+            head: None,
+            center: [100.0, 120.0],
+            anchor: [100.0, 120.0],
+            start_seconds: 1.0,
+        }],
+        window: [0.0, 4.0],
+        ignored: Vec::new(),
+        damaged: Vec::new(),
+        other_starts: vec![2.0, 3.0],
+    };
+    let ticks: Vec<(f64, Rgb)> = super::start_ticks(&page)
+        .iter()
+        .map(|tick| (tick.seconds, tick.color))
+        .collect();
+    assert_eq!(
+        ticks,
+        [
+            (2.0, crate::time_strip::OTHER_START),
+            (3.0, crate::time_strip::OTHER_START),
+            (1.0, draw::color::PALETTE[3])
+        ]
+    );
 }

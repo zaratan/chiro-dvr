@@ -192,3 +192,10 @@ fn the_hidden_unreadable_spans_carry_the_total_unreadable_time() {
         ]
     );
 }
+
+#[test]
+fn a_part_of_a_crowded_summary_says_which_one_it_is_in_each_language() {
+    let part = [HeaderLine::Part(files::names::Part { number: 2, count: 8 })];
+    assert_eq!(texts(Language::French, &part), ["partie 2 / 8"]);
+    assert_eq!(texts(Language::English, &part), ["part 2 / 8"]);
+}

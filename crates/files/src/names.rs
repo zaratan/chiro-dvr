@@ -15,11 +15,18 @@ const MIN_TRACK_DIGITS: usize = 2;
 const SECONDS_PER_MINUTE: u64 = 60;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Part {
+    pub number: usize,
+    pub count: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Names {
     clips_dir: &'static str,
     track: &'static str,
     tracks_csv: &'static str,
     summary: &'static str,
+    part_of: &'static str,
     annotated: &'static str,
 }
 
@@ -28,6 +35,7 @@ const FRENCH: Names = Names {
     track: "piste",
     tracks_csv: "_pistes",
     summary: "_resume",
+    part_of: "sur",
     annotated: "_annotee",
 };
 
@@ -36,6 +44,7 @@ const ENGLISH: Names = Names {
     track: "track",
     tracks_csv: "_tracks",
     summary: "_summary",
+    part_of: "of",
     annotated: "_annotated",
 };
 
@@ -66,11 +75,21 @@ impl Names {
         dest.join(suffixed(stem, &format!("{}.csv", self.tracks_csv)))
     }
 
-    pub fn summary_png(self, dest: &Path, stem: &OsStr, period_minutes: Option<Range<u32>>) -> PathBuf {
+    pub fn summary_png(
+        self,
+        dest: &Path,
+        stem: &OsStr,
+        period_minutes: Option<Range<u32>>,
+        part: Option<Part>,
+    ) -> PathBuf {
         let period = period_minutes.map_or_else(String::new, |minutes| {
             format!("_{:03}m-{:03}m", minutes.start, minutes.end)
         });
-        dest.join(suffixed(stem, &format!("{}{period}.png", self.summary)))
+        let part = part.map_or_else(String::new, |Part { number, count }| {
+            let width = count.to_string().len();
+            format!("_{number:0width$}_{}_{count}", self.part_of)
+        });
+        dest.join(suffixed(stem, &format!("{}{period}{part}.png", self.summary)))
     }
 
     pub fn annotated_video(self, dest: &Path, stem: &OsStr) -> PathBuf {

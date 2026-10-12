@@ -6,7 +6,7 @@ use types::frame::FrameIndex;
 use types::language::Language;
 use types::track::Track;
 
-use super::{Names, params_json};
+use super::{Names, Part, params_json};
 
 fn track(id: usize) -> Track {
     let point = Detection {
@@ -30,7 +30,7 @@ fn every_name(language: Language) -> Vec<PathBuf> {
         clips.join(names.clip(&track(1), 0.0, 1)),
         clips.join(names.zoomed_clip(&track(1), 0.0, 1)),
         names.tracks_csv(dest, stem),
-        names.summary_png(dest, stem, None),
+        names.summary_png(dest, stem, None, None),
         names.annotated_video(dest, stem),
     ]
 }
@@ -112,7 +112,7 @@ fn french_and_zoomed_clips_follow_the_same_number_width() {
 
 #[test]
 fn summary_of_a_long_video_carries_its_period_in_minutes() {
-    let summary = Names::new(Language::English).summary_png(Path::new("out/v"), OsStr::new("v"), Some(0..10));
+    let summary = Names::new(Language::English).summary_png(Path::new("out/v"), OsStr::new("v"), Some(0..10), None);
     assert_eq!(summary, PathBuf::from("out/v/v_summary_000m-010m.png"));
 }
 
@@ -128,4 +128,18 @@ fn a_time_before_the_start_of_the_video_is_named_as_zero() {
 fn an_accented_video_name_is_kept_as_given() {
     let csv = Names::new(Language::French).tracks_csv(Path::new("out"), OsStr::new("nuit_été"));
     assert_eq!(csv, PathBuf::from("out/nuit_été_pistes.csv"));
+}
+
+#[test]
+fn a_summary_cut_into_parts_numbers_each_part_padded_to_sort_in_order() {
+    let part = |number| Some(Part { number, count: 12 });
+    let (dest, stem) = (Path::new("out/v"), OsStr::new("v"));
+    assert_eq!(
+        Names::new(Language::French).summary_png(dest, stem, None, part(2)),
+        PathBuf::from("out/v/v_resume_02_sur_12.png")
+    );
+    assert_eq!(
+        Names::new(Language::English).summary_png(dest, stem, Some(10..16), part(12)),
+        PathBuf::from("out/v/v_summary_010m-016m_12_of_12.png")
+    );
 }
