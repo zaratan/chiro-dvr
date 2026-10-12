@@ -49,6 +49,7 @@ impl WorkScale {
     }
 
     pub fn area_to_source(self, work: f64) -> f64 {
-        work * self.factor().powi(2)
+        let factor = self.factor();
+        work * (factor * factor)
     }
 }

@@ -34,6 +34,11 @@ impl Track {
         Ok(Self { id, points })
     }
 
+    #[must_use]
+    pub fn with_id(self, id: usize) -> Self {
+        Self { id, ..self }
+    }
+
     pub fn id(&self) -> usize {
         self.id
     }
@@ -55,7 +60,9 @@ impl Track {
     }
 
     pub fn path_length(&self) -> f64 {
-        self.points.windows(2).map(|step| step[0].distance(&step[1])).sum()
+        self.points
+            .windows(2)
+            .fold(0.0, |length, step| length + step[0].distance(&step[1]))
     }
 
     pub fn max_area(&self) -> f64 {

@@ -2,8 +2,7 @@ use types::detection::FrameDetections;
 use types::rate::FrameRate;
 use types::span::Span;
 
-use crate::error::Error;
-use crate::spans::{coverage, without_spans};
+use crate::spans::coverage;
 use crate::stability::{StabilityConfig, unstable_spans};
 
 #[cfg(test)]
@@ -35,16 +34,15 @@ pub fn exclude(
     reported_frames: usize,
     rate: FrameRate,
     stability: StabilityConfig,
-) -> Result<Exclusion, Error> {
-    let unstable = unstable_spans(detections, &damaged, rate, stability)?;
+) -> Exclusion {
+    let unstable = unstable_spans(detections, &damaged, rate, stability);
     let ignored: Vec<Span> = damaged.iter().chain(&unstable).copied().collect();
-    let covered = coverage(&ignored, detections.frame_count());
-    Ok(Exclusion {
-        detections: without_spans(detections, &covered)?,
-        ignored_frame_count: count(&covered),
+    Exclusion {
+        detections: detections.without(&ignored),
+        ignored_frame_count: count(&coverage(&ignored, detections.frame_count())),
         damaged_frame_count: count(&coverage(&damaged, detections.frame_count())),
         damaged,
         unstable,
         reported_frames,
-    })
+    }
 }

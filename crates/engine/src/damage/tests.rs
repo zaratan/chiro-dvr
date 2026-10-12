@@ -18,11 +18,11 @@ mod slices;
 const KEYS: [usize; 3] = [0, 15, 30];
 
 fn spanned(starts: &[usize], keys: &[usize], frame_count: usize, margin: usize) -> Vec<Span> {
-    spans(starts, keys, frame_count, margin).unwrap()
+    spans(starts, keys, frame_count, margin)
 }
 
 fn damage(reading: &Reading, margin: usize) -> Damage {
-    Damage::of(reading, margin).unwrap()
+    Damage::of(reading, margin)
 }
 
 fn span(first: usize, last: usize) -> Span {

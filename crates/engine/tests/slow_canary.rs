@@ -42,7 +42,7 @@ fn canary(threads: Threads) -> (Damage, Vec<(FrameInfo, u64)>) {
             Ok::<(), Error>(())
         })
         .unwrap();
-    (Damage::of(&reading, 0).unwrap(), frames)
+    (Damage::of(&reading, 0), frames)
 }
 
 #[test]

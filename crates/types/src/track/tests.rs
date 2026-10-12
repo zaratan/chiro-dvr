@@ -81,6 +81,18 @@ fn a_single_point_has_neither_chord_nor_path() {
 }
 
 #[test]
+fn a_single_point_path_is_a_positive_zero_so_it_never_prints_as_minus_zero() {
+    assert!(track(&[(5.0, 5.0)]).path_length().is_sign_positive());
+}
+
+#[test]
+fn renumbering_a_track_keeps_its_points() {
+    let gapped = Track::new(7, vec![detection(10, 0.0, 0.0), detection(14, 30.0, 40.0)]).unwrap();
+    let renumbered = gapped.clone().with_id(2);
+    assert_eq!((renumbered.id(), renumbered.points()), (2, gapped.points()));
+}
+
+#[test]
 fn largest_area_and_peak_amplitude_may_come_from_different_detections() {
     let measures = [(40.0, 22.5), (12.0, 61.0), (25.0, 30.0)];
     let points = measures

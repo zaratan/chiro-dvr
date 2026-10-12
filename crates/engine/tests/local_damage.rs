@@ -44,7 +44,7 @@ fn the_twenty_six_videos_are_damaged_where_ffprobe_says_plus_frames_it_conceals_
             .unwrap()
             .read(|_, _| Ok::<(), Error>(()))
             .unwrap();
-        let damage = Damage::of(&reading, summary.background_half_window).unwrap();
+        let damage = Damage::of(&reading, summary.background_half_window);
         let (found, probed) = (set(damage.error_frames()), set(&summary.ffprobe.error_frames));
         let extra: Vec<usize> = found.difference(&probed).copied().collect();
         let (rust, recorded) = (damaged_frames(damage.spans()), damaged_frames(&summary.damaged_spans));

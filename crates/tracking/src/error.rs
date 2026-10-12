@@ -1,4 +1,4 @@
-use types::{detection, span, track};
+use types::track;
 
 use crate::setting::Setting;
 
@@ -6,10 +6,6 @@ use crate::setting::Setting;
 pub enum Error {
     #[error("{setting} is out of bounds: {value}")]
     Setting { setting: Setting, value: f64 },
-    #[error("the kept detections cannot be rebuilt")]
-    Detections(#[from] detection::Error),
-    #[error("an unstable span cannot be built")]
-    Span(#[from] span::Error),
-    #[error("a track cannot be built")]
+    #[error("the association or the twin merge built an invalid track, which is a bug")]
     Track(#[from] track::Error),
 }

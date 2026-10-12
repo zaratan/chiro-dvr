@@ -150,8 +150,9 @@ pub fn track_detections(detections: &FrameDetections, config: TrackConfig) -> Re
             .cmp(&b.first().frame)
             .then(a.first().x.total_cmp(&b.first().x))
     });
-    kept.into_iter()
+    Ok(kept
+        .into_iter()
         .enumerate()
-        .map(|(index, track)| Ok(Track::new(index + 1, track.points().to_vec())?))
-        .collect()
+        .map(|(index, track)| track.with_id(index + 1))
+        .collect())
 }

@@ -24,8 +24,6 @@ pub enum Error {
     Detection(#[source] detection::Error),
     #[error("the timeline cannot be built")]
     Timeline(#[source] timeline::Error),
-    #[error("the exclusion of damaged and unstable frames failed")]
-    Exclusion(#[source] tracking::error::Error),
     #[error("the tracking failed")]
     Tracking(#[source] tracking::error::Error),
     #[error("cannot create {}", dest.display())]
@@ -67,8 +65,7 @@ pub fn process(job: &Job, language: Language, threads: Threads, versions: Versio
         reported,
         rate,
         stability,
-    )
-    .map_err(Error::Exclusion)?;
+    );
     let tracks = track_detections(&exclusion.detections, track).map_err(Error::Tracking)?;
     fs::create_dir_all(&job.dest).map_err(|source| Error::Folder {
         dest: job.dest.clone(),

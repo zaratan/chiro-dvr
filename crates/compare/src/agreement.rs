@@ -2,7 +2,7 @@ use std::io::{self, Write};
 
 use reference::detection_matching::match_detections;
 use reference::recording::Recording;
-use types::detection::{self, Detection, FrameDetections};
+use types::detection::{Detection, FrameDetections};
 use types::rate::FrameRate;
 use types::span::Span;
 use types::track::Track;
@@ -31,10 +31,10 @@ enum Gap {
 }
 
 impl Agreement {
-    pub fn of(detections: &FrameDetections, rate: FrameRate, recording: &Recording) -> Result<Self, detection::Error> {
+    pub fn of(detections: &FrameDetections, rate: FrameRate, recording: &Recording) -> Self {
         let ignored = ignored_spans(recording);
-        let reference = kept(recording.frames.detections(), &ignored)?;
-        let candidate = kept(detections, &ignored)?;
+        let reference = recording.frames.detections().without(&ignored);
+        let candidate = detections.without(&ignored);
         let matching = match_detections(&reference, &candidate);
         let on_track = |lost: &Detection| {
             recording
@@ -57,14 +57,14 @@ impl Agreement {
             .chain(matching.candidate_only.iter().map(|added| (*added, Gap::Added)))
             .collect();
         gaps.sort_by_key(|(detection, _)| detection.frame);
-        Ok(Self {
+        Self {
             name: recording.summary.video.name.clone(),
             rate,
             reference: reference.detection_count(),
             candidate: candidate.detection_count(),
             paired: matching.pairs.len(),
             gaps,
-        })
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -163,20 +163,6 @@ fn ignored_spans(recording: &Recording) -> Vec<Span> {
         .chain(&summary.unstable_spans)
         .copied()
         .collect()
-}
-
-fn kept(detections: &FrameDetections, ignored: &[Span]) -> Result<FrameDetections, detection::Error> {
-    let frames = detections
-        .iter()
-        .map(|(frame, found)| {
-            if ignored.iter().any(|span| span.contains(frame)) {
-                Vec::new()
-            } else {
-                found.to_vec()
-            }
-        })
-        .collect();
-    FrameDetections::new(frames)
 }
 
 fn rate(paired: usize, total: usize) -> f64 {

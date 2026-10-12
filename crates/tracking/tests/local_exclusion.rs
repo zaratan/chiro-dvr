@@ -19,8 +19,7 @@ fn the_twenty_six_recorded_videos_keep_the_detections_and_spans_of_the_reference
             summary.counts.damaged_frames_reported,
             FrameRate::new(summary.stream.avg_frame_rate).unwrap(),
             StabilityConfig::default(),
-        )
-        .unwrap();
+        );
         let kept = exclusion.detections.detection_count();
         if exclusion.unstable != summary.unstable_spans || kept != summary.counts.detections_kept {
             differences.push(format!(

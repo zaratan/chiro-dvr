@@ -23,6 +23,35 @@ impl Span {
         Ok(Self { first, last })
     }
 
+    pub fn single(frame: FrameIndex) -> Self {
+        Self {
+            first: frame,
+            last: frame,
+        }
+    }
+
+    #[must_use]
+    pub fn hull(self, other: Self) -> Self {
+        Self {
+            first: self.first.min(other.first),
+            last: self.last.max(other.last),
+        }
+    }
+
+    #[must_use]
+    pub fn widened(self, before: usize, after: usize) -> Self {
+        Self {
+            first: FrameIndex::new(self.first.get().saturating_sub(before)),
+            last: FrameIndex::new(self.last.get().saturating_add(after)),
+        }
+    }
+
+    pub fn intersection(self, other: Self) -> Option<Self> {
+        let first = self.first.max(other.first);
+        let last = self.last.min(other.last);
+        (first <= last).then_some(Self { first, last })
+    }
+
     pub fn first(self) -> FrameIndex {
         self.first
     }
@@ -36,6 +65,6 @@ impl Span {
     }
 
     pub fn frame_count(self) -> usize {
-        self.last.get() - self.first.get() + 1
+        (self.last.get() - self.first.get()).saturating_add(1)
     }
 }
