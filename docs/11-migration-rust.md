@@ -751,13 +751,16 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       image.
     - `TextStyle::new` refuse une taille qui n'est pas un nombre positif.
   - `canvas` : `Canvas`, toujours opaque, si bien que ses octets sont du RGBA simple
-    pour `media::convert`. Primitives, toutes lissées (choix de l'utilisateur, même
-    planche) :
+    pour `media::convert`. Primitives, lissées sauf les rectangles (choix de
+    l'utilisateur, même planche) :
     - rectangle aux bords nets :
       - 1 px couvre les pixels du bord de la boîte ;
       - chaque pixel de plus élargit le bord vers l'extérieur, si bien que la boîte de
         2 px (image détectée) et celle de 1 px (image interpolée) gardent le même bord
         intérieur ;
+    - rectangle plein aux bords nets, bornes comprises, coupé au cadre (masques et
+      séparateur de l'image résumé, #104) ;
+    - copie d'une toile dans une autre, au pixel près, coupée au cadre (#104) ;
     - polyligne, ligne, segments chacun de son épaisseur ;
     - une épaisseur nulle ou non finie ne dessine rien ;
     - disque avec contour, polygone plein ou contouré ;
