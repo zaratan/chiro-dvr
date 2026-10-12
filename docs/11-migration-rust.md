@@ -395,7 +395,7 @@ Forme et tests :
 | Niveau | Fichiers | Commande | Contenu |
 |---|---|---|---|
 | rapide | `src/<module>/tests.rs`, `tests/*.rs` | `cargo test --workspace --locked` | vidéos fabriquées par openh264, binaire lancé pour de vrai |
-| slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv` |
+| slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv` ; le test de mémoire `slow_memory_flash` (`dhat`), hors de la couverture |
 | reference | `tests/reference_*.rs`, `#[ignore = "reference"]` | `mise run rust:reference` | la 092 : 9 011 images, cadence moyenne 90110000/3000927 |
 | matériel | `tests/hardware_*.rs`, `#[ignore = "hardware"]` | étape d'essai de la CI macOS | VideoToolbox sans repli logiciel |
 | local | `tests/local_*.rs`, `#[ignore = "local"]` | `BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… cargo test --workspace --locked --profile ci --test 'local_*' -- --include-ignored` | les 26 vidéos de la référence, hors dépôt, jamais en CI |
@@ -407,6 +407,11 @@ Forme et tests :
 - Couverture mesurée sur les tests rapides, en profil `ci` (seuil 95 %). CI de la PR
   #130 : 97,95 % des lignes sous Linux et 98,14 % sous macOS. Les lignes restantes sont
   des erreurs de FFmpeg qu'aucune vidéo de test ne provoque.
+- Le test de mémoire est un test `slow` (#146) : sous l'instrumentation de la
+  couverture, il prenait 83 s sous Linux et 55 s sous macOS (PR #145), 1 s en profil
+  `ci` sur le M1 Max. Il ne couvrait aucune ligne de plus : 96,98 % des lignes sous
+  macOS avec lui (CI de la PR #145) comme sans lui (M1 Max, même commit). Il tourne
+  toujours sur les trois systèmes, par `rust:slow`.
 - Les fixtures se trouvent par `reference::fixture::fixture`, qui refuse un pointeur
   LFS non tiré avec le conseil `git lfs pull`.
 - `tests/fixtures/rust/video_092_original_3m24-4m05/frames.jsonl` : les détections de
@@ -428,13 +433,20 @@ Forme et tests :
     par la couture) :
     `ffmpeg -f lavfi -i testsrc=size=320x240:rate=30 -frames:v 20 -c:v libx264 -bf 0 -g 10 -keyint_min 10 -sc_threshold 0 -crf 40 -pix_fmt yuv420p -color_range tv two_gops.mp4`
 - **CI** : tâche `rust` sur macOS et Linux (statique, tests rapides, slow, contrôles du
-  binaire) et tâche `rust-reference` sous Linux, après `rust`. Le cache de FFmpeg est
+  binaire) et tâche `rust-reference` sous Linux, en parallèle de `rust` depuis #146.
+  Quand l'empreinte de FFmpeg change, `rust-reference` le construit donc aussi, sans le
+  sauver : seule `rust` sauve le cache de FFmpeg. Le binaire contrôlé se construit par `--workspace --bin batdetect-rs` : avec
+  `-p batdetect`, les features de `syn` changent (`draw` en ajoute par `skrifa`), et
+  `bindgen`, `ffmpeg-sys-next` et `media` se recompilaient (11 s sous Linux, 22 s sous
+  macOS, 60 s sous Windows à la PR #145). Le cache de FFmpeg est
   restauré, puis sauvé dès la construction, même si la suite échoue. L'action `setup`
   n'installe les outils cargo et la toolchain qu'avec `rust: true`. Premier passage
   (PR #130), sans cache de `target/` : `rust` 3 min 04 sur macOS et 3 min 46 sous Linux ;
   `rust-reference` 1 min 15.
 - **Tâche `rust-windows`**, indépendante des autres. Elle construit FFmpeg, lance les
-  tests rapides et `slow`, puis `cargo clippy -- -D warnings`.
+  tests rapides et `slow`, puis `cargo clippy --profile ci -- -D warnings`. En profil
+  `ci`, clippy reprend les scripts de construction et les macros des tests ; en `dev`,
+  il recompilait 46 unités, dont les liaisons de FFmpeg (82 s à la PR #145).
   - `dumpbin -dependents` n'admet que des DLL de Windows : `kernel32`, `ntdll`,
     `bcrypt`, `bcryptprimitives` et `api-ms-win-core-*`. C'est une liste blanche, et
     `kernel32` doit y être : le contrôle ne peut pas passer à vide.
@@ -445,16 +457,24 @@ Forme et tests :
   - En cas d'échec, `config.log` de FFmpeg est téléversé en artefact.
 - **Cache de `target/`** (`actions/cache`, une entrée par tâche) :
   - Il contient tout `target/` : les dépendances compilées dans chaque profil (`debug`
-    pour clippy, `ci` pour les tests et le binaire), `target/llvm-cov-target` pour la
-    couverture, et la rlib de ffmpeg-sys-next avec ses liaisons.
+    pour clippy sous Unix, `ci` pour les tests, le binaire et clippy sous Windows),
+    `target/llvm-cov-target` pour la couverture, et la rlib de ffmpeg-sys-next avec ses
+    liaisons.
   - Il se sauve en fin de tâche réussie.
-  - Sa clé porte la tâche, l'OS, l'architecture, l'image du runner (`ImageOS`), le
-    `Cargo.lock`, `rust-toolchain.toml` et **l'empreinte de FFmpeg**. Cargo ne suit pas
-    les `.a`. Un `target/` construit avec un autre FFmpeg garderait donc des binaires
-    déjà liés à l'ancien, et les liaisons de bindgen tirées de ses en-têtes (voir
-    « Reconstruction »).
-  - Pour la même raison, la clé n'a pas de `restore-keys` : une clé partielle pourrait
-    mélanger deux empreintes.
+  - Sa clé porte, dans cet ordre, la tâche, l'OS, l'architecture, l'image du runner
+    (`ImageOS`), **l'empreinte de FFmpeg**, `rust-toolchain.toml`, puis `Cargo.lock`.
+    Cargo ne suit pas les `.a`. Un `target/` construit avec un autre FFmpeg garderait
+    donc des binaires déjà liés à l'ancien, et les liaisons de bindgen tirées de ses
+    en-têtes (voir « Reconstruction »).
+  - En PR seulement, une clé de repli (`restore-keys`, #146) prend tout sauf
+    `Cargo.lock` : une PR qui change une dépendance reprend le `target/` de `main` pour
+    la même image, le même FFmpeg et la même toolchain, et ne recompile que ce qui a
+    changé. Elle ne mélange jamais deux empreintes de FFmpeg.
+  - Sur `main`, pas de repli : un nouveau `Cargo.lock` repart d'un `target/` vide. Un
+    `target/` repris par le repli garde les artefacts des versions remplacées ; sans
+    cette remise à zéro, il grossirait à chaque changement de dépendance. Tailles à la
+    PR #145 : 393 Mo (`rust`, Linux), 366 Mo (macOS), 470 Mo (Windows), 101 Mo
+    (`rust-reference`).
 
 ## Essai VideoToolbox
 
@@ -973,7 +993,7 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       comparaisons écrite élément par élément se vectorisait mal une fois inlinée en
       `release` (détection 4 fois plus lente qu'en `ci`) ; écrite sur des tableaux
       entiers, elle se vectorise.
-    - Mémoire (`tests/memory_flash.rs`, `dhat`, 4 fils, 64 images) : un éclair plein
+    - Mémoire (`tests/slow_memory_flash.rs`, `dhat`, 4 fils, 64 images) : un éclair plein
       cadre dans chaque groupe de cibles, au premier lot, coûte 57,8 Mo de plus qu'une
       vidéo calme, soit 20,9 octets par pixel de travail et par fil. Les deux pics
       tombent dans la même phase de lecture, d'où une mesure stable. Arithmétique :
