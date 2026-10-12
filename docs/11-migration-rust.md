@@ -11,7 +11,7 @@ Jusqu'à #106, le Python reste l'outil livré ; [02](02-methode.md) et
 #95 a posé le workspace, FFmpeg, l'outillage et quatre crates. La commande
 `batdetect-rs` ne fait encore que `--version`. Le moteur arrive avec #116 à #119 (#116 :
 crate `engine`, lecture et refus à l'entrée ; #117 : images abîmées et canari ; #118 :
-détection), le suivi
+détection ; #119 : comparaison à la référence et identité entre systèmes), le suivi
 avec #120 à #123.
 
 ## Construction
@@ -409,6 +409,12 @@ Forme et tests :
   des erreurs de FFmpeg qu'aucune vidéo de test ne provoque.
 - Les fixtures se trouvent par `reference::fixture::fixture`, qui refuse un pointeur
   LFS non tiré avec le conseil `git lfs pull`.
+- `tests/fixtures/rust/video_092_original_3m24-4m05/frames.jsonl` : les détections de
+  l'extrait par le Rust, écrites sur le Mac depuis la racine du dépôt par
+  `lockf …/mesure.lock cargo run --profile ci -p compare -- extract --frames tests/fixtures/rust`
+  (fichier git ordinaire, fin de ligne `\n` forcée par `.gitattributes`). Le test
+  `slow_extract` de `compare` le redemande au bit près sur macOS, Linux et Windows ; un
+  écart remonte à l'utilisateur (voir `compare`).
 - Trois petites fixtures, hors LFS, faites une fois par le ffmpeg 9.0.2 de Homebrew
   (libx264) et commitées :
   - `full_range.mp4` (1,9 Ko, `yuvj420p`, plage `pc`, refusée à l'ouverture) :
@@ -770,16 +776,14 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     contrairement au prototype (plus proche voisin sans exclusivité) : écart mesuré par la
     revue de #124 sous 0,01 % (8 détections sur 542 261 pour la 103, décalées d'1 px).
     Les écarts de détections n'ont pas de type : `compare` en tire le temps par
-    `Detection::frame` et la `Timeline`.
+    `Detection::frame` et la cadence (`FrameRate::seconds`).
   - `track_matching` : début à ±5 images, le plus proche d'abord puis l'écart de points
     le plus faible ; une paire s'accorde si ses points diffèrent de 3 au plus. Glouton,
     comme le prototype : deux pistes à moins de 10 images l'une de l'autre peuvent
     laisser une paire possible de côté (test qui le fige). Les écarts
     à juger (piste manquée, en trop, points hors tolérance) portent la vidéo, l'image de
     début et son temps par la cadence (`FrameRate::seconds`), triés par image.
-- **`engine`** → `media`, `types` (en test local aussi `tracking`, pour la mesure au
-  niveau des pistes, que `compare` reprendra avec #119) : le moteur. `input` en est le
-  seul point d'entrée.
+- **`engine`** → `media`, `types` : le moteur. `input` en est le seul point d'entrée.
   - `Input::open(chemin, Threads)` refuse, par une erreur typée qui nomme la vidéo :
     une taille autre que 1440×1080 (#98 lèvera ce refus), la plage pleine (`yuvj420p`
     ou `pc`, à l'ouverture et sur chaque image), 0 image annoncée, et, par `media`, un
@@ -949,16 +953,16 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       d'écran, sigma nul, facteur de bruit nul et configuration invalide (réglages par
       défaut seulement). Le saut de luminosité à seuil fixe de la v0.1.1 n'a pas
       d'équivalent aux réglages par défaut : un saut de 30 niveaux allume l'image au
-      bord du saut, ce que la stabilité (#119) retire.
+      bord du saut, ce que la stabilité retire (tests de `compare`, #119).
     - Règle 16 : même sortie au bit près avec 1, 3 ou 4 fils et des lots de 1 à 64
       (test rapide) ; canari de l'extrait coupé (`slow`), 1 fil de décodage et 1 fil
       `rayon` contre l'automatique, mêmes plages et mêmes détections hors plages. Sur
       l'extrait, la 092 et les 26 vidéos, le parallèle redonne le séquentiel au bit près
       hors plages abîmées ; dans les plages, les pixels dissimulés varient d'une lecture
       à l'autre.
-    - Mesures (`tests/slow_detection.rs`, `reference_detection.rs`, `local_detection.rs`,
-      `local_tracks.rs` ; appariement à 3 pixels, hors plages abîmées et instables de
-      `video.json`) : extrait 100 % / 99,75 %, 092 100 % / 99,87 %, 26 vidéos toutes au
+    - Mesures (outil `compare` et ses tests `slow_extract.rs`, `reference_agreement.rs`,
+      `local_agreement.rs` depuis #119 ; appariement à 3 pixels, hors plages abîmées et
+      instables de `video.json`) : extrait 100 % / 99,75 %, 092 100 % / 99,87 %, 26 vidéos toutes au
       moins à 98 % (la plus basse, 089 : 98,19 % / 98,46 %). Au niveau des pistes, 963
       des 966 appariées (958 concordantes), 3 perdues, 9 ajoutées.
     - Temps de la 092 (M1 Max, sous le verrou, décodeur et `rayon` en automatique) :
@@ -1018,7 +1022,7 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
   version et la ligne de licence de FFmpeg. Tout texte vu par l'utilisateur vit dans
   `messages.rs`.
 - **`tracking`** → `types` : exclusion des images abîmées et instables (#120), puis
-  suivi (#121). `cli` et `compare` enchaîneront `exclude` puis `track_detections`.
+  suivi (#121). `compare` enchaîne `exclude` puis `track_detections` ; `cli` le fera aussi.
   - `exclusion` : seul point d'entrée. `exclude` reçoit les détections, les plages
     abîmées toutes faites, le nombre d'images signalées et la `FrameRate`. Les images
     abîmées sont retirées du calcul de stabilité, puis les détections des plages
@@ -1038,8 +1042,8 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     séparées d'au plus le rembourrage se fondent.
   - `spans` (interne) : images couvertes par des plages, bornées à la vidéo, et
     détections vidées.
-  - Les 3 tests Python de saut de luminosité (`test_stability.py`) vont à #119 :
-    ils enchaînent détection et stabilité, le rôle de `compare`.
+  - Les 3 tests Python de saut de luminosité (`test_stability.py`) sont dans `compare`
+    (#119) : ils enchaînent détection et stabilité.
   - La médiane porte sur toute la vidéo : la stabilité dépend de sa longueur (la
     concaténation 089-091 ignore 27,9 s, contre 28,9 s en morceaux, mesuré par #94 ;
     la médiane comme cause est une hypothèse, non vérifiée).
@@ -1133,9 +1137,79 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       274 → 275. Les maxima tombent sur un demi (sur la 092, les surfaces sont des
       multiples de 2,25) : le Rust arrondit à mi-chemin vers le haut, la v0.1.1 au pair.
       Gardé (règle 5).
-- **À venir** :
-  - dans `engine` : détection (#118) ;
-  - `compare` (#119, écarts à la référence).
+- **`compare`** → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
+  développement, binaire `compare`, non livré. `media` n'y sert qu'à choisir les fils du
+  décodeur (`Threads::Automatic`).
+  - `compare extract|092|local [--frames DOSSIER]` lance `engine::detection::detect` sur
+    l'extrait, la 092 ou les 26 vidéos (`BATDETECT_REFERENCE_DIR`,
+    `BATDETECT_VIDEOS_DIR`, 6 vidéos à la fois, résultats dans l'ordre des dossiers).
+    Depuis la racine du dépôt, sous le verrou :
+    `lockf …/mesure.lock cargo run --profile ci -p compare -- local`.
+  - Sortie, dans l'ordre :
+    - par vidéo, les détections : nombres de chaque côté, paires, taux dans les deux
+      sens, détections perdues (dont celles qui sont un point d'une piste de la
+      référence) et ajoutées ;
+    - par vidéo, les pistes : appariées, concordantes, perdues, ajoutées, puis leur
+      total ;
+    - les écarts de détections groupés par vidéo et par temps (30 images entre
+      deux écarts au plus), avec leur position moyenne et leur plus grande amplitude ;
+    - les écarts de pistes (vidéo, temps, image de début) ;
+    - le temps de détection de chaque vidéo, puis les vidéos sous 98 %. Avec `local`,
+      ces temps sont pris pendant que 5 autres vidéos tournent : seul `compare 092`
+      chronomètre la détection seule.
+    Une vidéo en échec (vidéo absente, demi-fenêtre autre que celle de la référence…)
+    est écrite sur la sortie d'erreur avec ses causes, sans effacer le rapport des
+    autres. Code de sortie 1 si une vidéo échoue, si une vidéo est sous 98 % dans un
+    sens, ou si aucune vidéo n'est comparée.
+  - Seuils : 98 % dans les deux sens (`agreement::MIN_RATE`), appariement à moins de
+    3 px (`reference::detection_matching`), plages abîmées et instables de la référence
+    ignorées des deux côtés. Pistes : `exclude` avec les plages abîmées, le nombre
+    d'images signalées et la cadence de la référence, puis `track_detections` aux
+    réglages par défaut, puis `match_tracks`. Seules les détections viennent du Rust.
+  - Mesure sur les 26 vidéos (#119, profil `ci`, M1 Max, sous le verrou) : mêmes chiffres
+    qu'à #118, 410,8 s en tout et 3,2 Go de mémoire résidente. La lecture de la
+    référence et l'appariement seuls prennent 0,9 s pour les 26 vidéos (test local de
+    `reference`) : les allocations de `detection_matching` à chaque image ne comptent
+    pas, et la fonction reste telle quelle.
+  - `--frames` écrit `DOSSIER/<vidéo>/frames.jsonl` au format de la référence
+    (`frames::frames_of`, puis `reference::frames::Frames::write`) : `pts`, image-clé et
+    erreur de décodage vus par le décodeur de `media` (par ffprobe dans la référence),
+    détections brutes avant exclusion. Sur l'extrait, `pts`, images-clés et erreurs sont
+    égaux à ceux de la référence sur les 1 230 images.
+  - **Identité entre systèmes.** Aucune opération flottante de la chaîne de détection
+    (`engine`, et `WorkScale` dans `types`) ne dépend de la libm.
+    - Ce qu'on y trouve : les quatre opérations, `abs`, `midpoint`, `min`, `max`,
+      `round`, les conversions et le tri par `total_cmp`. Toutes sont exactes ou fixées
+      bit à bit par IEEE 754. La seule exception, `max` entre +0 et −0, n'arrive pas :
+      on compare toujours au plancher du seuil ou à un pic qui le dépasse.
+    - `powi(2)` de `area_to_source` se calcule en une multiplication, et 1,5² = 2,25 est
+      exact. Rust ne contracte jamais a × b + c en FMA.
+    - Le décodage H.264 est exact au bit près par la norme, sauf dans les images
+      dissimulées ; l'extrait n'en a aucune.
+    - Hors de la chaîne, `hypot` (distance de l'appariement, association du suivi) et
+      `atan2` (virage médian) viennent de la libm. Un écart d'un ulp ne ferait basculer
+      qu'une paire à 3 px tout juste, ou un choix entre deux distances égales. Il ne
+      touche pas `frames.jsonl`.
+  - **Sauts de luminosité** (`tests/slow_brightness_jump.rs`, les 3 tests de
+    `test_stability.py`) :
+    - Le montage : une vidéo de 90 images 1440×1080 à 30 i/s (gris 200, bruit σ 3, saut
+      à l'image 45), encodée par l'openh264 de `media`, passe par `detect`, `exclude`
+      puis `track_detections`. Une vidéo plutôt qu'une entrée directe du détecteur, pour
+      n'ouvrir aucune API nouvelle dans `engine`.
+    - Niveau `slow` : 3,3 s en profil `ci`, mais 368,8 s sous l'instrumentation de la
+      couverture, qui ralentit la détection.
+    - Les résultats : un saut de 20, 30 ou 40 niveaux ne donne aucune piste. Un saut de
+      30 donne une plage instable, [9, 80], autour du saut. Le test vérifie qu'elle
+      laisse des images de chaque côté : la borne de 90 images du Python valait la
+      longueur de la vidéo et ne pouvait pas échouer.
+    - Un saut de 20 n'allume aucun pixel. La v0.1.1, à l'échelle 3 et sans filtre, y
+      voyait quelques taches.
+    - La bande où un saut donne des taches sans plage instable n'a ici qu'un niveau de
+      large : 28 (22 détections). 29 en donne 1 617, avec la plage [9, 80]. Le test du
+      saut modéré garde donc 20, et vérifie que rien n'est allumé ni ignoré.
+    - Le saut de 30 n'est qu'à un niveau du bord. Si openh264 n'encode pas la même
+      chose sur un autre système, ce test le montrera ; l'écart remonte alors à
+      l'utilisateur.
 
 ## Référence v0.1.1
 
