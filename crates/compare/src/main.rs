@@ -4,7 +4,8 @@ use std::process::ExitCode;
 
 use compare::arguments::{Request, parse};
 use compare::comparison::{VIDEOS_AT_ONCE, compare_all};
-use compare::report::{write_failure, write_report};
+use compare::outcome::Outcome;
+use compare::report::{write_failure, write_refusals, write_report};
 
 fn main() -> ExitCode {
     match parse(env::args_os()) {
@@ -26,25 +27,17 @@ fn run(request: &Request) -> ExitCode {
             };
         }
     };
-    let mut comparisons = Vec::new();
-    let mut failed = false;
-    for (case, answer) in cases
-        .iter()
-        .zip(compare_all(&cases, VIDEOS_AT_ONCE, request.frames.as_deref()))
-    {
-        match answer {
-            Ok(comparison) => comparisons.push(comparison),
-            Err(error) => {
-                failed = true;
-                if write_failure(case.recording(), &error, &mut stderr).is_err() {
-                    break;
-                }
-            }
+    let answers = compare_all(&cases, VIDEOS_AT_ONCE, request.frames.as_deref());
+    let outcome = Outcome::of(&cases, answers);
+    for (recording, error) in &outcome.failed {
+        if write_failure(recording, error, &mut stderr).is_err() {
+            break;
         }
     }
-    let written = write_report(&comparisons, &mut io::stdout().lock());
-    let held = comparisons.iter().all(|comparison| comparison.detections.holds());
-    if written.is_ok() && held && !failed && !comparisons.is_empty() {
+    let mut stdout = io::stdout().lock();
+    let written =
+        write_report(&outcome.compared, &mut stdout).and_then(|()| write_refusals(&outcome.refused, &mut stdout));
+    if written.is_ok() && outcome.holds(request.target.tolerates_refusals()) {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE

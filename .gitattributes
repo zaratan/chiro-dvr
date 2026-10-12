@@ -1,7 +1,9 @@
 tests/fixtures/video_092_original.mp4 filter=lfs diff=lfs merge=lfs -text
 tests/fixtures/video_092_original_3m24-4m05.mp4 filter=lfs diff=lfs merge=lfs -text
+tests/fixtures/video_092_original_3m24-4m05_720x540.mp4 filter=lfs diff=lfs merge=lfs -text
 .claude/tower-control/journal.md merge=union
 tests/fixtures/reference/** text eol=lf
+tests/fixtures/reference/**/*.gz binary
 tests/fixtures/rust/** text eol=lf
 *.sh text eol=lf
 packaging/ffmpeg-versions text eol=lf

@@ -1,0 +1,88 @@
+{
+  "format_version": 1,
+  "reference": "v0.1.1",
+  "video": {
+    "name": "video_092_original_3m24-4m05.mp4",
+    "bytes": 60240812,
+    "sha256": "ff70c89fc9a8c0d6ae6728c1a5684287149433831ab75be2e7c59de3c4ebee17"
+  },
+  "stream": {
+    "width": 1440,
+    "height": 1080,
+    "r_frame_rate": "10000/333",
+    "avg_frame_rate": "10000/333",
+    "time_base": "1/10000",
+    "nb_frames": "1230"
+  },
+  "opencv": {
+    "fps": 30.03003003003003,
+    "frame_count_property": 1230,
+    "frames_read": 1230,
+    "width": 1440,
+    "height": 1080,
+    "work_width": 480,
+    "work_height": 360
+  },
+  "ffprobe": {
+    "frame_count": 1230,
+    "error_frames": [],
+    "gap_frames": [],
+    "decode_messages": []
+  },
+  "background_half_window": 15,
+  "damaged_spans": [],
+  "unstable_spans": [],
+  "counts": {
+    "frames": 1230,
+    "detections": 388,
+    "detections_kept": 388,
+    "damaged_frames_reported": 0,
+    "tracks": 4,
+    "track_points": 342
+  },
+  "config": {
+    "DetectConfig": {
+      "threshold": 25,
+      "min_area": 4,
+      "max_area": 2700,
+      "bg_window_s": 1.0,
+      "bg_step": 3,
+      "osd_regions": [],
+      "merge_radius": 6,
+      "work_width": 480,
+      "noise_factor": 0,
+      "target_sigma": 0
+    },
+    "TrackConfig": {
+      "max_jump": 120,
+      "max_gap": 6,
+      "min_hits": 6,
+      "min_travel": 45,
+      "twin_distance": 36,
+      "max_median_turn": 0.8
+    },
+    "StabilityConfig": {
+      "max_blobs": 20,
+      "pad_s": 1.0
+    }
+  },
+  "versions": {
+    "batdetect": "0.1.1",
+    "python": "3.14.8",
+    "numpy": "2.5.3",
+    "opencv": "5.0.0",
+    "opencv_ffmpeg": {
+      "avcodec": "YES (61.19.101)",
+      "avformat": "YES (61.7.100)",
+      "avutil": "YES (59.39.100)",
+      "swscale": "YES (8.3.100)"
+    },
+    "ffprobe": "ffprobe version 9.0.2 Copyright (c) 2007-2026 the FFmpeg developers",
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O"
+  },
+  "files": {
+    "frames": "frames.jsonl.gz",
+    "tracks": "tracks.jsonl",
+    "csv": "tracks.csv"
+  }
+}

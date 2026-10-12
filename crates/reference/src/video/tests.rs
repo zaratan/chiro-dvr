@@ -85,3 +85,35 @@ fn a_missing_summary_or_folder_is_reported() {
     assert!(matches!(VideoSummary::read(&absent).unwrap_err(), Error::Read { .. }));
     assert!(matches!(summary_092().write(&absent).unwrap_err(), Error::Write { .. }));
 }
+
+#[derive(Debug, PartialEq, serde::Deserialize)]
+struct Areas {
+    min_area: f64,
+    max_area: f64,
+}
+
+#[test]
+fn the_detection_settings_of_a_recording_read_into_the_type_the_caller_asks_for() {
+    let areas: Areas = summary_092().detect_settings().unwrap();
+    assert_eq!(
+        areas,
+        Areas {
+            min_area: 4.0,
+            max_area: 2700.0
+        }
+    );
+}
+
+#[test]
+fn a_recording_without_detection_settings_says_so() {
+    let mut summary = summary_092();
+    summary.recorded.remove("config");
+    assert!(matches!(summary.detect_settings::<Areas>(), Err(Error::NoDetectConfig)));
+}
+
+#[test]
+fn detection_settings_of_another_shape_are_refused_with_their_cause() {
+    let error = summary_092().detect_settings::<Vec<f64>>().unwrap_err();
+    assert!(matches!(error, Error::DetectConfig(_)));
+    assert!(std::error::Error::source(&error).is_some());
+}

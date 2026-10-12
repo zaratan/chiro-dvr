@@ -8,11 +8,17 @@ Jusqu'à #106, le Python reste l'outil livré ; [02](02-methode.md) et
 
 ## État (octobre 2026)
 
-#95 a posé le workspace, FFmpeg, l'outillage et quatre crates. La commande
-`batdetect-rs` ne fait encore que `--version`. Le moteur arrive avec #116 à #119 (#116 :
-crate `engine`, lecture et refus à l'entrée ; #117 : images abîmées et canari ; #118 :
-détection ; #119 : comparaison à la référence et identité entre systèmes), le suivi
-avec #120 à #123.
+Le lot 6 est fini : workspace, FFmpeg et outillage (#95, #146), moteur (#116 : lecture
+et refus à l'entrée ; #117 : images abîmées et canari ; #118 : détection ; #119 :
+comparaison à la référence et identité entre systèmes), suivi et commande (#120 à #123 :
+`batdetect-rs` détecte, suit et écrit le CSV des pistes et `params.json`). #144 a rendu
+infaillibles les constructeurs de `types` qui ne font que filtrer ou renuméroter.
+
+Le moteur ne sait encore traiter que du 1440×1080 aux réglages par défaut, à part le
+seuil, les surfaces, le facteur de bruit, et la fenêtre et le pas du fond tant qu'ils
+gardent au plus 16 échantillons. #98 le rend générique en trois temps : #149
+(banc d'essai à 16 réglages, [Réglages](#réglages)), #150 (géométrie et filtres) et #151
+(fenêtre et masques). Les extraits et l'image résumé arrivent avec le lot 7.
 
 ## Construction
 
@@ -395,7 +401,7 @@ Forme et tests :
 | Niveau | Fichiers | Commande | Contenu |
 |---|---|---|---|
 | rapide | `src/<module>/tests.rs`, `tests/*.rs` | `cargo test --workspace --locked` | vidéos fabriquées par openh264, binaire lancé pour de vrai |
-| slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv` ; le test de mémoire `slow_memory_flash` (`dhat`), hors de la couverture |
+| slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv`, et sa 720×540 ; les 16 cas de réglages (`slow_settings`) ; le test de mémoire `slow_memory_flash` (`dhat`), hors de la couverture |
 | reference | `tests/reference_*.rs`, `#[ignore = "reference"]` | `mise run rust:reference` | la 092 : 9 011 images, cadence moyenne 90110000/3000927 |
 | matériel | `tests/hardware_*.rs`, `#[ignore = "hardware"]` | étape d'essai de la CI macOS | VideoToolbox sans repli logiciel |
 | local | `tests/local_*.rs`, `#[ignore = "local"]` | `BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… cargo test --workspace --locked --profile ci --test 'local_*' -- --include-ignored` | les 26 vidéos de la référence, hors dépôt, jamais en CI |
@@ -930,7 +936,8 @@ Dix crates depuis #110, `members = ["crates/*"]`. `unsafe` n'est permis que dans
       possible perdu) reste à juger.
   - **Détection** (#118) : `detection::detect(chemin, Threads, &DetectConfig)`, ou
     `detect_input(Input, &DetectConfig)` pour une entrée déjà ouverte (le canari y passe
-    sa couture). Réglages par défaut seulement, 1440×1080 seulement. Le pool `rayon`
+    sa couture). Réglages : ceux que `DetectConfig::try_from` accepte (`settings`) ;
+    1440×1080 seulement. Le pool `rayon`
     est celui de l'appelant (`ThreadPool::install`). `Detected` rend la lecture
     (`Reading`), les détections (`FrameDetections`, une liste par image décodée, vides
     comprises), les dégâts (`Damage`, marge = demi-fenêtre), la demi-fenêtre, les fils
@@ -939,11 +946,27 @@ Dix crates depuis #110, `members = ["crates/*"]`. `unsafe` n'est permis que dans
     du fond.
     - `config` : `DetectConfig::default()` (seuil 12, surface 4 à 2 700, fenêtre 1,0 s,
       une image sur 3, fusion 6, largeur 960, bruit 8, sigma 1,5), champs en lecture.
+      `DetectConfig::try_from(&DetectSettings)` la construit depuis les réglages bruts
+      (#149) ; voir `settings`.
       `half_window(cadence)` arrondit `fenêtre × cadence / 2` au plus proche, moitié
       vers le haut (la v0.1.1 arrondit au pair : une image d'écart quand ce produit vaut
       x,5, jamais à 30 i/s), et refuse moins de 3 images de fenêtre, moins de 3
       échantillons, ou plus de 16 (borne du réseau, levée par #98). La 092 : 15, et 11
       échantillons.
+    - `settings` (#149) : `DetectSettings`, les dix réglages de la v0.1.1 sous leurs noms
+      Python (`threshold`, `min_area`, `max_area`, `bg_window_s`, `bg_step`,
+      `osd_regions`, `merge_radius`, `work_width`, `noise_factor`, `target_sigma`),
+      `Default` égal à la v0.1.1, `Deserialize` (tous les champs exigés, aucun champ
+      inconnu). Une zone OSD (`Region`) s'écrit par ses quatre bornes `x0`, `y0`, `x1`,
+      `y1`, comme `asdict`. `DetectConfig::try_from` refuse d'abord ce que la v0.1.1
+      refuse (`Error::Setting` avec son `Setting` et la borne enfreinte, `Areas`,
+      `Region` avec son rang), avec les mêmes écarts que le suivi : NaN et infini
+      refusés. Puis il refuse, par
+      `Error::Unsupported`, ce que le moteur ne sait pas encore faire et qui ne dépend
+      pas de la vidéo : `target_sigma` autre que 1,5 (le noyau est constant),
+      `merge_radius` autre que 6 (le disque est constant), une zone OSD. Les refus qui
+      dépendent de la vidéo restent où ils étaient : taille (`input`), réduction
+      (`geometry`), plus de 16 échantillons (`half_window`).
     - `geometry` : réduction 3:2 seulement (1440×1080 → 960×720), refus d'un travail de
       moins de 9 pixels de côté ou de plus de `u32::MAX` pixels. Seul `WorkScale` passe
       aux pixels d'origine.
@@ -1313,9 +1336,14 @@ Dix crates depuis #110, `members = ["crates/*"]`. `unsafe` n'est permis que dans
 - **`compare`** → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré. `media` n'y sert qu'à choisir les fils du
   décodeur (`Threads::Automatic`).
-  - `compare extract|092|local [--frames DOSSIER]` lance `engine::detection::detect` sur
-    l'extrait, la 092 ou les 26 vidéos (`BATDETECT_REFERENCE_DIR`,
+  - `compare extract|092|settings|local [--frames DOSSIER]` lance
+    `engine::detection::detect` sur l'extrait, la 092, les 16 cas de réglages
+    ([Réglages](#réglages)) ou les 26 vidéos (`BATDETECT_REFERENCE_DIR`,
     `BATDETECT_VIDEOS_DIR`, 6 vidéos à la fois, résultats dans l'ordre des dossiers).
+    Les réglages de détection sont ceux de l'enregistrement : `config.DetectConfig` du
+    `video.json`, lu par `VideoSummary::detect_config` en `DetectSettings`, puis
+    `DetectConfig::try_from` (#149). Pistes et stabilité restent aux défauts, comme à
+    l'enregistrement.
     Depuis la racine du dépôt, sous le verrou :
     `lockf …/mesure.lock cargo run --profile ci -p compare -- local`.
   - Sortie, dans l'ordre :
@@ -1329,11 +1357,17 @@ Dix crates depuis #110, `members = ["crates/*"]`. `unsafe` n'est permis que dans
     - les écarts de pistes (vidéo, temps, image de début) ;
     - le temps de détection de chaque vidéo, puis les vidéos sous 98 %. Avec `local`,
       ces temps sont pris pendant que 5 autres vidéos tournent : seul `compare 092`
-      chronomètre la détection seule.
+      chronomètre la détection seule ;
+    - les cas refusés, chacun avec ce que le moteur ne sait pas encore faire
+      (`Error::unsupported` : un réglage, ou
+      `engine::detection::Error::unsupported` : taille, plage pleine, réduction autre
+      que 3:2, plus de 16 échantillons).
     Une vidéo en échec (vidéo absente, demi-fenêtre autre que celle de la référence…)
     est écrite sur la sortie d'erreur avec ses causes, sans effacer le rapport des
     autres. Code de sortie 1 si une vidéo échoue, si une vidéo est sous 98 % dans un
-    sens, ou si aucune vidéo n'est comparée.
+    sens, si aucune vidéo n'est comparée, ou si une vidéo est refusée, sauf avec
+    `settings` (`Outcome::holds`). Avec `settings`, `--frames` écrit dans un dossier par
+    cas (`DOSSIER/<cas>/frames.jsonl`), les cas partageant leur vidéo.
   - Seuils : 98 % dans les deux sens (`agreement::MIN_RATE`), appariement à moins de
     3 px (`reference::detection_matching`), plages abîmées et instables de la référence
     ignorées des deux côtés. Pistes : `exclude` avec les plages abîmées, le nombre
@@ -1384,9 +1418,118 @@ Dix crates depuis #110, `members = ["crates/*"]`. `unsafe` n'est permis que dans
       chose sur un autre système, ce test le montrera ; l'écart remonte alors à
       l'utilisateur.
 
+## Réglages
+
+#149 donne au moteur un banc d'essai hors des réglages par défaut : 16 références de la
+v0.1.1 à d'autres réglages de détection, que `compare settings` relit. #150 et #151 lèvent
+les refus un à un et s'y mesurent.
+
+### Vidéo 720×540
+
+`tests/fixtures/video_092_original_3m24-4m05_720x540.mp4` (44 336 736 octets, sous LFS) :
+l'extrait réduit de moitié, faite une fois le 12 octobre 2026 par le ffmpeg 9.0.2 de
+Homebrew (libx264), sous le verrou :
+
+```bash
+ffmpeg -i tests/fixtures/video_092_original_3m24-4m05.mp4 -map 0:v:0 -an -sn -dn -map_metadata -1 \
+  -vf scale=720:540:flags=area -c:v libx264 -preset slow -crf 16 -g 15 -keyint_min 15 \
+  -sc_threshold 0 -bf 0 -threads 1 -pix_fmt yuv420p -color_range tv -colorspace bt709 \
+  -color_primaries bt709 -color_trc bt709 -fps_mode passthrough -video_track_timescale 10000 \
+  tests/fixtures/video_092_original_3m24-4m05_720x540.mp4
+```
+
+- Mêmes 1 230 images, même cadence (10000/333), même base de temps (1/10 000), mêmes
+  images-clés (toutes les 15 images), sans image B, plage `tv` et BT.709 comme l'extrait.
+- Elle ne se refait pas : un autre encodeur, ou le même sur un autre système, ne donnerait
+  pas les mêmes images, et la référence ne vaudrait plus. Les tâches CI `rust` et
+  `rust-windows` la tirent avec l'extrait.
+- CRF 16 garde le bruit du capteur : 44 Mo, contre 60 Mo pour l'extrait en 1440×1080.
+
+### Les 16 cas
+
+`tests/fixtures/reference/settings/<cas>/`, enregistrés le 12 octobre 2026 par
+`tools/reference_v011.py data <vidéo> <dossier> --gzip --detect '<JSON>'`, au code du tag
+`v0.1.1`, un cas par appel sous le verrou ; 1,6 Mo en tout (`frames.jsonl.gz`,
+`tracks.jsonl`, `tracks.csv`, `video.json`). Les mêmes versions que la référence de #94.
+Sur l'extrait sauf le dernier. Temps de la v0.1.1 sous `/usr/bin/time -l`, pris à
+l'intérieur du verrou (CPU = utilisateur + système).
+
+| Cas | Réglages (`--detect`) | Détections | Pistes | Python réel / CPU | Rust |
+| --- | --- | ---: | ---: | ---: | --- |
+| `threshold_25` | `threshold` 25 | 337 | 4 | 20,1 s / 52,7 s | comparé |
+| `min_area_9` | `min_area` 9 | 373 | 5 | 18,4 s / 52,7 s | comparé |
+| `max_area_400` | `max_area` 400 (écarte 6 taches de 400,5 à 488,25 px²) | 396 | 4 | 17,8 s / 52,3 s | comparé |
+| `noise_factor_0` | `noise_factor` 0 | 555 | 4 | 17,0 s / 51,0 s | comparé |
+| `window_2s` | `bg_window_s` 2,0 (61 images, 21 échantillons) | 1 048 | 4 | 49,3 s / 81,7 s | refusé : plus de 16 échantillons |
+| `step_1` | `bg_step` 1 (31 échantillons) | 385 | 5 | 93,7 s / 125,8 s | refusé : plus de 16 échantillons |
+| `osd` | `osd_regions` `[[0, 0, 1, 0.07]]` | 400 | 4 | 18,4 s / 52,2 s | refusé : zone OSD |
+| `merge_radius_0` | `merge_radius` 0 | 462 | 4 | 16,5 s / 50,4 s | refusé : rayon de fermeture |
+| `width_480` | `work_width` 480 | 604 | 4 | 8,3 s / 26,1 s | refusé : réduction autre que 3:2 |
+| `width_720` | `work_width` 720 | 528 | 5 | 16,8 s / 31,1 s | refusé : réduction autre que 3:2 |
+| `width_1440` | `work_width` 1440 | 404 | 4 | 43,1 s / 73,8 s | refusé : réduction autre que 3:2 |
+| `sigma_0` | `target_sigma` 0 | 9 655 (6 561 gardées) | 30 | 11,4 s / 45,3 s | refusé : flou |
+| `sigma_3` | `target_sigma` 3 | 352 | 4 | 18,6 s / 52,6 s | refusé : flou |
+| `quick` | `work_width` 480, `threshold` 25, `target_sigma` 0, `noise_factor` 0 | 388 | 4 | 8,1 s / 23,0 s | refusé : flou |
+| `width_1440_osd` | `work_width` 1440, `osd_regions` `[[0, 0, 1, 0.07]]` | 403 | 4 | 39,1 s / 72,2 s | refusé : zone OSD |
+| `size_720x540` | aucun, sur la 720×540 (travail en 720×540) | 345 | 4 | 11,6 s / 21,7 s | refusé : taille |
+
+- `sigma_0` est le seul cas où la v0.1.1 trouve des plages instables (2) : sans flou, le
+  bruit du capteur passe le seuil par endroits.
+- Mémoire de la v0.1.1 : 0,19 à 0,53 Go (`width_1440`).
+- Un refus nomme la première chose que le moteur ne sait pas faire : `quick` et
+  `width_1440_osd` sont refusés par leur réglage (flou, OSD) avant de l'être par leur
+  réduction.
+
+### Méthode
+
+- **Niveau 0, garde bloquante : aux défauts, rien ne bouge.** `slow_extract` au bit près
+  sur les trois systèmes, `rust:reference` à 14 pistes, `compare local` à 963 pistes
+  appariées, 3 perdues, 9 ajoutées, la 089 à 98,19 %. Mesuré à #149 sur le Mac : les
+  trois identiques ; Linux et Windows par la CI de la PR.
+- **Niveau 1 : la v0.1.1 elle-même à d'autres réglages**, les 16 cas ci-dessus.
+  - Critère par cas que le moteur sait faire : au moins 98 % des détections appariées
+    dans les deux sens (à moins de 3 px, même image, hors plages ignorées), pistes
+    appariées (début ±5 images, points ±3), chaque écart listé (cas, temps) et jugé par
+    l'utilisateur.
+  - Un cas que le moteur ne sait pas faire est refusé par une erreur typée et listé
+    comme tel par `compare` (`Error::unsupported`). Pour `settings`, ce n'est pas un
+    échec ; pour `extract`, `092` et `local`, si.
+  - Un cas sous 98 % bloque tant que sa cause n'est pas isolée, par ablation comme à #118.
+  - Test lent : `crates/compare/tests/slow_settings.rs` fige les cas refusés avec ce qui
+    leur manque, et, pour les autres, 98 % dans les deux sens et toutes les pistes
+    appariées et concordantes. `crates/reference/tests/committed_settings.rs` relit les 16
+    cas en test rapide.
+- **Niveau 2, sans Python** (à venir avec #150 et #151) : invariances en tests rapides
+  (même flux remuxé en plage pleine, médiane contre un tri, noyau et disque contre la
+  formule, réduction d'une image uniforme, tache sous un masque OSD).
+- **Niveau 3, plus tard (#107 à #109)** : par classe du banc, la proportion trouvée par
+  le Rust dans l'intervalle de Wilson du Python. Ne bloque pas #98.
+
+### Mesure de #149 (12 octobre 2026, M1 Max, profil `ci`, sous le verrou)
+
+`compare settings` : 4 cas comparés, 12 refusés, 12,7 s réelles.
+
+| Cas | Référence | Rust | Appariées | Taux référence / Rust | Pistes appariées (concordantes) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `max_area_400` | 396 | 397 | 396 | 100 % / 99,75 % | 4 (4) |
+| `min_area_9` | 373 | 373 | 373 | 100 % / 100 % | 5 (5) |
+| `noise_factor_0` | 555 | 555 | 555 | 100 % / 100 % | 4 (4) |
+| `threshold_25` | 337 | 337 | 337 | 100 % / 100 % | 4 (4) |
+
+- Seul écart : `max_area_400`, 00:18.98, image 570, une détection ajoutée en (517, 999),
+  4,5 px², amplitude 12,6. C'est la détection ajoutée de l'extrait aux défauts (403
+  contre 402) : elle ne vient pas du réglage. Les 6 taches au-delà de 400 px² tombent
+  des deux côtés (397 = 403 − 6).
+- `max_area` 500, la valeur de l'issue, ne mesurait rien : la plus grande tache de
+  l'extrait fait 488,25 px², et la v0.1.1 y rendait les détections des défauts octet
+  pour octet. Remplacé par 400, décision de l'utilisateur.
+- Aucun écart de piste.
+
 ## Référence v0.1.1
 
 Format, emplacement et versions de la référence que le Rust doit égaler : README de
 `tests/fixtures/reference/` (#94). La crate `reference` la lit ; le test local
 `crates/reference/tests/local_reference.rs` relit les 26 vidéos (966 pistes) et les
-apparie chacune à elle-même.
+apparie chacune à elle-même. Les 16 cas de réglages de #149 sont dans
+`tests/fixtures/reference/settings/` ([Réglages](#réglages)) ;
+`crates/reference/tests/committed_settings.rs` les relit.

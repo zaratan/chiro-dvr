@@ -31,7 +31,7 @@ enum Gap {
 }
 
 impl Agreement {
-    pub fn of(detections: &FrameDetections, rate: FrameRate, recording: &Recording) -> Self {
+    pub fn of(name: &str, detections: &FrameDetections, rate: FrameRate, recording: &Recording) -> Self {
         let ignored = ignored_spans(recording);
         let reference = recording.frames.detections().without(&ignored);
         let candidate = detections.without(&ignored);
@@ -58,7 +58,7 @@ impl Agreement {
             .collect();
         gaps.sort_by_key(|(detection, _)| detection.frame);
         Self {
-            name: recording.summary.video.name.clone(),
+            name: name.to_owned(),
             rate,
             reference: reference.detection_count(),
             candidate: candidate.detection_count(),

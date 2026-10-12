@@ -15,6 +15,10 @@ fn the_frames_of_a_video_go_to_a_folder_named_after_it() {
         frames_path(Path::new("out"), "video_092_original.mp4"),
         PathBuf::from("out/video_092_original").join(FRAMES_FILE)
     );
+    assert_eq!(
+        frames_path(Path::new("out"), "threshold_25"),
+        PathBuf::from("out/threshold_25").join(FRAMES_FILE)
+    );
 }
 
 #[test]
@@ -79,12 +83,34 @@ fn nothing_to_compare_gives_nothing_back() {
 #[test]
 fn the_detections_are_compared_at_the_frame_rate_of_the_reference() {
     let mut recording = Recording::read(&committed(EXTRACT)).unwrap();
-    let comparison = compared(recording.frames.detections(), &recording, 1.5).unwrap();
+    let comparison = compared(
+        &recording.summary.video.name,
+        recording.frames.detections(),
+        &recording,
+        1.5,
+    )
+    .unwrap();
     recording.summary.stream.avg_frame_rate = types::rational::Rational::new(0, 1).unwrap();
 
-    let refused = compared(recording.frames.detections(), &recording, 1.5).unwrap_err();
+    let refused = compared(
+        &recording.summary.video.name,
+        recording.frames.detections(),
+        &recording,
+        1.5,
+    )
+    .unwrap_err();
 
     assert!(comparison.detections.holds());
     assert_eq!(comparison.seconds, 1.5);
     assert!(matches!(refused, Error::Rate { .. }));
+}
+
+#[test]
+fn the_detection_settings_come_from_the_recording_and_one_the_engine_cannot_apply_stops_before_any_reading() {
+    let error = compare(&Case::setting(committed("settings/sigma_3")), None).unwrap_err();
+
+    assert_eq!(
+        error.unsupported().map(ToString::to_string).as_deref(),
+        Some("target_sigma 3: only 1.5, one work pixel at 3:2, is handled")
+    );
 }

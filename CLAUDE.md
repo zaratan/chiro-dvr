@@ -29,9 +29,11 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 - **L'extrait `tests/fixtures/video_092_original_3m24-4m05.mp4` est coupé sans réencodage**
   sur une image-clé de l'original (image source 6150, 30,03 i/s). Le réencoder changerait
   les détections.
-- **Seules les deux vidéos de la 092 dans `tests/fixtures/` sont suivies par Git LFS**
-  (`.gitattributes`) : `git lfs pull` après un clone, sinon les tests `slow` et
-  `reference` échouent sur un pointeur (garde dans `tests/conftest.py`). Les trois petites
+- **Seules trois vidéos de `tests/fixtures/` sont suivies par Git LFS** (`.gitattributes`) :
+  les deux de la 092 et `video_092_original_3m24-4m05_720x540.mp4`, l'extrait réduit une
+  fois par la commande de [docs/11](docs/11-migration-rust.md#réglages), jamais refait.
+  `git lfs pull` après un clone, sinon les tests `slow` et `reference` échouent sur un
+  pointeur (garde dans `tests/conftest.py`). Les trois petites
   fixtures du Rust (`full_range.mp4`, `full_range_midway.mp4`, `two_gops.mp4`, quelques
   Ko) sont des fichiers git ordinaires, faits une fois par la commande de
   [docs/11](docs/11-migration-rust.md#tests). Les détections de l'extrait par le Rust
@@ -39,7 +41,8 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
   près sur chaque système. La 092 entière `video_092_original.mp4` est
   une copie exacte de `in/`. Son test, marqueur `reference`, est exclu de `pytest` par
   défaut et tourne dans sa propre tâche de CI : `uv run pytest -m reference`. La tâche
-  `slow-tests` ne récupère que l'extrait.
+  `slow-tests` ne récupère que l'extrait ; les tâches `rust` et `rust-windows`, l'extrait et
+  sa 720×540.
   Tolérances du test de référence, sur les deux vidéos : nombre de pistes exact, début ±5
   images, points ±3, qui couvrent l'écart mesuré entre Mac et Linux (4 images, 2 points).
 - **Les vidéos se copient depuis les jumelles en USB**, jamais par l'export Stream Vision 2,
@@ -127,7 +130,8 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   se complète à la main.
 - `tools/reference_v011.py` : enregistre la référence v0.1.1 (détections, pistes, bancs) ;
   refuse de tourner si `src/` diffère du tag `v0.1.1`.
-- `tests/fixtures/reference/` : la référence v0.1.1 de l'extrait et de la 092, fichiers git
+- `tests/fixtures/reference/` : la référence v0.1.1 de l'extrait et de la 092, et dans
+  `settings/` ses 16 cas à d'autres réglages de détection (`--detect`, docs/11), fichiers git
   ordinaires ; format, dossier des 26 vidéos (`BATDETECT_REFERENCE_DIR`) et versions dans
   son `README.md`.
 - Toutes les coordonnées, distances et surfaces hors de `find_blobs` sont en pixels de la
@@ -152,7 +156,7 @@ mise run rust:static      # fmt, clippy, règles de la charte, cargo deny, cargo
 mise run rust:test        # tests rapides, couverture ≥ 95 %
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:slow       # l'extrait LFS, le test de mémoire (hors couverture)
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 092 entière
-lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --profile ci -p compare -- local  # écarts à la référence (extract, 092, local)
+lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --profile ci -p compare -- local  # écarts à la référence (extract, 092, settings, local)
 ```
 
 Windows (MSVC, `/MT`, `+crt-static`) ne se construit que dans la tâche CI `rust-windows`,

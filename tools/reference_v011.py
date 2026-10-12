@@ -14,7 +14,7 @@ import sys
 import tempfile
 from collections.abc import Generator, Iterable, Iterator
 from contextlib import contextmanager, nullcontext
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any, BinaryIO, TextIO, cast
@@ -26,7 +26,7 @@ import batdetect
 from batdetect.bench.cli import main as bench_main
 from batdetect.bench.collect import BenchRun
 from batdetect.damage import frame_entries, parse_probe
-from batdetect.detect import DetectConfig, Detection
+from batdetect.detect import DetectConfig, Detection, Region
 from batdetect.exclusion import exclude
 from batdetect.output.tables import write_tracks_csv
 from batdetect.parallel import DEFAULT_WORKERS, detect_video
@@ -47,6 +47,7 @@ OPENCV_FFMPEG_LIBRARIES = ("avcodec", "avformat", "avutil", "swscale")
 PATCH_BASE = 128
 DECODER_ADDRESS = re.compile(r" @ 0x[0-9a-f]+\]")
 GIT_DIFF_FOUND = 1
+INTEGER_SETTINGS = ("bg_step", "work_width")
 
 
 def check_reference_code() -> None:
@@ -212,8 +213,38 @@ def span_pairs(spans: list[Span]) -> list[list[int]]:
     return [[s.first, s.last] for s in spans]
 
 
-def record_data(video: Path, dest: Path, compressed: bool) -> None:
-    detect, track, stability = DetectConfig(), TrackConfig(), StabilityConfig()
+def region(bounds: object) -> Region:
+    if isinstance(bounds, dict):
+        return Region(**cast(dict[str, float], bounds))
+    return Region(*cast(list[float], bounds))
+
+
+def detect_config(settings: str | None) -> DetectConfig:
+    if settings is None:
+        return DetectConfig()
+    try:
+        chosen: object = json.loads(settings)
+    except json.JSONDecodeError as error:
+        sys.exit(f"--detect is not JSON: {error}")
+    if not isinstance(chosen, dict):
+        sys.exit("--detect must be a JSON object of DetectConfig fields")
+    overrides = cast(dict[str, Any], chosen)
+    unknown = sorted(set(overrides) - {field.name for field in fields(DetectConfig)})
+    if unknown:
+        sys.exit(f"--detect names settings that DetectConfig does not have: {', '.join(unknown)}")
+    fractional = [name for name in INTEGER_SETTINGS if name in overrides and type(overrides[name]) is not int]
+    if fractional:
+        sys.exit(f"--detect needs whole numbers for {', '.join(fractional)}")
+    try:
+        if "osd_regions" in overrides:
+            overrides["osd_regions"] = tuple(region(bounds) for bounds in overrides["osd_regions"])
+        return DetectConfig(**overrides)
+    except (TypeError, ValueError) as error:
+        sys.exit(f"--detect is not a valid DetectConfig: {error}")
+
+
+def record_data(video: Path, dest: Path, compressed: bool, detect: DetectConfig) -> None:
+    track, stability = TrackConfig(), StabilityConfig()
     cap, info = open_video(video, detect.work_width)
     cap.release()
     detections, probe_text = detect_and_probe(video, detect, info)
@@ -357,6 +388,11 @@ def build_parser() -> argparse.ArgumentParser:
     data.add_argument("video", type=Path)
     data.add_argument("dest", type=Path)
     data.add_argument("--gzip", action="store_true", help="compress the frame lines")
+    data.add_argument(
+        "--detect",
+        metavar="JSON",
+        help='DetectConfig fields that replace the defaults, e.g. {"threshold": 25, "osd_regions": [[0, 0, 1, 0.07]]}',
+    )
     bench = commands.add_parser("bench", help="targets, injected detections and report of one bench")
     bench.add_argument("video", type=Path)
     bench.add_argument("dest", type=Path)
@@ -369,7 +405,7 @@ def main(argv: list[str] | None = None) -> int:
     ns = build_parser().parse_args(argv)
     check_reference_code()
     if ns.command == "data":
-        record_data(ns.video, ns.dest, ns.gzip)
+        record_data(ns.video, ns.dest, ns.gzip, detect_config(ns.detect))
     else:
         record_bench(ns.video, ns.dest, ns.work, ns.bench_args)
     return 0
