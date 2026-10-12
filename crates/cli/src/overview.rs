@@ -1,14 +1,18 @@
 use std::path::{Path, PathBuf};
 
-use draw::canvas::{self, Canvas};
+use draw::canvas::{self, Canvas, PixelBox};
 use draw::color::PANEL;
 use engine::detection::Detected;
+use engine::settings::Region;
 use files::names::Names;
 use media::convert::{self, Converter, SourceRange};
 use summary::header::Labels;
 use summary::image_file::{self, write_png};
 use summary::layout::Summary;
 use summary::pages;
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -30,6 +34,7 @@ pub(crate) struct Overview<'a> {
     pub(crate) dest: &'a Path,
     pub(crate) names: Names,
     pub(crate) labels: &'a dyn Labels,
+    pub(crate) regions: &'a [Region],
 }
 
 pub(crate) fn write_overview(
@@ -47,10 +52,28 @@ pub(crate) fn write_overview(
         .map_err(Error::Convert)?;
     let stem = overview.video.file_stem().unwrap_or_default();
     let mut written = Vec::new();
-    for page in pages(summary, canvas, &[], overview.labels)? {
+    let masks = display_boxes(overview.regions, width, height);
+    for page in pages(summary, canvas, &masks, overview.labels)? {
         let path = overview.names.summary_png(overview.dest, stem, page.minutes, page.part);
         write_png(&path, &page.canvas)?;
         written.push(path);
     }
     Ok(written)
+}
+
+fn display_boxes(regions: &[Region], width: u32, height: u32) -> Vec<PixelBox> {
+    let (width, height) = (width as usize, height as usize);
+    let bound = |position: usize| i32::try_from(position).unwrap_or(i32::MAX);
+    regions
+        .iter()
+        .map(|region| {
+            let (columns, rows) = (region.columns(width, 0), region.rows(height, 0));
+            PixelBox {
+                left: bound(columns.start),
+                top: bound(rows.start),
+                right: bound(columns.end) - 1,
+                bottom: bound(rows.end) - 1,
+            }
+        })
+        .collect()
 }

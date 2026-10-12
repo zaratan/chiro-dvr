@@ -1,14 +1,13 @@
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use reference::location::committed;
 use reference::recording::Recording;
 use types::detection::FrameDetections;
 
-use super::{write_failure, write_refusals, write_report};
+use super::{write_failure, write_report};
 use crate::case::EXTRACT;
 use crate::comparison::{Comparison, compared};
-use crate::outcome::Refusal;
 
 #[derive(Debug, thiserror::Error)]
 #[error("cannot read the summary")]
@@ -59,39 +58,5 @@ fn a_failure_names_its_recording_then_each_of_its_causes() {
     assert_eq!(
         String::from_utf8(out).unwrap(),
         "data/video_089: cannot read the summary\n  disk gone\n"
-    );
-}
-
-#[test]
-fn each_refused_case_is_named_by_its_folder_with_what_the_engine_cannot_do_yet() {
-    let mut out = Vec::new();
-    let refusals = [
-        Refusal {
-            recording: PathBuf::from("fixtures/reference/settings/osd"),
-            reason: "osd_regions: masks are not handled, 1 given".to_owned(),
-        },
-        Refusal {
-            recording: PathBuf::from("fixtures/reference/settings/step_1"),
-            reason: "more samples".to_owned(),
-        },
-    ];
-
-    write_refusals(&refusals, &mut out).unwrap();
-
-    assert_eq!(
-        String::from_utf8(out).unwrap(),
-        "refused, the engine cannot handle them yet: 2\n  osd: osd_regions: masks are not handled, 1 given\n  step_1: more samples\n"
-    );
-}
-
-#[test]
-fn no_refusal_still_says_so() {
-    let mut out = Vec::new();
-
-    write_refusals(&[], &mut out).unwrap();
-
-    assert_eq!(
-        String::from_utf8(out).unwrap(),
-        "refused, the engine cannot handle them yet: 0\n"
     );
 }

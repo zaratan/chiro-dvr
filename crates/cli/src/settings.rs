@@ -1,6 +1,7 @@
 use std::num::NonZeroU32;
 
 use engine::config::DetectConfig;
+use engine::settings::DetectSettings;
 use media::decode::ActiveThreads;
 use serde::Serialize;
 use tracking::stability::StabilityConfig;
@@ -18,19 +19,6 @@ pub(crate) struct Settings {
     #[serde(rename = "StabilityConfig")]
     stability: StabilitySettings,
     threads: ThreadSettings,
-}
-
-#[derive(Debug, Serialize)]
-struct DetectSettings {
-    threshold: f64,
-    min_area: f64,
-    max_area: f64,
-    bg_window_s: f64,
-    bg_step: usize,
-    merge_radius: f64,
-    work_width: u32,
-    noise_factor: f64,
-    target_sigma: f64,
 }
 
 #[derive(Debug, Serialize)]
@@ -78,17 +66,7 @@ impl Settings {
             ActiveThreads::Slice(count) => (DecodingKind::Slice, count.get()),
         };
         Self {
-            detect: DetectSettings {
-                threshold: detect.threshold(),
-                min_area: detect.min_area(),
-                max_area: detect.max_area(),
-                bg_window_s: detect.window_seconds(),
-                bg_step: detect.step().get(),
-                merge_radius: detect.merge_radius(),
-                work_width: detect.work_width().get(),
-                noise_factor: detect.noise_factor(),
-                target_sigma: detect.target_sigma(),
-            },
+            detect: DetectSettings::from(detect),
             track: TrackSettings {
                 max_jump: track.max_jump(),
                 max_gap: track.max_gap().get(),

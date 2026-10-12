@@ -5,7 +5,7 @@ use std::process::ExitCode;
 use compare::arguments::{Request, parse};
 use compare::comparison::{VIDEOS_AT_ONCE, compare_all};
 use compare::outcome::Outcome;
-use compare::report::{write_failure, write_refusals, write_report};
+use compare::report::{write_failure, write_report};
 
 fn main() -> ExitCode {
     match parse(env::args_os()) {
@@ -35,9 +35,8 @@ fn run(request: &Request) -> ExitCode {
         }
     }
     let mut stdout = io::stdout().lock();
-    let written =
-        write_report(&outcome.compared, &mut stdout).and_then(|()| write_refusals(&outcome.refused, &mut stdout));
-    if written.is_ok() && outcome.holds(request.target.tolerates_refusals()) {
+    let written = write_report(&outcome.compared, &mut stdout);
+    if written.is_ok() && outcome.holds() {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE

@@ -16,3 +16,7 @@ pub(crate) fn wide(value: i128) -> f64 {
 pub(crate) fn narrowed(value: f64) -> f32 {
     value as f32
 }
+
+pub(crate) fn position(value: f64) -> usize {
+    value as usize
+}

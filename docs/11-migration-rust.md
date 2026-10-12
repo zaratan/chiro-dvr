@@ -16,8 +16,9 @@ infaillibles les constructeurs de `types` qui ne font que filtrer ou renumérote
 
 #98 rend le moteur générique en trois temps : #149 (banc d'essai à 16 réglages,
 [Réglages](#réglages)), #150 (géométrie et filtres : toute taille, toute réduction,
-noyau et disque calculés, plage pleine lue) et #151 (fenêtre et masques). Après #150, le
-moteur refuse encore les zones OSD et plus de 16 échantillons de fond. L'image résumé
+noyau et disque calculés, plage pleine lue) et #151 (fenêtre et masques : médiane sans
+borne, zones OSD, réglages unifiés). Depuis #151, aucun réglage valide n'est refusé, et
+les 16 cas du banc sont comparés. L'image résumé
 est arrivée avec #104, sa frise avec #127 ; les extraits sont en cours (#112).
 
 ## Construction
@@ -407,8 +408,8 @@ Forme et tests :
 | Niveau | Fichiers | Commande | Contenu |
 |---|---|---|---|
 | rapide | `src/<module>/tests.rs`, `tests/*.rs` | `cargo test --workspace --locked` | vidéos fabriquées par openh264, binaire lancé pour de vrai |
-| slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv`, et sa 720×540 ; les 16 cas de réglages (`slow_settings`) ; les tests de mémoire `slow_memory_flash` et `slow_memory_flash_wide` (`dhat`, 960 et 1440 pixels de travail), hors de la couverture |
-| reference | `tests/reference_*.rs`, `#[ignore = "reference"]` | `mise run rust:reference` | la 092 : 9 011 images, cadence moyenne 90110000/3000927 |
+| slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv`, et sa 720×540 ; les 16 cas de réglages (`slow_settings`) ; les tests de mémoire `slow_memory_flash`, `slow_memory_flash_wide` et `slow_memory_flash_long` (`dhat`, 960 et 1440 pixels de travail, 61 échantillons), hors de la couverture |
+| reference | `tests/reference_*.rs`, `#[ignore = "reference"]` | `mise run rust:reference` | la 092 : 9 011 images, cadence moyenne 90110000/3000927, aux défauts et à 1440 pixels de travail (#151) |
 | matériel | `tests/hardware_*.rs`, `#[ignore = "hardware"]` | étape d'essai de la CI macOS | VideoToolbox sans repli logiciel |
 | local | `tests/local_*.rs`, `#[ignore = "local"]` | `BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… cargo test --workspace --locked --profile ci --test 'local_*' -- --include-ignored` | les 26 vidéos de la référence, hors dépôt, jamais en CI |
 
@@ -902,7 +903,10 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       117 pistes, 6 images. Sur la référence, 10 vidéos sur 26 ont une tranche de plus de
       20 pistes.
   - Masques de l'affichage : une liste de rectangles peints en gris de panneau avant
-    l'assombrissement, vide jusqu'à #151.
+    l'assombrissement. `cli` les tire des zones OSD de la configuration (#151) :
+    `Region::columns` et `rows` sans marge, sur la taille de la source, soit
+    `[⌊x0·w⌋, ⌈x1·w⌉)` comme `output/background.py` ; `PixelBox` inclut ses bornes,
+    donc `right = fin − 1`. Vide tant que la commande n'a pas `--osd-region` (#113).
   - Écarts voulus : fond lu en plage pleine, noir calé sur 16
     ([Plage réelle des sources](#plage-réelle-des-sources)) ; police et rayon de
     `draw::style` (rayon 23 en 1440, 29 pour un numéro à trois chiffres contre 26 en
@@ -1087,21 +1091,30 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       (#149) ; voir `settings`.
       `half_window(cadence)` arrondit `fenêtre × cadence / 2` au plus proche, moitié
       vers le haut (la v0.1.1 arrondit au pair : une image d'écart quand ce produit vaut
-      x,5, jamais à 30 i/s), et refuse moins de 3 images de fenêtre, moins de 3
-      échantillons, ou plus de 16 (borne du réseau, levée par #151). La 092 : 15, et 11
-      échantillons.
+      x,5, jamais à 30 i/s), et refuse moins de 3 images de fenêtre ou moins de 3
+      échantillons. Aucune borne haute depuis #151 : le nombre d'échantillons d'une cible
+      intérieure, `⌊2·demi-fenêtre / pas⌋ + 1` (`window::most_sampled`), dimensionne les
+      réseaux et les tampons. La 092 : 15, et 11 échantillons ; `window_2s` : 30 et 21 ;
+      2 s au pas de 1 : 61.
     - `settings` (#149) : `DetectSettings`, les dix réglages de la v0.1.1 sous leurs noms
       Python (`threshold`, `min_area`, `max_area`, `bg_window_s`, `bg_step`,
       `osd_regions`, `merge_radius`, `work_width`, `noise_factor`, `target_sigma`),
-      `Default` égal à la v0.1.1, `Deserialize` (tous les champs exigés, aucun champ
-      inconnu). Une zone OSD (`Region`) s'écrit par ses quatre bornes `x0`, `y0`, `x1`,
-      `y1`, comme `asdict`. `DetectConfig::try_from` refuse d'abord ce que la v0.1.1
-      refuse (`Error::Setting` avec son `Setting` et la borne enfreinte, `Areas`,
-      `Region` avec son rang), avec les mêmes écarts que le suivi : NaN et infini
-      refusés. Puis il refuse, par `Error::Unsupported`, ce que le moteur ne sait pas
-      encore faire : une zone OSD (#151). Plus de 16 échantillons reste refusé par
-      `half_window`, à la détection. Depuis #150, tout `target_sigma` et tout
-      `merge_radius` sont acceptés.
+      `Deserialize` (tous les champs exigés, aucun champ inconnu) et `Serialize` dans
+      l'ordre de la dataclasse : le même type lit `video.json` et écrit `params.json`
+      (#151, la copie privée de `cli` a disparu). `Default` se déduit de
+      `DetectConfig::default()` par `From<&DetectConfig>`, une seule source des valeurs.
+      Une zone OSD (`Region`) s'écrit par ses quatre bornes `x0`, `y0`, `x1`, `y1`, comme
+      `asdict` ; `columns(largeur, marge)` et `rows(hauteur, marge)` la convertissent en
+      pixels, `[⌊f0·L⌋ − marge, ⌈f1·L⌉ + marge)` borné à l'image, comme `osd_mask`.
+      `DetectConfig::try_from` refuse ce que la v0.1.1 refuse (`Error::Setting` avec son
+      `Setting` et la borne enfreinte, `Areas`, `Region` avec son rang), avec les mêmes
+      écarts que le suivi : NaN et infini refusés. Écart voulu de #151 : `merge_radius`
+      est borné à 12 pixels d'origine (`Bound::AtMost`), la v0.1.1 acceptait tout. Une
+      image d'éclair plein cadre, sur un fil, en `release` : 0,34 s au rayon 6 et 0,99 s
+      au rayon 12 au travail en 1440, 3,77 s au rayon 25 ; 0,81 s au rayon 25 au
+      travail en 960. La borne tient une seconde par image à toute largeur, et recolle
+      encore les fragments écartés de 18 à 24 px de docs/02. Plus aucun réglage valide
+      n'est refusé : `Unsupported` a disparu.
     - `geometry` : toute réduction (#150), largeur et hauteur de travail de `WorkScale`
       (largeur demandée sans agrandir, hauteur arrondie), refus d'un travail de plus de
       `u32::MAX` pixels. Seul `WorkScale` passe aux pixels d'origine, avec l'échelle des
@@ -1132,15 +1145,36 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       à la compilation de 1 à 17, une boucle générique au-delà ; bords en miroir sans
       répéter le pixel du bord), un seul arrondi final en 1/64 de niveau (`u16`, 16 320
       au plus ; passe verticale en `u32`, 255 × 4 096² tient puisque le noyau somme
-      exactement 4 096). Le niveau d'une image est la somme de ses unités.
+      exactement 4 096). Le niveau d'une image est la somme de ses unités hors du masque :
+      la somme de chaque ligne, moins celle de ses colonnes masquées.
     - `network` : médiane par le réseau de Batcher coupé à n entrées et élagué aux
       comparaisons qui atteignent le milieu (32 pour 11 échantillons), sur des blocs de
-      64 pixels ; test 0-1 exhaustif de 1 à 16 et proptest contre un tri. Si n est
-      pair, la médiane est la demi-somme des deux du milieu.
+      64 pixels ; test 0-1 exhaustif de 1 à 20 (64 motifs par appel) et proptest contre
+      un tri de 1 à 128. Si n est pair, la médiane est la demi-somme des deux du milieu.
+      Un réseau par compte de 1 au maximum (#151), paires en `Box<[_]>` : 2,3 Ko à 11
+      échantillons, 177 Ko à 61, 8,7 Mo à 301, 566 Mo à 1 801 (60 s au pas de 1), soit
+      23 à 30 % de la fenêtre de 1 801 images, mesuré par la relecture de #151.
     - `threshold` : résidu `f32` = image − fond − (niveau − niveau moyen), le gain en
       entiers jusqu'à une seule division. Candidats au-dessus du plancher (12
-      niveaux) ; avec au moins 7 échantillons, seuil relevé à max(12, 8 × 1,4826 × MAD
-      des écarts corrigés du gain), pour les seuls candidats.
+      niveaux) ; avec au moins 7 échantillons et k > 0, seuil relevé à max(12, 8 × 1,4826
+      × MAD des écarts corrigés du gain), pour les seuls candidats. Avec k = 0, le seuil
+      relevé vaudrait le plancher : il n'est pas calculé (#151). Un candidat sous le
+      masque est écarté avant le seuil relevé, comme `residual[~mask] = 0`.
+      - Tampons (#151) : les lignes du réseau sont sur la pile jusqu'à 64 échantillons
+        (`STACKED_SAMPLES`, 8 Ko), sur le tas de chaque fil au-delà ; écarts et gains
+        dans des tampons de chaque fil, dimensionnés une fois. Les mêmes lignes sur le
+        tas coûtaient 7 % de temps CPU sur la 092 (117 s contre 110 s, mesuré en
+        alternance avec `main`) ; par ablation, ni le test du masque, ni les écarts, ni
+        la copie des deux valeurs du milieu, ni l'inlining du tri n'en sont la cause, et
+        le mécanisme n'est pas isolé. Les deux chemins sont testés (16, 64, 65 et 80
+        échantillons).
+    - `mask` (#151) : zones OSD en pixels de travail, une liste d'intervalles de colonnes
+      fusionnés par ligne (vide sans zone). Marge : la portée du noyau, ⌈4σ⌉ pixels de
+      travail (la v0.1.1 : ⌈3σ⌉, `detect.py:171`), si bien que les unités préparées sous
+      la bande ne dépendent pas de l'écran, au bit près. `WholeFrame` si aucun pixel ne
+      reste (`detection::Error::Mask`), comme `detect.py:172`. Le niveau moyen exclut le
+      masque : une bande qui scintille ne change pas le gain. Sur le banc, la marge de
+      4σ ne perd aucune détection (`osd` et `width_1440_osd`).
     - `closing` : fermeture par le disque de rayon `round(merge_radius / échelle)`,
       moitié vers le haut (#150 ; la v0.1.1 arrondit au pair, un rayon d'écart quand ce
       quotient vaut x,5, par exemple 3,75 à l'échelle 1,5 ; 4 aux défauts, demi-largeurs `[0, 3, 3, 4, 4, 4, 3, 3,
@@ -1196,11 +1230,15 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       fenêtre, vidéo vide, fragments fusionnés, 3 refus de fenêtre, nombreuses taches
       mesurées une à une, seuil relevé par pixel, seuil fixe aux bords, relèvement des
       seuls candidats, résidu sous le plancher, bruit d'un pixel lissé, amplitude sur
-      le résidu filtré), `test_median.py` et `test_noise.py`. Vont à #98 : les 5 tests
-      d'écran, sigma nul, facteur de bruit nul et configuration invalide (réglages par
-      défaut seulement). Le saut de luminosité à seuil fixe de la v0.1.1 n'a pas
-      d'équivalent aux réglages par défaut : un saut de 30 niveaux allume l'image au
-      bord du saut, ce que la stabilité retire (tests de `compare`, #119).
+      le résidu filtré), `test_median.py` et `test_noise.py`. Portés par #150 et #151 :
+      sigma nul, les 5 tests d'écran (tache sous la bande jamais vue, zone arrondie
+      vers l'extérieur, zones couvrant toute l'image refusées, aucun masque par défaut,
+      chiffres de l'écran sans fuite sous la bande, ce dernier au bit près sur les
+      unités préparées), facteur de bruit nul (le seuil reste au plancher ; le
+      raccourci lui-même ne s'observe que par le temps) et configuration invalide. Le
+      saut de luminosité à seuil fixe de la v0.1.1 n'a pas d'équivalent aux réglages par
+      défaut : un saut de 30 niveaux allume l'image au bord du saut, ce que la stabilité
+      retire (tests de `compare`, #119).
     - Règle 16 : même sortie au bit près avec 1, 3 ou 4 fils et des lots de 1 à 64
       (test rapide) ; canari de l'extrait coupé (`slow`), 1 fil de décodage et 1 fil
       `rayon` contre l'automatique, mêmes plages et mêmes détections hors plages. Sur
@@ -1239,6 +1277,12 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       `WORK_PIXELS` vient de `WorkScale` et de la configuration (#150). Second cas,
       `tests/slow_memory_flash_wide.rs`, à 1440 pixels de travail (1 440 × 1 080) :
       134,2 Mo de plus, 21,58 octets par pixel et par fil (20,90 à 960, inchangé).
+      Troisième cas (#151), `tests/slow_memory_flash_long.rs`, 2 s au pas de 1, soit
+      61 échantillons : 53,0 Mo de plus, 19,18 octets par pixel et par fil. Les éclairs
+      y tombent dans le dernier vidage (images 35, 43, 51 et 59), le seul où les 4 fils
+      ont chacun une cible éclairée à cette demi-fenêtre de 30. Le pic de la vidéo
+      calme, 245 Mo, porte la fenêtre (2 octets par pixel et par image gardée) ; sur
+      64 images, il ne change pas avec la fenêtre.
   - **Gris de la détection** (#118, exception à la règle 5) : chaque Y passe par une
     table de 256 gris mesurée sur OpenCV (`GRAY` dans `reduction` : une rampe Y = 0 à
     255, U = V = 128, encodée sans perte en plage `tv`, lue par `cv2.VideoCapture`
@@ -1316,8 +1360,9 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
     première version publiée : elle ne distingue pas encore deux commits), `ffmpeg` celle
     de FFmpeg liée.
     - Écarts à la v0.1.1 : `mode`, `ffprobe` et `RenderConfig` retirés ; `version`,
-      `ffmpeg` et `threads` ajoutés ; `osd_regions`, qui n'existe pas en Rust, n'est pas
-      écrit ; les nombres réels s'écrivent `12.0` et non `12`.
+      `ffmpeg` et `threads` ajoutés ; les nombres réels s'écrivent `12.0` et non `12`.
+      `DetectConfig` s'écrit par `engine::settings::DetectSettings`, `osd_regions`
+      compris, en objets `{x0, y0, x1, y1}` à sa place (#151).
   - Tests : `tests/command.rs` lance le binaire sur une vidéo fabriquée (openh264,
     1440×1080) ; `slow_command.rs` passe l'extrait (4 pistes appariées, chauve-souris
     de 3:58) ; `reference_command.rs` passe la 092 (14 pistes appariées). Le test Python
@@ -1530,8 +1575,9 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
 - **`compare`** → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré. `media` n'y sert qu'à choisir les fils du
   décodeur (`Threads::Automatic`).
-  - `compare extract|092|settings|local [--frames DOSSIER]` lance
-    `engine::detection::detect` sur l'extrait, la 092, les 16 cas de réglages
+  - `compare extract|092|092-1440|settings|local [--frames DOSSIER]` lance
+    `engine::detection::detect` sur l'extrait, la 092, la 092 à 1440 pixels de travail
+    (#151, nommée par son dossier pour ne pas écraser la 092), les 16 cas de réglages
     ([Réglages](#réglages)) ou les 26 vidéos (`BATDETECT_REFERENCE_DIR`,
     `BATDETECT_VIDEOS_DIR`, 6 vidéos à la fois, résultats dans l'ordre des dossiers).
     Les réglages de détection sont ceux de l'enregistrement : `config.DetectConfig` du
@@ -1551,16 +1597,14 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
     - les écarts de pistes (vidéo, temps, image de début) ;
     - le temps de détection de chaque vidéo, puis les vidéos sous 98 %. Avec `local`,
       ces temps sont pris pendant que 5 autres vidéos tournent : seul `compare 092`
-      chronomètre la détection seule ;
-    - les cas refusés, chacun avec ce que le moteur ne sait pas encore faire
-      (`Error::unsupported` : une zone OSD, ou
-      `engine::detection::Error::unsupported` : plus de 16 échantillons).
+      chronomètre la détection seule.
     Une vidéo en échec (vidéo absente, demi-fenêtre autre que celle de la référence…)
     est écrite sur la sortie d'erreur avec ses causes, sans effacer le rapport des
     autres. Code de sortie 1 si une vidéo échoue, si une vidéo est sous 98 % dans un
-    sens, si aucune vidéo n'est comparée, ou si une vidéo est refusée, sauf avec
-    `settings` (`Outcome::holds`). Avec `settings`, `--frames` écrit dans un dossier par
-    cas (`DOSSIER/<cas>/frames.jsonl`), les cas partageant leur vidéo.
+    sens, ou si aucune vidéo n'est comparée (`Outcome::holds`). Les refus de #149 et
+    #150 ont disparu avec #151 : tout réglage valide se compare. Avec `settings`,
+    `--frames` écrit dans un dossier par cas (`DOSSIER/<cas>/frames.jsonl`), les cas
+    partageant leur vidéo.
   - Seuils : 98 % dans les deux sens (`agreement::MIN_RATE`), appariement à moins de
     3 px (`reference::detection_matching`), plages abîmées et instables de la référence
     ignorées des deux côtés. Pistes : `exclude` avec les plages abîmées, le nombre
@@ -1622,8 +1666,8 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
 ## Réglages
 
 #149 donne au moteur un banc d'essai hors des réglages par défaut : 16 références de la
-v0.1.1 à d'autres réglages de détection, que `compare settings` relit. #150 et #151 lèvent
-les refus un à un et s'y mesurent.
+v0.1.1 à d'autres réglages de détection, que `compare settings` relit. #150 et #151 ont
+levé les refus un à un et s'y sont mesurés.
 
 ### Vidéo 720×540
 
@@ -1661,9 +1705,9 @@ l'intérieur du verrou (CPU = utilisateur + système).
 | `min_area_9` | `min_area` 9 | 373 | 5 | 18,4 s / 52,7 s | comparé |
 | `max_area_400` | `max_area` 400 (écarte 6 taches de 400,5 à 488,25 px²) | 396 | 4 | 17,8 s / 52,3 s | comparé |
 | `noise_factor_0` | `noise_factor` 0 | 555 | 4 | 17,0 s / 51,0 s | comparé |
-| `window_2s` | `bg_window_s` 2,0 (61 images, 21 échantillons) | 1 048 | 4 | 49,3 s / 81,7 s | refusé : plus de 16 échantillons |
-| `step_1` | `bg_step` 1 (31 échantillons) | 385 | 5 | 93,7 s / 125,8 s | refusé : plus de 16 échantillons |
-| `osd` | `osd_regions` `[[0, 0, 1, 0.07]]` | 400 | 4 | 18,4 s / 52,2 s | refusé : zone OSD |
+| `window_2s` | `bg_window_s` 2,0 (61 images, 21 échantillons) | 1 048 | 4 | 49,3 s / 81,7 s | comparé (#151), sous 98 % : affichage coloré |
+| `step_1` | `bg_step` 1 (31 échantillons) | 385 | 5 | 93,7 s / 125,8 s | comparé (#151) |
+| `osd` | `osd_regions` `[[0, 0, 1, 0.07]]` | 400 | 4 | 18,4 s / 52,2 s | comparé (#151) |
 | `merge_radius_0` | `merge_radius` 0 | 462 | 4 | 16,5 s / 50,4 s | comparé (#150) |
 | `width_480` | `work_width` 480 | 604 | 4 | 8,3 s / 26,1 s | comparé (#150) |
 | `width_720` | `work_width` 720 | 528 | 5 | 16,8 s / 31,1 s | comparé (#150) |
@@ -1671,15 +1715,13 @@ l'intérieur du verrou (CPU = utilisateur + système).
 | `sigma_0` | `target_sigma` 0 | 9 655 (6 561 gardées) | 30 | 11,4 s / 45,3 s | comparé (#150), sous 98 % côté Rust : affichage coloré |
 | `sigma_3` | `target_sigma` 3 | 352 | 4 | 18,6 s / 52,6 s | comparé (#150) |
 | `quick` | `work_width` 480, `threshold` 25, `target_sigma` 0, `noise_factor` 0 | 388 | 4 | 8,1 s / 23,0 s | comparé (#150) |
-| `width_1440_osd` | `work_width` 1440, `osd_regions` `[[0, 0, 1, 0.07]]` | 403 | 4 | 39,1 s / 72,2 s | refusé : zone OSD |
+| `width_1440_osd` | `work_width` 1440, `osd_regions` `[[0, 0, 1, 0.07]]` | 403 | 4 | 39,1 s / 72,2 s | comparé (#151) |
 | `size_720x540` | aucun, sur la 720×540 (travail en 720×540) | 345 | 4 | 11,6 s / 21,7 s | comparé (#150) |
 
 - `sigma_0` est le seul cas où la v0.1.1 trouve des plages instables (2) : sans flou, le
   bruit du capteur passe le seuil par endroits.
 - Mémoire de la v0.1.1 : 0,19 à 0,53 Go (`width_1440`).
-- Un refus nomme la première chose que le moteur ne sait pas faire. Après #150 restent
-  refusés `osd` et `width_1440_osd` (zone OSD) et `window_2s` et `step_1` (plus de 16
-  échantillons), tous pour #151.
+- Depuis #151, les 16 cas sont comparés et aucun n'est refusé.
 
 ### Méthode
 
@@ -1688,26 +1730,27 @@ l'intérieur du verrou (CPU = utilisateur + système).
   appariées, 3 perdues, 9 ajoutées, la 089 à 98,19 %. Mesuré à #149 sur le Mac : les
   trois identiques ; Linux et Windows par la CI de la PR. Mesuré de même à #150 : en
   plus, `compare 092 --frames` identique octet pour octet à `main`, et `compare local`
-  identique vidéo par vidéo.
+  identique vidéo par vidéo. De même à #151, avec en plus les cas du banc que la phase
+  ne touche pas identiques octet pour octet à `main`.
 - **Niveau 1 : la v0.1.1 elle-même à d'autres réglages**, les 16 cas ci-dessus.
   - Critère par cas que le moteur sait faire : au moins 98 % des détections appariées
     dans les deux sens (à moins de 3 px, même image, hors plages ignorées), pistes
     appariées (début ±5 images, points ±3), chaque écart listé (cas, temps) et jugé par
     l'utilisateur.
-  - Un cas que le moteur ne sait pas faire est refusé par une erreur typée et listé
-    comme tel par `compare` (`Error::unsupported`). Pour `settings`, ce n'est pas un
-    échec ; pour `extract`, `092` et `local`, si.
   - Un cas sous 98 % bloque tant que sa cause n'est pas isolée, par ablation comme à #118.
-  - Test lent : `crates/compare/tests/slow_settings.rs` fige les cas refusés avec ce qui
-    leur manque, et, pour les autres, 98 % dans les deux sens (sauf `sigma_0`, figé à
-    98 % sous la bande d'affichage, voir #150) et toutes les pistes appariées et
+  - Test lent : `crates/compare/tests/slow_settings.rs` exige les 16 cas comparés sans
+    échec, 98 % dans les deux sens (sauf `sigma_0` et `window_2s`, figés à 98 % sous la
+    bande d'affichage, voir #150 et #151) et toutes les pistes appariées et
     concordantes. `crates/reference/tests/committed_settings.rs` relit les 16
     cas en test rapide.
 - **Niveau 2, sans Python** : invariances en tests rapides. Faits à #150 : même flux
   remuxé en plage pleine (`tests/full_range.rs`), noyau et disque contre la formule,
   réduction contre un calcul brut des aires et contre l'ancienne réduction 3:2,
   barycentre d'une tache symétrique gardé à 0,1 pixel à 3:2, 2:1, 3:1 et 36/25. À
-  venir avec #151 : médiane contre un tri au-delà de 16, tache sous un masque OSD.
+  Faits à #151 : médiane 0-1 exhaustive jusqu'à 20 et contre un tri jusqu'à 128, même
+  sortie au bit près avec 1, 3 et 4 fils à 61 échantillons, tache sous un masque jamais
+  vue, unités préparées sous la bande indépendantes de l'écran, gain insensible à une
+  bande qui scintille sous le masque.
 - **Niveau 3, plus tard (#107 à #109)** : par classe du banc, la proportion trouvée par
   le Rust dans l'intervalle de Wilson du Python. Ne bloque pas #98.
 
@@ -1772,8 +1815,58 @@ Les 76 pistes des 12 cas sont appariées et concordantes.
     pixels à 3 niveaux ou plus) ; ailleurs, l'écart est nul (U = V = 128). Sans flou,
     rien n'atténue cet écart.
   - Décision de l'utilisateur : la table `GRAY` reste (exception de #118), l'écart est
-    documenté, `slow_settings` fige 98 % sous la bande d'affichage, et le cas se revoit
-    avec les masques de #151.
+    documenté, `slow_settings` fige 98 % sous la bande d'affichage. L'idée de le revoir
+    avec les masques de #151 ne tient pas : `sigma_0` n'a pas de zone OSD, les masques
+    ne s'y appliquent pas (voir la mesure de #151).
+
+### Mesure de #151 (12 octobre 2026, M1 Max, profil `ci`, sous le verrou)
+
+`compare settings` : les 16 cas comparés, aucun refusé ; les 93 pistes sont appariées et
+concordantes. Les 12 cas de #150 donnent des détections identiques octet pour octet à
+`main` (`--frames`), comme `compare 092 --frames` ; `compare local` est identique vidéo
+par vidéo (963 / 3 / 9).
+
+| Cas | Référence | Rust | Appariées | Taux référence / Rust |
+| --- | ---: | ---: | ---: | ---: |
+| `osd` | 400 | 400 | 400 | 100 % / 100 % |
+| `width_1440_osd` | 403 | 404 | 403 | 100 % / 99,75 % |
+| `step_1` | 385 | 386 | 385 | 100 % / 99,74 % |
+| `window_2s` | 1 048 | 990 | 828 | 79,01 % / 83,64 % |
+| `sigma_0` | 6 561 | 7 574 | 6 544 | 99,74 % / 86,40 % (inchangé) |
+
+Écarts, jugés par l'utilisateur (12 octobre 2026) :
+
+- `width_1440_osd`, 00:04.50, image 135 : 1 ajoutée en (1438, 373), au bord droit, la
+  même que `width_1440` ; la marge de 4σ autour de la zone ne perd aucune détection.
+- `step_1`, 00:32.67, image 981 : 1 ajoutée en (860, 480), amplitude 12,4.
+- `window_2s` : sous 98 %, cause isolée. Les 220 détections perdues et les 162 ajoutées
+  sont toutes dans la bande d'affichage, autour de (339, 41), groupées en 11 passages
+  de 00:02.50 à 00:36.43 (amplitudes de 40 à 120) ; dessous : 100 % et 100 %. Même
+  cause que `sigma_0` : la table `GRAY` face à la chrominance colorée de l'affichage,
+  ici sur les chiffres qui changent pendant la fenêtre de 2 s. Décision de
+  l'utilisateur : même traitement que `sigma_0`, 98 % exigés sous la bande.
+- `sigma_0` : inchangé ; sans zone OSD, les masques n'y peuvent rien. Sous la bande :
+  99,93 % et 99,98 %.
+
+Temps de la 092 aux défauts, `release`, en alternance avec `main` compilé de même :
+110,75 et 110,59 s de CPU contre 110,70 et 109,95 s, soit l'égalité. Une première
+version, aux lignes du réseau sur le tas, coûtait 117 s (voir `threshold`).
+
+#### La 092 à 1440 pixels de travail
+
+Référence `tests/fixtures/reference/video_092_original_width_1440/` (`--detect
+'{"work_width": 1440}'`), `compare 092-1440`, test `reference` dans
+`reference_agreement.rs`.
+
+| | Détections | Pistes | Temps réel | CPU | Mémoire |
+| --- | --- | --- | ---: | ---: | ---: |
+| v0.1.1 | 751 | 14 | 277 s | 521 s | 0,54 Go |
+| Rust (`release`, seul) | 753, 100 % / 99,73 % | 14 appariées, 14 concordantes | 28,4 s | 195 s | 0,63 Go |
+
+Écarts : 2 ajoutées, à 02:24.97 (image 4353, en (328, 470), amplitude 13,2) et à
+03:29.31 (image 6285, en (1438, 373), au bord droit, celle de `width_1440`). Mémoire
+sous la borne de 2 Go de #98. Dans `rust:reference`, les deux tests de la 092 tournent
+en même temps dans le même binaire : leurs temps de détection s'y mélangent.
 
 ## Référence v0.1.1
 

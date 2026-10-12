@@ -6,8 +6,7 @@ use types::rational::Rational;
 
 use super::{Error, detect};
 use crate::config::DetectConfig;
-use crate::input;
-use crate::settings::DetectSettings;
+use crate::settings::{DetectSettings, Region};
 use crate::synthetic::{luma, with_square};
 use crate::testing::{self, FRAMES, binoculars};
 
@@ -18,11 +17,30 @@ fn spot(index: usize) -> Vec<u8> {
 }
 
 fn three_to_two() -> DetectConfig {
+    masked_at_three_to_two(Vec::new())
+}
+
+fn masked_at_three_to_two(osd_regions: Vec<Region>) -> DetectConfig {
     DetectConfig::try_from(&DetectSettings {
         work_width: 240,
+        osd_regions,
         ..DetectSettings::default()
     })
     .unwrap()
+}
+
+fn top_band(height: f64) -> Region {
+    Region {
+        x0: 0.0,
+        y0: 0.0,
+        x1: 1.0,
+        y1: height,
+    }
+}
+
+fn found_per_frame(path: &std::path::Path, config: &DetectConfig) -> Vec<usize> {
+    let detected = detect(path, Threads::Automatic, config).unwrap();
+    detected.detections().iter().map(|(_, found)| found.len()).collect()
 }
 
 #[test]
@@ -86,45 +104,68 @@ fn a_frame_rate_too_low_for_three_background_samples_is_refused() {
     );
 }
 
-fn waits_for_the_generic_engine(error: &Error) -> Option<String> {
-    error.unsupported().map(ToString::to_string)
+#[test]
+fn a_spot_inside_the_display_band_is_never_seen() {
+    let folder = TempDir::new().unwrap();
+    let path = binoculars(
+        &folder.path().join("band.mp4"),
+        SOURCE,
+        Rational::new(30, 1).unwrap(),
+        (0..20).map(|index| with_square(vec![luma(200.0); 360 * 270], 360, (60 + 6 * index, 4), 9, -80.0)),
+    );
+
+    assert_eq!(found_per_frame(&path, &three_to_two()), [1; 20]);
+    assert_eq!(
+        found_per_frame(&path, &masked_at_three_to_two(vec![top_band(0.07)])),
+        [0; 20]
+    );
 }
 
 #[test]
-fn a_sample_count_the_engine_cannot_handle_yet_is_named_as_such() {
-    let samples = Error::Config {
-        path: std::path::PathBuf::from("video.mp4"),
-        source: crate::config::Error::ManySamples {
-            step: 1,
-            frames: 31,
-            samples: 31,
-        },
-    };
+fn a_flickering_display_band_under_the_mask_leaves_the_gain_unchanged() {
+    let folder = TempDir::new().unwrap();
+    let flickering = (0..20).map(|index| {
+        let mut plane = spot(index);
+        plane[..360 * 68].fill(if index % 2 == 0 { 16 } else { 235 });
+        plane
+    });
+    let path = binoculars(
+        &folder.path().join("flicker.mp4"),
+        SOURCE,
+        Rational::new(30, 1).unwrap(),
+        flickering,
+    );
 
-    assert!(waits_for_the_generic_engine(&samples).is_some_and(|reason| reason.contains("more than 16")));
+    assert_eq!(
+        found_per_frame(&path, &masked_at_three_to_two(vec![top_band(0.25)])),
+        [1; 20]
+    );
 }
 
 #[test]
-fn a_failure_the_generic_engine_will_not_lift_is_no_refusal() {
-    let path = std::path::PathBuf::from("video.mp4");
-    let few = Error::Config {
-        path: path.clone(),
-        source: crate::config::Error::FewSamples {
-            step: 40,
-            frames: 31,
-            samples: 1,
+fn display_regions_covering_the_whole_frame_are_refused_before_any_detection() {
+    let folder = TempDir::new().unwrap();
+    let path = binoculars(
+        &folder.path().join("covered.mp4"),
+        SOURCE,
+        Rational::new(30, 1).unwrap(),
+        (0..3).map(spot),
+    );
+    let halves = vec![
+        top_band(0.5),
+        Region {
+            x0: 0.0,
+            y0: 0.5,
+            x1: 1.0,
+            y1: 1.0,
         },
-    };
-    let small = Error::Blur {
-        path: path.clone(),
-        source: crate::blur::Error::TooSmall {
-            width: 8,
-            height: 6,
-            kernel: 9,
-        },
-    };
-    let silent = Error::Input(input::Error::NoAnnouncedFrames { path });
-    for error in [few, small, silent] {
-        assert_eq!(waits_for_the_generic_engine(&error), None, "{error}");
-    }
+    ];
+
+    let refused = detect(&path, Threads::Automatic, &masked_at_three_to_two(halves)).unwrap_err();
+
+    assert!(matches!(refused, Error::Mask { .. }), "{refused:?}");
+    assert_eq!(
+        refused.to_string(),
+        format!("cannot mask the OSD regions of {}", path.display())
+    );
 }

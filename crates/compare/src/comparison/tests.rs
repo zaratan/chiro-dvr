@@ -106,11 +106,20 @@ fn the_detections_are_compared_at_the_frame_rate_of_the_reference() {
 }
 
 #[test]
-fn the_detection_settings_come_from_the_recording_and_one_the_engine_cannot_apply_stops_before_any_reading() {
-    let error = compare(&Case::setting(committed("settings/osd")), None).unwrap_err();
+fn the_detection_settings_come_from_the_recording_and_one_the_engine_refuses_stops_before_any_reading() {
+    let folder = TempDir::new().unwrap();
+    let recorded = committed("settings/osd");
+    for entry in std::fs::read_dir(&recorded).unwrap() {
+        let path = entry.unwrap().path();
+        std::fs::copy(&path, folder.path().join(path.file_name().unwrap())).unwrap();
+    }
+    let summary = folder.path().join("video.json");
+    let text = std::fs::read_to_string(&summary).unwrap();
+    let forged = text.replace("\"threshold\": 12,", "\"threshold\": -1,");
+    assert_ne!(forged, text);
+    std::fs::write(&summary, forged).unwrap();
 
-    assert_eq!(
-        error.unsupported().map(ToString::to_string).as_deref(),
-        Some("osd_regions: masks are not handled, 1 given")
-    );
+    let error = compare(&Case::setting(folder.path().to_path_buf()), None).unwrap_err();
+
+    assert!(matches!(error, Error::Settings { .. }), "{error:?}");
 }

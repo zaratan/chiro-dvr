@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use reference::recording::SUMMARY_FILE;
 
-use super::{Case, EXTRACT, Target, WHOLE};
+use super::{Case, EXTRACT, Target, WHOLE, WHOLE_AT_1440};
 
 #[test]
 fn the_extract_and_the_whole_092_are_read_from_the_committed_reference() {
@@ -52,11 +52,9 @@ fn a_setting_case_is_named_by_its_folder_since_its_video_is_shared_with_other_ca
 }
 
 #[test]
-fn only_the_setting_cases_expect_refusals_since_every_other_video_must_be_compared() {
-    assert!(Target::Settings.tolerates_refusals());
-    assert!(
-        [Target::Extract, Target::Whole, Target::Recorded]
-            .iter()
-            .all(|target| !target.tolerates_refusals())
-    );
+fn the_092_worked_at_1440_pixels_is_named_by_its_folder_so_as_not_to_overwrite_the_092() {
+    let [wide] = Target::WholeAt1440.cases().unwrap().try_into().unwrap();
+
+    assert!(wide.recording().ends_with(WHOLE_AT_1440));
+    assert_eq!(wide.name("video_092_original.mp4"), WHOLE_AT_1440);
 }

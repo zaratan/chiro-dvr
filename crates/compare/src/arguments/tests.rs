@@ -22,6 +22,7 @@ fn the_videos_are_named_and_the_frames_folder_is_optional() {
         }
     );
     assert_eq!(parse(["compare", "092"]).unwrap().target, Target::Whole);
+    assert_eq!(parse(["compare", "092-1440"]).unwrap().target, Target::WholeAt1440);
     assert_eq!(parse(["compare", "settings"]).unwrap().target, Target::Settings);
 }
 

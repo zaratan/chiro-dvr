@@ -1,6 +1,7 @@
 use std::num::NonZeroUsize;
 
 use engine::config::DetectConfig;
+use engine::settings::{DetectSettings, Region};
 use media::decode::ActiveThreads;
 use serde_json::{Value, json};
 use tracking::stability::StabilityConfig;
@@ -47,4 +48,37 @@ fn the_threads_really_used_are_recorded_with_their_kind() {
     );
     assert_eq!(threads(ActiveThreads::Slice(eight))["decoding_kind"], "slice");
     assert_eq!(threads(ActiveThreads::Single)["decoding"], 1);
+}
+
+#[test]
+fn the_detection_settings_are_written_in_the_order_and_shape_of_the_v011_osd_regions_included() {
+    let settings = DetectSettings {
+        osd_regions: vec![Region {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 1.0,
+            y1: 0.07,
+        }],
+        ..DetectSettings::default()
+    };
+
+    let written = serde_json::to_string(&settings).unwrap();
+
+    assert_eq!(
+        written,
+        concat!(
+            r#"{"threshold":12.0,"min_area":4.0,"max_area":2700.0,"bg_window_s":1.0,"bg_step":3,"#,
+            r#""osd_regions":[{"x0":0.0,"y0":0.0,"x1":1.0,"y1":0.07}],"merge_radius":6.0,"work_width":960,"#,
+            r#""noise_factor":8.0,"target_sigma":1.5}"#
+        )
+    );
+    assert_eq!(written_by_default()["DetectConfig"]["osd_regions"], json!([]));
+}
+
+fn written_by_default() -> Value {
+    written(
+        TrackConfig::default(),
+        StabilityConfig::default(),
+        ActiveThreads::Single,
+    )
 }
