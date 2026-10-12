@@ -27,6 +27,7 @@ pub struct Group {
     span: Span,
     members: Vec<Member>,
     lanes: usize,
+    hardware_ahead: Vec<usize>,
 }
 
 impl Group {
@@ -43,7 +44,39 @@ impl Group {
     }
 
     pub fn hardware_lanes(&self) -> usize {
-        self.lanes.min(HARDWARE_LANES)
+        self.hardware_lanes_from(self.span.first())
+    }
+
+    pub fn hardware_lanes_from(&self, frame: FrameIndex) -> usize {
+        frame
+            .get()
+            .checked_sub(self.span.first().get())
+            .and_then(|offset| self.hardware_ahead.get(offset))
+            .copied()
+            .unwrap_or(0)
+    }
+
+    fn with_hardware_ahead(mut self) -> Self {
+        let first = self.span.first().get();
+        let mut opened = vec![0_i64; self.span.frame_count() + 1];
+        for member in self.members.iter().filter(|member| member.lane < HARDWARE_LANES) {
+            opened[member.window.span.first().get() - first] += 1;
+            opened[member.window.span.last().get() + 1 - first] -= 1;
+        }
+        let mut open = 0;
+        let mut counts: Vec<usize> = opened
+            .iter()
+            .take(self.span.frame_count())
+            .map(|change| {
+                open += change;
+                usize::try_from(open).unwrap_or(0)
+            })
+            .collect();
+        for index in (0..counts.len().saturating_sub(1)).rev() {
+            counts[index] = counts[index].max(counts[index + 1]);
+        }
+        self.hardware_ahead = counts;
+        self
     }
 }
 
@@ -81,6 +114,7 @@ pub fn groups(windows: &[Window]) -> Vec<Group> {
                     span: window.span,
                     members: Vec::new(),
                     lanes: 0,
+                    hardware_ahead: Vec::new(),
                 });
             }
         }
@@ -95,5 +129,5 @@ pub fn groups(windows: &[Window]) -> Vec<Group> {
             group.lanes = lane_ends.len();
         }
     }
-    groups
+    groups.into_iter().map(Group::with_hardware_ahead).collect()
 }

@@ -9,7 +9,7 @@ use crate::overlay::Overlay;
 #[cfg(test)]
 mod tests;
 
-const DISPLAY: SourceRange = SourceRange::Full;
+const DISPLAY: SourceRange = SourceRange::FullBlackAt16;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -39,12 +39,20 @@ impl Picture {
 
     pub(crate) fn draw(&mut self, source: &YuvFrame, overlay: &Overlay, frame: FrameIndex) -> Result<&YuvFrame, Error> {
         self.converter
-            .yuv_to_rgba(source, self.canvas.rgba_mut())
+            .display(source, &mut self.drawn)
             .map_err(Error::Convert)?;
+        let zones = overlay.zones(frame, source.width(), source.height());
+        for zone in &zones {
+            self.converter
+                .yuv_to_rgba_region(source, self.canvas.rgba_mut(), *zone)
+                .map_err(Error::Convert)?;
+        }
         overlay.draw(&mut self.canvas, frame);
-        self.converter
-            .rgba_to_yuv(self.canvas.rgba(), &mut self.drawn)
-            .map_err(Error::Convert)?;
+        for zone in &zones {
+            self.converter
+                .rgba_to_yuv_region(self.canvas.rgba(), &mut self.drawn, *zone)
+                .map_err(Error::Convert)?;
+        }
         Ok(&self.drawn)
     }
 }

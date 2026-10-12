@@ -2,6 +2,7 @@ use draw::canvas::{Canvas, PixelBox, Point};
 use draw::color::{BOX, TRAIL};
 use draw::style::TRACK_LABEL;
 use draw::text::{ShapedText, Typeface};
+use media::convert::Region;
 use types::detection::Detection;
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
@@ -18,6 +19,8 @@ const INTERPOLATED_BOX_WIDTH: u32 = 1;
 const TRAIL_WIDTH: f32 = 2.0;
 const PIXEL_CENTER: f64 = 0.5;
 const BOX_SPREAD_LIMIT: f64 = 4.0;
+const LABEL_HEIGHTS: f32 = 2.0;
+const ZONE_MARGIN: i32 = 4;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Mark {
@@ -106,6 +109,50 @@ impl Overlay {
         }
     }
 
+    pub(crate) fn zones(&self, frame: FrameIndex, width: u32, height: u32) -> Vec<Region> {
+        let Some(marks) = self.frames.get(frame.get()) else {
+            return Vec::new();
+        };
+        let mut zones: Vec<Region> = marks
+            .iter()
+            .filter_map(|mark| {
+                let track = self.tracks.get(mark.track)?;
+                even_region(self.extent(track, mark), width, height)
+            })
+            .collect();
+        while let Some((first, second)) = touching(&zones) {
+            let other = zones.swap_remove(second);
+            zones[first] = hull(zones[first], other);
+        }
+        zones
+    }
+
+    fn extent(&self, track: &Marked, mark: &Mark) -> PixelBox {
+        let area = self.area(&mark.detection);
+        let grow = i32::try_from(BOX_WIDTH).unwrap_or(i32::MAX);
+        let baseline = area.top.saturating_sub(LABEL_LIFT);
+        let label_height = (TRACK_LABEL.digit_px() * LABEL_HEIGHTS).ceil() as i32;
+        let mut extent = PixelBox {
+            left: area.left - grow,
+            top: (area.top - grow).min(baseline - label_height),
+            right: (area.right + grow).max(area.left + track.label.width().ceil() as i32),
+            bottom: area.bottom + grow,
+        };
+        let reach = TRAIL_WIDTH.ceil() as i32;
+        for point in self.trail(track, mark) {
+            extent.left = extent.left.min(point.x.floor() as i32 - reach);
+            extent.top = extent.top.min(point.y.floor() as i32 - reach);
+            extent.right = extent.right.max(point.x.ceil() as i32 + reach);
+            extent.bottom = extent.bottom.max(point.y.ceil() as i32 + reach);
+        }
+        PixelBox {
+            left: extent.left - ZONE_MARGIN,
+            top: extent.top - ZONE_MARGIN,
+            right: extent.right + ZONE_MARGIN,
+            bottom: extent.bottom + ZONE_MARGIN,
+        }
+    }
+
     fn area(&self, detection: &Detection) -> PixelBox {
         PixelBox {
             left: (detection.left as i32).saturating_sub(self.box_pad),
@@ -125,6 +172,50 @@ impl Overlay {
             .map(|(_, point)| *point)
             .chain(std::iter::once(center(&mark.detection)))
             .collect()
+    }
+}
+
+fn even_region(extent: PixelBox, width: u32, height: u32) -> Option<Region> {
+    let even_down = |value: i32| u32::try_from(value.max(0)).unwrap_or(0) & !1;
+    let left = even_down(extent.left);
+    let top = even_down(extent.top);
+    let right = (u32::try_from(extent.right.max(0)).unwrap_or(0) + 2).min(width) & !1;
+    let bottom = (u32::try_from(extent.bottom.max(0)).unwrap_or(0) + 2).min(height) & !1;
+    (right > left && bottom > top).then(|| Region {
+        left,
+        top,
+        width: right - left,
+        height: bottom - top,
+    })
+}
+
+fn touching(zones: &[Region]) -> Option<(usize, usize)> {
+    let meet = |a: &Region, b: &Region| {
+        a.left <= b.left + b.width
+            && b.left <= a.left + a.width
+            && a.top <= b.top + b.height
+            && b.top <= a.top + a.height
+    };
+    zones.iter().enumerate().find_map(|(first, zone)| {
+        zones
+            .iter()
+            .enumerate()
+            .skip(first + 1)
+            .find(|(_, other)| meet(zone, other))
+            .map(|(second, _)| (first, second))
+    })
+}
+
+fn hull(a: Region, b: Region) -> Region {
+    let left = a.left.min(b.left);
+    let top = a.top.min(b.top);
+    let right = (a.left + a.width).max(b.left + b.width);
+    let bottom = (a.top + a.height).max(b.top + b.height);
+    Region {
+        left,
+        top,
+        width: right - left,
+        height: bottom - top,
     }
 }
 

@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::panic;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Condvar, Mutex, MutexGuard, PoisonError};
@@ -22,17 +23,49 @@ struct Shared {
     stop: AtomicBool,
 }
 
-#[derive(Debug)]
-struct Taken<'a> {
-    shared: &'a Shared,
-    index: usize,
-    sessions: usize,
+pub(crate) trait Hold {
+    fn stopped(&self) -> bool;
+    fn keep(&self, sessions: usize);
 }
 
-impl Drop for Taken<'_> {
+#[derive(Debug)]
+pub(crate) struct Alone;
+
+impl Hold for Alone {
+    fn stopped(&self) -> bool {
+        false
+    }
+
+    fn keep(&self, _sessions: usize) {}
+}
+
+#[derive(Debug)]
+pub(crate) struct Lease<'a> {
+    shared: &'a Shared,
+    index: usize,
+    held: Cell<usize>,
+}
+
+impl Hold for Lease<'_> {
+    fn stopped(&self) -> bool {
+        self.shared.stop.load(Ordering::Acquire)
+    }
+
+    fn keep(&self, sessions: usize) {
+        let held = self.held.get();
+        if sessions < held {
+            self.held.set(sessions);
+            self.shared.give_back(held - sessions);
+        }
+    }
+}
+
+impl Drop for Lease<'_> {
     fn drop(&mut self) {
-        self.shared.board().free += self.sessions;
-        self.shared.changed.notify_all();
+        self.shared.give_back(self.held.get());
+        if thread::panicking() {
+            self.shared.halt();
+        }
     }
 }
 
@@ -41,7 +74,12 @@ impl Shared {
         self.board.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    fn take<G>(&self, items: &[G], sessions: &impl Fn(&G) -> usize) -> Option<Taken<'_>> {
+    fn give_back(&self, sessions: usize) {
+        self.board().free += sessions;
+        self.changed.notify_all();
+    }
+
+    fn take<G>(&self, items: &[G], sessions: &impl Fn(&G) -> usize) -> Option<Lease<'_>> {
         let needed = |board: &Board| items.get(board.next).map(sessions);
         let board = self.board();
         let mut board = self
@@ -54,10 +92,10 @@ impl Shared {
         let index = board.next;
         board.next += 1;
         board.free -= wanted;
-        Some(Taken {
+        Some(Lease {
             shared: self,
             index,
-            sessions: wanted,
+            held: Cell::new(wanted),
         })
     }
 
@@ -73,7 +111,7 @@ pub(crate) fn run<G, S, T>(
     threads: usize,
     sessions: usize,
     needed: impl Fn(&G) -> usize + Sync,
-    work: impl Fn(&mut S, &G, &AtomicBool) -> Result<T, Error> + Sync,
+    work: impl Fn(&mut S, &G, &Lease<'_>) -> Result<T, Error> + Sync,
 ) -> Result<Vec<T>, Error>
 where
     G: Sync,
@@ -89,6 +127,7 @@ where
         changed: Condvar::new(),
         stop: AtomicBool::new(false),
     };
+    let needed = |item: &G| needed(item).min(sessions);
     let workers = threads.clamp(1, items.len().max(1));
     let mut done: Vec<(usize, Result<T, Error>)> = thread::scope(|scope| {
         let running: Vec<_> = (0..workers)
@@ -120,22 +159,22 @@ fn worker<G, S, T>(
     shared: &Shared,
     items: &[G],
     needed: &impl Fn(&G) -> usize,
-    work: &impl Fn(&mut S, &G, &AtomicBool) -> Result<T, Error>,
+    work: &impl Fn(&mut S, &G, &Lease<'_>) -> Result<T, Error>,
 ) -> Vec<(usize, Result<T, Error>)>
 where
     S: Default,
 {
     let mut state = S::default();
     let mut done = Vec::new();
-    while let Some(taken) = shared.take(items, needed) {
-        let Some(item) = items.get(taken.index) else {
+    while let Some(lease) = shared.take(items, needed) {
+        let Some(item) = items.get(lease.index) else {
             break;
         };
-        let result = work(&mut state, item, &shared.stop);
+        let result = work(&mut state, item, &lease);
         if result.is_err() {
             shared.halt();
         }
-        done.push((taken.index, result));
+        done.push((lease.index, result));
     }
     done
 }

@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicBool;
 use std::thread;
 
 use draw::text::{self, Typeface};
@@ -12,12 +11,14 @@ use crate::encoders::{Encoders, Ffmpeg, Open};
 use crate::group::{Rendering, Written};
 use crate::overlay::Overlay;
 use crate::picture::{self, Picture};
-use crate::schedule;
+use crate::schedule::{self, Alone};
 use crate::source::{self, Origin, Source};
 use crate::windows::{HARDWARE_LANES, Window, clip_windows, groups};
 
 #[cfg(test)]
 mod tests;
+
+const CORES_PER_THREAD: usize = 2;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -87,7 +88,7 @@ pub fn render(
     config: RenderConfig,
     codecs: &[Codec],
 ) -> Result<Rendered, Error> {
-    let threads = thread::available_parallelism().map_or(1, |cores| cores.get() / 2);
+    let threads = thread::available_parallelism().map_or(1, |cores| cores.get() / CORES_PER_THREAD);
     let video = Video { source, tracks, config };
     render_with(&Ffmpeg, threads, &video, clips, codecs)
 }
@@ -139,7 +140,7 @@ pub(crate) fn render_with<O: Open>(
         threads,
         HARDWARE_LANES,
         |group| encoders.hardware_sessions(group),
-        |picture: &mut Option<Picture>, group, stop| rendering.render(group, picture, stop),
+        |picture: &mut Option<Picture>, group, lease| rendering.render(group, picture, lease),
     )?;
     let mut rendered = Rendered::default();
     let mut redo = Vec::new();
@@ -147,14 +148,10 @@ pub(crate) fn render_with<O: Open>(
         rendered.restarts += restarts(&group);
         redo.extend(group.redo);
     }
-    let (mut picture, running) = (None, AtomicBool::new(false));
+    let mut picture = None;
     for failed in redo {
         for group in groups(&[failed.window]) {
-            let again = rendering.render(&group, &mut picture, &running)?;
-            rendered.restarts += restarts(&again);
-            if let Some(twice) = again.redo.into_iter().next() {
-                return Err(Error::writing(&twice.path, twice.cause));
-            }
+            rendered.restarts += restarts(&rendering.render(&group, &mut picture, &Alone)?);
         }
         rendered.redone.push(Redone {
             path: failed.path,

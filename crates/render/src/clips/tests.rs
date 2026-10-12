@@ -260,3 +260,32 @@ fn an_openh264_failure_stops_the_video_while_another_group_waits_for_its_session
     assert!(fake.opened().iter().all(|(name, _)| name != "clip_9.mp4"));
     assert_eq!(names_in(folder.path()), ["binoculars.mp4"]);
 }
+
+#[test]
+fn giving_sessions_back_on_the_way_keeps_each_clip_on_the_same_encoder_and_the_peak_at_eight() {
+    let folder = tempfile::tempdir().unwrap();
+    let (_, source) = source(folder.path());
+    let tracks = tracks(&[(3..=7, 9), (20..=30, 3), (24..=26, 4), (40..=44, 6)]);
+    let clips = clips(folder.path(), &tracks);
+    let encoders_of = |threads: usize| {
+        let fake = Fake::default();
+        written_with(&fake, threads, &source, &tracks, &clips).unwrap();
+        let mut opened = fake.opened();
+        opened.sort_by(|a, b| a.0.cmp(&b.0));
+        (opened, fake.most_hardware_at_once())
+    };
+    let (alone, peak_alone) = encoders_of(1);
+    for threads in [3, 5, 5] {
+        let (opened, peak) = encoders_of(threads);
+        assert_eq!(opened, alone);
+        assert_eq!(peak, HARDWARE_LANES);
+    }
+    assert_eq!(peak_alone, HARDWARE_LANES);
+    let software: Vec<&str> = alone
+        .iter()
+        .filter(|(_, codec)| *codec == Codec::OpenH264)
+        .map(|(name, _)| name.as_str())
+        .collect();
+    assert_eq!(software, ["clip_8.mp4"]);
+    assert!(clips.iter().all(|clip| frame_count(&clip.path) > 0));
+}

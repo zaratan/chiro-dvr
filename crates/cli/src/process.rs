@@ -112,13 +112,13 @@ pub fn process(
     let csv = names.tracks_csv(&job.dest, job.video.file_stem().unwrap_or_default());
     write_tracks_csv(&csv, &tracks, &timeline).map_err(Error::Files)?;
     let render = RenderConfig::default();
-    let encoders = encoders(render, tracks.len(), reading.video())?;
+    let trial = encoders(render, tracks.len(), reading.video());
     let settings = Settings::of(
         &config,
         track,
         stability,
         render,
-        &encoders,
+        trial.as_deref().unwrap_or_default(),
         detected.active_threads(),
         detected.detection_threads(),
     );
@@ -156,7 +156,7 @@ pub fn process(
         timeline: &timeline,
         render,
     };
-    let rendered = render_clips(&clips, &tracks, &encoders)?;
+    let rendered = render_clips(&clips, &tracks, trial)?;
     Ok(Processed {
         tracks,
         csv,
@@ -185,7 +185,7 @@ struct Clips<'a> {
     render: RenderConfig,
 }
 
-fn render_clips(clips: &Clips<'_>, tracks: &[Track], encoders: &[Codec]) -> Result<Rendered, Error> {
+fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, Error>) -> Result<Rendered, Error> {
     let folder = clips.names.clips_dir(&clips.job.dest);
     match fs::remove_dir_all(&folder) {
         Err(source) if source.kind() != io::ErrorKind::NotFound => {
@@ -203,6 +203,7 @@ fn render_clips(clips: &Clips<'_>, tracks: &[Track], encoders: &[Codec]) -> Resu
             limit: clips.render.max_tracks(),
         });
     }
+    let encoders = trial?;
     let reading = clips.detected.reading();
     let errors = clips.detected.damage().error_frames();
     let source = Source::new(&clips.job.video, clips.timeline, &reading.key_frames(), errors).map_err(Error::Source)?;
@@ -217,5 +218,5 @@ fn render_clips(clips: &Clips<'_>, tracks: &[Track], encoders: &[Codec]) -> Resu
             }
         })
         .collect();
-    clips::render(&source, tracks, &wanted, clips.render, encoders).map_err(Error::Clips)
+    clips::render(&source, tracks, &wanted, clips.render, &encoders).map_err(Error::Clips)
 }

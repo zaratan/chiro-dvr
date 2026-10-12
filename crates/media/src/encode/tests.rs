@@ -343,7 +343,7 @@ fn videotoolbox_writes_limited_range_bt709_in_the_h264_stream() {
 }
 
 #[test]
-fn the_unfinished_clip_is_written_under_a_hidden_name_beside_it() {
+fn the_unfinished_clip_is_written_under_a_dot_name_beside_it() {
     let folder = tempfile::tempdir().unwrap();
     let settings = Settings::new(WIDTH, HEIGHT, thirty(), Codec::OpenH264).unwrap();
     let mut encoder = Encoder::create(&folder.path().join("clip.mp4"), &settings).unwrap();

@@ -151,3 +151,58 @@ fn the_median_of_an_even_number_of_boxes_is_the_mean_of_the_two_middle_ones() {
     assert_eq!(pixel(&canvas, 148, 150), BOX);
     assert_eq!(pixel(&canvas, 252, 150), BOX);
 }
+
+#[test]
+fn the_zones_of_a_frame_cover_every_drawn_pixel_and_are_even_disjoint_and_inside_the_frame() {
+    let tracks = [
+        track(1, &[(0, 6.0, 8.0), (3, 40.0, 30.0), (6, 90.0, 60.0), (9, 120.0, 90.0)]),
+        track(
+            2,
+            &[
+                (0, 300.0, 150.0),
+                (2, 260.0, 150.0),
+                (5, 200.0, 152.0),
+                (9, 130.0, 100.0),
+            ],
+        ),
+        track(3, &[(1, 395.0, 295.0), (4, 380.0, 280.0), (8, 360.0, 270.0)]),
+    ];
+    let typeface = Typeface::roboto().unwrap();
+    let overlay = Overlay::new(&tracks, 10, RenderConfig::default(), thirty(), &typeface);
+    let grey = Rgb::new(90, 100, 110);
+    for frame in 0..10 {
+        let zones = overlay.zones(FrameIndex::new(frame), WIDTH, HEIGHT);
+        for zone in &zones {
+            let even = [zone.left, zone.top, zone.width, zone.height]
+                .iter()
+                .all(|value| value % 2 == 0);
+            assert!(even && zone.width > 0 && zone.height > 0, "{zone:?}");
+            assert!(
+                zone.left + zone.width <= WIDTH && zone.top + zone.height <= HEIGHT,
+                "{zone:?}"
+            );
+        }
+        for (index, zone) in zones.iter().enumerate() {
+            for other in &zones[index + 1..] {
+                let apart = zone.left + zone.width < other.left
+                    || other.left + other.width < zone.left
+                    || zone.top + zone.height < other.top
+                    || other.top + other.height < zone.top;
+                assert!(apart, "{zone:?} {other:?}");
+            }
+        }
+        let mut canvas = Canvas::new(WIDTH, HEIGHT, grey).unwrap();
+        overlay.draw(&mut canvas, FrameIndex::new(frame));
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let covered = zones.iter().any(|zone| {
+                    (zone.left..zone.left + zone.width).contains(&x) && (zone.top..zone.top + zone.height).contains(&y)
+                });
+                assert!(
+                    covered || pixel(&canvas, x, y) == grey,
+                    "frame {frame}: ({x}, {y}) drawn outside {zones:?}"
+                );
+            }
+        }
+    }
+}

@@ -1,10 +1,10 @@
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::Duration;
 
-use super::run;
+use super::{Hold, Lease, run};
 use crate::clips::Error;
 
 fn failure(item: usize) -> Error {
@@ -65,11 +65,11 @@ fn a_failure_leaves_the_waiting_items_unstarted_and_wins_over_the_stops_it_cause
         2,
         8,
         |item| if *item == 1 { 0 } else { 8 },
-        |(): &mut (), item, stop: &AtomicBool| {
+        |(): &mut (), item, lease: &Lease<'_>| {
             started.lock().unwrap().push(*item);
             match item {
                 0 => {
-                    while !stop.load(Ordering::Acquire) {
+                    while !lease.stopped() {
                         thread::sleep(Duration::from_millis(1));
                     }
                     Err(Error::Stopped)
@@ -117,18 +117,109 @@ fn each_thread_keeps_its_own_state_from_one_item_to_the_next() {
 }
 
 #[test]
-fn a_panic_in_an_item_reaches_the_caller() {
+fn a_panic_reaches_the_caller_and_leaves_the_waiting_items_unstarted() {
+    let started = Mutex::new(Vec::new());
+    let items: Vec<usize> = (0..10).collect();
     let outcome = std::panic::catch_unwind(|| {
         run(
-            &[0, 1],
+            &items,
             2,
             8,
             |_| 0,
-            |(): &mut (), item: &usize, _| {
+            |(): &mut (), item: &usize, lease: &Lease<'_>| {
+                started.lock().unwrap().push(*item);
                 assert_ne!(*item, 1, "forced");
+                let mut waited = 0;
+                while *item == 0 && !lease.stopped() && waited < 2000 {
+                    thread::sleep(Duration::from_millis(1));
+                    waited += 1;
+                }
                 Ok(())
             },
         )
     });
     assert!(outcome.is_err());
+    let mut started = started.into_inner().unwrap_or_else(std::sync::PoisonError::into_inner);
+    started.sort_unstable();
+    assert_eq!(started, [0, 1]);
+}
+
+#[test]
+fn an_item_that_asks_for_more_sessions_than_there_are_takes_them_all_instead_of_waiting() {
+    let results = run(&[20, 3], 2, 8, |need| *need, |(): &mut (), need, _| Ok(*need)).unwrap();
+    assert_eq!(results, [20, 3]);
+}
+
+#[test]
+fn sessions_given_back_on_the_way_let_the_next_item_start_before_the_first_ends() {
+    let second_started = std::sync::atomic::AtomicBool::new(false);
+    let overlapped = run(
+        &[0, 1],
+        2,
+        8,
+        |_| 8,
+        |(): &mut (), item: &usize, lease: &Lease<'_>| {
+            if *item == 1 {
+                second_started.store(true, Ordering::SeqCst);
+                return Ok(true);
+            }
+            lease.keep(0);
+            let mut waited = 0;
+            while !second_started.load(Ordering::SeqCst) && waited < 2000 {
+                thread::sleep(Duration::from_millis(1));
+                waited += 1;
+            }
+            Ok(second_started.load(Ordering::SeqCst))
+        },
+    )
+    .unwrap();
+    assert_eq!(overlapped, [true, true]);
+}
+
+#[test]
+fn items_giving_their_sessions_back_step_by_step_never_hold_more_than_the_ceiling_and_all_finish() {
+    let (live, most) = (AtomicUsize::new(0), AtomicUsize::new(0));
+    let items: Vec<usize> = (0..40).map(|item| 1 + item * 5 % 8).collect();
+    let results = run(
+        &items,
+        5,
+        8,
+        |need| *need,
+        |(): &mut (), need: &usize, lease: &Lease<'_>| {
+            let now = live.fetch_add(*need, Ordering::SeqCst) + need;
+            most.fetch_max(now, Ordering::SeqCst);
+            for kept in (0..*need).rev() {
+                thread::sleep(Duration::from_millis(1));
+                live.fetch_sub(1, Ordering::SeqCst);
+                lease.keep(kept);
+            }
+            Ok(*need)
+        },
+    )
+    .unwrap();
+    assert_eq!(results, items);
+    assert!(most.load(Ordering::SeqCst) <= 8);
+}
+
+#[test]
+fn keeping_more_sessions_than_held_takes_none_more() {
+    let both = std::sync::atomic::AtomicUsize::new(0);
+    run(
+        &[2, 6],
+        2,
+        8,
+        |need| *need,
+        |(): &mut (), _, lease: &Lease<'_>| {
+            lease.keep(8);
+            both.fetch_add(1, Ordering::SeqCst);
+            let mut waited = 0;
+            while both.load(Ordering::SeqCst) < 2 && waited < 2000 {
+                thread::sleep(Duration::from_millis(1));
+                waited += 1;
+            }
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(both.load(Ordering::SeqCst), 2);
 }

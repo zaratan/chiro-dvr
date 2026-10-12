@@ -1,3 +1,5 @@
+use draw::canvas::Canvas;
+use draw::color::INK;
 use draw::text::Typeface;
 use media::convert::{Converter, SourceRange};
 use media::frame::{ColorRange, YuvFrame};
@@ -33,40 +35,60 @@ fn overlay() -> Overlay {
 }
 
 #[test]
-fn an_undrawn_frame_comes_out_as_a_full_range_round_trip_in_limited_range() {
+fn an_undrawn_frame_comes_out_through_the_display_tables_in_limited_range() {
     let source = textured();
     let mut picture = Picture::new(WIDTH, HEIGHT).unwrap();
     let drawn = picture.draw(&source, &overlay(), FrameIndex::new(4)).unwrap().clone();
-    let mut converter = Converter::new(WIDTH, HEIGHT, SourceRange::Full).unwrap();
-    let mut rgba = vec![0; (WIDTH * HEIGHT * 4) as usize];
+    let converter = Converter::new(WIDTH, HEIGHT, SourceRange::FullBlackAt16).unwrap();
     let mut expected = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
-    converter.yuv_to_rgba(&source, &mut rgba).unwrap();
-    converter.rgba_to_yuv(&rgba, &mut expected).unwrap();
+    converter.display(&source, &mut expected).unwrap();
     assert_eq!(drawn, expected);
     assert_eq!(drawn.range(), ColorRange::Limited);
 }
 
 #[test]
-fn drawing_changes_only_the_pixels_around_the_marks() {
+fn the_drawn_pixels_come_out_as_the_round_trip_of_the_drawn_canvas() {
     let source = textured();
+    let overlay = overlay();
     let mut picture = Picture::new(WIDTH, HEIGHT).unwrap();
-    let undrawn = picture.draw(&source, &overlay(), FrameIndex::new(4)).unwrap().clone();
-    let drawn = picture.draw(&source, &overlay(), FrameIndex::new(2)).unwrap().clone();
-    let changed: Vec<(usize, usize)> = drawn
+    let undrawn = picture.draw(&source, &overlay, FrameIndex::new(4)).unwrap().clone();
+    let drawn = picture.draw(&source, &overlay, FrameIndex::new(2)).unwrap().clone();
+    let mut converter = Converter::new(WIDTH, HEIGHT, SourceRange::FullBlackAt16).unwrap();
+    let mut canvas = Canvas::new(WIDTH, HEIGHT, INK).unwrap();
+    converter.yuv_to_rgba(&source, canvas.rgba_mut()).unwrap();
+    overlay.draw(&mut canvas, FrameIndex::new(2));
+    let mut whole = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
+    converter.rgba_to_yuv(canvas.rgba(), &mut whole).unwrap();
+    let marked: Vec<usize> = (0..drawn.y().len())
+        .filter(|index| drawn.y()[*index] != undrawn.y()[*index])
+        .collect();
+    assert!(marked.len() > 100);
+    assert!(marked.iter().all(|index| drawn.y()[*index] == whole.y()[*index]));
+}
+
+#[test]
+fn drawing_changes_only_the_pixels_inside_the_zones_of_the_marks() {
+    let source = textured();
+    let overlay = overlay();
+    let mut picture = Picture::new(WIDTH, HEIGHT).unwrap();
+    let undrawn = picture.draw(&source, &overlay, FrameIndex::new(4)).unwrap().clone();
+    let drawn = picture.draw(&source, &overlay, FrameIndex::new(2)).unwrap().clone();
+    let zones = overlay.zones(FrameIndex::new(2), WIDTH, HEIGHT);
+    let changed: Vec<(u32, u32)> = drawn
         .y()
         .iter()
         .zip(undrawn.y())
         .enumerate()
         .filter(|(_, (after, before))| after != before)
-        .map(|(index, _)| (index % WIDTH as usize, index / WIDTH as usize))
+        .map(|(index, _)| ((index % WIDTH as usize) as u32, (index / WIDTH as usize) as u32))
         .collect();
     assert!(changed.contains(&(103, 140)));
-    assert!(
-        changed
-            .iter()
-            .all(|&(x, y)| (95..=150).contains(&x) && (100..=172).contains(&y)),
-        "{changed:?}"
-    );
+    let inside = |&(x, y): &(u32, u32)| {
+        zones.iter().any(|zone| {
+            (zone.left..zone.left + zone.width).contains(&x) && (zone.top..zone.top + zone.height).contains(&y)
+        })
+    };
+    assert!(changed.iter().all(inside), "{zones:?}");
 }
 
 #[test]

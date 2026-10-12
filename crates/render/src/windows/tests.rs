@@ -80,6 +80,29 @@ fn a_group_holds_at_most_eight_hardware_lanes() {
 }
 
 #[test]
+fn the_hardware_sessions_a_group_still_needs_only_fall_as_its_windows_close() {
+    let found = groups(&windows(&[(0, 10), (5, 20), (11, 30), (21, 25), (8, 9)]));
+    let needed: Vec<usize> = [0, 9, 10, 21, 26, 30, 31]
+        .iter()
+        .map(|frame| found[0].hardware_lanes_from(FrameIndex::new(*frame)))
+        .collect();
+    assert_eq!(needed, [3, 3, 2, 2, 1, 1, 0]);
+    assert_eq!(found[0].hardware_lanes(), 3);
+}
+
+#[test]
+fn lanes_beyond_the_eighth_need_no_hardware_session_at_any_frame() {
+    let crowded: Vec<(usize, usize)> = (0..10).map(|start| (start, 100 - start)).collect();
+    let found = groups(&windows(&crowded));
+    let needed: Vec<usize> = (0..=101)
+        .map(|frame| found[0].hardware_lanes_from(FrameIndex::new(frame)))
+        .collect();
+    assert_eq!(needed[0], 8);
+    assert!(needed.windows(2).all(|pair| pair[0] >= pair[1]), "{needed:?}");
+    assert_eq!((needed[93], needed[94], needed[100], needed[101]), (8, 7, 1, 0));
+}
+
+#[test]
 fn windows_starting_together_keep_the_order_of_their_tracks() {
     let found = groups(&windows(&[(5, 10), (5, 10), (0, 10)]));
     assert_eq!(lanes(&found[0]), [(2, 0), (0, 1), (1, 2)]);

@@ -1,7 +1,9 @@
+use std::ffi::CStr;
 use std::fmt;
 use std::fs::File;
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
+use std::ptr;
 
 use ffmpeg::format::Pixel;
 use ffmpeg::util::color::{Primaries, Range, Space, TransferCharacteristic};
@@ -18,6 +20,7 @@ pub mod fallback;
 #[cfg(test)]
 mod tests;
 
+const MP4: &CStr = c"mp4";
 const VIDEOTOOLBOX_QUALITY: i32 = 65;
 const OPENH264_QP: i32 = 23;
 const OPENH264_FOOTPRINT: u64 = 17_000_000;
@@ -31,7 +34,7 @@ pub enum Error {
     FrameRate { frame_rate: Rational },
     #[error("this FFmpeg has no {name} encoder")]
     EncoderMissing { name: &'static str },
-    #[error("cannot write {}: the path is not UTF-8 or holds a NUL byte", path.display())]
+    #[error("cannot write {}: FFmpeg cannot take this path", path.display())]
     UnusablePath { path: PathBuf },
     #[error("cannot create {}", path.display())]
     Create {
@@ -201,7 +204,9 @@ impl Encoder {
         let unusable = || Error::UnusablePath {
             path: path.to_path_buf(),
         };
-        path::for_ffmpeg(path).ok_or_else(unusable)?;
+        if path::location(path).is_none() {
+            return Err(unusable());
+        }
         let partial = path::partial(path).ok_or_else(unusable)?;
         let create = |source| Error::Create {
             path: path.to_path_buf(),
@@ -209,10 +214,8 @@ impl Encoder {
         };
         let temporary = TempPath::try_from_path(&partial).map_err(create)?;
         File::create(&temporary).map_err(create)?;
-        let location = path::for_ffmpeg(&temporary).ok_or_else(unusable)?;
-        let mut output = ffmpeg::format::output_as(location, "mp4")
-            .map_err(LibraryError::new)
-            .map_err(Error::Write)?;
+        let location = path::location(&temporary).ok_or_else(unusable)?;
+        let mut output = mp4_output(&location).map_err(LibraryError::new).map_err(Error::Write)?;
         let failed = |source| Error::Open {
             name,
             source: LibraryError::new(source),
@@ -357,4 +360,27 @@ impl Encoder {
             .map_err(LibraryError::new)
             .map_err(Error::Write)
     }
+}
+
+fn mp4_output(location: &CStr) -> Result<ffmpeg::format::context::Output, ffmpeg::Error> {
+    let mut context = ptr::null_mut();
+    // SAFETY: `context` is a valid out pointer, and both strings are NUL-terminated and outlive the call.
+    let status = unsafe {
+        ffmpeg::ffi::avformat_alloc_output_context2(&raw mut context, ptr::null(), MP4.as_ptr(), location.as_ptr())
+    };
+    if status < 0 {
+        return Err(ffmpeg::Error::from(status));
+    }
+    // SAFETY: on success `context` is a fresh AVFormatContext owned by nothing else; `Output` frees it and its `pb`.
+    let mut output = unsafe { ffmpeg::format::context::Output::wrap(context) };
+    // SAFETY: `output` owns its live context, and nothing else borrows it here.
+    let pointer = unsafe { output.as_mut_ptr() };
+    // SAFETY: `pointer` is the live context above; its `pb` field is a plain pointer slot.
+    let io = unsafe { &raw mut (*pointer).pb };
+    // SAFETY: `io` is the still-null `pb` of the live context, and `location` is NUL-terminated.
+    let status = unsafe { ffmpeg::ffi::avio_open(io, location.as_ptr(), ffmpeg::ffi::AVIO_FLAG_WRITE) };
+    if status < 0 {
+        return Err(ffmpeg::Error::from(status));
+    }
+    Ok(output)
 }

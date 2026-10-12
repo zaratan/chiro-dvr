@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 
 use media::encode::{self, Codec};
 use media::frame::YuvFrame;
@@ -11,8 +10,12 @@ use crate::clips::Error;
 use crate::encoders::{Encoders, Open, Sink};
 use crate::overlay::Overlay;
 use crate::picture::Picture;
+use crate::schedule::Hold;
 use crate::source::{Origin, Source};
 use crate::windows::{Group, Member, Window};
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug)]
 pub(crate) struct Rendering<'a, O> {
@@ -48,14 +51,14 @@ impl<O: Open> Rendering<'_, O> {
         &self,
         group: &Group,
         picture: &mut Option<Picture>,
-        stop: &AtomicBool,
+        hold: &impl Hold,
     ) -> Result<Written, Error> {
         let mut lanes: Vec<Option<Writing<'_, O::Sink>>> =
             std::iter::repeat_with(|| None).take(group.lanes()).collect();
         let mut pending = group.members().iter().peekable();
         let mut redo = Vec::new();
         let origin = serve_ahead(self.source, group.span(), |frame, pixels| {
-            if stop.load(Ordering::Acquire) {
+            if hold.stopped() {
                 return Err(Error::Stopped);
             }
             let drawn = drawn(picture, pixels, self.overlay, frame)?;
@@ -91,6 +94,8 @@ impl<O: Open> Rendering<'_, O> {
                     redo.push(self.failed(member.window, path, codec, cause)?);
                 }
             }
+            let next = FrameIndex::new(frame.get().saturating_add(1));
+            hold.keep(self.encoders.hardware_sessions_from(group, next));
             Ok(())
         })?;
         Ok(Written { origin, redo })

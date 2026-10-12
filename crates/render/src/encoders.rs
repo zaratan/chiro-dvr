@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use media::encode::{self, Codec, Encoder, Settings};
 use media::frame::YuvFrame;
+use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
 
@@ -94,8 +95,12 @@ impl<'a, O: Open> Encoders<'a, O> {
     }
 
     pub(crate) fn hardware_sessions(&self, group: &Group) -> usize {
+        self.hardware_sessions_from(group, group.span().first())
+    }
+
+    pub(crate) fn hardware_sessions_from(&self, group: &Group, frame: FrameIndex) -> usize {
         if self.for_lane(0).any(|codec| codec == Codec::VideoToolbox) {
-            group.hardware_lanes()
+            group.hardware_lanes_from(frame)
         } else {
             0
         }

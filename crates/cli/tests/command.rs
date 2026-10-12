@@ -133,8 +133,9 @@ fn an_unreadable_video_fails_without_stopping_the_others_and_is_named() {
     assert!(out.join("ok").join("ok_tracks.csv").is_file());
     assert!(!out.join("broken").exists());
     let errors = text(&output.stderr);
-    assert!(errors.contains("broken.mp4: the detection failed: "), "{errors}");
-    assert_eq!(errors.lines().count(), 1, "{errors}");
+    let failures: Vec<&str> = errors.lines().filter(|line| line.contains(".mp4: ")).collect();
+    assert_eq!(failures.len(), 1, "{errors}");
+    assert!(failures[0].contains("broken.mp4: the detection failed: "), "{errors}");
 }
 
 #[test]
@@ -203,6 +204,7 @@ fn an_output_folder_whose_name_is_not_utf8_is_written_as_given() {
     let output = run(&[&videos, Path::new("-o"), &out], "C");
     assert!(output.status.success(), "{}", text(&output.stderr));
     assert!(out.join("flight").join("flight_tracks.csv").is_file());
+    assert!(out.join("flight").join("clips").join("track_01_0m00s.mp4").is_file());
 }
 
 #[test]
