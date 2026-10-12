@@ -32,7 +32,7 @@ pub struct TrackCounts {
 }
 
 impl TrackAgreement {
-    pub fn of(detections: &FrameDetections, rate: FrameRate, recording: &Recording) -> Result<Self, Error> {
+    pub fn of(name: &str, detections: &FrameDetections, rate: FrameRate, recording: &Recording) -> Result<Self, Error> {
         let summary = &recording.summary;
         let exclusion = exclude(
             detections,
@@ -44,7 +44,7 @@ impl TrackAgreement {
         let tracks = track_detections(&exclusion.detections, TrackConfig::default())?;
         let matching = match_tracks(&recording.tracks, &tracks);
         Ok(Self {
-            name: summary.video.name.clone(),
+            name: name.to_owned(),
             counts: TrackCounts {
                 reference: recording.tracks.len(),
                 paired: matching.pairs.len(),
@@ -52,7 +52,7 @@ impl TrackAgreement {
                 lost: matching.reference_only.len(),
                 added: matching.candidate_only.len(),
             },
-            discrepancies: matching.discrepancies(&summary.video.name, rate),
+            discrepancies: matching.discrepancies(name, rate),
         })
     }
 

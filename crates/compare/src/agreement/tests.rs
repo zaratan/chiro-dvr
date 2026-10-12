@@ -9,6 +9,8 @@ use types::span::Span;
 use super::{Agreement, Gap, SAME_POINT_PX, clock, counts};
 use crate::case::EXTRACT;
 
+const EXTRACT_VIDEO: &str = "video_092_original_3m24-4m05.mp4";
+
 fn extract() -> Recording {
     Recording::read(&committed(EXTRACT)).unwrap()
 }
@@ -63,7 +65,7 @@ fn written(write: impl FnOnce(&mut Vec<u8>) -> std::io::Result<()>) -> String {
 fn the_reference_agrees_with_itself_both_ways() {
     let recording = extract();
 
-    let agreement = Agreement::of(recording.frames.detections(), rate(), &recording);
+    let agreement = Agreement::of(EXTRACT_VIDEO, recording.frames.detections(), rate(), &recording);
 
     assert_eq!((agreement.reference_rate(), agreement.candidate_rate()), (1.0, 1.0));
     assert!(agreement.holds());
@@ -83,8 +85,8 @@ fn a_detection_moved_by_exactly_3_px_is_lost_and_added_but_not_at_2_9_px() {
         })
     };
 
-    let far = Agreement::of(&moved_by(3.0), rate(), &recording);
-    let near = Agreement::of(&moved_by(2.9), rate(), &recording);
+    let far = Agreement::of(EXTRACT_VIDEO, &moved_by(3.0), rate(), &recording);
+    let near = Agreement::of(EXTRACT_VIDEO, &moved_by(2.9), rate(), &recording);
 
     assert_eq!(lost_and_added(&far), (1, 1));
     assert_eq!(lost_and_added(&near), (0, 0));
@@ -96,7 +98,7 @@ fn missing_detections_lower_the_reference_rate_under_98_percent() {
     let total = recording.frames.detections().detection_count();
     let lone = edited(recording.frames.detections(), |found| found.truncate(1));
 
-    let agreement = Agreement::of(&lone, rate(), &recording);
+    let agreement = Agreement::of(EXTRACT_VIDEO, &lone, rate(), &recording);
 
     assert!((agreement.reference_rate() - lone.detection_count() as f64 / total as f64).abs() < 1e-12);
     assert_eq!(agreement.candidate_rate(), 1.0);
@@ -111,7 +113,7 @@ fn extra_detections_lower_the_candidate_rate_under_98_percent() {
         found.extend(far);
     });
 
-    let agreement = Agreement::of(&doubled, rate(), &recording);
+    let agreement = Agreement::of(EXTRACT_VIDEO, &doubled, rate(), &recording);
 
     assert_eq!((agreement.reference_rate(), agreement.candidate_rate()), (1.0, 0.5));
     assert!(!agreement.holds());
@@ -132,8 +134,8 @@ fn detections_inside_the_ignored_spans_of_the_reference_count_on_neither_side() 
         found.retain(|detection| detection.frame != frame);
     });
 
-    let with_extra = Agreement::of(&only_rust, rate(), &recording);
-    let with_missing = Agreement::of(&only_reference, rate(), &recording);
+    let with_extra = Agreement::of(EXTRACT_VIDEO, &only_rust, rate(), &recording);
+    let with_missing = Agreement::of(EXTRACT_VIDEO, &only_reference, rate(), &recording);
 
     assert_eq!(lost_and_added(&with_extra), (0, 0));
     assert_eq!(lost_and_added(&with_missing), (0, 0));
@@ -146,7 +148,7 @@ fn nothing_to_find_on_either_side_agrees_fully() {
     recording.frames = reference::frames::Frames::new(recording.frames.entries().to_vec(), empty.clone()).unwrap();
     recording.tracks.clear();
 
-    let agreement = Agreement::of(&empty, rate(), &recording);
+    let agreement = Agreement::of(EXTRACT_VIDEO, &empty, rate(), &recording);
 
     assert_eq!((agreement.reference_rate(), agreement.candidate_rate()), (1.0, 1.0));
 }
@@ -159,7 +161,7 @@ fn a_lost_detection_on_a_reference_track_is_told_apart_from_a_lone_one() {
         found.retain(|detection| detection.frame != point.frame || detection.distance(&point) >= SAME_POINT_PX);
     });
 
-    let agreement = Agreement::of(&without_point, rate(), &recording);
+    let agreement = Agreement::of(EXTRACT_VIDEO, &without_point, rate(), &recording);
 
     assert_eq!(agreement.gaps, vec![(point, Gap::Lost { on_track: true })]);
     assert!(written(|out| agreement.write_summary(out)).contains("lost 1 (1 on tracks)\tadded 0"));
@@ -179,7 +181,7 @@ fn gaps_at_most_30_frames_apart_form_one_group_and_31_frames_split() {
         area: 4.5,
         amplitude: 20.0,
     };
-    let mut agreement = Agreement::of(recording.frames.detections(), rate(), &recording);
+    let mut agreement = Agreement::of(EXTRACT_VIDEO, recording.frames.detections(), rate(), &recording);
     agreement.gaps = vec![
         (at(100), Gap::Added),
         (at(120), Gap::Lost { on_track: false }),

@@ -11,6 +11,7 @@ pub mod lost;
 mod network;
 mod prepare;
 mod read_ahead;
+pub mod settings;
 mod summary_frames;
 #[cfg(test)]
 mod synthetic;

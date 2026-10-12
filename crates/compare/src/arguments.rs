@@ -18,13 +18,15 @@ pub struct Request {
 
 impl ValueEnum for Target {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Extract, Self::Whole, Self::Recorded]
+        &[Self::Extract, Self::Whole, Self::Settings, Self::Recorded]
     }
 
     fn to_possible_value(&self) -> Option<PossibleValue> {
         Some(match self {
             Self::Extract => PossibleValue::new("extract").help("the extract of the 092, in the fixtures"),
             Self::Whole => PossibleValue::new("092").help("the whole 092, in the fixtures"),
+            Self::Settings => PossibleValue::new("settings")
+                .help("the extract and its 720×540 reduction, recorded by the v0.1.1 under other detection settings"),
             Self::Recorded => PossibleValue::new("local")
                 .help("the 26 recorded videos, by BATDETECT_REFERENCE_DIR and BATDETECT_VIDEOS_DIR"),
         })

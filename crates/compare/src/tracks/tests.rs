@@ -9,6 +9,8 @@ use types::rational::Rational;
 use super::{TrackAgreement, TrackCounts};
 use crate::case::EXTRACT;
 
+const EXTRACT_VIDEO: &str = "video_092_original_3m24-4m05.mp4";
+
 fn extract() -> Recording {
     Recording::read(&committed(EXTRACT)).unwrap()
 }
@@ -27,7 +29,7 @@ fn written(write: impl FnOnce(&mut Vec<u8>) -> std::io::Result<()>) -> String {
 fn the_reference_detections_tracked_again_give_back_the_four_tracks_of_the_extract() {
     let recording = extract();
 
-    let agreement = TrackAgreement::of(recording.frames.detections(), rate(), &recording).unwrap();
+    let agreement = TrackAgreement::of(EXTRACT_VIDEO, recording.frames.detections(), rate(), &recording).unwrap();
 
     assert_eq!(
         agreement.counts(),
@@ -47,7 +49,7 @@ fn without_detections_every_reference_track_is_lost_and_listed_with_its_time() {
     let recording = extract();
     let empty = FrameDetections::new(vec![Vec::new(); recording.frames.detections().frame_count()]).unwrap();
 
-    let agreement = TrackAgreement::of(&empty, rate(), &recording).unwrap();
+    let agreement = TrackAgreement::of(EXTRACT_VIDEO, &empty, rate(), &recording).unwrap();
 
     assert_eq!((agreement.counts().lost, agreement.counts().paired), (4, 0));
     assert!(

@@ -2,11 +2,14 @@ use std::num::{NonZeroU32, NonZeroUsize};
 
 use types::rate::FrameRate;
 
+use crate::settings::{self, Bound, DetectSettings, HANDLED_MERGE_RADIUS, HANDLED_TARGET_SIGMA, Setting, Unsupported};
+
 #[cfg(test)]
 mod tests;
 
 pub(crate) const MIN_BACKGROUND_FRAMES: usize = 3;
 pub(crate) const MAX_BACKGROUND_SAMPLES: usize = 16;
+pub(crate) const MIN_WORK_WIDTH: u32 = 16;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DetectConfig {
@@ -42,11 +45,107 @@ impl Default for DetectConfig {
             max_area: 2700.0,
             window_seconds: 1.0,
             step: NonZeroUsize::MIN.saturating_add(2),
-            merge_radius: 6.0,
+            merge_radius: HANDLED_MERGE_RADIUS,
             work_width: NonZeroU32::MIN.saturating_add(959),
             noise_factor: 8.0,
-            target_sigma: 1.5,
+            target_sigma: HANDLED_TARGET_SIGMA,
         }
+    }
+}
+
+impl TryFrom<&DetectSettings> for DetectConfig {
+    type Error = settings::Error;
+
+    fn try_from(settings: &DetectSettings) -> Result<Self, Self::Error> {
+        positive(settings.threshold, Setting::Threshold)?;
+        positive(settings.min_area, Setting::MinArea)?;
+        positive(settings.max_area, Setting::MaxArea)?;
+        if settings.min_area > settings.max_area {
+            return Err(settings::Error::Areas {
+                min_area: settings.min_area,
+                max_area: settings.max_area,
+            });
+        }
+        positive(settings.bg_window_s, Setting::BgWindowS)?;
+        not_negative(settings.merge_radius, Setting::MergeRadius)?;
+        not_negative(settings.noise_factor, Setting::NoiseFactor)?;
+        not_negative(settings.target_sigma, Setting::TargetSigma)?;
+        let step = NonZeroUsize::new(settings.bg_step).ok_or(settings::Error::Setting {
+            setting: Setting::BgStep,
+            value: 0.0,
+            bound: Bound::AtLeast(1),
+        })?;
+        let work_width = NonZeroU32::new(settings.work_width)
+            .filter(|width| width.get() >= MIN_WORK_WIDTH)
+            .ok_or(settings::Error::Setting {
+                setting: Setting::WorkWidth,
+                value: f64::from(settings.work_width),
+                bound: Bound::AtLeast(MIN_WORK_WIDTH),
+            })?;
+        if let Some((index, &region)) = settings
+            .osd_regions
+            .iter()
+            .enumerate()
+            .find(|(_, region)| !region.is_valid())
+        {
+            return Err(settings::Error::Region { index, region });
+        }
+        handled(settings)?;
+        Ok(Self {
+            threshold: settings.threshold,
+            min_area: settings.min_area,
+            max_area: settings.max_area,
+            window_seconds: settings.bg_window_s,
+            step,
+            merge_radius: settings.merge_radius,
+            work_width,
+            noise_factor: settings.noise_factor,
+            target_sigma: settings.target_sigma,
+        })
+    }
+}
+
+fn positive(value: f64, setting: Setting) -> Result<(), settings::Error> {
+    if value.is_finite() && value > 0.0 {
+        Ok(())
+    } else {
+        Err(settings::Error::Setting {
+            setting,
+            value,
+            bound: Bound::Positive,
+        })
+    }
+}
+
+fn not_negative(value: f64, setting: Setting) -> Result<(), settings::Error> {
+    if value.is_finite() && value >= 0.0 {
+        Ok(())
+    } else {
+        Err(settings::Error::Setting {
+            setting,
+            value,
+            bound: Bound::NotNegative,
+        })
+    }
+}
+
+fn handled(settings: &DetectSettings) -> Result<(), Unsupported> {
+    if settings.target_sigma.total_cmp(&HANDLED_TARGET_SIGMA).is_ne() {
+        return Err(Unsupported::TargetSigma {
+            value: settings.target_sigma,
+        });
+    }
+    if settings.merge_radius.total_cmp(&HANDLED_MERGE_RADIUS).is_ne() {
+        return Err(Unsupported::MergeRadius {
+            value: settings.merge_radius,
+        });
+    }
+    if settings.osd_regions.is_empty() {
+        Ok(())
+    } else {
+        Err(Unsupported::OsdRegions {
+            count: settings.osd_regions.len(),
+        })
     }
 }
 

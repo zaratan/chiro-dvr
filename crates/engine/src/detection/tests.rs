@@ -78,3 +78,60 @@ fn a_frame_rate_too_low_for_three_background_samples_is_refused() {
         format!("cannot build the background window of {}", path.display())
     );
 }
+
+fn waits_for_the_generic_engine(error: &Error) -> Option<String> {
+    error.unsupported().map(ToString::to_string)
+}
+
+#[test]
+fn a_size_a_range_a_reduction_or_a_sample_count_the_engine_cannot_handle_yet_is_named_as_such() {
+    let path = std::path::PathBuf::from("video.mp4");
+    let size = Error::Input(input::Error::UnsupportedSize {
+        path: path.clone(),
+        width: 720,
+        height: 540,
+    });
+    let range = Error::Input(input::Error::FullRange { path: path.clone() });
+    let reduction = Error::Geometry {
+        path: path.clone(),
+        source: crate::geometry::Error::Reduction {
+            width: 1440,
+            height: 1080,
+            work_width: 480,
+        },
+    };
+    let samples = Error::Config {
+        path,
+        source: crate::config::Error::ManySamples {
+            step: 1,
+            frames: 31,
+            samples: 31,
+        },
+    };
+    let reasons = [size, range, reduction, samples].map(|error| waits_for_the_generic_engine(&error).unwrap());
+    assert!(reasons[0].contains("720×540"));
+    assert!(reasons[1].contains("full range"));
+    assert!(reasons[2].contains("3:2"));
+    assert!(reasons[3].contains("more than 16"));
+}
+
+#[test]
+fn a_failure_the_generic_engine_will_not_lift_is_no_refusal() {
+    let path = std::path::PathBuf::from("video.mp4");
+    let few = Error::Config {
+        path: path.clone(),
+        source: crate::config::Error::FewSamples {
+            step: 40,
+            frames: 31,
+            samples: 1,
+        },
+    };
+    let small = Error::Geometry {
+        path: path.clone(),
+        source: crate::geometry::Error::TooSmall { width: 8, height: 6 },
+    };
+    let silent = Error::Input(input::Error::NoAnnouncedFrames { path });
+    for error in [few, small, silent] {
+        assert_eq!(waits_for_the_generic_engine(&error), None, "{error}");
+    }
+}

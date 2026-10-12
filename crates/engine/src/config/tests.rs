@@ -4,6 +4,7 @@ use types::rate::FrameRate;
 use types::rational::Rational;
 
 use super::{DetectConfig, Error};
+use crate::settings::{self, Bound, DetectSettings, Region, Setting, Unsupported};
 
 fn rate(num: i32, den: i32) -> FrameRate {
     FrameRate::new(Rational::new(num, den).unwrap()).unwrap()
@@ -97,4 +98,277 @@ fn defaults_are_those_of_the_reference_settings() {
         (12.0, 4.0, 2700.0, 1.0, 6.0, 8.0, 1.5)
     );
     assert_eq!((config.step().get(), config.work_width().get()), (3, 960));
+}
+
+fn converted(settings: &DetectSettings) -> Result<DetectConfig, settings::Error> {
+    DetectConfig::try_from(settings)
+}
+
+fn out_of_bounds(settings: &DetectSettings) -> (Setting, f64) {
+    match converted(settings) {
+        Err(settings::Error::Setting { setting, value, .. }) => (setting, value),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn the_default_settings_give_the_default_configuration() {
+    assert_eq!(converted(&DetectSettings::default()), Ok(DetectConfig::default()));
+}
+
+#[test]
+fn the_settings_the_engine_handles_reach_the_configuration() {
+    let config = converted(&DetectSettings {
+        threshold: 25.0,
+        min_area: 9.0,
+        max_area: 500.0,
+        bg_window_s: 2.0,
+        bg_step: 1,
+        work_width: 480,
+        noise_factor: 0.0,
+        ..DetectSettings::default()
+    })
+    .unwrap();
+    assert_eq!(
+        (
+            config.threshold(),
+            config.min_area(),
+            config.max_area(),
+            config.noise_factor()
+        ),
+        (25.0, 9.0, 500.0, 0.0)
+    );
+    assert_eq!(
+        (config.window_seconds(), config.step().get(), config.work_width().get()),
+        (2.0, 1, 480)
+    );
+}
+
+#[test]
+fn a_threshold_or_an_area_that_is_not_a_positive_number_is_refused() {
+    for value in [0.0, -1.0, f64::INFINITY] {
+        assert_eq!(
+            out_of_bounds(&DetectSettings {
+                threshold: value,
+                ..DetectSettings::default()
+            }),
+            (Setting::Threshold, value)
+        );
+    }
+    let nan = out_of_bounds(&DetectSettings {
+        min_area: f64::NAN,
+        ..DetectSettings::default()
+    });
+    assert_eq!(nan.0, Setting::MinArea);
+    assert_eq!(
+        out_of_bounds(&DetectSettings {
+            max_area: 0.0,
+            ..DetectSettings::default()
+        }),
+        (Setting::MaxArea, 0.0)
+    );
+}
+
+#[test]
+fn a_smallest_area_above_the_largest_is_refused() {
+    let error = converted(&DetectSettings {
+        min_area: 600.0,
+        max_area: 500.0,
+        ..DetectSettings::default()
+    })
+    .unwrap_err();
+    assert_eq!(
+        error,
+        settings::Error::Areas {
+            min_area: 600.0,
+            max_area: 500.0
+        }
+    );
+    assert_eq!(error.to_string(), "min_area 600 is larger than max_area 500");
+}
+
+#[test]
+fn equal_smallest_and_largest_areas_are_accepted() {
+    assert!(
+        converted(&DetectSettings {
+            min_area: 9.0,
+            max_area: 9.0,
+            ..DetectSettings::default()
+        })
+        .is_ok()
+    );
+}
+
+#[test]
+fn a_window_a_step_or_a_work_width_the_v011_refuses_is_refused() {
+    assert_eq!(
+        out_of_bounds(&DetectSettings {
+            bg_window_s: 0.0,
+            ..DetectSettings::default()
+        }),
+        (Setting::BgWindowS, 0.0)
+    );
+    assert_eq!(
+        out_of_bounds(&DetectSettings {
+            bg_step: 0,
+            ..DetectSettings::default()
+        }),
+        (Setting::BgStep, 0.0)
+    );
+    assert_eq!(
+        out_of_bounds(&DetectSettings {
+            work_width: 15,
+            ..DetectSettings::default()
+        }),
+        (Setting::WorkWidth, 15.0)
+    );
+    assert!(
+        converted(&DetectSettings {
+            work_width: 16,
+            ..DetectSettings::default()
+        })
+        .is_ok()
+    );
+}
+
+#[test]
+fn a_negative_or_endless_radius_noise_factor_or_blur_is_refused() {
+    assert_eq!(
+        out_of_bounds(&DetectSettings {
+            merge_radius: -1.0,
+            ..DetectSettings::default()
+        }),
+        (Setting::MergeRadius, -1.0)
+    );
+    assert_eq!(
+        out_of_bounds(&DetectSettings {
+            noise_factor: f64::INFINITY,
+            ..DetectSettings::default()
+        }),
+        (Setting::NoiseFactor, f64::INFINITY)
+    );
+    assert_eq!(
+        out_of_bounds(&DetectSettings {
+            target_sigma: -0.5,
+            ..DetectSettings::default()
+        }),
+        (Setting::TargetSigma, -0.5)
+    );
+}
+
+#[test]
+fn an_osd_region_outside_the_frame_or_empty_is_refused_by_its_index() {
+    let inside = Region {
+        x0: 0.0,
+        y0: 0.0,
+        x1: 1.0,
+        y1: 0.07,
+    };
+    for wrong in [
+        Region { x1: 1.5, ..inside },
+        Region { x1: 0.0, ..inside },
+        Region { y0: 0.07, ..inside },
+        Region { x0: f64::NAN, ..inside },
+    ] {
+        assert!(matches!(
+            converted(&DetectSettings {
+                osd_regions: vec![inside, wrong],
+                ..DetectSettings::default()
+            }),
+            Err(settings::Error::Region { index: 1, .. })
+        ));
+    }
+}
+
+#[test]
+fn a_blur_a_closing_radius_or_an_osd_mask_the_engine_cannot_apply_yet_is_refused_by_name() {
+    let refused = |settings: &DetectSettings| match converted(settings) {
+        Err(settings::Error::Unsupported(unsupported)) => unsupported,
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(
+        refused(&DetectSettings {
+            target_sigma: 0.0,
+            ..DetectSettings::default()
+        }),
+        Unsupported::TargetSigma { value: 0.0 }
+    );
+    assert_eq!(
+        refused(&DetectSettings {
+            merge_radius: 0.0,
+            ..DetectSettings::default()
+        }),
+        Unsupported::MergeRadius { value: 0.0 }
+    );
+    let osd = refused(&DetectSettings {
+        osd_regions: vec![Region {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 1.0,
+            y1: 0.07,
+        }],
+        ..DetectSettings::default()
+    });
+    assert_eq!(osd, Unsupported::OsdRegions { count: 1 });
+    assert_eq!(osd.to_string(), "osd_regions: masks are not handled, 1 given");
+}
+
+#[test]
+fn an_invalid_setting_is_reported_before_one_the_engine_cannot_apply() {
+    assert_eq!(
+        converted(&DetectSettings {
+            target_sigma: 3.0,
+            threshold: -1.0,
+            ..DetectSettings::default()
+        }),
+        Err(settings::Error::Setting {
+            setting: Setting::Threshold,
+            value: -1.0,
+            bound: Bound::Positive
+        })
+    );
+}
+
+#[test]
+fn an_osd_region_may_reach_every_edge_of_the_frame() {
+    let whole = Region {
+        x0: 0.0,
+        y0: 0.0,
+        x1: 1.0,
+        y1: 1.0,
+    };
+    assert!(matches!(
+        converted(&DetectSettings {
+            osd_regions: vec![whole],
+            ..DetectSettings::default()
+        }),
+        Err(settings::Error::Unsupported(Unsupported::OsdRegions { count: 1 }))
+    ));
+}
+
+#[test]
+fn a_refused_setting_says_which_bound_it_breaks() {
+    let messages = [
+        DetectSettings {
+            work_width: 15,
+            ..DetectSettings::default()
+        },
+        DetectSettings {
+            threshold: 0.0,
+            ..DetectSettings::default()
+        },
+        DetectSettings {
+            noise_factor: -1.0,
+            ..DetectSettings::default()
+        },
+    ]
+    .map(|settings| converted(&settings).unwrap_err().to_string());
+    assert_eq!(
+        messages,
+        [
+            "work_width must be an integer ≥ 16, not 15",
+            "threshold must be a finite number > 0, not 0",
+            "noise_factor must be a finite number ≥ 0, not -1"
+        ]
+    );
 }

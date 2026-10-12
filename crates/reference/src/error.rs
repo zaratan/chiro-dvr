@@ -84,6 +84,10 @@ pub enum Error {
     Timeline(#[from] timeline::Error),
     #[error("the recording has no valid frame rate")]
     Rate(#[from] rate::Error),
+    #[error("the recording has no config.DetectConfig")]
+    NoDetectConfig,
+    #[error("config.DetectConfig of the recording is not a detection setting")]
+    DetectConfig(#[source] serde_json::Error),
     #[error("the variable {variable} does not name a folder")]
     UnsetVariable { variable: &'static str },
     #[error("the recorded video {} is not a file", path.display())]

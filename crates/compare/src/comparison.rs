@@ -6,6 +6,7 @@ use std::time::Instant;
 
 use engine::config::DetectConfig;
 use engine::detection::{Detected, detect};
+use engine::settings::DetectSettings;
 use media::decode::Threads;
 use reference::recording::Recording;
 use types::detection::FrameDetections;
@@ -33,9 +34,14 @@ pub struct Comparison {
 pub fn compare(case: &Case, frames: Option<&Path>) -> Result<Comparison, Error> {
     let recording = Recording::read(case.recording())?;
     let video = recording.summary.video.name.clone();
+    let settings: DetectSettings = recording.summary.detect_settings()?;
+    let config = DetectConfig::try_from(&settings).map_err(|source| Error::Settings {
+        video: video.clone(),
+        source,
+    })?;
     let path = case.video(&video)?;
     let start = Instant::now();
-    let detected = detect(&path, Threads::Automatic, &DetectConfig::default())?;
+    let detected = detect(&path, Threads::Automatic, &config)?;
     let seconds = start.elapsed().as_secs_f64();
     let expected = recording.summary.background_half_window;
     if detected.half_window().get() != expected {
@@ -45,25 +51,31 @@ pub fn compare(case: &Case, frames: Option<&Path>) -> Result<Comparison, Error> 
             found: detected.half_window().get(),
         });
     }
+    let name = case.name(&video);
     if let Some(folder) = frames {
-        write_frames(&detected, &frames_path(folder, &video))?;
+        write_frames(&detected, &frames_path(folder, &name))?;
     }
-    compared(detected.detections(), &recording, seconds)
+    compared(&name, detected.detections(), &recording, seconds)
 }
 
 pub fn compare_all(cases: &[Case], at_once: usize, frames: Option<&Path>) -> Vec<Result<Comparison, Error>> {
     each_in_order(cases, at_once, |case| compare(case, frames))
 }
 
-pub fn compared(detections: &FrameDetections, recording: &Recording, seconds: f64) -> Result<Comparison, Error> {
+pub fn compared(
+    name: &str,
+    detections: &FrameDetections,
+    recording: &Recording,
+    seconds: f64,
+) -> Result<Comparison, Error> {
     let video = &recording.summary.video.name;
     let rate = FrameRate::new(recording.summary.stream.avg_frame_rate).map_err(|source| Error::Rate {
         video: video.clone(),
         source,
     })?;
     Ok(Comparison {
-        detections: Agreement::of(detections, rate, recording),
-        tracks: TrackAgreement::of(detections, rate, recording).map_err(|source| Error::Tracking {
+        detections: Agreement::of(name, detections, rate, recording),
+        tracks: TrackAgreement::of(name, detections, rate, recording).map_err(|source| Error::Tracking {
             video: video.clone(),
             source,
         })?,

@@ -36,6 +36,24 @@ pub enum Error {
     Detections(#[from] detection::Error),
 }
 
+impl Error {
+    pub fn unsupported(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Input(size @ input::Error::UnsupportedSize { .. }) => Some(size),
+            Self::Input(range @ input::Error::FullRange { .. }) => Some(range),
+            Self::Geometry {
+                source: reduction @ geometry::Error::Reduction { .. },
+                ..
+            } => Some(reduction),
+            Self::Config {
+                source: samples @ config::Error::ManySamples { .. },
+                ..
+            } => Some(samples),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Detected {
     reading: Reading,

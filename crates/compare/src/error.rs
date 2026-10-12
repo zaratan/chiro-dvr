@@ -1,6 +1,11 @@
 use std::io;
 use std::path::PathBuf;
 
+use engine::{detection, settings};
+
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
@@ -8,7 +13,13 @@ pub enum Error {
     #[error(transparent)]
     Fixture(#[from] reference::fixture::Error),
     #[error(transparent)]
-    Detection(#[from] engine::detection::Error),
+    Detection(#[from] detection::Error),
+    #[error("{video}: the recorded detection settings cannot configure the engine")]
+    Settings {
+        video: String,
+        #[source]
+        source: settings::Error,
+    },
     #[error("{video}: the reference has no valid frame rate")]
     Rate {
         video: String,
@@ -33,4 +44,17 @@ pub enum Error {
         #[source]
         source: io::Error,
     },
+}
+
+impl Error {
+    pub fn unsupported(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Settings {
+                source: settings::Error::Unsupported(unsupported),
+                ..
+            } => Some(unsupported),
+            Self::Detection(error) => error.unsupported(),
+            _ => None,
+        }
+    }
 }

@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use types::frame::FrameIndex;
@@ -108,6 +109,15 @@ impl VideoSummary {
             });
         }
         serde_json::from_str(&text).map_err(malformed)
+    }
+
+    pub fn detect_settings<T: DeserializeOwned>(&self) -> Result<T, Error> {
+        let recorded = self
+            .recorded
+            .get("config")
+            .and_then(|config| config.get("DetectConfig"))
+            .ok_or(Error::NoDetectConfig)?;
+        T::deserialize(recorded).map_err(Error::DetectConfig)
     }
 
     pub fn write(&self, path: &Path) -> Result<(), Error> {
