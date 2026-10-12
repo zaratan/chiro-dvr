@@ -5,6 +5,7 @@ use media::decode::placed::{Placed, SeekError};
 use media::decode::{self, Decoder, Threads};
 use media::frame::{self, ColorRange, YuvFrame};
 use types::frame::FrameIndex;
+use types::rate::FrameRate;
 use types::span::Span;
 use types::timeline::Timeline;
 
@@ -67,6 +68,7 @@ enum Walk {
 pub struct Source {
     path: PathBuf,
     frames: usize,
+    rate: FrameRate,
     numbering: Numbering,
     keys: Vec<FrameIndex>,
     errors: Vec<FrameIndex>,
@@ -83,10 +85,19 @@ impl Source {
         Ok(Self {
             path: path.to_path_buf(),
             frames: timeline.frame_count(),
+            rate: timeline.rate(),
             numbering: Numbering::of(timeline)?,
             keys: sorted(keys),
             errors: sorted(errors),
         })
+    }
+
+    pub fn frame_count(&self) -> usize {
+        self.frames
+    }
+
+    pub fn rate(&self) -> FrameRate {
+        self.rate
     }
 
     pub fn serve<E: From<Error>>(

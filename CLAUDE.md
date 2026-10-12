@@ -179,14 +179,17 @@ crates depuis #104, dépendances à sens unique :
 - `engine` → `media`, `types` (#116) ; `tracking` → `types` (#120) ;
   `files` → `types` (#122).
 - `draw` : dessin pur sur une toile RGBA opaque, police Roboto embarquée, palette et tailles ; ne dépend d'aucune crate du workspace.
-- `render` → `media`, `types` (#110) : images des extraits choisies par `pts` (`source`),
-  reprise sur la dernière image-clé saine, un fil de décodage par plage.
+- `render` → `media`, `draw`, `types` (#110, #112) : images des extraits choisies par `pts`
+  (`source`), reprise sur la dernière image-clé saine, un fil de décodage par plage ;
+  fenêtres, groupes et voies (`windows`), boîtes, `#N` et traces (`overlay`, `picture`),
+  extraits écrits par groupes en parallèle, au plus 8 sessions VideoToolbox (`clips`,
+  `schedule`, `group`, `ahead`, `encoders`).
 - `summary` → `draw`, `types`, `files` (#104) : l'image résumé (tranches, couleurs,
   flèches, pastilles, bandeau, frise du temps, PNG), sans FFmpeg.
 - `compare` → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré ;
   `cli` (paquet `batdetect`, binaire `batdetect-rs`) → `engine`, `tracking`, `files`,
-  `summary`, `draw`, `media`, `types`.
+  `summary`, `render`, `draw`, `media`, `types`.
 
 Charte (23 règles numérotées, lints et raisons dans
 [docs/11](docs/11-migration-rust.md#charte)) :

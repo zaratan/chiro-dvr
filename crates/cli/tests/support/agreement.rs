@@ -27,7 +27,6 @@ impl Labels for DebugLabels {
 
 #[derive(Debug)]
 pub(crate) struct Agreement {
-    pub(crate) processed: Processed,
     pub(crate) reference: usize,
     pub(crate) paired: usize,
     pub(crate) agreeing: usize,
@@ -43,7 +42,7 @@ pub(crate) fn job(video: &Path, dest: &Path) -> Job {
     }
 }
 
-pub(crate) fn agreement(processed: Processed, recording: &Recording, rate: FrameRate) -> Agreement {
+pub(crate) fn agreement(processed: &Processed, recording: &Recording, rate: FrameRate) -> Agreement {
     let matching = match_tracks(&recording.tracks, &processed.tracks);
     let (paired, agreeing) = (matching.pairs.len(), matching.agreeing());
     let (lost, added) = (matching.reference_only.len(), matching.candidate_only.len());
@@ -55,6 +54,5 @@ pub(crate) fn agreement(processed: Processed, recording: &Recording, rate: Frame
         lost,
         added,
         discrepancies,
-        processed,
     }
 }

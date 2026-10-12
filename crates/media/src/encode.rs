@@ -1,4 +1,5 @@
 use std::fmt;
+use std::fs::File;
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 
@@ -65,6 +66,15 @@ pub enum Error {
         #[source]
         source: std::io::Error,
     },
+}
+
+impl Error {
+    pub fn concerns_the_destination(&self) -> bool {
+        matches!(
+            self,
+            Self::UnusablePath { .. } | Self::Create { .. } | Self::Persist { .. }
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -192,20 +202,13 @@ impl Encoder {
             path: path.to_path_buf(),
         };
         path::for_ffmpeg(path).ok_or_else(unusable)?;
-        let folder = path
-            .parent()
-            .filter(|folder| !folder.as_os_str().is_empty())
-            .unwrap_or(Path::new("."));
-        let created = tempfile::Builder::new()
-            .prefix(".encoding-")
-            .suffix(".mp4")
-            .tempfile_in(folder);
-        let temporary = created
-            .map_err(|source| Error::Create {
-                path: path.to_path_buf(),
-                source,
-            })?
-            .into_temp_path();
+        let partial = path::partial(path).ok_or_else(unusable)?;
+        let create = |source| Error::Create {
+            path: path.to_path_buf(),
+            source,
+        };
+        let temporary = TempPath::try_from_path(&partial).map_err(create)?;
+        File::create(&temporary).map_err(create)?;
         let location = path::for_ffmpeg(&temporary).ok_or_else(unusable)?;
         let mut output = ffmpeg::format::output_as(location, "mp4")
             .map_err(LibraryError::new)

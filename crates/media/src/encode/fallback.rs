@@ -121,16 +121,9 @@ fn first_working<T>(
     for (index, codec) in codecs.enumerate() {
         match attempt(index, codec) {
             Ok(done) => return Ok((index, codec, done)),
-            Err(error) if concerns_the_destination(&error) => return Err(Error::Destination(error)),
+            Err(error) if error.concerns_the_destination() => return Err(Error::Destination(error)),
             Err(error) => failures.push((codec, error)),
         }
     }
     Err(Error::NoEncoder { failures })
-}
-
-fn concerns_the_destination(error: &super::Error) -> bool {
-    matches!(
-        error,
-        super::Error::UnusablePath { .. } | super::Error::Create { .. } | super::Error::Persist { .. }
-    )
 }

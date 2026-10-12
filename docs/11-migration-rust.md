@@ -1572,6 +1572,29 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       une plage abîmée (pistes de la référence, marge `round(1,5 × cadence)` = 45,
       bornée à la vidéo) sont égales (140 s pour les deux). Aucune de ces 12 fenêtres
       ne saute une image-clé en erreur : seule la vidéo fabriquée exerce cette règle.
+  - Boîte bornée (`overlay`, #112, affichage seulement : la détection, le suivi et le
+    CSV ne changent pas). Chaque côté de la boîte dessinée est borné à 4 fois la
+    médiane du même côté sur les points détectés de la piste (médiane de deux valeurs
+    centrales : leur moyenne). Une boîte bornée est recentrée sur le barycentre de la
+    détection, puis élargie de `box_pad` comme les autres. Les points interpolés
+    viennent des boîtes déjà bornées.
+    - Cas qui l'a motivée : la 092, piste 13, image 6945 (3:51). La tache, étalée, a
+      une boîte de 339 × 235,5 px pour 353 px de surface, quand la piste a pour médiane
+      31,5 × 23,25 : on dessinait 363 × 259 px autour de rien. Bornée, la boîte fait
+      126 × 93 px avant `box_pad`. La v0.1.1 dessinait la même grande boîte.
+    - Mesure sur les 966 pistes de la référence des 26 vidéos (33 865 points,
+      `rapports/mesure-112/boxes.py`, hors dépôt) :
+
+      | Facteur | Boîtes bornées | Pistes | Réduites de plus de 12 px |
+      | --- | --- | --- | --- |
+      | 3 | 129 (0,38 %) | 84 | 11 |
+      | 4 (retenu) | 33 (0,10 %) | 27 | 7 |
+      | 5 | 15 (0,04 %) | 12 | 6 |
+
+      Avec 4, les 7 boîtes réduites de plus d'un `box_pad` sont : 092 piste 13 image 6945,
+      094 piste 7 image 4444, 096 piste 79 images 4817 à 4819, 096 piste 113 image 6538 et
+      100 piste 34 image 2896. Les 26 autres boîtes bornées perdent au plus 10,5 px
+      (médianes de leurs pistes : de 3 à 15 px).
 - **`compare`** → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré. `media` n'y sert qu'à choisir les fils du
   décodeur (`Threads::Automatic`).

@@ -341,3 +341,69 @@ fn videotoolbox_writes_limited_range_bt709_in_the_h264_stream() {
         )
     );
 }
+
+#[test]
+fn the_unfinished_clip_is_written_under_a_hidden_name_beside_it() {
+    let folder = tempfile::tempdir().unwrap();
+    let settings = Settings::new(WIDTH, HEIGHT, thirty(), Codec::OpenH264).unwrap();
+    let mut encoder = Encoder::create(&folder.path().join("clip.mp4"), &settings).unwrap();
+    encoder.push(&testing::pattern(0)).unwrap();
+    assert!(folder.path().join(".clip.mp4.partial").exists());
+    encoder.finish().unwrap();
+    assert!(!folder.path().join(".clip.mp4.partial").exists());
+}
+
+#[test]
+fn a_partial_file_left_by_an_earlier_run_is_overwritten() {
+    let folder = tempfile::tempdir().unwrap();
+    fs::write(folder.path().join(".clip.mp4.partial"), "left over").unwrap();
+    let settings = Settings::new(WIDTH, HEIGHT, thirty(), Codec::OpenH264).unwrap();
+    let mut encoder = Encoder::create(&folder.path().join("clip.mp4"), &settings).unwrap();
+    encoder.push(&testing::pattern(0)).unwrap();
+    encoder.finish().unwrap();
+    assert_eq!(decoded_frames(&folder.path().join("clip.mp4")).0, 1);
+    assert_eq!(fs::read_dir(folder.path()).unwrap().count(), 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_clip_gets_the_same_permissions_as_any_file_the_user_creates() {
+    use std::os::unix::fs::PermissionsExt;
+    let folder = tempfile::tempdir().unwrap();
+    let ordinary = folder.path().join("ordinary");
+    fs::File::create(&ordinary).unwrap();
+    let path = folder.path().join("clip.mp4");
+    let settings = Settings::new(WIDTH, HEIGHT, thirty(), Codec::OpenH264).unwrap();
+    let mut encoder = Encoder::create(&path, &settings).unwrap();
+    encoder.push(&testing::pattern(0)).unwrap();
+    encoder.finish().unwrap();
+    let mode = |path: &Path| fs::metadata(path).unwrap().permissions().mode();
+    assert_eq!(mode(&path), mode(&ordinary));
+}
+
+#[test]
+fn a_destination_without_a_file_name_is_refused() {
+    let folder = tempfile::tempdir().unwrap();
+    let settings = Settings::new(WIDTH, HEIGHT, thirty(), Codec::OpenH264).unwrap();
+    assert!(matches!(
+        Encoder::create(&folder.path().join(".."), &settings),
+        Err(Error::UnusablePath { .. })
+    ));
+}
+
+#[test]
+fn only_errors_about_the_destination_concern_it() {
+    let io = || std::io::Error::other("refused");
+    let path = PathBuf::from("clip.mp4");
+    assert!(Error::UnusablePath { path: path.clone() }.concerns_the_destination());
+    assert!(
+        Error::Create {
+            path: path.clone(),
+            source: io()
+        }
+        .concerns_the_destination()
+    );
+    assert!(Error::Persist { path, source: io() }.concerns_the_destination());
+    assert!(!Error::FrameLayout.concerns_the_destination());
+    assert!(!Error::FullRange.concerns_the_destination());
+}

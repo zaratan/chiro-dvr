@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::path::Path;
 
 use batdetect::jobs::Job;
 use files::names::Part;
@@ -31,6 +32,26 @@ pub(crate) fn processed(language: Language, job: &Job, tracks: usize) -> String 
         (Language::French, _) => format!("{video} : {tracks} pistes -> {dest}"),
         (Language::English, 1) => format!("{video}: 1 track -> {dest}"),
         (Language::English, _) => format!("{video}: {tracks} tracks -> {dest}"),
+    }
+}
+
+pub(crate) fn too_many_tracks(language: Language, job: &Job, count: usize, limit: usize) -> String {
+    let video = job.video.display();
+    match language {
+        Language::French => format!("{video} : {count} pistes, au-delà de {limit} : extraits non écrits"),
+        Language::English => format!("{video}: {count} tracks, above {limit}: clips skipped"),
+    }
+}
+
+pub(crate) fn redone(language: Language, job: &Job, clip: &Path, cause: &dyn Error) -> String {
+    let video = job.video.display();
+    let clip = clip.file_name().unwrap_or_default().to_string_lossy();
+    let cause = causes(cause);
+    match language {
+        Language::French => {
+            format!("{video} : {clip} réécrit avec openh264 après une erreur de VideoToolbox : {cause}")
+        }
+        Language::English => format!("{video}: {clip} written again with openh264 after a VideoToolbox error: {cause}"),
     }
 }
 

@@ -29,6 +29,7 @@ engine = { path = "crates/engine" }
 files = { path = "crates/files" }
 media = { path = "crates/media" }
 reference = { path = "crates/reference" }
+render = { path = "crates/render" }
 summary = { path = "crates/summary" }
 tracking = { path = "crates/tracking" }
 types = { path = "crates/types" }

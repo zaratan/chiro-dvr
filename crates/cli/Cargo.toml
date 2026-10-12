@@ -15,6 +15,7 @@ draw.workspace = true
 engine.workspace = true
 files.workspace = true
 media.workspace = true
+render.workspace = true
 serde.workspace = true
 summary.workspace = true
 thiserror.workspace = true

@@ -1,5 +1,7 @@
 #[path = "support/agreement.rs"]
 mod agreement;
+#[path = "support/clips.rs"]
+mod clips;
 
 use std::fs;
 use std::sync::OnceLock;
@@ -42,11 +44,11 @@ fn extract() -> &'static (Recording, FrameRate, Processed, tempfile::TempDir) {
 #[ignore = "slow"]
 fn the_extract_gives_the_four_tracks_of_the_reference_in_its_table() {
     let (recording, rate, processed, _out) = extract();
-    let found = agreement::agreement(processed.clone(), recording, *rate);
+    let found = agreement::agreement(processed, recording, *rate);
     assert_eq!((found.reference, found.paired, found.agreeing), (4, 4, 4));
     assert_eq!((found.lost, found.added), (0, 0));
     assert_eq!(found.discrepancies, []);
-    let table = fs::read_to_string(&found.processed.csv).unwrap();
+    let table = fs::read_to_string(&processed.csv).unwrap();
     let hits: Vec<usize> = table
         .lines()
         .skip(1)
@@ -67,4 +69,19 @@ fn the_bat_the_naturalist_confirmed_at_3_58_is_tracked() {
         start - 1.0 <= confirmed && confirmed <= end + 1.0
     });
     assert!(tracked);
+}
+
+#[test]
+#[ignore = "slow"]
+fn the_extract_gives_the_four_clips_of_the_reference_with_their_names_and_lengths() {
+    let (_recording, _rate, _processed, out) = extract();
+    let lengths = clips::lengths(&out.path().join(EXTRACT).join("clips"));
+    let expected = [
+        ("track_01_0m04s.mp4", 380),
+        ("track_02_0m23s.mp4", 108),
+        ("track_03_0m26s.mp4", 115),
+        ("track_04_0m32s.mp4", 117),
+    ]
+    .map(|(name, frames)| (name.to_owned(), frames));
+    assert_eq!(lengths, expected);
 }

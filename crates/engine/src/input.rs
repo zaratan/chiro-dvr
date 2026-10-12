@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use media::decode::{self, ActiveThreads, Decoder, FrameInfo, Threads};
 use media::frame::{self, ColorRange, YuvFrame};
-use types::frame::Pts;
+use types::frame::{FrameIndex, Pts};
 use types::rate::FrameRate;
 use types::rational::Rational;
 use types::size::SourceSize;
@@ -108,6 +108,14 @@ impl Reading {
 
     pub fn losses(&self) -> Losses {
         self.losses
+    }
+
+    pub fn key_frames(&self) -> Vec<FrameIndex> {
+        self.frames
+            .iter()
+            .filter(|info| info.is_key())
+            .map(|info| info.index())
+            .collect()
     }
 }
 
