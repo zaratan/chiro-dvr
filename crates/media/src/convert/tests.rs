@@ -208,3 +208,23 @@ fn grayish_video_left_undrawn_comes_back_close_to_itself() {
     );
     assert!(errors.0 <= 2 && errors.1 <= 2 && errors.2 <= 2, "{errors:?}");
 }
+
+#[test]
+fn every_converted_pixel_is_opaque_in_either_source_range() {
+    let mut frame = YuvFrame::new(WIDTH, HEIGHT, ColorRange::Limited).unwrap();
+    for (index, level) in frame.y_mut().iter_mut().enumerate() {
+        *level = (index % 256) as u8;
+    }
+    for (index, level) in frame.u_mut().iter_mut().enumerate() {
+        *level = (index * 7 % 256) as u8;
+    }
+    for (index, level) in frame.v_mut().iter_mut().enumerate() {
+        *level = (index * 13 % 256) as u8;
+    }
+    for range in [SourceRange::Full, SourceRange::Limited] {
+        let mut converter = Converter::new(WIDTH, HEIGHT, range).unwrap();
+        let mut rgba = vec![0; (WIDTH * HEIGHT * 4) as usize];
+        converter.yuv_to_rgba(&frame, &mut rgba).unwrap();
+        assert!(rgba.as_chunks::<4>().0.iter().all(|pixel| pixel[3] == 255), "{range:?}");
+    }
+}
