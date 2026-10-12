@@ -1,4 +1,6 @@
-use tiny_skia::{FillRule, LineCap, LineJoin, Paint, Path, PathBuilder, Pixmap, Rect, Stroke, Transform};
+use tiny_skia::{
+    BlendMode, FillRule, LineCap, LineJoin, Paint, Path, PathBuilder, Pixmap, PixmapPaint, Rect, Stroke, Transform,
+};
 
 use crate::color::Rgb;
 use crate::text::{ShapedText, TextStyle, Typeface};
@@ -83,27 +85,62 @@ impl Canvas {
             return;
         }
         let grow = i32::try_from(width - 1).unwrap_or(i32::MAX);
-        let (left, top) = (area.left.saturating_sub(grow), area.top.saturating_sub(grow));
-        let (right, bottom) = (area.right.saturating_add(grow), area.bottom.saturating_add(grow));
+        let outer = PixelBox {
+            left: area.left.saturating_sub(grow),
+            top: area.top.saturating_sub(grow),
+            right: area.right.saturating_add(grow),
+            bottom: area.bottom.saturating_add(grow),
+        };
         let bands = [
-            (left, top, right, area.top),
-            (left, area.bottom, right, bottom),
-            (left, top, area.left, bottom),
-            (area.right, top, right, bottom),
+            PixelBox {
+                bottom: area.top,
+                ..outer
+            },
+            PixelBox {
+                top: area.bottom,
+                ..outer
+            },
+            PixelBox {
+                right: area.left,
+                ..outer
+            },
+            PixelBox {
+                left: area.right,
+                ..outer
+            },
         ];
+        for band in bands {
+            self.fill_rectangle(band, color);
+        }
+    }
+
+    pub fn fill_rectangle(&mut self, area: PixelBox, color: Rgb) {
+        if area.right < area.left || area.bottom < area.top {
+            return;
+        }
+        let pixels = Rect::from_ltrb(
+            coordinate(area.left),
+            coordinate(area.top),
+            coordinate(area.right) + 1.0,
+            coordinate(area.bottom) + 1.0,
+        );
         let mut paint = paint(color);
         paint.anti_alias = false;
-        for (band_left, band_top, band_right, band_bottom) in bands {
-            let pixels = Rect::from_ltrb(
-                coordinate(band_left),
-                coordinate(band_top),
-                coordinate(band_right) + 1.0,
-                coordinate(band_bottom) + 1.0,
-            );
-            if let Some(rect) = pixels {
-                self.pixmap.fill_rect(rect, &paint, Transform::identity(), None);
-            }
+        if let Some(rect) = pixels {
+            self.pixmap.fill_rect(rect, &paint, Transform::identity(), None);
         }
+    }
+
+    pub fn paste(&mut self, source: &Canvas, left: i32, top: i32) {
+        if left > last_index(self.width()) || top > last_index(self.height()) {
+            return;
+        }
+        let copy = PixmapPaint {
+            blend_mode: BlendMode::Source,
+            ..PixmapPaint::default()
+        };
+        self.pixmap
+            .draw_pixmap(left, top, source.pixmap.as_ref(), &copy, Transform::identity(), None);
     }
 
     pub fn line(&mut self, from: Point, to: Point, color: Rgb, width: f32) {
@@ -199,6 +236,10 @@ fn traced(points: &[Point]) -> Option<PathBuilder> {
         builder.line_to(point.x, point.y);
     }
     Some(builder)
+}
+
+fn last_index(extent: u32) -> i32 {
+    i32::try_from(extent).unwrap_or(i32::MAX) - 1
 }
 
 fn coordinate(pixel: i32) -> f32 {

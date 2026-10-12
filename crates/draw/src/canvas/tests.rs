@@ -233,3 +233,155 @@ fn written_bytes_are_seen_by_the_canvas() {
     assert_eq!(at(&canvas, 1, 0), Rgb::new(9, 8, 7));
     assert_eq!((canvas.width(), canvas.height()), (2, 2));
 }
+
+#[test]
+fn a_filled_rectangle_covers_its_border_and_inside_pixels_and_nothing_else() {
+    let mut canvas = Canvas::new(40, 30, GRAY).unwrap();
+    canvas.fill_rectangle(AREA, BOX);
+    let filled = (0..30)
+        .flat_map(|y| (0..40).map(move |x| (x, y)))
+        .filter(|&(x, y)| at(&canvas, x, y) == BOX)
+        .count();
+    assert_eq!(filled, 21 * 11);
+    assert_eq!(
+        row(&canvas, 15, 9..=31),
+        [[GRAY].as_slice(), &[BOX; 21], &[GRAY]].concat()
+    );
+    assert_eq!(
+        column(&canvas, 20, 9..=21),
+        [[GRAY].as_slice(), &[BOX; 11], &[GRAY]].concat()
+    );
+}
+
+#[test]
+fn a_filled_rectangle_leaves_no_partly_covered_pixel_so_a_mask_lets_no_scene_through() {
+    let mut canvas = Canvas::new(40, 30, BLACK).unwrap();
+    canvas.fill_rectangle(AREA, WHITE);
+    assert!(
+        canvas
+            .rgba()
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .all(|pixel| pixel[..3] == [0, 0, 0] || pixel[..3] == [255, 255, 255])
+    );
+}
+
+#[test]
+fn a_filled_rectangle_past_the_edge_is_cut_to_the_canvas_rather_than_refused() {
+    let mut canvas = Canvas::new(20, 10, GRAY).unwrap();
+    let beyond = PixelBox {
+        left: -5,
+        top: -5,
+        right: 4,
+        bottom: i32::MAX,
+    };
+    canvas.fill_rectangle(beyond, BOX);
+    assert_eq!(row(&canvas, 0, 0..=5), [BOX, BOX, BOX, BOX, BOX, GRAY]);
+    assert_eq!(column(&canvas, 4, 0..=9), [BOX; 10]);
+}
+
+#[test]
+fn the_widest_possible_area_fills_the_whole_canvas() {
+    let mut canvas = Canvas::new(20, 10, GRAY).unwrap();
+    let everything = PixelBox {
+        left: i32::MIN,
+        top: i32::MIN,
+        right: i32::MAX,
+        bottom: i32::MAX,
+    };
+    canvas.fill_rectangle(everything, BOX);
+    assert_eq!(canvas, Canvas::new(20, 10, BOX).unwrap());
+}
+
+#[test]
+fn the_widest_possible_box_border_still_reaches_the_canvas() {
+    let mut canvas = Canvas::new(40, 30, GRAY).unwrap();
+    canvas.rectangle(AREA, BOX, u32::MAX);
+    assert_eq!(at(&canvas, 0, 0), BOX);
+    assert_eq!(at(&canvas, 20, 15), GRAY);
+}
+
+#[test]
+fn an_area_inverted_on_either_axis_or_off_the_canvas_fills_nothing() {
+    let mut canvas = Canvas::new(20, 20, GRAY).unwrap();
+    let before = canvas.clone();
+    let areas = [
+        PixelBox {
+            left: 5,
+            top: 5,
+            right: 4,
+            bottom: 9,
+        },
+        PixelBox {
+            left: 5,
+            top: 5,
+            right: 9,
+            bottom: 4,
+        },
+        PixelBox {
+            left: 20,
+            top: 0,
+            right: 25,
+            bottom: 5,
+        },
+        PixelBox {
+            left: -9,
+            top: -9,
+            right: -1,
+            bottom: 5,
+        },
+    ];
+    for area in areas {
+        canvas.fill_rectangle(area, WHITE);
+    }
+    assert_eq!(canvas, before);
+}
+
+#[test]
+fn pasting_copies_all_256_levels_of_every_channel_unchanged() {
+    let mut source = Canvas::new(256, 3, BLACK).unwrap();
+    for (index, pixel) in source.rgba_mut().as_chunks_mut::<4>().0.iter_mut().enumerate() {
+        let level = (index % 256) as u8;
+        *pixel = [level, level.wrapping_add(85), level.wrapping_add(170), 255];
+    }
+    let mut target = Canvas::new(300, 5, GRAY).unwrap();
+    target.paste(&source, 20, 1);
+    for y in 0..3 {
+        for x in 0..256 {
+            assert_eq!(at(&target, x + 20, y + 1), at(&source, x, y), "({x}, {y})");
+        }
+    }
+    assert_eq!(at(&target, 19, 1), GRAY);
+    assert_eq!(at(&target, 276, 1), GRAY);
+    assert_eq!(row(&target, 0, 0..=299), [GRAY; 300]);
+    assert_eq!(row(&target, 4, 0..=299), [GRAY; 300]);
+}
+
+#[test]
+fn a_canvas_pasted_past_the_edge_keeps_each_source_pixel_at_its_offset() {
+    let mut source = Canvas::new(10, 10, BLACK).unwrap();
+    for (index, pixel) in source.rgba_mut().as_chunks_mut::<4>().0.iter_mut().enumerate() {
+        *pixel = [(index % 10) as u8 * 20, (index / 10) as u8 * 20, 7, 255];
+    }
+    let mut target = Canvas::new(20, 20, GRAY).unwrap();
+    target.paste(&source, -4, 15);
+    for y in 15..20 {
+        for x in 0..6 {
+            assert_eq!(at(&target, x, y), at(&source, x + 4, y - 15), "({x}, {y})");
+        }
+    }
+    assert_eq!(at(&target, 6, 19), GRAY);
+    assert_eq!(at(&target, 0, 14), GRAY);
+}
+
+#[test]
+fn a_canvas_pasted_wholly_outside_changes_nothing_rather_than_failing() {
+    let source = Canvas::new(10, 10, WHITE).unwrap();
+    let mut target = Canvas::new(20, 20, GRAY).unwrap();
+    let before = target.clone();
+    for (left, top) in [(i32::MAX, 0), (0, i32::MAX), (i32::MIN, i32::MIN), (20, 20), (-10, 0)] {
+        target.paste(&source, left, top);
+    }
+    assert_eq!(target, before);
+}
