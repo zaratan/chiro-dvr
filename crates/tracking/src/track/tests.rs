@@ -5,9 +5,10 @@ use proptest::prelude::*;
 use types::detection::Detection;
 use types::track::Track;
 
-use super::{TrackConfig, TrackSetting, track_detections};
+use super::{TrackConfig, track_detections};
 use crate::error::Error;
 use crate::fake::{detection, frames_of, line};
+use crate::setting::Setting;
 
 const SCALE: f64 = 3.0;
 
@@ -201,12 +202,12 @@ fn settings_out_of_bounds_not_a_number_or_infinite_are_refused() {
             other => panic!("accepted {other:?}"),
         };
     for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
-        assert_eq!(refused(bad, 45.0, Some(36.0), 0.8), TrackSetting::MaxJump);
-        assert_eq!(refused(120.0, 45.0, Some(bad), 0.8), TrackSetting::TwinDistance);
-        assert_eq!(refused(120.0, 45.0, Some(36.0), bad), TrackSetting::MaxMedianTurn);
+        assert_eq!(refused(bad, 45.0, Some(36.0), 0.8), Setting::MaxJump);
+        assert_eq!(refused(120.0, 45.0, Some(bad), 0.8), Setting::TwinDistance);
+        assert_eq!(refused(120.0, 45.0, Some(36.0), bad), Setting::MaxMedianTurn);
     }
     for bad in [-1.0, f64::NAN, f64::INFINITY] {
-        assert_eq!(refused(120.0, bad, Some(36.0), 0.8), TrackSetting::MinTravel);
+        assert_eq!(refused(120.0, bad, Some(36.0), 0.8), Setting::MinTravel);
     }
 }
 

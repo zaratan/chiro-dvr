@@ -114,7 +114,16 @@ name = "batdetect"
 version = "0.0.0"
 dependencies = [
  "clap",
+ "engine",
+ "files",
  "media",
+ "reference",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tracking",
+ "types",
 ]
 
 [[package]]

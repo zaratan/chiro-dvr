@@ -6,6 +6,7 @@ use types::rate::FrameRate;
 use types::span::Span;
 
 use crate::error::Error;
+use crate::setting::Setting;
 use crate::spans::coverage;
 
 #[cfg(test)]
@@ -31,7 +32,10 @@ impl Default for StabilityConfig {
 impl StabilityConfig {
     pub fn new(max_blobs: Option<NonZeroU32>, pad_s: f64) -> Result<Self, Error> {
         if !(pad_s.is_finite() && pad_s >= 0.0) {
-            return Err(Error::Padding(pad_s));
+            return Err(Error::Setting {
+                setting: Setting::PadS,
+                value: pad_s,
+            });
         }
         Ok(Self { max_blobs, pad_s })
     }

@@ -7,6 +7,7 @@ use types::span::Span;
 use super::{StabilityConfig, crowd_limit, unstable_spans};
 use crate::error::Error;
 use crate::fake::{crowd, span};
+use crate::setting::Setting;
 
 fn rate(num: i32, den: i32) -> FrameRate {
     FrameRate::new(Rational::new(num, den).unwrap()).unwrap()
@@ -105,8 +106,14 @@ fn no_max_blobs_disables_the_filter() {
 fn a_padding_that_is_negative_or_not_finite_is_refused() {
     for pad_s in [-0.1, f64::NAN, f64::INFINITY] {
         let error = StabilityConfig::new(NonZeroU32::new(20), pad_s).unwrap_err();
-        assert!(matches!(error, Error::Padding(_)));
-        assert!(error.to_string().starts_with("pad_s must be a finite number >= 0"));
+        assert!(matches!(
+            error,
+            Error::Setting {
+                setting: Setting::PadS,
+                ..
+            }
+        ));
+        assert!(error.to_string().starts_with("pad_s is out of bounds"));
     }
 }
 

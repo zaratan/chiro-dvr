@@ -61,6 +61,13 @@ impl Damage {
     pub fn spans(&self) -> &[Span] {
         &self.spans
     }
+
+    pub fn reported_frames(&self) -> usize {
+        let mut frames: Vec<FrameIndex> = self.error_frames.iter().chain(&self.jump_frames).copied().collect();
+        frames.sort_unstable();
+        frames.dedup();
+        frames.len()
+    }
 }
 
 fn edges(losses: Losses, frame_count: usize) -> impl Iterator<Item = usize> {

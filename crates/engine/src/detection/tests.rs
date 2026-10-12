@@ -27,6 +27,7 @@ fn a_spot_crossing_a_binoculars_video_is_found_on_every_frame_without_damage() {
 
     assert_eq!(detected.reading().frames().len(), 20);
     assert_eq!(detected.active_threads(), ActiveThreads::Single);
+    assert_eq!(detected.detection_threads(), rayon::current_num_threads());
     assert_eq!(detected.half_window().get(), 15);
     assert_eq!(detected.damage().spans(), []);
     let summary: Vec<usize> = detected.summary_frames().iter().map(|(frame, _)| frame.get()).collect();
