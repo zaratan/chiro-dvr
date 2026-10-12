@@ -34,7 +34,9 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
   `reference` échouent sur un pointeur (garde dans `tests/conftest.py`). Les trois petites
   fixtures du Rust (`full_range.mp4`, `full_range_midway.mp4`, `two_gops.mp4`, quelques
   Ko) sont des fichiers git ordinaires, faits une fois par la commande de
-  [docs/11](docs/11-migration-rust.md#tests). La 092 entière `video_092_original.mp4` est
+  [docs/11](docs/11-migration-rust.md#tests). Les détections de l'extrait par le Rust
+  (`tests/fixtures/rust/`) aussi, écrites par `compare --frames` et redemandées au bit
+  près sur chaque système. La 092 entière `video_092_original.mp4` est
   une copie exacte de `in/`. Son test, marqueur `reference`, est exclu de `pytest` par
   défaut et tourne dans sa propre tâche de CI : `uv run pytest -m reference`. La tâche
   `slow-tests` ne récupère que l'extrait.
@@ -150,6 +152,7 @@ mise run rust:static      # fmt, clippy, règles de la charte, cargo deny, cargo
 mise run rust:test        # tests rapides, couverture ≥ 95 %
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:slow       # l'extrait LFS
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 092 entière
+lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --profile ci -p compare -- local  # écarts à la référence (extract, 092, local)
 ```
 
 Windows (MSVC, `/MT`, `+crt-static`) ne se construit que dans la tâche CI `rust-windows`,
@@ -165,10 +168,11 @@ crates au lot 6, dépendances à sens unique :
   (`frame`, `decode`, `encode`, `convert`, `library`) ; `convert` passe du YUV au RGBA, et retour, en BT.709.
 - `reference` → `types` : chemins des fixtures et garde LFS, lecture et écriture de la
   référence v0.1.1, appariement des détections et des pistes.
-- `engine` → `media`, `types` (#116 ; en test local aussi `tracking`) ; `tracking` → `types` (#120) ;
+- `engine` → `media`, `types` (#116) ; `tracking` → `types` (#120) ;
   `files` → `types` (#122).
 - `draw` : dessin pur sur une toile RGBA opaque, police Roboto embarquée, palette et tailles ; ne dépend d'aucune crate du workspace.
-- `compare` → `engine`, `tracking`, `reference`, `types` (#119) ;
+- `compare` → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
+  développement, binaire `compare`, non livré ;
   `cli` (paquet `batdetect`, binaire `batdetect-rs`) → `engine`, `tracking`, `files`,
   `media`, `types`.
 

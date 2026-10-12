@@ -17,7 +17,6 @@ dhat.workspace = true
 proptest.workspace = true
 reference.workspace = true
 tempfile.workspace = true
-tracking.workspace = true
 
 [lints]
 workspace = true
