@@ -1,7 +1,4 @@
-use types::detection::FrameDetections;
 use types::span::Span;
-
-use crate::error::Error;
 
 #[cfg(test)]
 mod tests;
@@ -15,13 +12,4 @@ pub(crate) fn coverage(spans: &[Span], frame_count: usize) -> Vec<bool> {
         }
     }
     covered
-}
-
-pub(crate) fn without_spans(detections: &FrameDetections, covered: &[bool]) -> Result<FrameDetections, Error> {
-    let kept = detections
-        .iter()
-        .zip(covered)
-        .map(|((_, found), &covered)| if covered { Vec::new() } else { found.to_vec() })
-        .collect();
-    Ok(FrameDetections::new(kept)?)
 }

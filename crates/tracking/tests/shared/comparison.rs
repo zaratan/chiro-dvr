@@ -30,7 +30,7 @@ pub(crate) fn compare(recording: &Recording, rate: FrameRate) -> Result<Comparis
         summary.counts.damaged_frames_reported,
         rate,
         StabilityConfig::default(),
-    )?;
+    );
     let tracked = track_detections(&exclusion.detections, TrackConfig::default())?;
     let matching = match_tracks(&recording.tracks, &tracked);
     let gaps: Vec<Option<f64>> = matching.pairs.iter().map(|(kept, found)| gap(kept, found)).collect();

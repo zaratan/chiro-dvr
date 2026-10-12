@@ -87,8 +87,7 @@ fn outcome(jump: u8) -> &'static Outcome {
                 let path = folder.path().join(format!("jump_{jump}.mp4"));
                 encode_jump(&path, jump, &noise);
                 let detected = detect(&path, Threads::Automatic, &DetectConfig::default()).unwrap();
-                let exclusion =
-                    exclude(detected.detections(), Vec::new(), 0, rate, StabilityConfig::default()).unwrap();
+                let exclusion = exclude(detected.detections(), Vec::new(), 0, rate, StabilityConfig::default());
                 Outcome {
                     detections: detected.detections().detection_count(),
                     unstable: exclusion.unstable,

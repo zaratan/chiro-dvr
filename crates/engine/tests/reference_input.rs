@@ -32,7 +32,7 @@ fn the_whole_092_reads_its_9011_frames_with_the_timestamps_key_frames_and_lack_o
         .map(|entry| (entry.pts, entry.key_frame))
         .collect();
     assert_eq!(read, expected);
-    let damage = Damage::of(&reading, summary.background_half_window).unwrap();
+    let damage = Damage::of(&reading, summary.background_half_window);
     assert_eq!(damage.error_frames(), summary.ffprobe.error_frames);
     assert_eq!(damage.jump_frames(), summary.ffprobe.gap_frames);
     assert_eq!(damage.spans(), summary.damaged_spans);

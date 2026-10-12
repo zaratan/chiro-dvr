@@ -7,7 +7,7 @@ use types::detection::{self, FrameDetections};
 use types::frame::FrameIndex;
 
 use crate::config::{self, DetectConfig};
-use crate::damage::{self, Damage};
+use crate::damage::Damage;
 use crate::detector::{BATCH, Detector};
 use crate::geometry::{self, Geometry};
 use crate::input::{self, Input, READ_AHEAD, Reading};
@@ -34,8 +34,6 @@ pub enum Error {
     },
     #[error(transparent)]
     Detections(#[from] detection::Error),
-    #[error(transparent)]
-    Damage(#[from] damage::Error),
 }
 
 #[derive(Debug)]
@@ -103,7 +101,7 @@ pub fn detect_input(input: Input, config: &DetectConfig) -> Result<Detected, Err
         Ok::<(), Error>(())
     })?;
     let detections = FrameDetections::new(detector.finish())?;
-    let damage = Damage::of(&reading, half_window.get())?;
+    let damage = Damage::of(&reading, half_window.get());
     Ok(Detected {
         reading,
         detections,

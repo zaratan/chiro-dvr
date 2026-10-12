@@ -18,7 +18,7 @@ fn config(pad_s: f64) -> StabilityConfig {
 }
 
 fn spans_hiding(counts: &[usize], damaged: &[Span]) -> Vec<Span> {
-    unstable_spans(&crowd(counts), damaged, rate(10, 1), config(0.2)).unwrap()
+    unstable_spans(&crowd(counts), damaged, rate(10, 1), config(0.2))
 }
 
 fn spans(counts: &[usize]) -> Vec<Span> {
@@ -49,7 +49,7 @@ fn a_crowded_frame_is_ignored_with_its_padding() {
 fn padding_is_rounded_to_frames_at_a_fractional_rate() {
     let mut counts = vec![0; 201];
     counts[100] = 30;
-    let found = unstable_spans(&crowd(&counts), &[], rate(30_000, 1001), StabilityConfig::default()).unwrap();
+    let found = unstable_spans(&crowd(&counts), &[], rate(30_000, 1001), StabilityConfig::default());
     assert_eq!(found, [span(70, 130)]);
 }
 
@@ -90,7 +90,7 @@ fn spans_stop_at_the_first_and_last_readable_frames_not_at_the_ends_of_the_video
 
 #[test]
 fn a_padding_longer_than_the_video_covers_every_readable_frame() {
-    let found = unstable_spans(&crowd(&[0, 30, 0]), &[], rate(10, 1), config(1e300)).unwrap();
+    let found = unstable_spans(&crowd(&[0, 30, 0]), &[], rate(10, 1), config(1e300));
     assert_eq!(found, [span(0, 2)]);
 }
 
@@ -99,7 +99,7 @@ fn no_max_blobs_disables_the_filter() {
     let mut counts = vec![0; 41];
     counts[20] = 500;
     let off = StabilityConfig::new(None, 1.0).unwrap();
-    assert_eq!(unstable_spans(&crowd(&counts), &[], rate(10, 1), off).unwrap(), []);
+    assert_eq!(unstable_spans(&crowd(&counts), &[], rate(10, 1), off), []);
 }
 
 #[test]

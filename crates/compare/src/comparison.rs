@@ -62,10 +62,7 @@ pub fn compared(detections: &FrameDetections, recording: &Recording, seconds: f6
         source,
     })?;
     Ok(Comparison {
-        detections: Agreement::of(detections, rate, recording).map_err(|source| Error::Kept {
-            video: video.clone(),
-            source,
-        })?,
+        detections: Agreement::of(detections, rate, recording),
         tracks: TrackAgreement::of(detections, rate, recording).map_err(|source| Error::Tracking {
             video: video.clone(),
             source,

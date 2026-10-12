@@ -71,34 +71,36 @@ pub(crate) fn unstable_spans(
     damaged: &[Span],
     rate: FrameRate,
     config: StabilityConfig,
-) -> Result<Vec<Span>, Error> {
+) -> Vec<Span> {
     let Some(max_blobs) = config.max_blobs else {
-        return Ok(Vec::new());
+        return Vec::new();
     };
     let hidden = coverage(damaged, detections.frame_count());
-    let readable: Vec<(usize, usize)> = detections
+    let readable: Vec<(FrameIndex, usize)> = detections
         .iter()
         .zip(hidden)
         .filter(|&(_, hidden)| !hidden)
-        .map(|((frame, found), _)| (frame.get(), found.len()))
+        .map(|((frame, found), _)| (frame, found.len()))
         .collect();
     let (Some(&(first_readable, _)), Some(&(last_readable, _))) = (readable.first(), readable.last()) else {
-        return Ok(Vec::new());
+        return Vec::new();
     };
+    let readable_span = Span::single(first_readable).hull(Span::single(last_readable));
     let counts: Vec<usize> = readable.iter().map(|&(_, count)| count).collect();
     let limit = crowd_limit(&counts, max_blobs);
     let pad = config.pad_frames(rate, detections.frame_count());
-    let mut bounds: Vec<(usize, usize)> = Vec::new();
-    for (frame, _) in readable.into_iter().filter(|&(_, count)| count >= limit) {
-        let first = frame.saturating_sub(pad).max(first_readable);
-        let last = (frame + pad).min(last_readable);
-        match bounds.last_mut() {
-            Some(previous) if first <= previous.1 + pad + 1 => previous.1 = last,
-            _ => bounds.push((first, last)),
+    let padded = readable
+        .into_iter()
+        .filter(|&(_, count)| count >= limit)
+        .filter_map(|(frame, _)| Span::single(frame).widened(pad, pad).intersection(readable_span));
+    let mut spans: Vec<Span> = Vec::new();
+    for crowded in padded {
+        match spans.last_mut() {
+            Some(previous) if crowded.first().get() <= previous.last().get() + pad + 1 => {
+                *previous = previous.hull(crowded);
+            }
+            _ => spans.push(crowded),
         }
     }
-    bounds
-        .into_iter()
-        .map(|(first, last)| Ok(Span::new(FrameIndex::new(first), FrameIndex::new(last))?))
-        .collect()
+    spans
 }

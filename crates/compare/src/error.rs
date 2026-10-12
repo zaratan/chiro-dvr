@@ -15,12 +15,6 @@ pub enum Error {
         #[source]
         source: types::rate::Error,
     },
-    #[error("cannot rebuild the detections of {video} outside the ignored spans")]
-    Kept {
-        video: String,
-        #[source]
-        source: types::detection::Error,
-    },
     #[error("cannot track the detections of {video}")]
     Tracking {
         video: String,

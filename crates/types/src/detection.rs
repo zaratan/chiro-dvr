@@ -1,4 +1,5 @@
 use crate::frame::FrameIndex;
+use crate::span::Span;
 
 #[cfg(test)]
 mod tests;
@@ -45,6 +46,18 @@ impl FrameDetections {
             }
         }
         Ok(Self { frames })
+    }
+
+    #[must_use]
+    pub fn without(&self, spans: &[Span]) -> Self {
+        let mut frames = self.frames.clone();
+        for span in spans {
+            let end = span.last().get().saturating_add(1).min(frames.len());
+            if let Some(emptied) = frames.get_mut(span.first().get()..end) {
+                emptied.fill_with(Vec::new);
+            }
+        }
+        Self { frames }
     }
 
     pub fn frame_count(&self) -> usize {

@@ -1,17 +1,11 @@
 use types::frame::{FrameIndex, Pts};
-use types::span::{self, Span};
+use types::span::Span;
 
 use crate::input::Reading;
 use crate::lost::{Losses, frames_after_jumps};
 
 #[cfg(test)]
 mod tests;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)]
-    Span(#[from] span::Error),
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Damage {
@@ -21,7 +15,7 @@ pub struct Damage {
 }
 
 impl Damage {
-    pub fn of(reading: &Reading, margin: usize) -> Result<Self, Error> {
+    pub fn of(reading: &Reading, margin: usize) -> Self {
         let frames = reading.frames();
         let error_frames: Vec<FrameIndex> = frames
             .iter()
@@ -43,11 +37,11 @@ impl Damage {
             .collect();
         starts.sort_unstable();
         starts.dedup();
-        Ok(Self {
-            spans: spans(&starts, &keys, frames.len(), margin)?,
+        Self {
+            spans: spans(&starts, &keys, frames.len(), margin),
             error_frames,
             jump_frames,
-        })
+        }
     }
 
     pub fn error_frames(&self) -> &[FrameIndex] {
@@ -76,26 +70,25 @@ fn edges(losses: Losses, frame_count: usize) -> impl Iterator<Item = usize> {
     before.into_iter().chain(after_the_end)
 }
 
-fn spans(starts: &[usize], keys: &[usize], frame_count: usize, margin: usize) -> Result<Vec<Span>, Error> {
+fn spans(starts: &[usize], keys: &[usize], frame_count: usize, margin: usize) -> Vec<Span> {
     let Some(last_frame) = frame_count.checked_sub(1) else {
-        return Ok(Vec::new());
+        return Vec::new();
     };
-    let mut bounds: Vec<(usize, usize)> = Vec::new();
+    let video = Span::single(FrameIndex::new(0)).hull(Span::single(FrameIndex::new(last_frame)));
+    let mut merged: Vec<Span> = Vec::new();
     for &start in starts {
         let next_key = keys.partition_point(|key| *key <= start);
-        let stop = keys.get(next_key).map_or(last_frame, |key| key - 1);
-        let first = start.saturating_sub(margin);
-        let last = stop.saturating_add(margin).min(last_frame);
-        if first > last {
+        let stop = keys.get(next_key).map_or(last_frame, |key| key - 1).max(start);
+        let until_key = Span::single(FrameIndex::new(start)).hull(Span::single(FrameIndex::new(stop)));
+        let Some(damaged) = until_key.widened(margin, margin).intersection(video) else {
             continue;
-        }
-        match bounds.last_mut() {
-            Some((_, previous)) if first <= previous.saturating_add(1) => *previous = last.max(*previous),
-            _ => bounds.push((first, last)),
+        };
+        match merged.last_mut() {
+            Some(previous) if damaged.first().get() <= previous.last().get().saturating_add(1) => {
+                *previous = previous.hull(damaged);
+            }
+            _ => merged.push(damaged),
         }
     }
-    bounds
-        .into_iter()
-        .map(|(first, last)| Ok(Span::new(FrameIndex::new(first), FrameIndex::new(last))?))
-        .collect()
+    merged
 }

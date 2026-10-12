@@ -634,11 +634,17 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
   - `Detection` : `frame`, barycentre `x`, `y`, boîte `left`, `top`, `width`, `height`,
     `area` et `amplitude`, en `f64` et en pixels de la vidéo d'origine.
     `FrameDetections` : une liste par image, images vides comprises, ordre gardé ; une
-    détection rangée sous une autre image est refusée.
+    détection rangée sous une autre image est refusée. `without(&[Span])` vide les
+    images couvertes par des plages, sans revalider : ce qui en sort reste valide.
   - `Span` : plage d'images, bornes comprises, refusée si elle finit avant de commencer.
+    Constructeurs qui ne peuvent pas échouer (#144) : `single` (une image), `hull` (de la
+    première à la dernière image de deux plages), `widened` (élargie de chaque côté,
+    bornée à 0 et à `usize::MAX`) et `intersection` (`None` sans image commune). Les
+    plages instables et abîmées se bâtissent ainsi, sans variante d'erreur.
   - `Track` : numéro et points, au moins un, images strictement croissantes. Mesures :
-    corde, longueur du trajet, surface maximale, amplitude de crête, virage médian
-    (médiane des changements de cap, positions répétées ignorées, 0 sans virage).
+    corde, longueur du trajet (+0 pour un seul point, jamais −0), surface maximale,
+    amplitude de crête, virage médian (médiane des changements de cap, positions
+    répétées ignorées, 0 sans virage). `with_id` renumérote sans revalider.
   - `Language` (français, anglais), `SourceSize` et `WorkScale` : taille de travail
     (largeur demandée sans agrandir, hauteur arrondie, au moins 1), et seul passage des
     pixels de travail aux pixels d'origine (coordonnée `(c + 0,5) × échelle − 0,5`,
@@ -1112,8 +1118,8 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     abîmées toutes faites, le nombre d'images signalées et la `FrameRate`. Les images
     abîmées sont retirées du calcul de stabilité, puis les détections des plages
     abîmées et instables sont vidées, images gardées. `Exclusion` rend aussi le nombre
-    d'images ignorées et celui des images abîmées, chacune comptée une fois. Le
-    contrôle du nombre d'images reste à #116.
+    d'images ignorées et celui des images abîmées, chacune comptée une fois. `exclude`
+    ne peut pas échouer (#144). Le contrôle du nombre d'images reste à #116.
   - `stability` : `StabilityConfig::new(max_blobs, pad_s)`, par défaut 20 et 1,0 s ;
     `max_blobs` est un `Option<NonZeroU32>`, `None` coupe le filtre (la commande
     traduira `--max-blobs 0`) ; `pad_s` fini, positif ou nul, sinon `Error::Setting`
@@ -1126,8 +1132,8 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
     vidéo. Seuls les bords sont bornés aux premières et dernières images lisibles : au
     milieu, une plage instable peut recouvrir une plage abîmée (093, 097). Deux plages
     séparées d'au plus le rembourrage se fondent.
-  - `spans` (interne) : images couvertes par des plages, bornées à la vidéo, et
-    détections vidées.
+  - `spans` (interne) : images couvertes par des plages, bornées à la vidéo, pour les
+    comptes d'`Exclusion`. Les détections se vident par `FrameDetections::without`.
   - Les 3 tests Python de saut de luminosité (`test_stability.py`) sont dans `compare`
     (#119) : ils enchaînent détection et stabilité.
   - La médiane porte sur toute la vidéo : la stabilité dépend de sa longueur (la
@@ -1142,7 +1148,9 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       portent les noms des clés de `params.json`. `max_gap` et `min_hits` sont des
       `NonZeroUsize`, `twin_distance` un `Option<f64>` (`None` coupe la fusion ; la
       commande traduira `0`). Un réglage hors bornes rend `Error::Setting` avec son
-      `Setting`.
+      `Setting`. `Error::Track` ne vient d'aucune entrée : c'est un garde-fou, qui
+      signale un bogue de l'association ou de la fusion des jumelles (deux points sur
+      une même image). La renumérotation finale passe par `Track::with_id`.
     - Écarts voulus à la v0.1.1 : NaN refusé pour `max_jump`, `min_travel` et
       `twin_distance` ; infini refusé pour les quatre réglages `f64` ; `Some(0)` refusé
       pour `twin_distance`, le `0` de la v0.1.1 devenant `None`.
@@ -1268,8 +1276,8 @@ Neuf crates au lot 6, `members = ["crates/*"]`. `unsafe` n'est permis que dans `
       `round`, les conversions et le tri par `total_cmp`. Toutes sont exactes ou fixées
       bit à bit par IEEE 754. La seule exception, `max` entre +0 et −0, n'arrive pas :
       on compare toujours au plancher du seuil ou à un pic qui le dépasse.
-    - `powi(2)` de `area_to_source` se calcule en une multiplication, et 1,5² = 2,25 est
-      exact. Rust ne contracte jamais a × b + c en FMA.
+    - `area_to_source` multiplie par `échelle × échelle`, et non par `powi(2)`, dont Rust
+      ne fixe pas la précision. Rust ne contracte jamais a × b + c en FMA.
     - Le décodage H.264 est exact au bit près par la norme, sauf dans les images
       dissimulées ; l'extrait n'en a aucune.
     - Hors de la chaîne, `hypot` (distance de l'appariement, association du suivi) et

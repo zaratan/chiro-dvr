@@ -40,7 +40,7 @@ impl TrackAgreement {
             summary.counts.damaged_frames_reported,
             rate,
             StabilityConfig::default(),
-        )?;
+        );
         let tracks = track_detections(&exclusion.detections, TrackConfig::default())?;
         let matching = match_tracks(&recording.tracks, &tracks);
         Ok(Self {

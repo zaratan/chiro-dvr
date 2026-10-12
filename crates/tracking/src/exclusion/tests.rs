@@ -26,7 +26,7 @@ fn counts(crowded: &[(usize, usize)], usual: usize) -> FrameDetections {
 fn run(detections: &FrameDetections, damaged: Vec<Span>) -> Exclusion {
     let rate = FrameRate::new(Rational::new(10, 1).unwrap()).unwrap();
     let stability = StabilityConfig::new(NonZeroU32::new(20), 0.2).unwrap();
-    exclude(detections, damaged, 1, rate, stability).unwrap()
+    exclude(detections, damaged, 1, rate, stability)
 }
 
 fn emptied(exclusion: &Exclusion) -> Vec<usize> {
@@ -95,4 +95,12 @@ fn the_reported_damage_and_the_damaged_spans_are_handed_back() {
 fn crowded_frames_on_both_ends_of_a_damaged_span_are_hidden() {
     let exclusion = run(&counts(&[(14, 200), (32, 200)], 1), vec![span(14, 32)]);
     assert_eq!(exclusion.unstable, []);
+}
+
+#[test]
+fn the_ignored_frame_count_is_the_number_of_frames_emptied() {
+    for damaged in [vec![], vec![span(17, 29)], vec![span(0, 3), span(55, 80)]] {
+        let exclusion = run(&counts(&[(31, 200), (50, 200)], 1), damaged);
+        assert_eq!(emptied(&exclusion).len(), exclusion.ignored_frame_count);
+    }
 }

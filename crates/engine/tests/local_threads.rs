@@ -23,7 +23,7 @@ fn frames(name: &str, half_window: usize, threads: Threads) -> (Damage, Vec<(Fra
             Ok::<(), Error>(())
         })
         .unwrap();
-    (Damage::of(&reading, half_window).unwrap(), frames)
+    (Damage::of(&reading, half_window), frames)
 }
 
 #[test]
