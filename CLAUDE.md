@@ -150,7 +150,7 @@ l'outil livré jusqu'à #106 ; docs/02 et docs/10 le décrivent, lui.
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:ffmpeg  # FFmpeg 7.1.1 + openh264, une fois par poste
 mise run rust:static      # fmt, clippy, règles de la charte, cargo deny, cargo shear
 mise run rust:test        # tests rapides, couverture ≥ 95 %
-lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:slow       # l'extrait LFS
+lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:slow       # l'extrait LFS, le test de mémoire (hors couverture)
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 092 entière
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --profile ci -p compare -- local  # écarts à la référence (extract, 092, local)
 ```

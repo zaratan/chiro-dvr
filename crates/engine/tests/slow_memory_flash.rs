@@ -46,6 +46,7 @@ fn encoded(path: &Path, flashes: &[usize]) -> PathBuf {
 }
 
 #[test]
+#[ignore = "slow"]
 fn a_full_frame_flash_seen_by_every_worker_costs_at_most_32_bytes_per_work_pixel_and_worker() {
     let folder = TempDir::new().unwrap();
     let calm = encoded(&folder.path().join("calm.mp4"), &[]);

@@ -25,9 +25,10 @@ jobs:
         run: |
           python=true
           if [ "$EVENT" = pull_request ]; then
-            changed=$(git diff --name-only HEAD^1 HEAD)
+            changed=$(git diff --name-only --no-renames HEAD^1 HEAD)
+            outside_rust_fixtures=$(grep -vE '^tests/fixtures/(rust|reference)/' <<< "$changed" || true)
             pattern='^(src/|tests/|tools/|\.github/|pyproject\.toml$|uv\.lock$|mise\.toml$)'
-            grep -qE "$pattern" <<< "$changed" || python=false
+            grep -qE "$pattern" <<< "$outside_rust_fixtures" || python=false
           fi
           echo "python=$python" >> "$GITHUB_OUTPUT"
 
@@ -144,19 +145,29 @@ jobs:
         with:
           rust: true
       - id: ffmpeg-key
+        env:
+          EVENT: ${{ github.event_name }}
+          TOOLCHAIN: ${{ hashFiles('rust-toolchain.toml') }}
+          LOCK: ${{ hashFiles('Cargo.lock') }}
         run: |
           echo "XDG_CACHE_HOME=$HOME/.cache" >> "$GITHUB_ENV"
           fingerprint=$(bash packaging/ffmpeg-unix.sh --fingerprint)
           image=${ImageOS:-$RUNNER_OS}
+          target_prefix="cargo-$GITHUB_JOB-$RUNNER_OS-$RUNNER_ARCH-$image-$fingerprint-$TOOLCHAIN-"
+          target_restore_key=
+          if [ "$EVENT" = pull_request ]; then
+            target_restore_key=$target_prefix
+          fi
           {
-            echo "fingerprint=$fingerprint"
-            echo "image=$image"
             echo "key=ffmpeg-$image-$RUNNER_ARCH-$fingerprint"
+            echo "target-key=$target_prefix$LOCK"
+            echo "target-restore-key=$target_restore_key"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
-          key: cargo-${{ github.job }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.ffmpeg-key.outputs.image }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ steps.ffmpeg-key.outputs.fingerprint }}
+          key: ${{ steps.ffmpeg-key.outputs.target-key }}
+          restore-keys: ${{ steps.ffmpeg-key.outputs.target-restore-key }}
       - id: ffmpeg-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -171,7 +182,7 @@ jobs:
       - run: mise run rust:static
       - run: mise run rust:test
       - run: mise run rust:slow
-      - run: cargo build --locked --profile ci -p batdetect
+      - run: cargo build --locked --profile ci --workspace --bin batdetect-rs
       - if: runner.os == 'macOS'
         run: |
           otool -L target/ci/batdetect-rs
@@ -183,10 +194,9 @@ jobs:
           ldd target/ci/batdetect-rs
           if ldd target/ci/batdetect-rs | grep -E 'libav|libsw|openh264'; then exit 1; fi
       - if: runner.os == 'macOS'
-        run: cargo test -p media --locked --profile ci --test 'hardware_*' -- --include-ignored
+        run: cargo test --workspace --locked --profile ci --test 'hardware_*' -- --include-ignored
 
   rust-reference:
-    needs: rust
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -209,19 +219,29 @@ jobs:
         with:
           rust: true
       - id: ffmpeg-key
+        env:
+          EVENT: ${{ github.event_name }}
+          TOOLCHAIN: ${{ hashFiles('rust-toolchain.toml') }}
+          LOCK: ${{ hashFiles('Cargo.lock') }}
         run: |
           echo "XDG_CACHE_HOME=$HOME/.cache" >> "$GITHUB_ENV"
           fingerprint=$(bash packaging/ffmpeg-unix.sh --fingerprint)
           image=${ImageOS:-$RUNNER_OS}
+          target_prefix="cargo-$GITHUB_JOB-$RUNNER_OS-$RUNNER_ARCH-$image-$fingerprint-$TOOLCHAIN-"
+          target_restore_key=
+          if [ "$EVENT" = pull_request ]; then
+            target_restore_key=$target_prefix
+          fi
           {
-            echo "fingerprint=$fingerprint"
-            echo "image=$image"
             echo "key=ffmpeg-$image-$RUNNER_ARCH-$fingerprint"
+            echo "target-key=$target_prefix$LOCK"
+            echo "target-restore-key=$target_restore_key"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
-          key: cargo-${{ github.job }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.ffmpeg-key.outputs.image }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ steps.ffmpeg-key.outputs.fingerprint }}
+          key: ${{ steps.ffmpeg-key.outputs.target-key }}
+          restore-keys: ${{ steps.ffmpeg-key.outputs.target-restore-key }}
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/batdetect/ffmpeg
@@ -277,19 +297,29 @@ jobs:
       - run: rustup toolchain install && cargo --version
       - id: ffmpeg-key
         shell: msys2 {0}
+        env:
+          EVENT: ${{ github.event_name }}
+          TOOLCHAIN: ${{ hashFiles('rust-toolchain.toml') }}
+          LOCK: ${{ hashFiles('Cargo.lock') }}
         run: |
           echo "XDG_CACHE_HOME=$(cygpath -m "$RUNNER_TEMP")/cache" >> "$GITHUB_ENV"
           fingerprint=$(bash packaging/ffmpeg-windows.sh --fingerprint)
           image=${ImageOS:-$RUNNER_OS}
+          target_prefix="cargo-$GITHUB_JOB-$RUNNER_OS-$RUNNER_ARCH-$image-$fingerprint-$TOOLCHAIN-"
+          target_restore_key=
+          if [ "$EVENT" = pull_request ]; then
+            target_restore_key=$target_prefix
+          fi
           {
-            echo "fingerprint=$fingerprint"
-            echo "image=$image"
             echo "key=ffmpeg-$image-$RUNNER_ARCH-$fingerprint"
+            echo "target-key=$target_prefix$LOCK"
+            echo "target-restore-key=$target_restore_key"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
-          key: cargo-${{ github.job }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.ffmpeg-key.outputs.image }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ steps.ffmpeg-key.outputs.fingerprint }}
+          key: ${{ steps.ffmpeg-key.outputs.target-key }}
+          restore-keys: ${{ steps.ffmpeg-key.outputs.target-restore-key }}
       - id: ffmpeg-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -314,7 +344,7 @@ jobs:
         run: cargo test --workspace --locked --profile ci --no-fail-fast --test 'slow_*' -- --include-ignored
       - shell: msys2 {0}
         run: |
-          cargo build --locked --profile ci -p batdetect
+          cargo build --locked --profile ci --workspace --bin batdetect-rs
           dumpbin -nologo -dependents target/ci/batdetect-rs.exe | tee target/dependents.txt
           dlls=$(grep -Eio '[^[:space:]]+\.dll' target/dependents.txt | tr '[:upper:]' '[:lower:]' | sort -u)
           grep -qx 'kernel32\.dll' <<< "$dlls"
@@ -324,4 +354,4 @@ jobs:
             exit 1
           fi
       - shell: msys2 {0}
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked --profile ci -- -D warnings
