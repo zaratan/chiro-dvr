@@ -228,3 +228,24 @@ fn every_converted_pixel_is_opaque_in_either_source_range() {
         assert!(rgba.as_chunks::<4>().0.iter().all(|pixel| pixel[3] == 255), "{range:?}");
     }
 }
+
+#[test]
+fn black_at_16_makes_the_cold_sky_black_without_clipping_the_warm_ground() {
+    let mut converter = Converter::new(2, 2, SourceRange::FullBlackAt16).unwrap();
+    let gray = |converter: &mut Converter, y| first_rgb(converter, &flat(2, 2, y, 128, 128), 2, 2)[0];
+    assert_eq!(gray(&mut converter, 0), 0);
+    assert_eq!(gray(&mut converter, 16), 0);
+    assert_eq!(gray(&mut converter, 17), 1);
+    assert_eq!(gray(&mut converter, 128), 119);
+    assert_eq!(gray(&mut converter, 235), 234);
+    assert_eq!(gray(&mut converter, 254), 254);
+    assert_eq!(gray(&mut converter, 255), 255);
+}
+
+#[test]
+fn black_at_16_leaves_the_colour_planes_as_a_full_range_source_reads_them() {
+    let mut shifted = Converter::new(2, 2, SourceRange::FullBlackAt16).unwrap();
+    let mut full = Converter::new(2, 2, SourceRange::Full).unwrap();
+    let red = first_rgb(&mut full, &flat(2, 2, 255, 90, 240), 2, 2);
+    assert_eq!(first_rgb(&mut shifted, &flat(2, 2, 255, 90, 240), 2, 2), red);
+}

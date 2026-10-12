@@ -74,6 +74,22 @@ fn outside_a_french_locale_the_table_is_named_in_english() {
 }
 
 #[test]
+fn a_video_gives_a_summary_image_as_tall_as_the_video_named_in_the_language_of_the_messages() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    for (lang, name) in [("fr_FR.UTF-8", "flight_resume.png"), ("C", "flight_summary.png")] {
+        let output = run(&[&videos, Path::new("-o"), &out], lang);
+        assert!(output.status.success(), "{}", text(&output.stderr));
+        let image = fs::read(out.join("flight").join(name)).unwrap();
+        assert_eq!(&image[..8], b"\x89PNG\r\n\x1a\n");
+        let width = u32::from_be_bytes(image[16..20].try_into().unwrap());
+        let height = u32::from_be_bytes(image[20..24].try_into().unwrap());
+        assert!(width >= 1440, "{width}");
+        assert_eq!(height, 1080);
+    }
+}
+
+#[test]
 fn params_json_records_the_settings_by_configuration_and_the_threads_really_used() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let out = root.path().join("out");

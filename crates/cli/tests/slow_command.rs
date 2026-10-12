@@ -26,7 +26,14 @@ fn extract() -> &'static (Recording, FrameRate, Processed, tempfile::TempDir) {
         let out = tempfile::tempdir().unwrap();
         let video = fixture(&format!("{EXTRACT}.mp4")).unwrap();
         let job = agreement::job(&video, &out.path().join(EXTRACT));
-        let processed = process(&job, Language::English, Threads::Automatic, agreement::VERSIONS).unwrap();
+        let processed = process(
+            &job,
+            Language::English,
+            &agreement::DebugLabels,
+            Threads::Automatic,
+            agreement::VERSIONS,
+        )
+        .unwrap();
         (recording, rate, processed, out)
     })
 }

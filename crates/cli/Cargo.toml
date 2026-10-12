@@ -11,10 +11,12 @@ name = "batdetect-rs"
 
 [dependencies]
 clap.workspace = true
+draw.workspace = true
 engine.workspace = true
 files.workspace = true
 media.workspace = true
 serde.workspace = true
+summary.workspace = true
 thiserror.workspace = true
 tracking.workspace = true
 types.workspace = true

@@ -19,7 +19,14 @@ fn the_092_gives_the_fourteen_tracks_of_the_reference() {
     let out = tempfile::tempdir().unwrap();
     let video = fixture(&format!("{WHOLE}.mp4")).unwrap();
     let job = agreement::job(&video, &out.path().join(WHOLE));
-    let processed = process(&job, Language::English, Threads::Automatic, agreement::VERSIONS).unwrap();
+    let processed = process(
+        &job,
+        Language::English,
+        &agreement::DebugLabels,
+        Threads::Automatic,
+        agreement::VERSIONS,
+    )
+    .unwrap();
     let found = agreement::agreement(processed, &recording, rate);
     assert_eq!(found.processed.tracks.len(), 14);
     assert_eq!((found.reference, found.paired, found.agreeing), (14, 14, 14));

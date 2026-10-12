@@ -387,6 +387,12 @@ Forme et tests :
   - Écartés : `fontdue` et `rusttype` (ils tirent `ttf-parser`), `swash` (un second
     rastériseur à côté de tiny-skia), `icu_normalizer` (une quinzaine de crates pour une
     seule normalisation).
+- **PNG de l'image résumé** (#104, accord de la tour) : `png` 0.18.1 (MIT OR
+  Apache-2.0), en direct dans `summary`, RGB 8 bits ; il tire `fdeflate` 0.3.7 (même
+  licence). `draw` reste sans format de fichier, et la feature `png` de tiny-skia tirerait
+  les mêmes crates. `png` dépend de `miniz_oxide` 0.8 quand `flate2` prend la 0.9 : le
+  doublon existait par `dhat`, il entre avec `png` dans le binaire livré (avertissement
+  de `cargo deny`).
 - `clap` n'a que la feature `string` ; `derive` attendra la commande complète (#123).
 - `cargo deny check` :
   - échoue sur un avis de sécurité, un paquet retiré (`yanked`), une licence hors
@@ -619,10 +625,24 @@ Mesure du 11 octobre 2026 (#101) :
   quelle que soit leur étiquette. Les fichiers produits restent en plage limitée BT.709
   (#111), resserrés sans écrêtage. L'application aux extraits revient à #112, celle à
   l'image résumé à #104.
+- **Noir calé sur 16** (décision de l'utilisateur, 12 octobre 2026, à l'œil sur les fonds
+  de la 092, de la 122 et de la 124, #104) :
+  - Lu en plage pleine, le ciel froid, autour de Y = 16, sort gris et non noir. Le fond
+    de l'image résumé a un plancher à 10 (1er centile, après l'assombrissement à 0,6),
+    et aucun pixel à 2 ou moins sur la 092, contre 26,6 % en v0.1.1 : un voile.
+  - Trois variantes comparées : plage pleine, plage limitée (comme la v0.1.1, blancs
+    écrêtés au-dessus de Y = 235), et noir calé sur 16 sans écrêter les blancs.
+  - Retenue : `Y' = max(0, Y − 16) × 255 / 239`, arrondi au plus proche, avant la
+    conversion en plage pleine ; la chrominance ne change pas. Y = 16 et en dessous
+    deviennent noirs, Y = 255 reste blanc, les zones chaudes gardent leurs nuances.
+  - Fond de la 092 : plancher 0, médiane 75 (80 en plage pleine, 79 en v0.1.1),
+    24,8 % de pixels à 2 ou moins (26,6 % en v0.1.1).
+  - Ce réglage ne touche que l'affichage : la détection lit Y brut.
+  - Il vaut aussi pour les extraits (#112).
 
 ## Crates
 
-Dix crates depuis #110, `members = ["crates/*"]`. `unsafe` n'est permis que dans `media`.
+Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*"]`. `unsafe` n'est permis que dans `media`.
 
 - **`types`** : vocabulaire commun, sans entrée-sortie ni algorithme de détection. Un
   type n'y entre que s'il est produit par une crate et lu par au moins deux autres. Gelé
@@ -738,7 +758,9 @@ Dix crates depuis #110, `members = ["crates/*"]`. `unsafe` n'est permis que dans
       11 octobre 2026 (#111).
     - **Plage lue** : un paramètre explicite (`SourceRange`), pas l'étiquette de l'image.
       Nos jumelles se lisent en plage pleine (décision de l'utilisateur, 11 octobre
-      2026, sur la mesure de [Plage réelle des sources](#plage-réelle-des-sources)).
+      2026, sur la mesure de [Plage réelle des sources](#plage-réelle-des-sources)),
+      noir calé sur 16 (`SourceRange::FullBlackAt16`, 12 octobre 2026) : une table de
+      256 niveaux appliquée au plan Y pendant la copie qui précède la conversion.
     - **Plage écrite** : le retour au YUV se fait toujours en plage limitée. Une source
       pleine y est resserrée sans rien écrêter : Y 0 devient 16 et Y 255 devient 235.
     - Aucune allocation par image.
@@ -802,6 +824,54 @@ Dix crates depuis #110, `members = ["crates/*"]`. `unsafe` n'est permis que dans
       test.
   - Choix faits sur une planche de rendus : Roboto contre Noto Sans et IBM Plex Sans,
     sur l'image 716 de l'extrait, comparée au rendu de la v0.1.1.
+- **`summary`** → `draw`, `types`, `files` : l'image résumé (#104), une page par tranche
+  de 10 minutes, sans FFmpeg : `cli` lui donne le fond déjà converti.
+  - Modules : `geometry` (chemins en `f64`, point à une longueur, rééchantillonnage,
+    point le plus proche), `colors`, `arrows`, `placement`, `periods`, `header`,
+    `marker`, `legend`, `layout` (les données d'une page), `compose` (le dessin),
+    `image_file` (PNG).
+  - Mêmes règles que la v0.1.1 pour les couleurs (indice le moins employé autour), les
+    flèches (25°, 3 % de la longueur), la légende (colonnes, coupe par « ... ») et les
+    tranches. Les tris Python deviennent des clés entières ; les points ne sont pas
+    arrondis avant le dessin (règle 5).
+  - Temps par les `pts` (#35) : durée = début de l'image qui suivrait la dernière, tranche
+    et temps de légende d'une piste = `frame_seconds` de sa première image, plages =
+    `spans_in_seconds`, comme `params.json`.
+  - Bandeau : `header` rend des `HeaderLine` (nom, pistes, fenêtre, hors analyse, « + N »,
+    illisible), et un trait `Labels` les met en texte. Libellés v0.1.1 gardés, avec
+    accents possibles (police Roboto, NFC).
+  - Masques de l'affichage : une liste de rectangles peints en gris de panneau avant
+    l'assombrissement, vide jusqu'à #151.
+  - Écarts voulus : fond lu en plage pleine, noir calé sur 16
+    ([Plage réelle des sources](#plage-réelle-des-sources)) ; police et rayon de
+    `draw::style` (rayon 23 en 1440, 29 pour un numéro à trois chiffres contre 26 en
+    v0.1.1).
+  - **Placement des pastilles** (choix de l'utilisateur, 12 octobre 2026) : zéro
+    pastille hors cadre et zéro recouvrement, chaque pastille au plus près de sa piste.
+    - Candidats tous les demi-rayons le long de la piste ; clé (pastilles touchées,
+      flèches touchées, croisements, écart au quart de la piste).
+    - Une pastille qui ne touche qu'une tête de flèche reste sur sa piste. Si elle
+      touche une autre pastille, elle s'écarte de sa piste par anneaux d'un demi-rayon
+      (16 directions, 40 anneaux au plus) : le premier anneau sans autre pastille
+      l'emporte, et dans cet anneau une place libre des flèches passe d'abord. Un trait de rappel, aux couleurs de la piste, la relie
+      alors au point le plus proche de sa piste dès qu'elle ne la touche plus.
+    - Puis jusqu'à 8 passes : chaque pastille encore en collision est replacée, si la
+      nouvelle place touche moins que l'ancienne.
+    - Mesure sur les pistes de la référence (26 vidéos, 966 pistes), centres à moins
+      de 2 rayons : v0.1.1 266 recouvrements, portage fidèle 349, placement retenu 0 ;
+      aucune pastille hors cadre. 121 pastilles s'écartent de leur piste de plus d'un
+      rayon, presque toutes sur les vidéos denses ; la plus éloignée est à 304 px (096).
+  - PNG écrit dans `.<nom>.partial` à côté, puis renommé ; droits ordinaires du
+    fichier créé (un fichier temporaire de `tempfile` resterait en `0600`).
+  - Fond de la 092 mesuré une fois contre la v0.1.1 (luminance, hors traits, 81 % des
+    pixels), avant le choix du noir calé sur 16 : SSIM 0,702 tel quel en plage pleine,
+    0,984 ramené en plage limitée pour la mesure (écart moyen 1,4 niveau).
+  - Tests : les 57 tests Python portés (sauf « en-tête ASCII », inversé en « nom
+    décomposé dessiné comme le nom composé ») ; `tests/v011.rs` compare, sur l'extrait
+    et la 092 de la référence, numéros, couleurs, tranches et en-tête aux attendus de la
+    v0.1.1 ; `tests/local_v011.rs` fait de même sur les 26 vidéos (15 écarts d'horloge
+    par les `pts`, listés : 13 temps de légende, une ligne « hors analyse » de la 096,
+    une durée illisible de la 120).
 - **`reference`** → `types` : la référence v0.1.1 en Rust. Gelée pour le lot depuis
   #124, comme `types`.
   - `fixture` : chemins des fixtures et garde LFS. `location` : `committed(nom)` pour
@@ -1005,11 +1075,21 @@ Dix crates depuis #110, `members = ["crates/*"]`. `unsafe` n'est permis que dans
       contigus zippés avec une réserve de tampons (un par fil `rayon`), rangés dans
       l'ordre. La lecture anticipée passe à 36 images pour la détection, `read` en
       garde 4.
-    - `summary_frames` : les 25 images du fond de l'image résumé, aux rangs
-      `(2i + 1) × N / 50` (N annoncé ; toutes si N < 25), gardées en YUV entier ; la
-      plage d'affichage se décide dans #104. Un rang perdu en fin de vidéo donne moins
-      d'images, comme la v0.1.1. Une image dans une plage abîmée est gardée : la
-      médiane de 25 l'absorbe. Rang exact, sans le positionnement imprécis d'OpenCV.
+    - `background` : le fond de l'image résumé (#104). Les 25 images aux rangs
+      `(2i + 1) × N / 50` (N annoncé ; toutes si N < 25) sont gardées en YUV entier
+      pendant la lecture. Rang exact, sans le positionnement imprécis d'OpenCV. Un rang
+      perdu en fin de vidéo donne moins d'images, comme la v0.1.1.
+      - À la fin de la lecture, les images qui tombent dans une plage abîmée sont
+        écartées, sauf s'il n'en reste aucune (décision de l'utilisateur, 12 octobre
+        2026). Leurs pixels masqués par FFmpeg dépendent du nombre de fils (règle 16), et
+        elles sont la majorité sur 121 à 124 : 15 à 21 rangs sur 25 sur les plages v0.1.1.
+        En Rust, 16 écartées sur la 122 (9 gardées), 21 sur la 124 (4 gardées).
+      - Médiane plan par plan, échantillon par échantillon, par sélection
+        (`select_nth_unstable`) sur un tampon réutilisé. Nombre pair : demi-somme des deux
+        valeurs du milieu, arrondie au plus proche (règle 5, sans imiter
+        `np.median().round()`). 0,29 s sur la 092 (profil `ci`).
+      - `Detected::background()` rend l'image médiane, ou rien si aucune n'a été gardée ;
+        les 25 images gardées sont libérées à la fin de la lecture.
     - Différences avec la v0.1.1, hors gris : gris puis réduction (la v0.1.1 réduit
       l'image en couleur, puis passe en gris), noyau quantifié sur 4 096 (la v0.1.1
       floute en `float32` avec le noyau exact), médiane et MAD sur des unités de 1/64
@@ -1090,7 +1170,7 @@ Dix crates depuis #110, `members = ["crates/*"]`. `unsafe` n'est permis que dans
       125 0:15. Par (a) : 097 2:43, 098 0:05, 099 0:19, 099 0:27, 100 1:36 (deux), 126
       1:32 ; 097 2:43, 099 0:19 et 100 1:36 sont dans les deux.
     - La formule sera retentée après la 0.2.0 (issue en Backlog).
-- **`cli`** → `engine`, `tracking`, `files`, `media`, `types` : paquet `batdetect`, binaire
+- **`cli`** → `engine`, `tracking`, `files`, `summary`, `draw`, `media`, `types` : paquet `batdetect`, binaire
   `batdetect-rs` (#123). Tout texte vu par l'utilisateur vit dans `messages.rs`, avec la
   ligne de commande. La bibliothèque (`jobs`, `language`, `process`, `settings`) sert aux
   tests.
@@ -1104,13 +1184,18 @@ Dix crates depuis #110, `members = ["crates/*"]`. `unsafe` n'est permis que dans
     `pts` lus, puis `exclude`. Les plages abîmées viennent du moteur, et les images
     signalées sont l'union des images en erreur et après un saut. Puis
     `track_detections`, puis le CSV et `params.json` de `files`.
-  - Ni image résumé, ni extraits, ni ménage des sorties précédentes (#115).
+  - Image résumé (#104) : `overview`, appelée après `params.json`, si bien qu'un échec du
+    fond laisse le CSV et les réglages. Le fond passe par
+    `Converter::new(…, SourceRange::FullBlackAt16)`, puis `summary::pages` ; chaque page
+    prend son nom par `Names::summary_png`. Pas de fond : erreur `NoBackground`.
+  - Ni extraits, ni ménage des sorties précédentes (#115).
   - Langue du système : la première variable non vide parmi `LANGUAGE`, `LC_ALL`,
     `LC_MESSAGES` et `LANG`. Dans une liste (`LANGUAGE=de:fr`), c'est la première langue
     qui a des messages qui compte : `fr*` pour le français, `en*` pour l'anglais. Sans
     aucune des deux, c'est l'anglais. Le Python ne connaissait que le catalogue
     français : `en:fr` y donnait du français, ici de l'anglais. La langue choisit le nom
-    du CSV et la ligne de chaque vidéo traitée (« nom : N pistes -> dossier »).
+    du CSV et la ligne de chaque vidéo traitée (« nom : N pistes -> dossier »), et aussi
+    le nom et le bandeau de l'image résumé (`SummaryLabels`, dans `messages.rs`).
   - Textes : les lignes de réussite et la ligne de commande vivent dans `messages.rs`.
     Les causes d'un échec sont les `Display` des erreurs, en anglais, comme pour
     `engine` et `files`, y compris celles de la bibliothèque de la commande ; Fluent les
@@ -1533,3 +1618,11 @@ Format, emplacement et versions de la référence que le Rust doit égaler : REA
 apparie chacune à elle-même. Les 16 cas de réglages de #149 sont dans
 `tests/fixtures/reference/settings/` ([Réglages](#réglages)) ;
 `crates/reference/tests/committed_settings.rs` les relit.
+
+Attendus de l'image résumé (#104) : `tools/summary_v011.py` relit `tracks.jsonl` et
+`video.json` d'un enregistrement, sans relancer la détection, avec la même garde que
+`tools/reference_v011.py`. Tranches, couleurs et horloges viennent des fonctions v0.1.1
+(`split_by_period`, `assign_colors`, `format_clock`, `format_duration`) ; l'en-tête est
+recomposé en lignes structurées selon `header_lines`, sans les textes. Ceux de l'extrait
+et de la 092 sont dans `crates/summary/tests/fixtures/` ; ceux des 26 vidéos dans
+`summary/` du dossier de référence local, à côté de `data/`.

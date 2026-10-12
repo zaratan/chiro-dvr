@@ -1,0 +1,95 @@
+{
+ "video": "video_092_original.mp4",
+ "periods": [
+  {
+   "suffix": "",
+   "header": [
+    {
+     "line": "name",
+     "text": "video_092_original"
+    },
+    {
+     "line": "tracks",
+     "count": 14
+    },
+    {
+     "line": "window",
+     "start": "0:00",
+     "end": "5:00"
+    }
+   ],
+   "tracks": [
+    {
+     "id": 1,
+     "color": 0,
+     "start": "0:07"
+    },
+    {
+     "id": 2,
+     "color": 1,
+     "start": "0:33"
+    },
+    {
+     "id": 3,
+     "color": 2,
+     "start": "0:51"
+    },
+    {
+     "id": 4,
+     "color": 3,
+     "start": "0:53"
+    },
+    {
+     "id": 5,
+     "color": 4,
+     "start": "1:12"
+    },
+    {
+     "id": 6,
+     "color": 5,
+     "start": "1:48"
+    },
+    {
+     "id": 7,
+     "color": 6,
+     "start": "2:02"
+    },
+    {
+     "id": 8,
+     "color": 7,
+     "start": "2:24"
+    },
+    {
+     "id": 9,
+     "color": 8,
+     "start": "2:36"
+    },
+    {
+     "id": 10,
+     "color": 9,
+     "start": "2:43"
+    },
+    {
+     "id": 11,
+     "color": 10,
+     "start": "3:29"
+    },
+    {
+     "id": 12,
+     "color": 11,
+     "start": "3:48"
+    },
+    {
+     "id": 13,
+     "color": 5,
+     "start": "3:50"
+    },
+    {
+     "id": 14,
+     "color": 2,
+     "start": "3:57"
+    }
+   ]
+  }
+ ]
+}

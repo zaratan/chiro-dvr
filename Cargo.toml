@@ -14,6 +14,7 @@ clap = { version = "4.6.7", features = ["string"] }
 dhat = "0.3.3"
 ffmpeg-next = { version = "9.0.0", default-features = false, features = ["codec", "format", "software-scaling"] }
 flate2 = "1.1.10"
+png = "0.18.1"
 proptest = "1.11.0"
 rayon = "1.12.0"
 skrifa = "0.48.0"
@@ -23,10 +24,12 @@ tempfile = "3.27.0"
 thiserror = "2.0.21"
 tiny-skia = { version = "0.12.0", default-features = false, features = ["std", "simd"] }
 unicode-normalization = "0.1.25"
+draw = { path = "crates/draw" }
 engine = { path = "crates/engine" }
 files = { path = "crates/files" }
 media = { path = "crates/media" }
 reference = { path = "crates/reference" }
+summary = { path = "crates/summary" }
 tracking = { path = "crates/tracking" }
 types = { path = "crates/types" }
 

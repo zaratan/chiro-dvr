@@ -31,7 +31,8 @@ fn run(jobs: &[Job], language: Language) -> ExitCode {
     };
     let mut failures = 0_usize;
     for job in jobs {
-        let line = match process(job, language, Threads::Automatic, versions) {
+        let labels = messages::SummaryLabels(language);
+        let line = match process(job, language, &labels, Threads::Automatic, versions) {
             Ok(processed) => writeln!(
                 io::stdout().lock(),
                 "{}",

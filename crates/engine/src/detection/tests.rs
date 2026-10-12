@@ -30,14 +30,10 @@ fn a_spot_crossing_a_binoculars_video_is_found_on_every_frame_without_damage() {
     assert_eq!(detected.detection_threads(), rayon::current_num_threads());
     assert_eq!(detected.half_window().get(), 15);
     assert_eq!(detected.damage().spans(), []);
-    let summary: Vec<usize> = detected.summary_frames().iter().map(|(frame, _)| frame.get()).collect();
-    assert_eq!(summary, (0..20).collect::<Vec<_>>());
-    assert!(
-        detected
-            .summary_frames()
-            .iter()
-            .all(|(_, yuv)| (yuv.width(), yuv.height()) == (1440, 1080))
-    );
+    let background = detected.background().unwrap();
+    assert_eq!((background.width(), background.height()), (1440, 1080));
+    let level = |x: usize, y: usize| i32::from(background.y()[y * 1440 + x]);
+    assert!((level(304, 604) - level(1000, 900)).abs() <= 2);
     for (frame, found) in detected.detections().iter() {
         assert_eq!(found.len(), 1, "{frame:?}: {found:?}");
         assert!(
