@@ -33,9 +33,10 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
   les deux de la 092 et `video_092_original_3m24-4m05_720x540.mp4`, l'extrait réduit une
   fois par la commande de [docs/11](docs/11-migration-rust.md#réglages), jamais refait.
   `git lfs pull` après un clone, sinon les tests `slow` et `reference` échouent sur un
-  pointeur (garde dans `tests/conftest.py`). Les trois petites
-  fixtures du Rust (`full_range.mp4`, `full_range_midway.mp4`, `two_gops.mp4`, quelques
-  Ko) sont des fichiers git ordinaires, faits une fois par la commande de
+  pointeur (garde dans `tests/conftest.py`). Les cinq petites
+  fixtures du Rust (`full_range.mp4`, `full_range_midway.mp4`, `two_gops.mp4`, `spot.mp4`
+  et son remux en plage pleine `spot_full_range.mp4`, quelques Ko) sont des fichiers git
+  ordinaires, faits une fois par la commande de
   [docs/11](docs/11-migration-rust.md#tests). Les détections de l'extrait par le Rust
   (`tests/fixtures/rust/`) aussi, écrites par `compare --frames` et redemandées au bit
   près sur chaque système. La 092 entière `video_092_original.mp4` est
@@ -167,7 +168,7 @@ Workspace virtuel, `members = ["crates/*"]`, toolchain de `rust-toolchain.toml`.
 crates depuis #104, dépendances à sens unique :
 
 - `types` : vocabulaire commun (`Rational`, `FrameIndex`, `Pts`, `FrameRate`, `Timeline`,
-  `Detection`, `FrameDetections`, `Span`, `Track`, `Language`, `SourceSize`, `WorkScale`).
+  `Detection`, `Measures`, `FrameDetections`, `Span`, `Track`, `Language`, `SourceSize`, `WorkScale`).
   Ne dépend d'aucune autre crate du workspace.
 - `media` → `types` : seule frontière avec FFmpeg et seule crate avec `unsafe`
   (`frame`, `decode`, `encode`, `convert`, `library`) ; `convert` passe du YUV au RGBA, et retour, en BT.709 ;

@@ -23,6 +23,34 @@ impl Detection {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Measures {
+    pub x: f64,
+    pub y: f64,
+    pub left: f64,
+    pub top: f64,
+    pub width: f64,
+    pub height: f64,
+    pub area: f64,
+    pub amplitude: f64,
+}
+
+impl Measures {
+    pub fn at(self, frame: FrameIndex) -> Detection {
+        Detection {
+            frame,
+            x: self.x,
+            y: self.y,
+            left: self.left,
+            top: self.top,
+            width: self.width,
+            height: self.height,
+            area: self.area,
+            amplitude: self.amplitude,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct FrameDetections {
     frames: Vec<Vec<Detection>>,
@@ -46,6 +74,12 @@ impl FrameDetections {
             }
         }
         Ok(Self { frames })
+    }
+
+    pub fn push(&mut self, found: impl IntoIterator<Item = Measures>) {
+        let frame = FrameIndex::new(self.frames.len());
+        self.frames
+            .push(found.into_iter().map(|measures| measures.at(frame)).collect());
     }
 
     #[must_use]

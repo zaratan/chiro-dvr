@@ -14,8 +14,6 @@ use crate::read_ahead::{Stop, read_ahead};
 #[cfg(test)]
 mod tests;
 
-pub(crate) const SUPPORTED_WIDTH: u32 = 1440;
-pub(crate) const SUPPORTED_HEIGHT: u32 = 1080;
 pub(crate) const READ_AHEAD: NonZeroUsize = NonZeroUsize::MIN.saturating_add(3);
 
 #[derive(Debug, thiserror::Error)]
@@ -26,10 +24,6 @@ pub enum Error {
         #[source]
         source: decode::Error,
     },
-    #[error("{} is in full range, only limited range is handled", path.display())]
-    FullRange { path: PathBuf },
-    #[error("{} is {width}×{height}, only {SUPPORTED_WIDTH}×{SUPPORTED_HEIGHT} is handled", path.display())]
-    UnsupportedSize { path: PathBuf, width: u32, height: u32 },
     #[error("{} announces no frame", path.display())]
     NoAnnouncedFrames { path: PathBuf },
     #[error(
@@ -119,18 +113,11 @@ impl Reading {
 
 impl Input {
     pub fn open(path: &Path, threads: Threads) -> Result<Self, Error> {
-        let input = Self::open_any_size(path, threads)?;
-        supported_size(path, input.video.size)?;
-        Ok(input)
-    }
-
-    pub(crate) fn open_any_size(path: &Path, threads: Threads) -> Result<Self, Error> {
         let decoder = Decoder::open(path, threads).map_err(|source| Error::Decode {
             path: path.to_path_buf(),
             source,
         })?;
         let stream = *decoder.stream();
-        limited_range(path, stream.range())?;
         let video = Video {
             path: path.to_path_buf(),
             size: stream.size(),
@@ -200,23 +187,10 @@ impl Input {
 }
 
 fn next_frame(decoder: &mut Decoder, slot: &mut YuvFrame, path: &Path) -> Result<Option<FrameInfo>, Error> {
-    let info = decoder.next(slot).map_err(|source| Error::Decode {
+    decoder.next(slot).map_err(|source| Error::Decode {
         path: path.to_path_buf(),
         source,
-    })?;
-    if info.is_some() {
-        limited_range(path, slot.range())?;
-    }
-    Ok(info)
-}
-
-fn limited_range(path: &Path, range: ColorRange) -> Result<(), Error> {
-    match range {
-        ColorRange::Limited | ColorRange::Unspecified => Ok(()),
-        ColorRange::Full => Err(Error::FullRange {
-            path: path.to_path_buf(),
-        }),
-    }
+    })
 }
 
 fn announced(path: &Path, frames: Option<NonZeroU64>) -> Result<NonZeroUsize, Error> {
@@ -226,19 +200,6 @@ fn announced(path: &Path, frames: Option<NonZeroU64>) -> Result<NonZeroUsize, Er
         .ok_or_else(|| Error::NoAnnouncedFrames {
             path: path.to_path_buf(),
         })
-}
-
-fn supported_size(path: &Path, size: SourceSize) -> Result<(), Error> {
-    let (width, height) = (size.width().get(), size.height().get());
-    if (width, height) == (SUPPORTED_WIDTH, SUPPORTED_HEIGHT) {
-        Ok(())
-    } else {
-        Err(Error::UnsupportedSize {
-            path: path.to_path_buf(),
-            width,
-            height,
-        })
-    }
 }
 
 fn explained(video: &Video, pts: &[Option<Pts>], after_last: usize) -> Result<Losses, Error> {

@@ -26,24 +26,20 @@ fn the_binoculars_frame_is_worked_on_at_960_by_720_one_and_a_half_source_pixels_
 }
 
 #[test]
-fn only_a_reduction_by_three_to_two_is_handled() {
-    assert_eq!(
-        geometry(1440, 1080, 720),
-        Err(Error::Reduction {
-            width: 1440,
-            height: 1080,
-            work_width: 720
-        })
-    );
-    assert!(matches!(geometry(1441, 1080, 960), Err(Error::Reduction { .. })));
-    assert!(matches!(geometry(1440, 1081, 960), Err(Error::Reduction { .. })));
-}
+fn any_reduction_works_on_the_rounded_height_of_its_scale_and_never_enlarges() {
+    let sizes = [
+        (1440, 1080, 1000),
+        (1440, 1080, 997),
+        (1441, 1081, 960),
+        (720, 540, 960),
+        (1440, 1080, 480),
+    ]
+    .map(|(width, height, work_width)| {
+        let geometry = geometry(width, height, work_width).unwrap();
+        (geometry.width(), geometry.height())
+    });
 
-#[test]
-fn a_work_frame_too_small_for_the_target_filter_is_refused() {
-    assert_eq!(geometry(12, 240, 8), Err(Error::TooSmall { width: 8, height: 160 }));
-    assert!(matches!(geometry(240, 12, 160), Err(Error::TooSmall { .. })));
-    assert!(geometry(15, 15, 10).is_ok());
+    assert_eq!(sizes, [(1000, 750), (997, 748), (960, 720), (720, 540), (480, 360)]);
 }
 
 #[test]

@@ -6,6 +6,8 @@ use types::size::SourceSize;
 use rayon::ThreadPoolBuilder;
 
 use super::{BATCH, Detector, gain_of};
+use crate::blur::Blur;
+use crate::closing::Disk;
 use crate::config::DetectConfig;
 use crate::geometry::Geometry;
 use crate::synthetic::{Noise, background, luma, with_square};
@@ -25,8 +27,12 @@ fn detected_by(frames: impl IntoIterator<Item = Vec<u8>>, batch: NonZeroUsize) -
         NonZeroU32::new(HEIGHT as u32).unwrap(),
     );
     let geometry = Geometry::new(source, NonZeroU32::new(WIDTH as u32 / 3 * 2).unwrap()).unwrap();
+    let blur = Blur::new(1.0, geometry).unwrap();
+    let disk = Disk::new(4.0, geometry);
     let mut detector = Detector::new(
         geometry,
+        &blur,
+        &disk,
         NonZeroUsize::new(15).unwrap(),
         &DetectConfig::default(),
         batch,
@@ -34,7 +40,7 @@ fn detected_by(frames: impl IntoIterator<Item = Vec<u8>>, batch: NonZeroUsize) -
     for frame in frames {
         detector.push(&frame);
     }
-    detector.finish()
+    detector.finish().iter().map(|(_, found)| found.to_vec()).collect()
 }
 
 fn calm(index: usize) -> Vec<u8> {

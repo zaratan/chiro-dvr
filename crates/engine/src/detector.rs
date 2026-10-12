@@ -1,10 +1,10 @@
 use std::num::NonZeroUsize;
 
 use rayon::prelude::*;
-use types::detection::Detection;
-use types::frame::FrameIndex;
+use types::detection::{FrameDetections, Measures};
 
-use crate::closing::Closing;
+use crate::blur::Blur;
+use crate::closing::{Closing, Disk};
 use crate::components::Components;
 use crate::config::{DetectConfig, MAX_BACKGROUND_SAMPLES};
 use crate::convert::{narrowed, wide};
@@ -30,7 +30,7 @@ pub(crate) struct Detector {
     pending: Vec<Vec<u8>>,
     spare: Vec<Vec<u8>>,
     slots: Vec<Prepared>,
-    found: Vec<Vec<Detection>>,
+    found: FrameDetections,
 }
 
 #[derive(Debug)]
@@ -53,7 +53,14 @@ impl Detector {
         self.workers.len()
     }
 
-    pub(crate) fn new(geometry: Geometry, half: NonZeroUsize, config: &DetectConfig, batch: NonZeroUsize) -> Self {
+    pub(crate) fn new(
+        geometry: Geometry,
+        blur: &Blur,
+        disk: &Disk,
+        half: NonZeroUsize,
+        config: &DetectConfig,
+        batch: NonZeroUsize,
+    ) -> Self {
         Self {
             pixels: geometry.pixels() as u64,
             batch,
@@ -61,12 +68,12 @@ impl Detector {
             networks: Networks::new(),
             threshold: Threshold::new(config),
             workers: (0..rayon::current_num_threads())
-                .map(|_| Worker::new(geometry, config))
+                .map(|_| Worker::new(geometry, blur, disk, config))
                 .collect(),
             pending: Vec::new(),
             spare: Vec::new(),
             slots: Vec::new(),
-            found: Vec::new(),
+            found: FrameDetections::default(),
         }
     }
 
@@ -80,7 +87,7 @@ impl Detector {
         }
     }
 
-    pub(crate) fn finish(mut self) -> Vec<Vec<Detection>> {
+    pub(crate) fn finish(mut self) -> FrameDetections {
         self.flush(true);
         self.found
     }
@@ -90,7 +97,7 @@ impl Detector {
         let pushed = self.window.pushed();
         let half = self.window.half();
         let until = if end { pushed } else { pushed.saturating_sub(half) };
-        let from = self.found.len();
+        let from = self.found.frame_count();
         if from < until {
             self.detect_targets(from, until, pushed - 1);
             self.window.release_before(until.saturating_sub(half));
@@ -131,7 +138,7 @@ impl Detector {
             threshold: self.threshold,
         };
         let group = (until - from).div_ceil(self.workers.len());
-        let found: Vec<Vec<Vec<Detection>>> = self
+        let found: Vec<Vec<Vec<Measures>>> = self
             .workers
             .par_iter_mut()
             .enumerate()
@@ -142,21 +149,23 @@ impl Detector {
                     .collect()
             })
             .collect();
-        self.found.extend(found.into_iter().flatten());
+        for measures in found.into_iter().flatten() {
+            self.found.push(measures);
+        }
     }
 }
 
 impl Worker {
-    fn new(geometry: Geometry, config: &DetectConfig) -> Self {
+    fn new(geometry: Geometry, blur: &Blur, disk: &Disk, config: &DetectConfig) -> Self {
         Self {
-            prepare: Prepare::new(geometry),
-            closing: Closing::new(geometry),
+            prepare: Prepare::new(geometry, blur),
+            closing: Closing::new(geometry, disk),
             components: Components::new(geometry, config),
             lit: Vec::new(),
         }
     }
 
-    fn detect(&mut self, shared: &Shared<'_>, target: usize, last: usize) -> Vec<Detection> {
+    fn detect(&mut self, shared: &Shared<'_>, target: usize, last: usize) -> Vec<Measures> {
         let mut samples: [&[u16]; MAX_BACKGROUND_SAMPLES] = [&[]; MAX_BACKGROUND_SAMPLES];
         let mut sums = [0_u64; MAX_BACKGROUND_SAMPLES];
         let mut count = 0;
@@ -191,8 +200,7 @@ impl Worker {
             &mut self.lit,
         );
         let closed = self.closing.run(&self.lit);
-        self.components
-            .run(closed, &self.lit, FrameIndex::new(target), &mut found);
+        self.components.run(closed, &self.lit, &mut found);
         found
     }
 }

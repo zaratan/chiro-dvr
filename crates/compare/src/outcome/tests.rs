@@ -22,7 +22,7 @@ fn disagreeing() -> Comparison {
 fn refused() -> Error {
     Error::Settings {
         video: "video.mp4".to_owned(),
-        source: settings::Error::Unsupported(Unsupported::MergeRadius { value: 0.0 }),
+        source: settings::Error::Unsupported(Unsupported::OsdRegions { count: 1 }),
     }
 }
 
@@ -51,7 +51,7 @@ fn each_answer_is_sorted_into_compared_refused_or_failed_with_its_recording() {
         outcome.refused,
         [Refusal {
             recording: committed(WHOLE),
-            reason: "merge_radius 0: only 6 is handled".to_owned()
+            reason: "osd_regions: masks are not handled, 1 given".to_owned()
         }]
     );
     let [(recording, error)] = outcome.failed.as_slice() else {

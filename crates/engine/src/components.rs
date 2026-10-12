@@ -1,5 +1,4 @@
-use types::detection::Detection;
-use types::frame::FrameIndex;
+use types::detection::Measures;
 use types::scale::WorkScale;
 
 use crate::config::DetectConfig;
@@ -48,15 +47,15 @@ impl Components {
         }
     }
 
-    pub(crate) fn run(&mut self, closed: &[u32], lit: &[Lit], frame: FrameIndex, found: &mut Vec<Detection>) {
+    pub(crate) fn run(&mut self, closed: &[u32], lit: &[Lit], found: &mut Vec<Measures>) {
         self.label(closed);
         self.measure(closed, lit);
         let scale = self.geometry.scale();
         found.extend(
             self.stats
                 .iter()
-                .map(|stats| stats.detection(frame, scale))
-                .filter(|detection| (self.min_area..=self.max_area).contains(&detection.area)),
+                .map(|stats| stats.measures(scale))
+                .filter(|measures| (self.min_area..=self.max_area).contains(&measures.area)),
         );
     }
 
@@ -149,10 +148,9 @@ impl Stats {
         self.peak = self.peak.max(magnitude);
     }
 
-    fn detection(&self, frame: FrameIndex, scale: WorkScale) -> Detection {
+    fn measures(&self, scale: WorkScale) -> Measures {
         let pixels = real(self.pixels);
-        Detection {
-            frame,
+        Measures {
             x: scale.coordinate_to_source(real(self.columns) / pixels),
             y: scale.coordinate_to_source(real(self.rows) / pixels),
             left: scale.length_to_source(real(self.left)),

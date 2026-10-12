@@ -4,13 +4,12 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use media::decode::{Packet, Threads};
-use media::frame::ColorRange;
 use types::frame::{FrameIndex, Pts};
 use types::rate::FrameRate;
 use types::rational::Rational;
 use types::size::SourceSize;
 
-use super::{Error, Input, Reading, Video, announced, explained, limited_range, supported_size};
+use super::{Error, Input, Reading, Video, announced, explained};
 use crate::lost::Losses;
 use crate::testing::{self, FRAMES, HEIGHT, WIDTH};
 
@@ -27,7 +26,7 @@ impl From<Error> for Failure {
 }
 
 fn read(path: &Path) -> Result<Reading, Error> {
-    Input::open_any_size(path, Threads::Automatic)?.read(|_, _| Ok::<(), Error>(()))
+    Input::open(path, Threads::Automatic)?.read(|_, _| Ok::<(), Error>(()))
 }
 
 fn size(width: u32, height: u32) -> SourceSize {
@@ -38,7 +37,7 @@ fn size(width: u32, height: u32) -> SourceSize {
 fn a_clean_video_gives_every_frame_in_order_with_its_pixels_and_passes_the_guard() {
     let folder = tempfile::tempdir().unwrap();
     let path = testing::encode(folder.path(), FRAMES);
-    let input = Input::open_any_size(&path, Threads::Automatic).unwrap();
+    let input = Input::open(&path, Threads::Automatic).unwrap();
     let video = input.video().clone();
     let mut seen = Vec::new();
     let reading = input
@@ -101,7 +100,7 @@ fn frames_unreadable_after_the_last_one_are_a_loss_at_the_edge_not_a_refusal() {
 #[test]
 fn frames_lost_before_the_first_one_are_a_loss_at_the_edge_found_from_its_timestamp() {
     let path = reference::fixture::fixture("two_gops.mp4").unwrap();
-    let input = Input::open_any_size(&path, Threads::Automatic)
+    let input = Input::open(&path, Threads::Automatic)
         .unwrap()
         .with_seam(Box::new(|packet: &mut Packet<'_>| {
             if packet.ordinal() == 0 {
@@ -159,27 +158,13 @@ fn a_video_that_announces_no_frame_is_refused() {
 }
 
 #[test]
-fn the_engine_entry_takes_only_1440_by_1080() {
+fn the_engine_entry_takes_a_video_of_any_size() {
     let folder = tempfile::tempdir().unwrap();
     let path = testing::encode(folder.path(), 1);
-    let refused = Input::open(&path, Threads::Automatic).unwrap_err();
-    assert!(
-        matches!(&refused, Error::UnsupportedSize { path: named, width: WIDTH, height: HEIGHT } if *named == path),
-        "{refused:?}"
-    );
-    assert!(supported_size(&path, size(1440, 1080)).is_ok());
-    assert!(supported_size(&path, size(1080, 1440)).is_err());
-}
 
-#[test]
-fn full_range_is_refused_and_limited_or_implicit_range_is_read() {
-    let path = Path::new("pc.mp4");
-    assert!(matches!(
-        limited_range(path, ColorRange::Full),
-        Err(Error::FullRange { path: named }) if named == path
-    ));
-    assert!(limited_range(path, ColorRange::Limited).is_ok());
-    assert!(limited_range(path, ColorRange::Unspecified).is_ok());
+    let input = Input::open(&path, Threads::Automatic).unwrap();
+
+    assert_eq!(input.video().size(), size(WIDTH, HEIGHT));
 }
 
 #[test]
@@ -194,12 +179,6 @@ fn a_missing_video_is_a_decode_error_that_names_it() {
 fn every_refusal_names_the_video() {
     let path = PathBuf::from("night.mp4");
     let refusals = [
-        Error::FullRange { path: path.clone() },
-        Error::UnsupportedSize {
-            path: path.clone(),
-            width: 1920,
-            height: 1080,
-        },
         Error::NoAnnouncedFrames { path: path.clone() },
         Error::Frame {
             path: path.clone(),
@@ -215,7 +194,7 @@ fn every_refusal_names_the_video() {
 fn the_first_visitor_error_stops_reading_and_is_returned_as_is() {
     let folder = tempfile::tempdir().unwrap();
     let path = testing::encode(folder.path(), FRAMES);
-    let input = Input::open_any_size(&path, Threads::Exactly(NonZeroUsize::MIN)).unwrap();
+    let input = Input::open(&path, Threads::Exactly(NonZeroUsize::MIN)).unwrap();
     let mut visited = 0;
     let outcome = input.read(|info, _| {
         visited += 1;
@@ -233,7 +212,7 @@ fn the_first_visitor_error_stops_reading_and_is_returned_as_is() {
 fn a_decoder_failure_mid_video_reaches_the_caller_through_its_own_error_type() {
     let folder = tempfile::tempdir().unwrap();
     let path = testing::encode(folder.path(), FRAMES);
-    let input = Input::open_any_size(&path, Threads::Automatic)
+    let input = Input::open(&path, Threads::Automatic)
         .unwrap()
         .with_seam(Box::new(|packet: &mut Packet<'_>| {
             if packet.ordinal() == 5 {
