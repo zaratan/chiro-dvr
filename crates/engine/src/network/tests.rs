@@ -1,8 +1,10 @@
+use std::array;
 use std::num::NonZeroUsize;
 
 use proptest::prelude::*;
 
 use super::{Network, Networks, odd_even_merge_sort};
+use crate::threshold::LANES;
 
 fn middle(network: &Network, values: &[u16]) -> (u16, u16) {
     let mut lanes: Vec<[u16; 1]> = values.iter().map(|&value| [value]).collect();
@@ -17,14 +19,27 @@ fn sorted_middle(values: &[u16]) -> (u16, u16) {
 }
 
 #[test]
-fn every_zero_one_input_of_up_to_sixteen_samples_gives_the_two_middle_values() {
-    let networks = Networks::new();
-    for inputs in 1..=16_usize {
+fn every_zero_one_input_of_up_to_twenty_samples_gives_the_two_middle_values() {
+    let networks = Networks::new(NonZeroUsize::new(20).unwrap());
+    for inputs in 1..=20_usize {
         let network = networks.get(NonZeroUsize::new(inputs).unwrap());
-        for bits in 0_u32..1 << inputs {
-            let values: Vec<u16> = (0..inputs).map(|bit| u16::from(bits >> bit & 1 == 1)).collect();
+        for first in (0_u32..1 << inputs).step_by(LANES) {
+            let patterns: [u32; LANES] = array::from_fn(|lane| (first + lane as u32) % (1 << inputs));
+            let mut lanes: Vec<[u16; LANES]> = (0..inputs)
+                .map(|bit| patterns.map(|bits| u16::from(bits >> bit & 1 == 1)))
+                .collect();
 
-            assert_eq!(middle(network, &values), sorted_middle(&values), "{inputs} {bits:b}");
+            network.order(&mut lanes);
+
+            for (lane, bits) in patterns.iter().enumerate() {
+                let zeros = inputs - bits.count_ones() as usize;
+                let sorted = |index: usize| u16::from(index >= zeros);
+                assert_eq!(
+                    (lanes[network.low()][lane], lanes[network.high()][lane]),
+                    (sorted(network.low()), sorted(network.high())),
+                    "{inputs} {bits:b}"
+                );
+            }
         }
     }
 }
@@ -60,7 +75,7 @@ fn every_lane_is_ordered_on_its_own() {
 
 proptest! {
     #[test]
-    fn the_network_agrees_with_a_sort(values in prop::collection::vec(any::<u16>(), 1..=16)) {
+    fn the_network_agrees_with_a_sort(values in prop::collection::vec(any::<u16>(), 1..=128)) {
         let network = Network::median(NonZeroUsize::new(values.len()).unwrap());
 
         prop_assert_eq!(middle(&network, &values), sorted_middle(&values));

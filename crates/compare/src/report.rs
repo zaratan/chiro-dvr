@@ -4,7 +4,6 @@ use std::path::Path;
 
 use crate::agreement::MIN_RATE;
 use crate::comparison::Comparison;
-use crate::outcome::Refusal;
 use crate::tracks::TrackCounts;
 
 #[cfg(test)]
@@ -57,15 +56,6 @@ pub fn write_report(comparisons: &[Comparison], out: &mut impl Write) -> io::Res
 
 fn percent(rate: f64) -> f64 {
     rate * 100.0
-}
-
-pub fn write_refusals(refusals: &[Refusal], out: &mut impl Write) -> io::Result<()> {
-    writeln!(out, "refused, the engine cannot handle them yet: {}", refusals.len())?;
-    for Refusal { recording, reason } in refusals {
-        let name = recording.file_name().unwrap_or(recording.as_os_str());
-        writeln!(out, "  {}: {reason}", name.display())?;
-    }
-    Ok(())
 }
 
 pub fn write_failure(recording: &Path, error: &dyn Error, out: &mut impl Write) -> io::Result<()> {

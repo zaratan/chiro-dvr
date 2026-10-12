@@ -2,14 +2,15 @@ use std::num::{NonZeroU32, NonZeroUsize};
 
 use types::rate::FrameRate;
 
-use crate::settings::{self, Bound, DetectSettings, Setting, Unsupported};
+use crate::settings::{self, Bound, DetectSettings, Region, Setting};
+use crate::window::most_sampled;
 
 #[cfg(test)]
 mod tests;
 
 pub(crate) const MIN_BACKGROUND_FRAMES: usize = 3;
-pub(crate) const MAX_BACKGROUND_SAMPLES: usize = 16;
 pub(crate) const MIN_WORK_WIDTH: u32 = 16;
+pub(crate) const MAX_MERGE_RADIUS: u32 = 12;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DetectConfig {
@@ -18,6 +19,7 @@ pub struct DetectConfig {
     max_area: f64,
     window_seconds: f64,
     step: NonZeroUsize,
+    osd_regions: Vec<Region>,
     merge_radius: f64,
     work_width: NonZeroU32,
     noise_factor: f64,
@@ -33,8 +35,6 @@ pub enum Error {
     ShortWindow { seconds: f64, rate: f64, frames: usize },
     #[error("one frame in {step} keeps {samples} of {frames} window frames, fewer than {MIN_BACKGROUND_FRAMES}")]
     FewSamples { step: usize, frames: usize, samples: usize },
-    #[error("one frame in {step} keeps {samples} of {frames} window frames, more than {MAX_BACKGROUND_SAMPLES}")]
-    ManySamples { step: usize, frames: usize, samples: usize },
 }
 
 impl Default for DetectConfig {
@@ -45,6 +45,7 @@ impl Default for DetectConfig {
             max_area: 2700.0,
             window_seconds: 1.0,
             step: NonZeroUsize::MIN.saturating_add(2),
+            osd_regions: Vec::new(),
             merge_radius: 6.0,
             work_width: NonZeroU32::MIN.saturating_add(959),
             noise_factor: 8.0,
@@ -67,7 +68,7 @@ impl TryFrom<&DetectSettings> for DetectConfig {
             });
         }
         positive(settings.bg_window_s, Setting::BgWindowS)?;
-        not_negative(settings.merge_radius, Setting::MergeRadius)?;
+        within(settings.merge_radius, MAX_MERGE_RADIUS, Setting::MergeRadius)?;
         not_negative(settings.noise_factor, Setting::NoiseFactor)?;
         not_negative(settings.target_sigma, Setting::TargetSigma)?;
         let step = NonZeroUsize::new(settings.bg_step).ok_or(settings::Error::Setting {
@@ -90,13 +91,13 @@ impl TryFrom<&DetectSettings> for DetectConfig {
         {
             return Err(settings::Error::Region { index, region });
         }
-        handled(settings)?;
         Ok(Self {
             threshold: settings.threshold,
             min_area: settings.min_area,
             max_area: settings.max_area,
             window_seconds: settings.bg_window_s,
             step,
+            osd_regions: settings.osd_regions.clone(),
             merge_radius: settings.merge_radius,
             work_width,
             noise_factor: settings.noise_factor,
@@ -129,13 +130,32 @@ fn not_negative(value: f64, setting: Setting) -> Result<(), settings::Error> {
     }
 }
 
-fn handled(settings: &DetectSettings) -> Result<(), Unsupported> {
-    if settings.osd_regions.is_empty() {
+fn within(value: f64, most: u32, setting: Setting) -> Result<(), settings::Error> {
+    if (0.0..=f64::from(most)).contains(&value) {
         Ok(())
     } else {
-        Err(Unsupported::OsdRegions {
-            count: settings.osd_regions.len(),
+        Err(settings::Error::Setting {
+            setting,
+            value,
+            bound: Bound::UpTo(most),
         })
+    }
+}
+
+impl From<&DetectConfig> for DetectSettings {
+    fn from(config: &DetectConfig) -> Self {
+        Self {
+            threshold: config.threshold,
+            min_area: config.min_area,
+            max_area: config.max_area,
+            bg_window_s: config.window_seconds,
+            bg_step: config.step.get(),
+            osd_regions: config.osd_regions.clone(),
+            merge_radius: config.merge_radius,
+            work_width: config.work_width.get(),
+            noise_factor: config.noise_factor,
+            target_sigma: config.target_sigma,
+        }
     }
 }
 
@@ -158,6 +178,10 @@ impl DetectConfig {
 
     pub fn step(&self) -> NonZeroUsize {
         self.step
+    }
+
+    pub fn osd_regions(&self) -> &[Region] {
+        &self.osd_regions
     }
 
     pub fn merge_radius(&self) -> f64 {
@@ -188,11 +212,9 @@ impl DetectConfig {
             });
         };
         let step = self.step.get();
-        let samples = frames.div_ceil(step);
+        let samples = most_sampled(nonzero, self.step).get();
         if samples < MIN_BACKGROUND_FRAMES {
             Err(Error::FewSamples { step, frames, samples })
-        } else if samples > MAX_BACKGROUND_SAMPLES {
-            Err(Error::ManySamples { step, frames, samples })
         } else {
             Ok(nonzero)
         }

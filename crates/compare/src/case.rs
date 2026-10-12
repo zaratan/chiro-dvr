@@ -10,11 +10,13 @@ mod tests;
 
 pub const EXTRACT: &str = "video_092_original_3m24-4m05";
 pub const WHOLE: &str = "video_092_original";
+pub const WHOLE_AT_1440: &str = "video_092_original_width_1440";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Target {
     Extract,
     Whole,
+    WholeAt1440,
     Settings,
     Recorded,
 }
@@ -33,14 +35,11 @@ enum Place {
 }
 
 impl Target {
-    pub fn tolerates_refusals(self) -> bool {
-        self == Self::Settings
-    }
-
     pub fn cases(self) -> Result<Vec<Case>, Error> {
         Ok(match self {
             Self::Extract => vec![Case::committed(EXTRACT)],
             Self::Whole => vec![Case::committed(WHOLE)],
+            Self::WholeAt1440 => vec![Case::setting(committed(WHOLE_AT_1440))],
             Self::Settings => committed_settings()?.into_iter().map(Case::setting).collect(),
             Self::Recorded => recording_directories()?.into_iter().map(Case::recorded).collect(),
         })

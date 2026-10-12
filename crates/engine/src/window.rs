@@ -20,6 +20,10 @@ pub(crate) struct Window {
     spare: Vec<Prepared>,
 }
 
+pub(crate) fn most_sampled(half: NonZeroUsize, step: NonZeroUsize) -> NonZeroUsize {
+    NonZeroUsize::MIN.saturating_add(2 * half.get() / step.get())
+}
+
 impl Window {
     pub(crate) fn new(half: NonZeroUsize, step: NonZeroUsize, pixels: usize) -> Self {
         Self {

@@ -6,7 +6,7 @@ use compare::agreement::MIN_RATE;
 use compare::case::Target;
 use compare::comparison::{VIDEOS_AT_ONCE, compare_all, frames_path};
 use compare::outcome::Outcome;
-use compare::report::{write_refusals, write_report};
+use compare::report::write_report;
 use compare::tracks::TrackCounts;
 use reference::detection_matching::match_detections;
 use reference::frames::Frames;
@@ -33,7 +33,6 @@ fn run() -> &'static Run {
         let outcome = Outcome::of(&cases, compare_all(&cases, VIDEOS_AT_ONCE, Some(folder.path())));
         let mut stdout = io::stdout().lock();
         write_report(&outcome.compared, &mut stdout).unwrap();
-        write_refusals(&outcome.refused, &mut stdout).unwrap();
         Run {
             outcome,
             written: folder.path().to_path_buf(),
@@ -61,36 +60,16 @@ fn below_the_display_band(detections: &FrameDetections, ignored: &[Span]) -> Fra
 
 #[test]
 #[ignore = "slow"]
-fn each_setting_the_engine_cannot_handle_yet_is_refused_for_what_it_needs_and_none_fails() {
+fn every_setting_of_the_bench_is_compared_and_none_fails() {
     let outcome = &run().outcome;
     let failed: Vec<String> = outcome
         .failed
         .iter()
         .map(|(recording, error)| format!("{}: {error}", recording.display()))
         .collect();
-    let refused: Vec<(String, &str)> = outcome
-        .refused
-        .iter()
-        .map(|refusal| {
-            let name = refusal.recording.file_name().unwrap().to_string_lossy().into_owned();
-            (name, refusal.reason.as_str())
-        })
-        .collect();
-    let expected = [
-        ("osd", "osd_regions: masks are not handled"),
-        ("step_1", "keeps 31 of 31 window frames, more than 16"),
-        ("width_1440_osd", "osd_regions: masks are not handled"),
-        ("window_2s", "keeps 21 of 61 window frames, more than 16"),
-    ];
 
     assert_eq!(failed, Vec::<String>::new());
-    assert_eq!(
-        refused.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(),
-        expected.map(|(name, _)| name)
-    );
-    for ((name, reason), (_, needs)) in refused.iter().zip(expected) {
-        assert!(reason.contains(needs), "{name}: {reason}");
-    }
+    assert_eq!(outcome.compared.len(), 16);
 }
 
 #[test]
@@ -123,23 +102,34 @@ fn every_setting_the_engine_handles_agrees_with_the_v011_on_its_detections_and_o
             ("merge_radius_0", true, agreeing(4)),
             ("min_area_9", true, agreeing(5)),
             ("noise_factor_0", true, agreeing(4)),
+            ("osd", true, agreeing(4)),
             ("quick", true, agreeing(4)),
             ("sigma_0", false, agreeing(30)),
             ("sigma_3", true, agreeing(4)),
             ("size_720x540", true, agreeing(4)),
+            ("step_1", true, agreeing(5)),
             ("threshold_25", true, agreeing(4)),
             ("width_1440", true, agreeing(4)),
+            ("width_1440_osd", true, agreeing(4)),
             ("width_480", true, agreeing(4)),
             ("width_720", true, agreeing(5)),
+            ("window_2s", false, agreeing(4)),
         ]
     );
 }
 
 #[test]
 #[ignore = "slow"]
-fn without_blur_the_detections_agree_below_the_coloured_display_whose_gray_the_table_does_not_follow() {
-    let recording = Recording::read(&committed("settings/sigma_0")).unwrap();
-    let rust = Frames::read(&frames_path(&run().written, "sigma_0")).unwrap();
+fn sigma_0_and_window_2s_agree_below_the_coloured_display_whose_gray_the_table_does_not_follow() {
+    for case in ["sigma_0", "window_2s"] {
+        agrees_below_the_display_band(case);
+    }
+}
+
+#[cfg(test)]
+fn agrees_below_the_display_band(case: &str) {
+    let recording = Recording::read(&committed(&format!("settings/{case}"))).unwrap();
+    let rust = Frames::read(&frames_path(&run().written, case)).unwrap();
     let summary = &recording.summary;
     let ignored: Vec<Span> = summary
         .damaged_spans
@@ -156,8 +146,9 @@ fn without_blur_the_detections_agree_below_the_coloured_display_whose_gray_the_t
     let paired = matching.pairs.len() as f64;
     let reference_rate = paired / (paired + matching.reference_only.len() as f64);
     let rust_rate = paired / (paired + matching.candidate_only.len() as f64);
+    println!("{case} below the display band: {reference_rate:.4} {rust_rate:.4}");
     assert!(
         reference_rate >= MIN_RATE && rust_rate >= MIN_RATE,
-        "{reference_rate} {rust_rate}"
+        "{case}: {reference_rate} {rust_rate}"
     );
 }

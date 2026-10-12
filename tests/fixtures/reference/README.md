@@ -11,7 +11,8 @@ toujours les mêmes pixels d'une lecture à l'autre.
 ## Emplacements
 
 - **Dans le dépôt**, `tests/fixtures/reference/` : les données de l'extrait
-  (`video_092_original_3m24-4m05/`) et de la 092 entière (`video_092_original/`), et dans
+  (`video_092_original_3m24-4m05/`) et de la 092 entière (`video_092_original/`), la 092 à 1440
+  pixels de travail (`video_092_original_width_1440/`, voir [Réglages](#réglages)), et dans
   `settings/` les 16 cas enregistrés à d'autres réglages de détection (voir
   [Réglages](#réglages)). Fichiers git ordinaires, sans vidéo ni image.
 - **Hors dépôt**, dans le dossier nommé par la variable `BATDETECT_REFERENCE_DIR` (sur le Mac de
@@ -55,7 +56,7 @@ Quatre fichiers par dossier.
 | `damaged_spans` | plages abîmées (`damaged_spans` de `damage.py`) |
 | `unstable_spans` | plages instables (`unstable_spans` de `stability.py`, calculées hors plages abîmées) |
 | `counts` | `frames`, `detections` (brutes), `detections_kept` (après exclusion), `damaged_frames_reported` (images d'erreur ou de saut), `tracks`, `track_points` |
-| `config` | `DetectConfig`, `TrackConfig`, `StabilityConfig` : les réglages par défaut de la v0.1.1, sauf `DetectConfig` dans `settings/`, qui porte ceux de `--detect` |
+| `config` | `DetectConfig`, `TrackConfig`, `StabilityConfig` : les réglages par défaut de la v0.1.1, sauf `DetectConfig` dans `settings/` et `video_092_original_width_1440/`, qui porte ceux de `--detect` |
 | `versions` | `batdetect`, `python`, `numpy`, `opencv`, `opencv_ffmpeg` (bibliothèques FFmpeg d'OpenCV), `ffprobe`, `platform` |
 | `files` | noms des trois autres fichiers |
 
@@ -152,6 +153,12 @@ sur l'extrait et sur sa réduction en 720×540 (`video_092_original_3m24-4m05_72
 LFS), avec les mêmes versions que ci-dessous. Mêmes quatre fichiers par dossier, `frames.jsonl.gz`
 compressé, 1,6 Mo en tout. Liste des cas, réglages, commande de la 720×540 et chiffres :
 [docs/11](../../../docs/11-migration-rust.md#réglages).
+
+`video_092_original_width_1440/` : la 092 entière à `--detect '{"work_width": 1440}'` (#151),
+enregistrée le 12 octobre 2026 sous le verrou, mêmes versions, mêmes quatre fichiers
+(`frames.jsonl.gz` compressé, 0,2 Mo en tout). 751 détections, 14 pistes. La v0.1.1 y a pris
+277 s réelles, 521 s de CPU et 0,54 Go au plus (`/usr/bin/time -l`), contre 0,53 Go pour
+`width_1440` sur l'extrait. `compare 092-1440` la relit.
 
 ## Enregistrement du 10 octobre 2026
 

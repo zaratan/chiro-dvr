@@ -10,6 +10,8 @@ use crate::blur::Blur;
 use crate::closing::Disk;
 use crate::config::DetectConfig;
 use crate::geometry::Geometry;
+use crate::mask::Mask;
+use crate::settings::DetectSettings;
 use crate::synthetic::{Noise, background, luma, with_square};
 
 const WIDTH: usize = 360;
@@ -22,6 +24,15 @@ fn detected(frames: impl IntoIterator<Item = Vec<u8>>) -> Vec<Vec<Detection>> {
 }
 
 fn detected_by(frames: impl IntoIterator<Item = Vec<u8>>, batch: NonZeroUsize) -> Vec<Vec<Detection>> {
+    detected_with(frames, batch, 15, &DetectConfig::default())
+}
+
+fn detected_with(
+    frames: impl IntoIterator<Item = Vec<u8>>,
+    batch: NonZeroUsize,
+    half: usize,
+    config: &DetectConfig,
+) -> Vec<Vec<Detection>> {
     let source = SourceSize::new(
         NonZeroU32::new(WIDTH as u32).unwrap(),
         NonZeroU32::new(HEIGHT as u32).unwrap(),
@@ -29,12 +40,14 @@ fn detected_by(frames: impl IntoIterator<Item = Vec<u8>>, batch: NonZeroUsize) -
     let geometry = Geometry::new(source, NonZeroU32::new(WIDTH as u32 / 3 * 2).unwrap()).unwrap();
     let blur = Blur::new(1.0, geometry).unwrap();
     let disk = Disk::new(4.0, geometry);
+    let unmasked = Mask::new(&[], geometry.width(), geometry.height(), 0).unwrap();
     let mut detector = Detector::new(
         geometry,
         &blur,
         &disk,
-        NonZeroUsize::new(15).unwrap(),
-        &DetectConfig::default(),
+        unmasked,
+        NonZeroUsize::new(half).unwrap(),
+        config,
         batch,
     );
     for frame in frames {
@@ -219,4 +232,34 @@ fn the_detections_are_the_same_bit_for_bit_whatever_the_threads_and_the_batch() 
     assert_eq!(run(4, 16), one_by_one);
     assert_eq!(run(3, 7), one_by_one);
     assert_eq!(run(4, 64), one_by_one);
+}
+
+#[test]
+fn sixty_one_and_eighty_one_background_samples_give_the_same_detections_bit_for_bit_whatever_the_threads() {
+    let every_frame = DetectConfig::try_from(&DetectSettings {
+        bg_step: 1,
+        ..DetectSettings::default()
+    })
+    .unwrap();
+    let frames: Vec<Vec<u8>> = {
+        let mut noise = Noise::new(13);
+        (0..100)
+            .map(|index| with_square(flickering(index, &mut noise), WIDTH, (30 + 3 * index, 90), 6, -80.0))
+            .collect()
+    };
+    for half in [30, 40] {
+        let run = |threads: usize, batch: usize| {
+            ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| detected_with(frames.clone(), NonZeroUsize::new(batch).unwrap(), half, &every_frame))
+        };
+
+        let one_by_one = run(1, 1);
+
+        assert!(one_by_one.iter().map(Vec::len).sum::<usize>() >= 100, "{half}");
+        assert_eq!(run(4, 16), one_by_one, "{half}");
+        assert_eq!(run(3, 7), one_by_one, "{half}");
+    }
 }

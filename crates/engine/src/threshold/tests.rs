@@ -1,8 +1,10 @@
 use std::num::NonZeroUsize;
 
-use super::{Gains, Lit, MIN_NOISE_SAMPLES, Threshold, median};
+use super::{Frame, Gains, Lit, MIN_NOISE_SAMPLES, Scratch, Threshold, median};
 use crate::config::DetectConfig;
+use crate::mask::Mask;
 use crate::network::Network;
+use crate::settings::DetectSettings;
 use crate::synthetic::Noise;
 
 const PIXELS: usize = 2000;
@@ -29,23 +31,29 @@ fn gains_of(samples: &[Vec<u16>]) -> Vec<f32> {
 }
 
 fn lit(samples: &[Vec<u16>], current: usize, gains: &[f32]) -> Vec<Lit> {
-    let views: Vec<&[u16]> = samples.iter().map(Vec::as_slice).collect();
-    let network = Network::median(NonZeroUsize::new(samples.len()).unwrap());
-    let mut lit = Vec::new();
-    Threshold::new(&DetectConfig::default()).lit(
-        &views,
-        &samples[current],
-        &network,
-        Gains {
-            current: gains[current],
-            samples: gains,
-        },
-        &mut lit,
-    );
-    lit
+    lit_by(Threshold::new(&DetectConfig::default()), samples, current, gains)
 }
 
-fn lit_one_by_one(samples: &[Vec<u16>], current: usize, gains: &[f32]) -> Vec<Lit> {
+fn lit_by(threshold: Threshold, samples: &[Vec<u16>], current: usize, gains: &[f32]) -> Vec<Lit> {
+    let views: Vec<&[u16]> = samples.iter().map(Vec::as_slice).collect();
+    let mut scratch = Scratch::default();
+    threshold.lit(
+        Frame {
+            samples: &views,
+            current: &samples[current],
+            network: &Network::median(NonZeroUsize::new(samples.len()).unwrap()),
+            gains: Gains {
+                current: gains[current],
+                samples: gains,
+            },
+            mask: &Mask::new(&[], PIXELS, 1, 0).unwrap(),
+        },
+        &mut scratch,
+    );
+    scratch.lit
+}
+
+fn lit_one_by_one(samples: &[Vec<u16>], current: usize, gains: &[f32], noisy: bool) -> Vec<Lit> {
     let threshold = Threshold::new(&DetectConfig::default());
     (0..PIXELS)
         .filter_map(|pixel| {
@@ -60,7 +68,7 @@ fn lit_one_by_one(samples: &[Vec<u16>], current: usize, gains: &[f32]) -> Vec<Li
             let center = median(&mut deviations);
             let mut spread: Vec<f32> = deviations.iter().map(|deviation| (deviation - center).abs()).collect();
             let raised = threshold.floor.max(threshold.noise_factor * median(&mut spread));
-            let bar = if samples.len() >= MIN_NOISE_SAMPLES {
+            let bar = if noisy && samples.len() >= MIN_NOISE_SAMPLES {
                 raised
             } else {
                 threshold.floor
@@ -75,15 +83,31 @@ fn lit_one_by_one(samples: &[Vec<u16>], current: usize, gains: &[f32]) -> Vec<Li
 
 #[test]
 fn pixels_are_lit_above_the_floor_and_eight_scaled_median_absolute_deviations_one_by_one() {
-    for count in [3, 6, 7, 8, 11, 16] {
+    for count in [3, 6, 7, 8, 11, 16, 64, 65, 80] {
         let samples = samples(count, 6.0, count as u64);
         let gains = gains_of(&samples);
 
         let found = lit(&samples, count / 2, &gains);
 
-        assert_eq!(found, lit_one_by_one(&samples, count / 2, &gains), "{count}");
+        assert_eq!(found, lit_one_by_one(&samples, count / 2, &gains, true), "{count}");
         assert!(!found.is_empty() || count >= MIN_NOISE_SAMPLES, "{count}");
     }
+}
+
+#[test]
+fn without_noise_factor_a_flickering_pixel_keeps_the_floor() {
+    let samples = samples(11, 6.0, 4);
+    let gains = gains_of(&samples);
+    let quiet = DetectConfig::try_from(&DetectSettings {
+        noise_factor: 0.0,
+        ..DetectSettings::default()
+    })
+    .unwrap();
+
+    let found = lit_by(Threshold::new(&quiet), &samples, 5, &gains);
+
+    assert_eq!(found, lit_one_by_one(&samples, 5, &gains, false));
+    assert!(found.len() > lit(&samples, 5, &gains).len(), "{}", found.len());
 }
 
 #[test]
@@ -94,7 +118,7 @@ fn the_raised_threshold_follows_the_noise_of_each_pixel() {
     let threshold = Threshold::new(&DetectConfig::default());
 
     let mut raised: Vec<f32> = (0..PIXELS)
-        .map(|pixel| threshold.raised(&views, pixel, LEVEL as f32, &gains) / 64.0)
+        .map(|pixel| threshold.raised(&views, pixel, LEVEL as f32, &gains, &mut [0.0; 11]) / 64.0)
         .collect();
 
     let typical = median(&mut raised);
@@ -125,7 +149,7 @@ fn typical_raise(samples: &[Vec<u16>]) -> f32 {
     let mut raised: Vec<f32> = (0..PIXELS)
         .map(|pixel| {
             let mut column: Vec<f32> = samples.iter().map(|sample| f32::from(sample[pixel])).collect();
-            threshold.raised(&views, pixel, median(&mut column), &gains)
+            threshold.raised(&views, pixel, median(&mut column), &gains, &mut [0.0; 11])
         })
         .collect();
     median(&mut raised) / 64.0

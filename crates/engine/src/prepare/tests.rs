@@ -6,7 +6,10 @@ use types::size::SourceSize;
 use super::{Prepare, reflect, to_level, to_units};
 use crate::blur::Blur;
 use crate::geometry::Geometry;
+use crate::mask::Mask;
 use crate::reduction::GRAY;
+use crate::settings::Region;
+use crate::synthetic::Noise;
 
 const WIDTH: usize = 48;
 const HEIGHT: usize = 36;
@@ -19,10 +22,18 @@ fn geometry() -> Geometry {
     Geometry::new(source, NonZeroU32::new(32).unwrap()).unwrap()
 }
 
+fn unmasked(geometry: Geometry) -> Mask {
+    Mask::new(&[], geometry.width(), geometry.height(), 0).unwrap()
+}
+
 fn prepared(luma: &[u8]) -> (Vec<u16>, u64) {
+    prepared_under(luma, &unmasked(geometry()))
+}
+
+fn prepared_under(luma: &[u8], mask: &Mask) -> (Vec<u16>, u64) {
     let geometry = geometry();
     let mut out = vec![0; geometry.pixels()];
-    let sum = Prepare::new(geometry, &Blur::new(1.0, geometry).unwrap()).run(luma, &mut out);
+    let sum = Prepare::new(geometry, &Blur::new(1.0, geometry).unwrap()).run(luma, mask, &mut out);
     (out, sum)
 }
 
@@ -77,6 +88,64 @@ fn the_filter_keeps_the_light_of_a_spot_away_from_the_borders() {
     assert!((sum as f64 - 4.0 * 255.0 * 64.0).abs() <= lit as f64 / 2.0);
     let peak = out.iter().position(|&unit| unit == *out.iter().max().unwrap()).unwrap();
     assert!([10 * 32 + 14, 10 * 32 + 15, 11 * 32 + 14, 11 * 32 + 15].contains(&peak));
+}
+
+#[test]
+fn the_level_sum_leaves_out_the_masked_band_but_the_units_under_it_are_still_prepared() {
+    let geometry = geometry();
+    let luma: Vec<u8> = (0..geometry.source_width() * geometry.source_height())
+        .map(|pixel| (pixel % 251) as u8)
+        .collect();
+    let band = Region {
+        x0: 0.0,
+        y0: 0.0,
+        x1: 1.0,
+        y1: 0.25,
+    };
+    let mask = Mask::new(&[band], geometry.width(), geometry.height(), 0).unwrap();
+    let rows = band.rows(geometry.height(), 0).end;
+
+    let (units, sum) = prepared(&luma);
+    let (masked_units, masked_sum) = prepared_under(&luma, &mask);
+
+    let band_sum: u64 = units[..rows * geometry.width()]
+        .iter()
+        .map(|&unit| u64::from(unit))
+        .sum();
+    assert_eq!(masked_units, units);
+    assert_eq!(masked_sum, sum - band_sum);
+}
+
+#[test]
+fn the_prepared_frame_below_the_masked_band_does_not_depend_on_what_the_display_shows() {
+    let geometry = geometry();
+    let blur = Blur::new(2.0, geometry).unwrap();
+    let band = Region {
+        x0: 0.0,
+        y0: 0.0,
+        x1: 1.0,
+        y1: 8.0 / HEIGHT as f64,
+    };
+    let below = band.rows(geometry.height(), blur.reach()).end * geometry.width();
+    let mut noise = Noise::new(17);
+    let digits = |noise: &mut Noise| -> Vec<u8> {
+        (0..WIDTH * HEIGHT)
+            .map(|pixel| match (pixel < 8 * WIDTH, noise.uniform() < 0.5) {
+                (false, _) => 120,
+                (true, true) => 16,
+                (true, false) => 235,
+            })
+            .collect()
+    };
+    let mut prepare = Prepare::new(geometry, &blur);
+    let unmasked = unmasked(geometry);
+    let (mut first, mut second) = (vec![0; geometry.pixels()], vec![0; geometry.pixels()]);
+
+    prepare.run(&digits(&mut noise), &unmasked, &mut first);
+    prepare.run(&digits(&mut noise), &unmasked, &mut second);
+
+    assert_ne!(first[..below], second[..below]);
+    assert_eq!(first[below..], second[below..]);
 }
 
 #[test]
@@ -146,7 +215,7 @@ proptest! {
         let blur = blur.unwrap();
         let mut out = vec![0; width * height];
 
-        Prepare::new(geometry, &blur).run(&luma, &mut out);
+        Prepare::new(geometry, &blur).run(&luma, &unmasked(geometry), &mut out);
 
         prop_assert_eq!(out, blurred_by_hand(&luma, width, height, blur.weights()));
     }

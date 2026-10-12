@@ -132,10 +132,11 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
 - `tools/reference_v011.py` : enregistre la référence v0.1.1 (détections, pistes, bancs) ;
   refuse de tourner si `src/` diffère du tag `v0.1.1`. `tools/summary_v011.py` en tire
   les attendus de l'image résumé (couleurs, tranches, en-tête), avec la même garde.
-- `tests/fixtures/reference/` : la référence v0.1.1 de l'extrait et de la 092, et dans
-  `settings/` ses 16 cas à d'autres réglages de détection (`--detect`, docs/11), fichiers git
-  ordinaires ; format, dossier des 26 vidéos (`BATDETECT_REFERENCE_DIR`) et versions dans
-  son `README.md`.
+- `tests/fixtures/reference/` : la référence v0.1.1 de l'extrait et de la 092, la 092 à
+  1440 pixels de travail (`video_092_original_width_1440/`, #151), et dans `settings/` ses
+  16 cas à d'autres réglages de détection (`--detect`, docs/11), fichiers git ordinaires ;
+  format, dossier des 26 vidéos (`BATDETECT_REFERENCE_DIR`) et versions dans son
+  `README.md`.
 - Toutes les coordonnées, distances et surfaces hors de `find_blobs` sont en pixels de la
   vidéo d'origine ; seule la détection travaille à `work_width`.
 - Configs en dataclasses gelées qui valident dans `__post_init__` ; pas de `Namespace`

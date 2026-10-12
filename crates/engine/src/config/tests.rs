@@ -1,10 +1,12 @@
 use std::num::NonZeroUsize;
 
+use proptest::prelude::*;
 use types::rate::FrameRate;
 use types::rational::Rational;
 
 use super::{DetectConfig, Error};
-use crate::settings::{self, Bound, DetectSettings, Region, Setting, Unsupported};
+use crate::settings::{self, DetectSettings, Region, Setting};
+use crate::window::most_sampled;
 
 fn rate(num: i32, den: i32) -> FrameRate {
     FrameRate::new(Rational::new(num, den).unwrap()).unwrap()
@@ -62,16 +64,17 @@ fn background_step_leaving_exactly_three_frames_is_accepted_and_one_more_is_reje
 }
 
 #[test]
-fn more_than_sixteen_background_samples_wait_for_a_wider_median() {
-    assert!(stepping(2).half_window(rate(30, 1)).is_ok());
-    assert_eq!(
-        stepping(1).half_window(rate(30, 1)),
-        Err(Error::ManySamples {
-            step: 1,
-            frames: 31,
-            samples: 31
-        })
-    );
+fn any_number_of_background_samples_is_taken() {
+    let long = converted(&DetectSettings {
+        bg_window_s: 2.0,
+        bg_step: 1,
+        ..DetectSettings::default()
+    })
+    .unwrap();
+    let half = long.half_window(rate(30, 1)).unwrap();
+
+    assert_eq!(stepping(1).half_window(rate(30, 1)).unwrap().get(), 15);
+    assert_eq!(most_sampled(half, long.step()).get(), 61);
 }
 
 #[test]
@@ -281,53 +284,23 @@ fn an_osd_region_outside_the_frame_or_empty_is_refused_by_its_index() {
 }
 
 #[test]
-fn any_blur_and_closing_radius_are_taken_and_only_an_osd_mask_waits_for_the_engine() {
+fn any_blur_closing_radius_and_osd_region_reach_the_configuration() {
+    let band = Region {
+        x0: 0.0,
+        y0: 0.0,
+        x1: 1.0,
+        y1: 0.07,
+    };
     let taken = converted(&DetectSettings {
         target_sigma: 0.0,
         merge_radius: 0.0,
+        osd_regions: vec![band],
         ..DetectSettings::default()
     })
     .unwrap();
-    let osd = converted(&DetectSettings {
-        osd_regions: vec![Region {
-            x0: 0.0,
-            y0: 0.0,
-            x1: 1.0,
-            y1: 0.07,
-        }],
-        ..DetectSettings::default()
-    });
 
     assert_eq!((taken.target_sigma(), taken.merge_radius()), (0.0, 0.0));
-    assert_eq!(
-        osd,
-        Err(settings::Error::Unsupported(Unsupported::OsdRegions { count: 1 }))
-    );
-    assert_eq!(
-        Unsupported::OsdRegions { count: 1 }.to_string(),
-        "osd_regions: masks are not handled, 1 given"
-    );
-}
-
-#[test]
-fn an_invalid_setting_is_reported_before_one_the_engine_cannot_apply() {
-    assert_eq!(
-        converted(&DetectSettings {
-            osd_regions: vec![Region {
-                x0: 0.0,
-                y0: 0.0,
-                x1: 1.0,
-                y1: 0.07,
-            }],
-            threshold: -1.0,
-            ..DetectSettings::default()
-        }),
-        Err(settings::Error::Setting {
-            setting: Setting::Threshold,
-            value: -1.0,
-            bound: Bound::Positive
-        })
-    );
+    assert_eq!(taken.osd_regions(), [band]);
 }
 
 #[test]
@@ -338,13 +311,74 @@ fn an_osd_region_may_reach_every_edge_of_the_frame() {
         x1: 1.0,
         y1: 1.0,
     };
-    assert!(matches!(
+
+    let taken = converted(&DetectSettings {
+        osd_regions: vec![whole],
+        ..DetectSettings::default()
+    })
+    .unwrap();
+
+    assert_eq!(taken.osd_regions(), [whole]);
+}
+
+#[test]
+fn a_closing_radius_up_to_12_source_pixels_is_taken_and_a_wider_one_is_refused_to_keep_a_flash_frame_under_a_second() {
+    let widest = converted(&DetectSettings {
+        merge_radius: 12.0,
+        ..DetectSettings::default()
+    });
+    let refused = [12.5, f64::NAN].map(|merge_radius| {
         converted(&DetectSettings {
-            osd_regions: vec![whole],
+            merge_radius,
             ..DetectSettings::default()
-        }),
-        Err(settings::Error::Unsupported(Unsupported::OsdRegions { count: 1 }))
-    ));
+        })
+        .unwrap_err()
+        .to_string()
+    });
+
+    assert_eq!(widest.unwrap().merge_radius(), 12.0);
+    assert_eq!(
+        refused,
+        [
+            "merge_radius must be a finite number between 0 and 12, not 12.5",
+            "merge_radius must be a finite number between 0 and 12, not NaN"
+        ]
+    );
+}
+
+fn region() -> impl Strategy<Value = Region> {
+    (0.0_f64..0.5, 0.0_f64..0.5, 0.5_f64..=1.0, 0.5_f64..=1.0).prop_map(|(x0, y0, x1, y1)| Region { x0, y0, x1, y1 })
+}
+
+proptest! {
+    #[test]
+    fn every_valid_setting_is_written_back_as_it_was_read(
+        threshold in 0.1_f64..100.0,
+        min_area in 0.1_f64..10.0,
+        max_area in 10.0_f64..5000.0,
+        bg_window_s in 0.1_f64..5.0,
+        bg_step in 1_usize..10,
+        merge_radius in 0.0_f64..=12.0,
+        work_width in 16_u32..3000,
+        noise_factor in 0.0_f64..20.0,
+        target_sigma in 0.0_f64..5.0,
+        osd_regions in prop::collection::vec(region(), 0..4),
+    ) {
+        let settings = DetectSettings {
+            threshold,
+            min_area,
+            max_area,
+            bg_window_s,
+            bg_step,
+            osd_regions,
+            merge_radius,
+            work_width,
+            noise_factor,
+            target_sigma,
+        };
+
+        prop_assert_eq!(DetectSettings::from(&converted(&settings).unwrap()), settings);
+    }
 }
 
 #[test]

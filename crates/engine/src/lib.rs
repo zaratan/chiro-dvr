@@ -10,6 +10,7 @@ mod detector;
 pub mod geometry;
 pub mod input;
 pub mod lost;
+pub mod mask;
 mod network;
 mod prepare;
 mod read_ahead;

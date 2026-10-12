@@ -1,11 +1,15 @@
 use std::fmt;
+use std::ops::Range;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+
+use crate::config::DetectConfig;
+use crate::convert::{position, real};
 
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DetectSettings {
     pub threshold: f64,
@@ -22,22 +26,11 @@ pub struct DetectSettings {
 
 impl Default for DetectSettings {
     fn default() -> Self {
-        Self {
-            threshold: 12.0,
-            min_area: 4.0,
-            max_area: 2700.0,
-            bg_window_s: 1.0,
-            bg_step: 3,
-            osd_regions: Vec::new(),
-            merge_radius: 6.0,
-            work_width: 960,
-            noise_factor: 8.0,
-            target_sigma: 1.5,
-        }
+        Self::from(&DetectConfig::default())
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Region {
     pub x0: f64,
@@ -47,10 +40,24 @@ pub struct Region {
 }
 
 impl Region {
+    pub fn columns(self, width: usize, margin: usize) -> Range<usize> {
+        span(self.x0, self.x1, width, margin)
+    }
+
+    pub fn rows(self, height: usize, margin: usize) -> Range<usize> {
+        span(self.y0, self.y1, height, margin)
+    }
+
     pub(crate) fn is_valid(self) -> bool {
         (0.0 <= self.x0 && self.x0 < self.x1 && self.x1 <= 1.0)
             && (0.0 <= self.y0 && self.y0 < self.y1 && self.y1 <= 1.0)
     }
+}
+
+fn span(start: f64, end: f64, length: usize, margin: usize) -> Range<usize> {
+    let last = position((end * real(length)).ceil()).saturating_add(margin).min(length);
+    let first = position((start * real(length)).floor()).saturating_sub(margin);
+    first.min(last)..last
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,6 +94,7 @@ pub enum Bound {
     Positive,
     NotNegative,
     AtLeast(u32),
+    UpTo(u32),
 }
 
 impl fmt::Display for Bound {
@@ -95,6 +103,7 @@ impl fmt::Display for Bound {
             Self::Positive => formatter.write_str("a finite number > 0"),
             Self::NotNegative => formatter.write_str("a finite number ≥ 0"),
             Self::AtLeast(minimum) => write!(formatter, "an integer ≥ {minimum}"),
+            Self::UpTo(most) => write!(formatter, "a finite number between 0 and {most}"),
         }
     }
 }
@@ -107,12 +116,4 @@ pub enum Error {
     Areas { min_area: f64, max_area: f64 },
     #[error("OSD region {index} does not satisfy 0 ≤ x0 < x1 ≤ 1 and 0 ≤ y0 < y1 ≤ 1: {region:?}")]
     Region { index: usize, region: Region },
-    #[error("the engine cannot handle these settings yet")]
-    Unsupported(#[from] Unsupported),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
-pub enum Unsupported {
-    #[error("osd_regions: masks are not handled, {count} given")]
-    OsdRegions { count: usize },
 }

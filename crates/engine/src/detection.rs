@@ -13,6 +13,7 @@ use crate::damage::Damage;
 use crate::detector::{BATCH, Detector};
 use crate::geometry::{self, Geometry};
 use crate::input::{self, Input, READ_AHEAD, Reading};
+use crate::mask::{self, Mask};
 
 #[cfg(test)]
 mod tests;
@@ -33,24 +34,18 @@ pub enum Error {
         #[source]
         source: blur::Error,
     },
+    #[error("cannot mask the OSD regions of {}", path.display())]
+    Mask {
+        path: std::path::PathBuf,
+        #[source]
+        source: mask::Error,
+    },
     #[error("cannot build the background window of {}", path.display())]
     Config {
         path: std::path::PathBuf,
         #[source]
         source: config::Error,
     },
-}
-
-impl Error {
-    pub fn unsupported(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Config {
-                source: samples @ config::Error::ManySamples { .. },
-                ..
-            } => Some(samples),
-            _ => None,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -111,11 +106,18 @@ pub fn detect_input(input: Input, config: &DetectConfig) -> Result<Detected, Err
             source,
         })?;
     let disk = Disk::new(config.merge_radius() / geometry.scale().factor(), geometry);
+    let mask =
+        Mask::new(config.osd_regions(), geometry.width(), geometry.height(), blur.reach()).map_err(|source| {
+            Error::Mask {
+                path: path.clone(),
+                source,
+            }
+        })?;
     let half_window = config
         .half_window(video.frame_rate())
         .map_err(|source| Error::Config { path, source })?;
     let active_threads = input.active_threads();
-    let mut detector = Detector::new(geometry, &blur, &disk, half_window, config, BATCH);
+    let mut detector = Detector::new(geometry, &blur, &disk, mask, half_window, config, BATCH);
     let detection_threads = detector.workers();
     let mut background = BackgroundFrames::new(video.announced_frames());
     let reading = input.read_ahead_by(BATCH.saturating_add(READ_AHEAD.get()), |info, frame| {

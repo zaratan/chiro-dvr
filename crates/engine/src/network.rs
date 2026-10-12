@@ -1,14 +1,12 @@
 use std::num::NonZeroUsize;
 use std::{array, iter};
 
-use crate::config::MAX_BACKGROUND_SAMPLES;
-
 #[cfg(test)]
 mod tests;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Network {
-    pairs: Vec<(usize, usize)>,
+    pairs: Box<[(usize, usize)]>,
     low: usize,
     high: usize,
 }
@@ -35,7 +33,11 @@ impl Network {
             })
             .collect();
         pairs.reverse();
-        Self { pairs, low, high }
+        Self {
+            pairs: pairs.into_boxed_slice(),
+            low,
+            high,
+        }
     }
 
     pub(crate) fn low(&self) -> usize {
@@ -56,10 +58,10 @@ impl Network {
 }
 
 impl Networks {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(most: NonZeroUsize) -> Self {
         Self(
             iter::successors(Some(NonZeroUsize::MIN), |inputs| inputs.checked_add(1))
-                .take(MAX_BACKGROUND_SAMPLES)
+                .take(most.get())
                 .map(Network::median)
                 .collect(),
         )

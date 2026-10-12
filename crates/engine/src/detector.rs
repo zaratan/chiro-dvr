@@ -6,13 +6,14 @@ use types::detection::{FrameDetections, Measures};
 use crate::blur::Blur;
 use crate::closing::{Closing, Disk};
 use crate::components::Components;
-use crate::config::{DetectConfig, MAX_BACKGROUND_SAMPLES};
+use crate::config::DetectConfig;
 use crate::convert::{narrowed, wide};
 use crate::geometry::Geometry;
+use crate::mask::Mask;
 use crate::network::Networks;
 use crate::prepare::Prepare;
-use crate::threshold::{Gains, Lit, Threshold};
-use crate::window::{Prepared, Window};
+use crate::threshold::{Frame, Gains, Scratch, Threshold};
+use crate::window::{Prepared, Window, most_sampled};
 
 #[cfg(test)]
 mod tests;
@@ -23,6 +24,8 @@ pub(crate) const BATCH: NonZeroUsize = NonZeroUsize::MIN.saturating_add(31);
 pub(crate) struct Detector {
     pixels: u64,
     batch: NonZeroUsize,
+    most: NonZeroUsize,
+    mask: Mask,
     window: Window,
     networks: Networks,
     threshold: Threshold,
@@ -38,11 +41,13 @@ struct Worker {
     prepare: Prepare,
     closing: Closing,
     components: Components,
-    lit: Vec<Lit>,
+    gains: Vec<f32>,
+    scratch: Scratch,
 }
 
 struct Shared<'a> {
     pixels: u64,
+    mask: &'a Mask,
     window: &'a Window,
     networks: &'a Networks,
     threshold: Threshold,
@@ -57,18 +62,22 @@ impl Detector {
         geometry: Geometry,
         blur: &Blur,
         disk: &Disk,
+        mask: Mask,
         half: NonZeroUsize,
         config: &DetectConfig,
         batch: NonZeroUsize,
     ) -> Self {
+        let most = most_sampled(half, config.step());
         Self {
-            pixels: geometry.pixels() as u64,
+            pixels: mask.kept().get() as u64,
             batch,
+            most,
+            mask,
             window: Window::new(half, config.step(), geometry.pixels()),
-            networks: Networks::new(),
+            networks: Networks::new(most),
             threshold: Threshold::new(config),
             workers: (0..rayon::current_num_threads())
-                .map(|_| Worker::new(geometry, blur, disk, config))
+                .map(|_| Worker::new(geometry, blur, disk, config, most))
                 .collect(),
             pending: Vec::new(),
             spare: Vec::new(),
@@ -106,6 +115,7 @@ impl Detector {
 
     fn prepare_pending(&mut self) {
         let Self {
+            mask,
             window,
             workers,
             pending,
@@ -121,7 +131,7 @@ impl Detector {
             .zip(slots.par_chunks_mut(group))
             .for_each(|((worker, lumas), slots)| {
                 for (luma, slot) in lumas.iter().zip(slots) {
-                    slot.sum = worker.prepare.run(luma, &mut slot.units);
+                    slot.sum = worker.prepare.run(luma, mask, &mut slot.units);
                 }
             });
         for slot in slots.drain(..) {
@@ -133,19 +143,22 @@ impl Detector {
     fn detect_targets(&mut self, from: usize, until: usize, last: usize) {
         let shared = Shared {
             pixels: self.pixels,
+            mask: &self.mask,
             window: &self.window,
             networks: &self.networks,
             threshold: self.threshold,
         };
         let group = (until - from).div_ceil(self.workers.len());
+        let most = self.most.get();
         let found: Vec<Vec<Vec<Measures>>> = self
             .workers
             .par_iter_mut()
             .enumerate()
             .map(|(index, worker)| {
                 let start = (from + index * group).min(until);
+                let mut samples = Vec::with_capacity(most);
                 (start..(start + group).min(until))
-                    .map(|target| worker.detect(&shared, target, last))
+                    .map(|target| worker.detect(&shared, target, last, &mut samples))
                     .collect()
             })
             .collect();
@@ -156,51 +169,55 @@ impl Detector {
 }
 
 impl Worker {
-    fn new(geometry: Geometry, blur: &Blur, disk: &Disk, config: &DetectConfig) -> Self {
+    fn new(geometry: Geometry, blur: &Blur, disk: &Disk, config: &DetectConfig, most: NonZeroUsize) -> Self {
         Self {
             prepare: Prepare::new(geometry, blur),
             closing: Closing::new(geometry, disk),
             components: Components::new(geometry, config),
-            lit: Vec::new(),
+            gains: Vec::with_capacity(most.get()),
+            scratch: Scratch::default(),
         }
     }
 
-    fn detect(&mut self, shared: &Shared<'_>, target: usize, last: usize) -> Vec<Measures> {
-        let mut samples: [&[u16]; MAX_BACKGROUND_SAMPLES] = [&[]; MAX_BACKGROUND_SAMPLES];
-        let mut sums = [0_u64; MAX_BACKGROUND_SAMPLES];
-        let mut count = 0;
-        for ((sample, sum), frame) in samples
-            .iter_mut()
-            .zip(&mut sums)
-            .zip(shared.window.sampled(target, last))
-        {
-            (*sample, *sum) = (&frame.units, frame.sum);
-            count += 1;
-        }
+    fn detect<'w>(
+        &mut self,
+        shared: &Shared<'w>,
+        target: usize,
+        last: usize,
+        samples: &mut Vec<&'w [u16]>,
+    ) -> Vec<Measures> {
+        samples.clear();
+        samples.extend(shared.window.sampled(target, last).map(|frame| frame.units.as_slice()));
         let mut found = Vec::new();
-        let Some(inputs) = NonZeroUsize::new(count) else {
+        let Some(inputs) = NonZeroUsize::new(samples.len()) else {
             return found;
         };
-        let (samples, sums) = (&samples[..count], &sums[..count]);
-        let total: u64 = sums.iter().sum();
-        let mut gains = [0.0_f32; MAX_BACKGROUND_SAMPLES];
-        for (gain, &sum) in gains.iter_mut().zip(sums) {
-            *gain = gain_of(sum, total, count, shared.pixels);
-        }
+        let count = inputs.get();
+        let total: u64 = shared.window.sampled(target, last).map(|frame| frame.sum).sum();
+        self.gains.clear();
+        self.gains.extend(
+            shared
+                .window
+                .sampled(target, last)
+                .map(|frame| gain_of(frame.sum, total, count, shared.pixels)),
+        );
         let current = shared.window.frame(target);
         let gains = Gains {
             current: gain_of(current.sum, total, count, shared.pixels),
-            samples: &gains[..count],
+            samples: &self.gains,
         };
         shared.threshold.lit(
-            samples,
-            &current.units,
-            shared.networks.get(inputs),
-            gains,
-            &mut self.lit,
+            Frame {
+                samples,
+                current: &current.units,
+                network: shared.networks.get(inputs),
+                gains,
+                mask: shared.mask,
+            },
+            &mut self.scratch,
         );
-        let closed = self.closing.run(&self.lit);
-        self.components.run(closed, &self.lit, &mut found);
+        let closed = self.closing.run(&self.scratch.lit);
+        self.components.run(closed, &self.scratch.lit, &mut found);
         found
     }
 }

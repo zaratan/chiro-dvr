@@ -109,6 +109,7 @@ pub fn process(
         dest: &job.dest,
         names,
         labels,
+        regions: config.osd_regions(),
     };
     let name = job.video.file_stem().unwrap_or_default().to_string_lossy();
     let summary = Summary {

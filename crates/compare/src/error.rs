@@ -45,16 +45,3 @@ pub enum Error {
         source: io::Error,
     },
 }
-
-impl Error {
-    pub fn unsupported(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Settings {
-                source: settings::Error::Unsupported(unsupported),
-                ..
-            } => Some(unsupported),
-            Self::Detection(error) => error.unsupported(),
-            _ => None,
-        }
-    }
-}

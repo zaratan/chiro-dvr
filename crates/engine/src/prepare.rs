@@ -1,5 +1,6 @@
 use crate::blur::{Blur, KERNEL_SUM};
 use crate::geometry::Geometry;
+use crate::mask::Mask;
 use crate::reduction::Reduction;
 
 #[cfg(test)]
@@ -30,7 +31,7 @@ impl Prepare {
         }
     }
 
-    pub(crate) fn run(&mut self, luma: &[u8], out: &mut [u16]) -> u64 {
+    pub(crate) fn run(&mut self, luma: &[u8], mask: &Mask, out: &mut [u16]) -> u64 {
         let width = self.geometry.width();
         self.reduction.run(luma, &mut self.gray);
         let (weights, reach) = (self.blur.weights(), self.blur.reach());
@@ -51,6 +52,7 @@ impl Prepare {
                 *unit = units(total);
                 sum += u64::from(*unit);
             }
+            sum -= mask.masked_sum(y, line);
         }
         sum
     }

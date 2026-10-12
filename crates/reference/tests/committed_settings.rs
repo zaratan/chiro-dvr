@@ -2,6 +2,7 @@ use reference::location::{committed, committed_settings};
 use reference::recording::Recording;
 
 const EXTRACT: &str = "video_092_original_3m24-4m05";
+const WHOLE_AT_1440: &str = "video_092_original_width_1440";
 
 fn name(recording: &Recording) -> &str {
     recording.summary.video.name.as_str()
@@ -63,4 +64,14 @@ fn only_the_cases_on_the_extract_record_other_detection_settings_than_the_defaul
         let on_the_extract = name(&recording) == name(&defaults);
         assert_eq!(settings != default_settings, on_the_extract, "{}", case.display());
     }
+}
+
+#[test]
+fn the_whole_092_worked_at_1440_pixels_reads_as_a_whole_recording_of_the_092() {
+    let recording = Recording::read(&committed(WHOLE_AT_1440)).unwrap();
+
+    assert_eq!(name(&recording), "video_092_original.mp4");
+    assert_eq!(recording.frames.detections().frame_count(), 9011);
+    assert!(recording.summary.files.frames.ends_with(".jsonl.gz"));
+    assert_eq!(recording.summary.recorded["config"]["DetectConfig"]["work_width"], 1440);
 }
