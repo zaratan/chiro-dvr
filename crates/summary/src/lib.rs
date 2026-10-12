@@ -11,6 +11,7 @@ pub mod periods;
 pub mod placement;
 #[cfg(test)]
 mod testing;
+pub mod time_strip;
 
 use std::num::NonZeroU32;
 use std::ops::Range;

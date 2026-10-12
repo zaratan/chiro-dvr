@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use batdetect::jobs::Job;
-use summary::header::{HeaderLine, Labels};
+use summary::header::{Band, HeaderLine, Labels, duration};
 use types::language::Language;
 
 #[cfg(test)]
@@ -65,24 +65,26 @@ impl Labels for SummaryLabels {
             (Language::French, HeaderLine::More(count @ (0 | 1))) => format!("+ {count} autre"),
             (Language::French, HeaderLine::More(count)) => format!("+ {count} autres"),
             (Language::English, HeaderLine::More(count)) => format!("+ {count} more"),
-            (
-                Language::French,
-                HeaderLine::Unreadable {
-                    duration,
-                    spans: spans @ (0 | 1),
-                },
-            ) => {
-                format!("illisible {duration} ({spans} plage)")
+            (Language::French, HeaderLine::Unreadable { start, end }) => format!("illisible {start} - {end}"),
+            (Language::English, HeaderLine::Unreadable { start, end }) => format!("unreadable {start} - {end}"),
+            (Language::French, HeaderLine::MoreUnreadable { count, total_seconds }) => {
+                let others = if *count > 1 { "autres" } else { "autre" };
+                let unreadable = if *total_seconds > 1 { "illisibles" } else { "illisible" };
+                format!("+ {count} {others}, {} {unreadable} en tout", duration(*total_seconds))
             }
-            (Language::French, HeaderLine::Unreadable { duration, spans }) => {
-                format!("illisible {duration} ({spans} plages)")
-            }
-            (Language::English, HeaderLine::Unreadable { duration, spans: 1 }) => {
-                format!("unreadable {duration} (1 span)")
-            }
-            (Language::English, HeaderLine::Unreadable { duration, spans }) => {
-                format!("unreadable {duration} ({spans} spans)")
+            (Language::English, HeaderLine::MoreUnreadable { count, total_seconds }) => {
+                format!("+ {count} more, {} unreadable in all", duration(*total_seconds))
             }
         }
+    }
+
+    fn band(&self, band: Band) -> String {
+        match (self.0, band) {
+            (Language::French, Band::NotAnalysed) => "hors analyse",
+            (Language::English, Band::NotAnalysed) => "not analysed",
+            (Language::French, Band::Unreadable) => "illisible",
+            (Language::English, Band::Unreadable) => "unreadable",
+        }
+        .to_owned()
     }
 }

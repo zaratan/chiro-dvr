@@ -49,6 +49,21 @@ pub fn header_line_height(style: &SummaryStyle) -> f32 {
     (style.text.digit_px() * HEADER_LINE_SPACING).round()
 }
 
+pub fn legend_width(
+    typeface: &Typeface,
+    header: &[String],
+    entries_width: f32,
+    column: f32,
+    style: &SummaryStyle,
+) -> u32 {
+    let measured = |text: &str| typeface.measure(text, style.text) + 2.0 * style.margin;
+    let name = header
+        .first()
+        .map_or(0.0, |name| measured(name).min(MAX_HEADER_COLUMNS * column));
+    let others = header.iter().skip(1).map(|line| measured(line)).fold(0.0, f32::max);
+    entries_width.max(name).max(others).ceil() as u32
+}
+
 pub fn legend_panel(
     typeface: &Typeface,
     header: &[String],
@@ -64,19 +79,15 @@ pub fn legend_panel(
     let columns = entries.len().div_ceil(rows).max(1);
     let texts: Vec<&str> = entries.iter().map(|entry| entry.text.as_str()).collect();
     let column = column_width(typeface, style, &texts);
-    let widest_header = header
-        .iter()
-        .map(|text| typeface.measure(text, style.text))
-        .fold(0.0, f32::max)
-        + 2.0 * style.margin;
-    let width = (columns as f32 * column + style.margin).max(widest_header.min(MAX_HEADER_COLUMNS * column));
-    let mut panel = Canvas::new(width.ceil() as u32, height, PANEL)?;
+    let width = legend_width(typeface, header, columns as f32 * column + style.margin, column, style);
+    let mut panel = Canvas::new(width, height, PANEL)?;
+    let room = width as f32 - 2.0 * style.margin;
     for (index, text) in header.iter().enumerate() {
         let baseline = Point {
             x: style.margin,
             y: style.margin + line_height * (index + 1) as f32,
         };
-        let line = fit_text(typeface, text, width - 2.0 * style.margin, style);
+        let line = fit_text(typeface, text, room, style);
         panel.text(typeface, &line, baseline, style.text, PANEL_TEXT);
     }
     for (index, entry) in entries.iter().enumerate() {

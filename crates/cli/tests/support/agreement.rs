@@ -4,7 +4,7 @@ use batdetect::jobs::Job;
 use batdetect::process::{Processed, Versions};
 use reference::recording::Recording;
 use reference::track_matching::{Discrepancy, match_tracks};
-use summary::header::{HeaderLine, Labels};
+use summary::header::{Band, HeaderLine, Labels};
 use types::rate::FrameRate;
 
 pub(crate) const VERSIONS: Versions<'static> = Versions {
@@ -18,6 +18,10 @@ pub(crate) struct DebugLabels;
 impl Labels for DebugLabels {
     fn line(&self, line: &HeaderLine) -> String {
         format!("{line:?}")
+    }
+
+    fn band(&self, band: Band) -> String {
+        format!("{band:?}")
     }
 }
 

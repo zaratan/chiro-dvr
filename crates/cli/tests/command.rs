@@ -74,7 +74,7 @@ fn outside_a_french_locale_the_table_is_named_in_english() {
 }
 
 #[test]
-fn a_video_gives_a_summary_image_as_tall_as_the_video_named_in_the_language_of_the_messages() {
+fn a_video_gives_a_summary_image_taller_than_the_video_named_in_the_language_of_the_messages() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let out = root.path().join("out");
     for (lang, name) in [("fr_FR.UTF-8", "flight_resume.png"), ("C", "flight_summary.png")] {
@@ -85,7 +85,7 @@ fn a_video_gives_a_summary_image_as_tall_as_the_video_named_in_the_language_of_t
         let width = u32::from_be_bytes(image[16..20].try_into().unwrap());
         let height = u32::from_be_bytes(image[20..24].try_into().unwrap());
         assert!(width >= 1440, "{width}");
-        assert_eq!(height, 1080);
+        assert!(height > 1080, "{height}");
     }
 }
 

@@ -34,6 +34,7 @@ pub struct Mark<'a> {
     pub head: Option<[Spot; 3]>,
     pub center: Spot,
     pub anchor: Spot,
+    pub start_seconds: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -41,6 +42,9 @@ pub struct PageLayout<'a> {
     pub minutes: Option<Range<u32>>,
     pub header: Vec<HeaderLine>,
     pub marks: Vec<Mark<'a>>,
+    pub window: TimeRange,
+    pub ignored: Vec<TimeRange>,
+    pub damaged: Vec<TimeRange>,
 }
 
 pub fn layout<'a>(summary: &Summary<'a>, frame: Frame, style: &SummaryStyle) -> Vec<PageLayout<'a>> {
@@ -65,20 +69,27 @@ pub fn layout<'a>(summary: &Summary<'a>, frame: Frame, style: &SummaryStyle) -> 
                 .zip(colors)
                 .zip(heads)
                 .zip(centers)
-                .map(|((((&track, path), color), head), center)| Mark {
-                    track,
-                    anchor: path.nearest(center),
-                    path,
-                    color,
-                    start: clock(frame_seconds(summary.timeline, track.first().frame)),
-                    head,
-                    center,
+                .map(|((((&track, path), color), head), center)| {
+                    let start_seconds = frame_seconds(summary.timeline, track.first().frame);
+                    Mark {
+                        track,
+                        anchor: path.nearest(center),
+                        path,
+                        color,
+                        start: clock(start_seconds),
+                        head,
+                        center,
+                        start_seconds,
+                    }
                 })
                 .collect();
             PageLayout {
                 minutes: period.minutes(),
                 header: header_lines(summary.name, &period),
                 marks,
+                window: [period.start, period.end],
+                ignored: period.ignored,
+                damaged: period.damaged,
             }
         })
         .collect()

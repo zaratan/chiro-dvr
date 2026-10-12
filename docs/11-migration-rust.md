@@ -837,9 +837,39 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
   - Temps par les `pts` (#35) : durée = début de l'image qui suivrait la dernière, tranche
     et temps de légende d'une piste = `frame_seconds` de sa première image, plages =
     `spans_in_seconds`, comme `params.json`.
-  - Bandeau : `header` rend des `HeaderLine` (nom, pistes, fenêtre, hors analyse, « + N »,
-    illisible), et un trait `Labels` les met en texte. Libellés v0.1.1 gardés, avec
-    accents possibles (police Roboto, NFC).
+  - Bandeau : `header` rend des `HeaderLine` (nom, pistes, fenêtre, hors analyse,
+    illisible, « + N »), et un trait `Labels` les met en texte. Libellés v0.1.1 gardés,
+    avec accents possibles (police Roboto, NFC).
+    - Depuis #127, les plages illisibles sont datées comme les plages hors analyse :
+      3 lignes « illisible a - b » (début tronqué, fin arrondie au-dessus), puis
+      « + N autres, 3 min 22 s illisibles en tout » (« + N more, … unreadable in all »).
+      La durée totale additionne les plages exactes, arrondie au-dessus, comme la v0.1.1,
+      qui ne donnait qu'elle et le nombre de plages. Les plages hors analyse n'ont pas de
+      total, comme en v0.1.1.
+    - Dans le bandeau, les plages qui se touchent ou se recouvrent une fois arrondies à
+      la seconde ne font qu'une ligne (121 : « 0:04 - 0:06 », « 0:05 - 0:08 »,
+      « 0:07 - 0:09 » deviennent « 0:04 - 0:09 ») ; la frise et `params.json` gardent
+      le détail exact.
+    - Largeur du bandeau : seule la ligne du nom de la vidéo reste plafonnée à 3 colonnes
+      de légende (coupée par « ... » au-delà, comme la v0.1.1) ; les autres lignes,
+      bornées, l'élargissent toujours.
+  - **Frise du temps** (#127, module `time_strip`) : sous l'image, sur sa largeur, dans
+    chaque tranche.
+    - Deux bandes, « hors analyse » (gris moyen) et « illisible » (gris clair du texte du
+      bandeau), nommées à gauche par `Labels::band`. Une bande vide est un cadre fin sur
+      le fond sombre du bandeau, pour ne pas se lire comme une bande pleine.
+    - Plages par `spans_in_seconds`, comme `params.json` et le bandeau ; une plage fait
+      au moins 2 px, si bien que les 87 plages de la 121 restent toutes visibles.
+    - Graduée en minutes (pas de 1, 2, 5 ou 10 minutes selon la place, des diviseurs de
+      la tranche de 10 minutes, si bien que son début est toujours gradué) ; un
+      repère par piste, à sa couleur, au temps `pts` de sa première image.
+    - Le bandeau reste à la hauteur de l'image ; la page grandit de la hauteur de la
+      frise (135 px en 1440). Une vidéo sans période ignorée a ses deux bandes
+      vides : mêmes données de mise en page qu'à #104. Choix de l'utilisateur sur la
+      planche : repères de départ gardés.
+    - La frise couvre la fenêtre de la tranche ; ses repères de départ sont ceux des
+      pistes de la page. Proposition pour #157 : une image coupée garde la frise de toute
+      sa tranche.
   - Masques de l'affichage : une liste de rectangles peints en gris de panneau avant
     l'assombrissement, vide jusqu'à #151.
   - Écarts voulus : fond lu en plage pleine, noir calé sur 16
@@ -869,9 +899,12 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
   - Tests : les 57 tests Python portés (sauf « en-tête ASCII », inversé en « nom
     décomposé dessiné comme le nom composé ») ; `tests/v011.rs` compare, sur l'extrait
     et la 092 de la référence, numéros, couleurs, tranches et en-tête aux attendus de la
-    v0.1.1 ; `tests/local_v011.rs` fait de même sur les 26 vidéos (15 écarts d'horloge
-    par les `pts`, listés : 13 temps de légende, une ligne « hors analyse » de la 096,
-    une durée illisible de la 120).
+    v0.1.1 ; `tests/local_v011.rs` fait de même sur les 26 vidéos, avec 22 écarts
+    listés : 13 temps de légende et une ligne « hors analyse » de la 096 par les `pts`,
+    la durée illisible totale de la 120 (1 min 14 s contre 1 min 13 s), et les plages
+    hors analyse réunies à la seconde depuis #127 (089, 096, 098, 103). Pour les plages
+    illisibles, la comparaison porte, sur chaque tranche, sur leur nombre et leur durée
+    totale, tirés des plages elles-mêmes et non du bandeau.
 - **`reference`** → `types` : la référence v0.1.1 en Rust. Gelée pour le lot depuis
   #124, comme `types`.
   - `fixture` : chemins des fixtures et garde LFS. `location` : `committed(nom)` pour

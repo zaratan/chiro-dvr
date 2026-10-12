@@ -85,9 +85,10 @@ fn walk(id: usize, start: [f64; 2], step: [f64; 2], count: usize) -> types::trac
 }
 
 #[test]
-fn composition_keeps_the_video_and_adds_the_legend_on_the_right() {
+fn composition_keeps_the_video_adds_the_legend_on_the_right_and_the_time_strip_below() {
     let image = gray_page(&[walk(1, [40.0, 200.0], [10.0, -5.0], 20)]);
-    assert_eq!(image.height(), 240);
+    assert!(image.height() > 240);
+    assert_eq!(at(&image, 5, 241), [32, 32, 32]);
     assert!(image.width() > 320);
     assert_eq!(at(&image, 5, 5), [77, 77, 77]);
     assert_eq!(at(&image, 320, 120), [80, 80, 80]);
@@ -132,7 +133,11 @@ fn page_with_one_marker(center: [f64; 2]) -> Canvas {
             head: None,
             center,
             anchor: [100.0, 120.5],
+            start_seconds: 0.0,
         }],
+        window: [0.0, 4.0],
+        ignored: Vec::new(),
+        damaged: Vec::new(),
     };
     let pen = Pen {
         typeface: &typeface,

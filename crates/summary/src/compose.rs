@@ -8,6 +8,7 @@ use crate::header::Labels;
 use crate::layout::PageLayout;
 use crate::legend::{LegendEntry, legend_panel};
 use crate::marker::{Marker, draw_marker};
+use crate::time_strip::{StartTick, Strip, draw_strip};
 
 #[cfg(test)]
 mod tests;
@@ -83,16 +84,33 @@ pub fn compose(backdrop: &Canvas, page: &PageLayout<'_>, pen: Pen<'_>) -> Result
         draw_marker(&mut image, pen.typeface, marker, style);
     }
     let header: Vec<String> = page.header.iter().map(|line| pen.labels.line(line)).collect();
-    let mut panel = legend_panel(pen.typeface, &header, &entries, image.height(), style)?;
-    let separator = PixelBox {
-        left: 0,
-        top: 0,
-        right: style.border as i32 - 1,
-        bottom: panel.height() as i32 - 1,
+    let panel = legend_panel(pen.typeface, &header, &entries, image.height(), style)?;
+    let starts: Vec<StartTick> = page
+        .marks
+        .iter()
+        .map(|mark| StartTick {
+            seconds: mark.start_seconds,
+            color: color(mark.color),
+        })
+        .collect();
+    let strip = Strip {
+        window: page.window,
+        ignored: &page.ignored,
+        damaged: &page.damaged,
+        starts: &starts,
     };
-    panel.fill_rectangle(separator, SEPARATOR);
-    let mut page_canvas = Canvas::new(image.width() + panel.width(), image.height(), PANEL)?;
+    let time_strip = draw_strip(strip, image.width(), pen.typeface, style, pen.labels)?;
+    let height = image.height() + time_strip.height();
+    let mut page_canvas = Canvas::new(image.width() + panel.width(), height, PANEL)?;
     page_canvas.paste(&image, 0, 0);
+    page_canvas.paste(&time_strip, 0, image.height() as i32);
     page_canvas.paste(&panel, image.width() as i32, 0);
+    let separator = PixelBox {
+        left: image.width() as i32,
+        top: 0,
+        right: image.width() as i32 + style.border as i32 - 1,
+        bottom: height as i32 - 1,
+    };
+    page_canvas.fill_rectangle(separator, SEPARATOR);
     Ok(page_canvas)
 }
