@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use engine::settings::{self, Bound, Setting, Unsupported};
-use engine::{config, detection, input};
+use engine::{config, detection};
 
 use super::Error;
 
@@ -13,22 +13,25 @@ fn reason(error: &Error) -> Option<String> {
 fn settings_the_engine_cannot_apply_yet_are_a_refusal_named_by_its_setting() {
     let error = Error::Settings {
         video: "video.mp4".to_owned(),
-        source: settings::Error::Unsupported(Unsupported::TargetSigma { value: 3.0 }),
+        source: settings::Error::Unsupported(Unsupported::OsdRegions { count: 2 }),
     };
     assert_eq!(
         reason(&error).as_deref(),
-        Some("target_sigma 3: only 1.5, one work pixel at 3:2, is handled")
+        Some("osd_regions: masks are not handled, 2 given")
     );
 }
 
 #[test]
 fn what_the_engine_cannot_detect_yet_is_a_refusal_as_the_engine_names_it() {
-    let size = Error::Detection(detection::Error::Input(input::Error::UnsupportedSize {
+    let samples = Error::Detection(detection::Error::Config {
         path: PathBuf::from("video.mp4"),
-        width: 720,
-        height: 540,
-    }));
-    assert!(reason(&size).is_some_and(|text| text.contains("720×540")));
+        source: config::Error::ManySamples {
+            step: 1,
+            frames: 31,
+            samples: 31,
+        },
+    });
+    assert!(reason(&samples).is_some_and(|text| text.contains("more than 16")));
 }
 
 #[test]

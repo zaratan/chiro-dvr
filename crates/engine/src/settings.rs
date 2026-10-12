@@ -5,9 +5,6 @@ use serde::Deserialize;
 #[cfg(test)]
 mod tests;
 
-pub(crate) const HANDLED_TARGET_SIGMA: f64 = 1.5;
-pub(crate) const HANDLED_MERGE_RADIUS: f64 = 6.0;
-
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DetectSettings {
@@ -32,10 +29,10 @@ impl Default for DetectSettings {
             bg_window_s: 1.0,
             bg_step: 3,
             osd_regions: Vec::new(),
-            merge_radius: HANDLED_MERGE_RADIUS,
+            merge_radius: 6.0,
             work_width: 960,
             noise_factor: 8.0,
-            target_sigma: HANDLED_TARGET_SIGMA,
+            target_sigma: 1.5,
         }
     }
 }
@@ -116,10 +113,6 @@ pub enum Error {
 
 #[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
 pub enum Unsupported {
-    #[error("target_sigma {value}: only {HANDLED_TARGET_SIGMA}, one work pixel at 3:2, is handled")]
-    TargetSigma { value: f64 },
-    #[error("merge_radius {value}: only {HANDLED_MERGE_RADIUS} is handled")]
-    MergeRadius { value: f64 },
     #[error("osd_regions: masks are not handled, {count} given")]
     OsdRegions { count: usize },
 }

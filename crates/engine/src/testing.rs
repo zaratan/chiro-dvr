@@ -25,10 +25,15 @@ pub(crate) fn encode(folder: &Path, frames: u8) -> PathBuf {
     path
 }
 
-pub(crate) fn binoculars(path: &Path, rate: Rational, planes: impl IntoIterator<Item = Vec<u8>>) -> PathBuf {
-    let settings = Settings::new(1440, 1080, rate, Codec::OpenH264).unwrap();
+pub(crate) fn binoculars(
+    path: &Path,
+    (width, height): (u32, u32),
+    rate: Rational,
+    planes: impl IntoIterator<Item = Vec<u8>>,
+) -> PathBuf {
+    let settings = Settings::new(width, height, rate, Codec::OpenH264).unwrap();
     let mut encoder = Encoder::create(path, &settings).unwrap();
-    let mut frame = YuvFrame::new(1440, 1080, ColorRange::Limited).unwrap();
+    let mut frame = YuvFrame::new(width, height, ColorRange::Limited).unwrap();
     for plane in planes {
         frame.y_mut().copy_from_slice(&plane);
         frame.u_mut().fill(128);

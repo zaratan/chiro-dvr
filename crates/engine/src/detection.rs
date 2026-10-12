@@ -3,9 +3,11 @@ use std::path::Path;
 
 use media::decode::{ActiveThreads, Threads};
 use media::frame::YuvFrame;
-use types::detection::{self, FrameDetections};
+use types::detection::FrameDetections;
 
 use crate::background::BackgroundFrames;
+use crate::blur::{self, Blur};
+use crate::closing::Disk;
 use crate::config::{self, DetectConfig};
 use crate::damage::Damage;
 use crate::detector::{BATCH, Detector};
@@ -25,25 +27,23 @@ pub enum Error {
         #[source]
         source: geometry::Error,
     },
+    #[error("cannot blur the frames of {} for the detection", path.display())]
+    Blur {
+        path: std::path::PathBuf,
+        #[source]
+        source: blur::Error,
+    },
     #[error("cannot build the background window of {}", path.display())]
     Config {
         path: std::path::PathBuf,
         #[source]
         source: config::Error,
     },
-    #[error(transparent)]
-    Detections(#[from] detection::Error),
 }
 
 impl Error {
     pub fn unsupported(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Input(size @ input::Error::UnsupportedSize { .. }) => Some(size),
-            Self::Input(range @ input::Error::FullRange { .. }) => Some(range),
-            Self::Geometry {
-                source: reduction @ geometry::Error::Reduction { .. },
-                ..
-            } => Some(reduction),
             Self::Config {
                 source: samples @ config::Error::ManySamples { .. },
                 ..
@@ -105,11 +105,17 @@ pub fn detect_input(input: Input, config: &DetectConfig) -> Result<Detected, Err
         path: path.clone(),
         source,
     })?;
+    let blur =
+        Blur::new(config.target_sigma() / geometry.scale().factor(), geometry).map_err(|source| Error::Blur {
+            path: path.clone(),
+            source,
+        })?;
+    let disk = Disk::new(config.merge_radius() / geometry.scale().factor(), geometry);
     let half_window = config
         .half_window(video.frame_rate())
         .map_err(|source| Error::Config { path, source })?;
     let active_threads = input.active_threads();
-    let mut detector = Detector::new(geometry, half_window, config, BATCH);
+    let mut detector = Detector::new(geometry, &blur, &disk, half_window, config, BATCH);
     let detection_threads = detector.workers();
     let mut background = BackgroundFrames::new(video.announced_frames());
     let reading = input.read_ahead_by(BATCH.saturating_add(READ_AHEAD.get()), |info, frame| {
@@ -117,7 +123,7 @@ pub fn detect_input(input: Input, config: &DetectConfig) -> Result<Detected, Err
         detector.push(frame.y());
         Ok::<(), Error>(())
     })?;
-    let detections = FrameDetections::new(detector.finish())?;
+    let detections = detector.finish();
     let damage = Damage::of(&reading, half_window.get());
     let background = background.into_background(damage.spans());
     Ok(Detected {

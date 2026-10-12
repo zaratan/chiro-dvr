@@ -2,7 +2,7 @@ use std::num::{NonZeroU32, NonZeroUsize};
 
 use types::rate::FrameRate;
 
-use crate::settings::{self, Bound, DetectSettings, HANDLED_MERGE_RADIUS, HANDLED_TARGET_SIGMA, Setting, Unsupported};
+use crate::settings::{self, Bound, DetectSettings, Setting, Unsupported};
 
 #[cfg(test)]
 mod tests;
@@ -45,10 +45,10 @@ impl Default for DetectConfig {
             max_area: 2700.0,
             window_seconds: 1.0,
             step: NonZeroUsize::MIN.saturating_add(2),
-            merge_radius: HANDLED_MERGE_RADIUS,
+            merge_radius: 6.0,
             work_width: NonZeroU32::MIN.saturating_add(959),
             noise_factor: 8.0,
-            target_sigma: HANDLED_TARGET_SIGMA,
+            target_sigma: 1.5,
         }
     }
 }
@@ -130,16 +130,6 @@ fn not_negative(value: f64, setting: Setting) -> Result<(), settings::Error> {
 }
 
 fn handled(settings: &DetectSettings) -> Result<(), Unsupported> {
-    if settings.target_sigma.total_cmp(&HANDLED_TARGET_SIGMA).is_ne() {
-        return Err(Unsupported::TargetSigma {
-            value: settings.target_sigma,
-        });
-    }
-    if settings.merge_radius.total_cmp(&HANDLED_MERGE_RADIUS).is_ne() {
-        return Err(Unsupported::MergeRadius {
-            value: settings.merge_radius,
-        });
-    }
     if settings.osd_regions.is_empty() {
         Ok(())
     } else {

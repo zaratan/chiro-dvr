@@ -1,10 +1,12 @@
 use std::num::NonZeroU32;
 
+use proptest::prelude::*;
 use types::size::SourceSize;
 
-use super::{GRAY, KERNEL, Prepare, reduce, reflect, to_level, to_units};
-use crate::config::DetectConfig;
+use super::{Prepare, reflect, to_level, to_units};
+use crate::blur::Blur;
 use crate::geometry::Geometry;
+use crate::reduction::GRAY;
 
 const WIDTH: usize = 48;
 const HEIGHT: usize = 36;
@@ -20,7 +22,7 @@ fn geometry() -> Geometry {
 fn prepared(luma: &[u8]) -> (Vec<u16>, u64) {
     let geometry = geometry();
     let mut out = vec![0; geometry.pixels()];
-    let sum = Prepare::new(geometry).run(luma, &mut out);
+    let sum = Prepare::new(geometry, &Blur::new(1.0, geometry).unwrap()).run(luma, &mut out);
     (out, sum)
 }
 
@@ -78,27 +80,10 @@ fn the_filter_keeps_the_light_of_a_spot_away_from_the_borders() {
 }
 
 #[test]
-fn the_kernel_is_the_gaussian_of_one_work_pixel_quantised_to_4096() {
-    let config = DetectConfig::default();
-    let sigma = config.target_sigma() / geometry().scale().factor();
-    let weights: Vec<f64> = (-4..=4_i32)
-        .map(|offset| (-f64::from(offset * offset) / (2.0 * sigma * sigma)).exp())
-        .collect();
-    let total: f64 = weights.iter().sum();
-
-    let quantised: Vec<u32> = weights
-        .iter()
-        .map(|weight| (weight / total * 4096.0).round() as u32)
-        .collect();
-
-    assert_eq!(quantised, KERNEL);
-    assert_eq!(KERNEL.iter().sum::<u32>(), 4096);
-}
-
-#[test]
 fn borders_mirror_without_repeating_the_edge_pixel() {
-    assert_eq!([0, 1, 2, 3].map(|shifted| reflect(shifted, 10)), [4, 3, 2, 1]);
-    assert_eq!([4, 13, 14, 17].map(|shifted| reflect(shifted, 10)), [0, 9, 8, 5]);
+    assert_eq!([0, 1, 2, 3].map(|shifted| reflect(shifted, 4, 10)), [4, 3, 2, 1]);
+    assert_eq!([4, 13, 14, 17].map(|shifted| reflect(shifted, 4, 10)), [0, 9, 8, 5]);
+    assert_eq!([0, 2, 8].map(|shifted| reflect(shifted, 2, 6)), [2, 0, 4]);
 }
 
 #[test]
@@ -107,42 +92,62 @@ fn thresholds_and_amplitudes_convert_between_gray_levels_and_work_units() {
     assert!((to_level(800.0) - 12.5).abs() < f64::EPSILON);
 }
 
-#[test]
-fn the_measured_gray_follows_the_limited_range_one_to_two_and_a_half_levels_below_its_formula() {
-    let below: Vec<f64> = (17..=236_u8)
-        .map(|luma| (f64::from(luma) - 16.0) * 255.0 / 219.0 - f64::from(GRAY[usize::from(luma)]))
-        .collect();
-
-    assert!(below.iter().all(|&gap| (1.1..2.4).contains(&gap)), "{below:?}");
-    assert!(GRAY.windows(2).all(|pair| pair[0] <= pair[1]));
-    assert_eq!((GRAY[17], GRAY[18], GRAY[236], GRAY[237]), (0, 1, 254, 255));
+fn mirrored(index: isize, length: isize) -> usize {
+    let index = index.abs();
+    (if index < length {
+        index
+    } else {
+        2 * (length - 1) - index
+    }) as usize
 }
 
-#[test]
-fn the_reduction_weighs_each_source_pixel_by_its_overlap_with_each_work_pixel() {
-    let near = [2, 1, 0];
-    for (row, column) in (0..3).flat_map(|row| (0..3).map(move |column| (row, column))) {
-        let mut luma = vec![0; 6 * 3];
-        luma[row * 6 + column] = 255;
-        let mut gray = vec![0; 4 * 2];
+fn blurred_by_hand(luma: &[u8], width: usize, height: usize, weights: &[u32]) -> Vec<u16> {
+    let reach = (weights.len() / 2) as isize;
+    let gray: Vec<u64> = luma.iter().map(|&value| u64::from(GRAY[usize::from(value)])).collect();
+    let across: Vec<u64> = (0..width * height)
+        .map(|pixel| {
+            let (x, y) = ((pixel % width) as isize, pixel / width);
+            weights
+                .iter()
+                .enumerate()
+                .map(|(tap, &weight)| {
+                    u64::from(weight) * gray[y * width + mirrored(x + tap as isize - reach, width as isize)]
+                })
+                .sum()
+        })
+        .collect();
+    let divisor = 4096 * 4096 / 64;
+    (0..width * height)
+        .map(|pixel| {
+            let (x, y) = (pixel % width, (pixel / width) as isize);
+            let total: u64 = weights
+                .iter()
+                .enumerate()
+                .map(|(tap, &weight)| {
+                    u64::from(weight) * across[mirrored(y + tap as isize - reach, height as isize) * width + x]
+                })
+                .sum();
+            ((total + divisor / 2) / divisor) as u16
+        })
+        .collect()
+}
 
-        reduce(&luma, 6, 4, &mut gray);
+proptest! {
+    #[test]
+    fn every_blur_gives_the_rounded_separable_convolution_with_mirrored_borders(
+        (width, height, luma) in (10_usize..=40, 10_usize..=40)
+            .prop_flat_map(|(w, h)| (Just(w), Just(h), prop::collection::vec(any::<u8>(), w * h))),
+        sigma in 0.0..3.5_f64,
+    ) {
+        let source = SourceSize::new(NonZeroU32::new(width as u32).unwrap(), NonZeroU32::new(height as u32).unwrap());
+        let geometry = Geometry::new(source, NonZeroU32::new(width as u32).unwrap()).unwrap();
+        let blur = Blur::new(sigma, geometry);
+        prop_assume!(blur.is_ok());
+        let blur = blur.unwrap();
+        let mut out = vec![0; width * height];
 
-        let expected = |top: bool, left: bool| {
-            let rows = if top { near[row] } else { near[2 - row] };
-            let columns = if left { near[column] } else { near[2 - column] };
-            ((255 * rows * columns + 4) / 9) as u8
-        };
-        assert_eq!(
-            [gray[0], gray[1], gray[4], gray[5]],
-            [
-                expected(true, true),
-                expected(true, false),
-                expected(false, true),
-                expected(false, false)
-            ],
-            "{row} {column}"
-        );
-        assert_eq!([gray[2], gray[3], gray[6], gray[7]], [0; 4]);
+        Prepare::new(geometry, &blur).run(&luma, &mut out);
+
+        prop_assert_eq!(out, blurred_by_hand(&luma, width, height, blur.weights()));
     }
 }

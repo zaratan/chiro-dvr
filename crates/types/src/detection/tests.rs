@@ -1,4 +1,4 @@
-use super::{Detection, Error, FrameDetections};
+use super::{Detection, Error, FrameDetections, Measures};
 use crate::frame::FrameIndex;
 use crate::span::Span;
 
@@ -107,4 +107,42 @@ fn many_short_spans_empty_exactly_their_frames() {
         .collect();
     assert_eq!(first_left, [2, 3, 6, 7]);
     assert_eq!(counts(&left).iter().filter(|&&count| count == 0).count(), 5_000);
+}
+
+fn measures(x: f64) -> Measures {
+    Measures {
+        x,
+        y: 10.0,
+        left: x - 1.0,
+        top: 9.0,
+        width: 3.0,
+        height: 3.0,
+        area: 4.5,
+        amplitude: 13.0,
+    }
+}
+
+#[test]
+fn detections_pushed_frame_after_frame_take_the_frame_of_the_place_they_fill() {
+    let mut frames = FrameDetections::default();
+
+    frames.push([measures(5.0), measures(7.0)]);
+    frames.push([]);
+    frames.push([measures(9.0)]);
+
+    assert_eq!(counts(&frames), [2, 0, 1]);
+    assert_eq!(
+        frames.get(FrameIndex::new(2)),
+        Some([measures(9.0).at(FrameIndex::new(2))].as_slice())
+    );
+    assert!(
+        frames
+            .iter()
+            .all(|(frame, found)| found.iter().all(|detection| detection.frame == frame))
+    );
+}
+
+#[test]
+fn measures_placed_on_a_frame_keep_every_measure() {
+    assert_eq!(measures(5.0).at(FrameIndex::new(3)), detection(3, 5.0, 10.0));
 }

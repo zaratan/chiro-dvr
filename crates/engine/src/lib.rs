@@ -1,4 +1,5 @@
 mod background;
+pub mod blur;
 mod closing;
 mod components;
 pub mod config;
@@ -12,6 +13,7 @@ pub mod lost;
 mod network;
 mod prepare;
 mod read_ahead;
+mod reduction;
 pub mod settings;
 #[cfg(test)]
 mod synthetic;

@@ -38,7 +38,7 @@ fn read(input: Input) -> Reading {
 }
 
 fn open(path: &Path, threads: Threads) -> Input {
-    Input::open_any_size(path, threads).unwrap()
+    Input::open(path, threads).unwrap()
 }
 
 #[test]

@@ -107,10 +107,10 @@ fn the_detections_are_compared_at_the_frame_rate_of_the_reference() {
 
 #[test]
 fn the_detection_settings_come_from_the_recording_and_one_the_engine_cannot_apply_stops_before_any_reading() {
-    let error = compare(&Case::setting(committed("settings/sigma_3")), None).unwrap_err();
+    let error = compare(&Case::setting(committed("settings/osd")), None).unwrap_err();
 
     assert_eq!(
         error.unsupported().map(ToString::to_string).as_deref(),
-        Some("target_sigma 3: only 1.5, one work pixel at 3:2, is handled")
+        Some("osd_regions: masks are not handled, 1 given")
     );
 }

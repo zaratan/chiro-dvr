@@ -281,26 +281,14 @@ fn an_osd_region_outside_the_frame_or_empty_is_refused_by_its_index() {
 }
 
 #[test]
-fn a_blur_a_closing_radius_or_an_osd_mask_the_engine_cannot_apply_yet_is_refused_by_name() {
-    let refused = |settings: &DetectSettings| match converted(settings) {
-        Err(settings::Error::Unsupported(unsupported)) => unsupported,
-        other => panic!("{other:?}"),
-    };
-    assert_eq!(
-        refused(&DetectSettings {
-            target_sigma: 0.0,
-            ..DetectSettings::default()
-        }),
-        Unsupported::TargetSigma { value: 0.0 }
-    );
-    assert_eq!(
-        refused(&DetectSettings {
-            merge_radius: 0.0,
-            ..DetectSettings::default()
-        }),
-        Unsupported::MergeRadius { value: 0.0 }
-    );
-    let osd = refused(&DetectSettings {
+fn any_blur_and_closing_radius_are_taken_and_only_an_osd_mask_waits_for_the_engine() {
+    let taken = converted(&DetectSettings {
+        target_sigma: 0.0,
+        merge_radius: 0.0,
+        ..DetectSettings::default()
+    })
+    .unwrap();
+    let osd = converted(&DetectSettings {
         osd_regions: vec![Region {
             x0: 0.0,
             y0: 0.0,
@@ -309,15 +297,28 @@ fn a_blur_a_closing_radius_or_an_osd_mask_the_engine_cannot_apply_yet_is_refused
         }],
         ..DetectSettings::default()
     });
-    assert_eq!(osd, Unsupported::OsdRegions { count: 1 });
-    assert_eq!(osd.to_string(), "osd_regions: masks are not handled, 1 given");
+
+    assert_eq!((taken.target_sigma(), taken.merge_radius()), (0.0, 0.0));
+    assert_eq!(
+        osd,
+        Err(settings::Error::Unsupported(Unsupported::OsdRegions { count: 1 }))
+    );
+    assert_eq!(
+        Unsupported::OsdRegions { count: 1 }.to_string(),
+        "osd_regions: masks are not handled, 1 given"
+    );
 }
 
 #[test]
 fn an_invalid_setting_is_reported_before_one_the_engine_cannot_apply() {
     assert_eq!(
         converted(&DetectSettings {
-            target_sigma: 3.0,
+            osd_regions: vec![Region {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 1.0,
+                y1: 0.07,
+            }],
             threshold: -1.0,
             ..DetectSettings::default()
         }),

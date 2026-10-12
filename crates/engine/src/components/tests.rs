@@ -6,7 +6,7 @@ use types::frame::FrameIndex;
 use types::size::SourceSize;
 
 use super::Components;
-use crate::closing::Closing;
+use crate::closing::{Closing, Disk};
 use crate::config::DetectConfig;
 use crate::geometry::Geometry;
 use crate::synthetic::Noise;
@@ -23,10 +23,10 @@ fn geometry() -> Geometry {
 
 fn detected(lit: &[Lit]) -> Vec<Detection> {
     let geometry = geometry();
-    let mut closing = Closing::new(geometry);
+    let mut closing = Closing::new(geometry, &Disk::new(4.0, geometry));
     let mut found = Vec::new();
-    Components::new(geometry, &DetectConfig::default()).run(closing.run(lit), lit, FRAME, &mut found);
-    found
+    Components::new(geometry, &DetectConfig::default()).run(closing.run(lit), lit, &mut found);
+    found.into_iter().map(|measures| measures.at(FRAME)).collect()
 }
 
 fn square(column: usize, row: usize, size: usize, magnitude: f32) -> Vec<Lit> {
@@ -142,7 +142,7 @@ fn one_by_one(closed: &[u32], lit: &[Lit]) -> Vec<Detection> {
 #[test]
 fn many_blobs_are_measured_as_one_by_one_in_scanning_order() {
     let lit = many_blobs_with_bridged_pairs();
-    let closed = Closing::new(geometry()).run(&lit).to_vec();
+    let closed = Closing::new(geometry(), &Disk::new(4.0, geometry())).run(&lit).to_vec();
 
     let found = detected(&lit);
 
@@ -215,16 +215,17 @@ fn the_higher_blob_comes_first_then_the_left_one() {
 fn one_frame_after_another_starts_from_unlabelled_pixels() {
     let geometry = geometry();
     let (mut closing, mut components) = (
-        Closing::new(geometry),
+        Closing::new(geometry, &Disk::new(4.0, geometry)),
         Components::new(geometry, &DetectConfig::default()),
     );
     let first = square(10, 20, 3, 800.0);
     let second = square(12, 22, 2, 900.0);
     let mut found = Vec::new();
 
-    components.run(closing.run(&first), &first, FRAME, &mut found);
+    components.run(closing.run(&first), &first, &mut found);
     found.clear();
-    components.run(closing.run(&second), &second, FRAME, &mut found);
+    components.run(closing.run(&second), &second, &mut found);
 
-    assert_close(&found, &detected(&second));
+    let again: Vec<Detection> = found.into_iter().map(|measures| measures.at(FRAME)).collect();
+    assert_close(&again, &detected(&second));
 }
