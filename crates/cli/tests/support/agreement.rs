@@ -4,12 +4,22 @@ use batdetect::jobs::Job;
 use batdetect::process::{Processed, Versions};
 use reference::recording::Recording;
 use reference::track_matching::{Discrepancy, match_tracks};
+use summary::header::{HeaderLine, Labels};
 use types::rate::FrameRate;
 
 pub(crate) const VERSIONS: Versions<'static> = Versions {
     program: "test",
     ffmpeg: "test",
 };
+
+#[derive(Debug)]
+pub(crate) struct DebugLabels;
+
+impl Labels for DebugLabels {
+    fn line(&self, line: &HeaderLine) -> String {
+        format!("{line:?}")
+    }
+}
 
 #[derive(Debug)]
 pub(crate) struct Agreement {

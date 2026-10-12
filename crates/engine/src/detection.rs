@@ -4,14 +4,13 @@ use std::path::Path;
 use media::decode::{ActiveThreads, Threads};
 use media::frame::YuvFrame;
 use types::detection::{self, FrameDetections};
-use types::frame::FrameIndex;
 
+use crate::background::BackgroundFrames;
 use crate::config::{self, DetectConfig};
 use crate::damage::Damage;
 use crate::detector::{BATCH, Detector};
 use crate::geometry::{self, Geometry};
 use crate::input::{self, Input, READ_AHEAD, Reading};
-use crate::summary_frames::SummaryFrames;
 
 #[cfg(test)]
 mod tests;
@@ -62,7 +61,7 @@ pub struct Detected {
     half_window: NonZeroUsize,
     active_threads: ActiveThreads,
     detection_threads: usize,
-    summary_frames: Vec<(FrameIndex, YuvFrame)>,
+    background: Option<YuvFrame>,
 }
 
 impl Detected {
@@ -90,8 +89,8 @@ impl Detected {
         self.detection_threads
     }
 
-    pub fn summary_frames(&self) -> &[(FrameIndex, YuvFrame)] {
-        &self.summary_frames
+    pub fn background(&self) -> Option<&YuvFrame> {
+        self.background.as_ref()
     }
 }
 
@@ -112,14 +111,15 @@ pub fn detect_input(input: Input, config: &DetectConfig) -> Result<Detected, Err
     let active_threads = input.active_threads();
     let mut detector = Detector::new(geometry, half_window, config, BATCH);
     let detection_threads = detector.workers();
-    let mut summary = SummaryFrames::new(video.announced_frames());
+    let mut background = BackgroundFrames::new(video.announced_frames());
     let reading = input.read_ahead_by(BATCH.saturating_add(READ_AHEAD.get()), |info, frame| {
-        summary.offer(info.index(), frame);
+        background.offer(info.index(), frame);
         detector.push(frame.y());
         Ok::<(), Error>(())
     })?;
     let detections = FrameDetections::new(detector.finish())?;
     let damage = Damage::of(&reading, half_window.get());
+    let background = background.into_background(damage.spans());
     Ok(Detected {
         reading,
         detections,
@@ -127,6 +127,6 @@ pub fn detect_input(input: Input, config: &DetectConfig) -> Result<Detected, Err
         half_window,
         active_threads,
         detection_threads,
-        summary_frames: summary.into_frames(),
+        background,
     })
 }

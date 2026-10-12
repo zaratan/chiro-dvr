@@ -8,6 +8,8 @@ use files::names::{Names, params_json};
 use files::params::{Params, spans_in_seconds, write_params};
 use files::table::write_tracks_csv;
 use media::decode::Threads;
+use summary::header::Labels;
+use summary::layout::Summary;
 use tracking::exclusion::exclude;
 use tracking::stability::StabilityConfig;
 use tracking::track::{TrackConfig, track_detections};
@@ -16,6 +18,7 @@ use types::timeline::{self, Timeline};
 use types::track::Track;
 
 use crate::jobs::Job;
+use crate::overview::{self, Overview, write_overview};
 use crate::settings::Settings;
 
 #[derive(Debug, thiserror::Error)]
@@ -34,6 +37,8 @@ pub enum Error {
     },
     #[error("the results cannot be written")]
     Files(#[source] files::error::Error),
+    #[error("the summary image cannot be written")]
+    Overview(#[source] overview::Error),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -46,9 +51,16 @@ pub struct Versions<'a> {
 pub struct Processed {
     pub tracks: Vec<Track>,
     pub csv: PathBuf,
+    pub summaries: Vec<PathBuf>,
 }
 
-pub fn process(job: &Job, language: Language, threads: Threads, versions: Versions<'_>) -> Result<Processed, Error> {
+pub fn process(
+    job: &Job,
+    language: Language,
+    labels: &dyn Labels,
+    threads: Threads,
+    versions: Versions<'_>,
+) -> Result<Processed, Error> {
     let config = DetectConfig::default();
     let detected = detect(&job.video, threads, &config).map_err(Error::Detection)?;
     let reading = detected.reading();
@@ -71,7 +83,8 @@ pub fn process(job: &Job, language: Language, threads: Threads, versions: Versio
         dest: job.dest.clone(),
         source,
     })?;
-    let csv = Names::new(language).tracks_csv(&job.dest, job.video.file_stem().unwrap_or_default());
+    let names = Names::new(language);
+    let csv = names.tracks_csv(&job.dest, job.video.file_stem().unwrap_or_default());
     write_tracks_csv(&csv, &tracks, &timeline).map_err(Error::Files)?;
     let settings = Settings::of(
         &config,
@@ -91,5 +104,20 @@ pub fn process(job: &Job, language: Language, threads: Threads, versions: Versio
         ffmpeg: versions.ffmpeg,
     };
     write_params(&params_json(&job.dest), &params).map_err(Error::Files)?;
-    Ok(Processed { tracks, csv })
+    let overview = Overview {
+        video: &job.video,
+        dest: &job.dest,
+        names,
+        labels,
+    };
+    let name = job.video.file_stem().unwrap_or_default().to_string_lossy();
+    let summary = Summary {
+        name: &name,
+        tracks: &tracks,
+        timeline: &timeline,
+        ignored: &params.ignored_s,
+        damaged: &params.damaged_s,
+    };
+    let summaries = write_overview(overview, &detected, &summary).map_err(Error::Overview)?;
+    Ok(Processed { tracks, csv, summaries })
 }

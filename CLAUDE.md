@@ -129,7 +129,8 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
   sur l'extrait. Une montée d'opencv ou de numpy se vérifie par `package:check`, et le NOTICE
   se complète à la main.
 - `tools/reference_v011.py` : enregistre la référence v0.1.1 (détections, pistes, bancs) ;
-  refuse de tourner si `src/` diffère du tag `v0.1.1`.
+  refuse de tourner si `src/` diffère du tag `v0.1.1`. `tools/summary_v011.py` en tire
+  les attendus de l'image résumé (couleurs, tranches, en-tête), avec la même garde.
 - `tests/fixtures/reference/` : la référence v0.1.1 de l'extrait et de la 092, et dans
   `settings/` ses 16 cas à d'autres réglages de détection (`--detect`, docs/11), fichiers git
   ordinaires ; format, dossier des 26 vidéos (`BATDETECT_REFERENCE_DIR`) et versions dans
@@ -162,8 +163,8 @@ lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --profile ci -p compa
 Windows (MSVC, `/MT`, `+crt-static`) ne se construit que dans la tâche CI `rust-windows`,
 par `packaging/ffmpeg-windows.sh` sous MSYS2 ([docs/11](docs/11-migration-rust.md#windows)).
 
-Workspace virtuel, `members = ["crates/*"]`, toolchain de `rust-toolchain.toml`. Dix
-crates depuis #110, dépendances à sens unique :
+Workspace virtuel, `members = ["crates/*"]`, toolchain de `rust-toolchain.toml`. Onze
+crates depuis #104, dépendances à sens unique :
 
 - `types` : vocabulaire commun (`Rational`, `FrameIndex`, `Pts`, `FrameRate`, `Timeline`,
   `Detection`, `FrameDetections`, `Span`, `Track`, `Language`, `SourceSize`, `WorkScale`).
@@ -178,10 +179,12 @@ crates depuis #110, dépendances à sens unique :
 - `draw` : dessin pur sur une toile RGBA opaque, police Roboto embarquée, palette et tailles ; ne dépend d'aucune crate du workspace.
 - `render` → `media`, `types` (#110) : images des extraits choisies par `pts` (`source`),
   reprise sur la dernière image-clé saine, un fil de décodage par plage.
+- `summary` → `draw`, `types`, `files` (#104) : l'image résumé (tranches, couleurs,
+  flèches, pastilles, bandeau, PNG), sans FFmpeg.
 - `compare` → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré ;
   `cli` (paquet `batdetect`, binaire `batdetect-rs`) → `engine`, `tracking`, `files`,
-  `media`, `types`.
+  `summary`, `draw`, `media`, `types`.
 
 Charte (23 règles numérotées, lints et raisons dans
 [docs/11](docs/11-migration-rust.md#charte)) :

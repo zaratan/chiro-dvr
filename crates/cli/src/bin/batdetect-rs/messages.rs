@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use batdetect::jobs::Job;
+use summary::header::{HeaderLine, Labels};
 use types::language::Language;
 
 #[cfg(test)]
@@ -45,4 +46,43 @@ pub(crate) fn causes(error: &dyn Error) -> String {
         source = cause.source();
     }
     text
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SummaryLabels(pub(crate) Language);
+
+impl Labels for SummaryLabels {
+    fn line(&self, line: &HeaderLine) -> String {
+        match (self.0, line) {
+            (_, HeaderLine::Name(name)) => name.clone(),
+            (_, HeaderLine::Window { start, end }) => format!("{start} - {end}"),
+            (Language::French, HeaderLine::Tracks(count @ (0 | 1))) => format!("{count} piste"),
+            (Language::French, HeaderLine::Tracks(count)) => format!("{count} pistes"),
+            (Language::English, HeaderLine::Tracks(1)) => "1 track".to_owned(),
+            (Language::English, HeaderLine::Tracks(count)) => format!("{count} tracks"),
+            (Language::French, HeaderLine::NotAnalysed { start, end }) => format!("hors analyse {start} - {end}"),
+            (Language::English, HeaderLine::NotAnalysed { start, end }) => format!("not analysed {start} - {end}"),
+            (Language::French, HeaderLine::More(count @ (0 | 1))) => format!("+ {count} autre"),
+            (Language::French, HeaderLine::More(count)) => format!("+ {count} autres"),
+            (Language::English, HeaderLine::More(count)) => format!("+ {count} more"),
+            (
+                Language::French,
+                HeaderLine::Unreadable {
+                    duration,
+                    spans: spans @ (0 | 1),
+                },
+            ) => {
+                format!("illisible {duration} ({spans} plage)")
+            }
+            (Language::French, HeaderLine::Unreadable { duration, spans }) => {
+                format!("illisible {duration} ({spans} plages)")
+            }
+            (Language::English, HeaderLine::Unreadable { duration, spans: 1 }) => {
+                format!("unreadable {duration} (1 span)")
+            }
+            (Language::English, HeaderLine::Unreadable { duration, spans }) => {
+                format!("unreadable {duration} ({spans} spans)")
+            }
+        }
+    }
 }

@@ -18,6 +18,8 @@ const FULL: c_int = 1;
 const NEUTRAL_BRIGHTNESS: c_int = 0;
 const NEUTRAL_CONTRAST: c_int = 1 << 16;
 const NEUTRAL_SATURATION: c_int = 1 << 16;
+const BLACK_LEVEL: u8 = 16;
+const WHITE_LEVEL: u32 = 255;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -48,6 +50,7 @@ pub enum Error {
 pub enum SourceRange {
     Limited,
     Full,
+    FullBlackAt16,
 }
 
 /// Reads BT.709 YUV 4:2:0 in the stated range, whatever the frame's label, and writes it back in limited range.
@@ -56,6 +59,7 @@ pub struct Converter {
     to_yuv: Context,
     yuv: ffmpeg::frame::Video,
     rgba: ffmpeg::frame::Video,
+    luma_levels: Option<[u8; 256]>,
     width: NonZeroU32,
     height: NonZeroU32,
 }
@@ -87,7 +91,7 @@ impl Converter {
         let mut to_yuv = context(Pixel::RGBA, Pixel::YUV420P, Flags::AREA | Flags::FULL_CHR_H_INP)?;
         let source_range = match source {
             SourceRange::Limited => LIMITED,
-            SourceRange::Full => FULL,
+            SourceRange::Full | SourceRange::FullBlackAt16 => FULL,
         };
         bt709(&mut to_rgba, source_range, FULL)?;
         bt709(&mut to_yuv, FULL, LIMITED)?;
@@ -96,6 +100,7 @@ impl Converter {
             to_yuv,
             yuv: ffmpeg::frame::Video::new(Pixel::YUV420P, width, height),
             rgba: ffmpeg::frame::Video::new(Pixel::RGBA, width, height),
+            luma_levels: (source == SourceRange::FullBlackAt16).then(black_at_16),
             width: nonzero_width,
             height: nonzero_height,
         })
@@ -110,6 +115,11 @@ impl Converter {
             let rows = plane.len() / plane_row;
             if !planes::copy_rows(plane, plane_row, self.yuv.data_mut(index), stride, plane_row, rows) {
                 return Err(Error::FrameLayout);
+            }
+        }
+        if let Some(levels) = &self.luma_levels {
+            for level in self.yuv.data_mut(0) {
+                *level = levels[usize::from(*level)];
             }
         }
         self.to_rgba
@@ -176,6 +186,14 @@ impl Converter {
         }
         Err(Error::BufferSize { expected, found })
     }
+}
+
+fn black_at_16() -> [u8; 256] {
+    let span = WHITE_LEVEL - u32::from(BLACK_LEVEL);
+    std::array::from_fn(|level| {
+        let above_black = u32::from((level as u8).saturating_sub(BLACK_LEVEL));
+        ((above_black * WHITE_LEVEL + span / 2) / span) as u8
+    })
 }
 
 fn bt709(context: &mut Context, source_range: c_int, destination_range: c_int) -> Result<(), Error> {

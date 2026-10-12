@@ -1,0 +1,45 @@
+{
+ "video": "video_092_original_3m24-4m05.mp4",
+ "periods": [
+  {
+   "suffix": "",
+   "header": [
+    {
+     "line": "name",
+     "text": "video_092_original_3m24-4m05"
+    },
+    {
+     "line": "tracks",
+     "count": 4
+    },
+    {
+     "line": "window",
+     "start": "0:00",
+     "end": "0:40"
+    }
+   ],
+   "tracks": [
+    {
+     "id": 1,
+     "color": 0,
+     "start": "0:04"
+    },
+    {
+     "id": 2,
+     "color": 1,
+     "start": "0:23"
+    },
+    {
+     "id": 3,
+     "color": 2,
+     "start": "0:26"
+    },
+    {
+     "id": 4,
+     "color": 3,
+     "start": "0:32"
+    }
+   ]
+  }
+ ]
+}

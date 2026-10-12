@@ -1,3 +1,4 @@
+mod background;
 mod closing;
 mod components;
 pub mod config;
@@ -12,7 +13,6 @@ mod network;
 mod prepare;
 mod read_ahead;
 pub mod settings;
-mod summary_frames;
 #[cfg(test)]
 mod synthetic;
 #[cfg(test)]
