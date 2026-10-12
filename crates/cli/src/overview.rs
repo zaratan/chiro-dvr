@@ -48,7 +48,7 @@ pub(crate) fn write_overview(
     let stem = overview.video.file_stem().unwrap_or_default();
     let mut written = Vec::new();
     for page in pages(summary, canvas, &[], overview.labels)? {
-        let path = overview.names.summary_png(overview.dest, stem, page.minutes);
+        let path = overview.names.summary_png(overview.dest, stem, page.minutes, page.part);
         write_png(&path, &page.canvas)?;
         written.push(path);
     }

@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use files::names::Part;
+
 use crate::periods::{Period, TimeRange};
 
 #[cfg(test)]
@@ -11,6 +13,7 @@ const SECONDS_PER_MINUTE: u64 = 60;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HeaderLine {
     Name(String),
+    Part(Part),
     Tracks(usize),
     Window { start: String, end: String },
     NotAnalysed { start: String, end: String },
@@ -47,15 +50,21 @@ pub fn duration(whole_seconds: u64) -> String {
     }
 }
 
-pub fn header_lines(name: &str, period: &Period<'_>) -> Vec<HeaderLine> {
-    let mut lines = vec![
-        HeaderLine::Name(name.to_owned()),
-        HeaderLine::Tracks(period.tracks.len()),
-        HeaderLine::Window {
-            start: clock(period.start),
-            end: clock(period.end),
-        },
-    ];
+#[derive(Debug, Clone, Copy)]
+pub struct Scope {
+    pub part: Option<Part>,
+    pub tracks: usize,
+    pub window: TimeRange,
+}
+
+pub fn header_lines(name: &str, period: &Period<'_>, scope: Scope) -> Vec<HeaderLine> {
+    let mut lines = vec![HeaderLine::Name(name.to_owned())];
+    lines.extend(scope.part.map(HeaderLine::Part));
+    lines.push(HeaderLine::Tracks(scope.tracks));
+    lines.push(HeaderLine::Window {
+        start: clock(scope.window[0]),
+        end: clock(scope.window[1]),
+    });
     let (not_analysed, hidden) = dated(&period.ignored, |start, end| HeaderLine::NotAnalysed { start, end });
     lines.extend(not_analysed);
     if hidden > 0 {

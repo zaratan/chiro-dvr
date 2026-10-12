@@ -5,12 +5,13 @@ use std::path::Path;
 
 use draw::style::style_for;
 use draw::text::Typeface;
+use files::names::Part;
 use files::params::spans_in_seconds;
 use reference::recording::Recording;
 use serde::Deserialize;
 use summary::geometry::distance;
 use summary::header::{HeaderLine, duration};
-use summary::layout::{PageLayout, Summary, layout};
+use summary::layout::{MAX_TRACKS_PER_IMAGE, Mark, PageLayout, Summary, layout};
 use summary::placement::Frame;
 
 const MARKER_GAP: f64 = 2.0;
@@ -126,13 +127,18 @@ pub(crate) fn compare(recording: &Path, expected: &Path) -> Comparison {
         radius: style.radius,
         ..Comparison::default()
     };
-    if pages.len() != expected.periods.len() {
-        comparison
-            .differences
-            .push(format!("{} pages for {} periods", pages.len(), expected.periods.len()));
+    let periods: Vec<&[PageLayout<'_>]> = pages.chunk_by(|one, other| one.minutes == other.minutes).collect();
+    if periods.len() != expected.periods.len() {
+        comparison.differences.push(format!(
+            "{} periods for {} in v0.1.1",
+            periods.len(),
+            expected.periods.len()
+        ));
     }
-    for (page, period) in pages.iter().zip(expected.periods) {
-        compare_page(&name, page, period, &mut comparison.differences);
+    for (parts, period) in periods.into_iter().zip(expected.periods) {
+        compare_period(&name, parts, period, &mut comparison.differences);
+    }
+    for page in &pages {
         check_markers(&name, page, frame, f64::from(style.radius), &mut comparison.misplaced);
         for mark in &page.marks {
             let away = mark
@@ -151,21 +157,46 @@ pub(crate) fn compare(recording: &Path, expected: &Path) -> Comparison {
 }
 
 #[cfg(test)]
-fn compare_page(name: &str, page: &PageLayout<'_>, period: ExpectedPeriod, differences: &mut Vec<String>) {
-    let found_suffix = suffix(page.minutes.as_ref());
+fn without_page_lines(lines: &[HeaderLine]) -> Vec<HeaderLine> {
+    lines
+        .iter()
+        .filter(|line| {
+            !matches!(
+                line,
+                HeaderLine::Part(_) | HeaderLine::Tracks(_) | HeaderLine::Window { .. }
+            )
+        })
+        .cloned()
+        .collect()
+}
+
+#[cfg(test)]
+fn compare_period(name: &str, parts: &[PageLayout<'_>], period: ExpectedPeriod, differences: &mut Vec<String>) {
+    let Some(first) = parts.first() else {
+        return;
+    };
+    let found_suffix = suffix(first.minutes.as_ref());
     if found_suffix != period.suffix {
         differences.push(format!("{name}: suffix {found_suffix:?}, v0.1.1 {:?}", period.suffix));
     }
     let (header, unreadable) = expected_header(period.header);
-    let found_lines = before_unreadable(&page.header);
-    let total: f64 = page.damaged.iter().map(|[from, to]| to - from).sum();
+    let total: f64 = first.damaged.iter().map(|[from, to]| to - from).sum();
     let found_unreadable =
-        (!page.damaged.is_empty()).then(|| (duration(total.max(0.0).ceil() as u64), page.damaged.len()));
+        (!first.damaged.is_empty()).then(|| (duration(total.max(0.0).ceil() as u64), first.damaged.len()));
     if found_unreadable != unreadable {
         differences.push(format!(
             "{name}: unreadable {found_unreadable:?}, v0.1.1 {unreadable:?}"
         ));
     }
+    let (found_lines, header) = if parts.len() > 1 {
+        check_parts(name, parts, &header, differences);
+        (
+            without_page_lines(before_unreadable(&first.header)),
+            without_page_lines(&header),
+        )
+    } else {
+        (before_unreadable(&first.header).to_vec(), header)
+    };
     if found_lines.len() != header.len() {
         differences.push(format!(
             "{name}: {} header lines, v0.1.1 {}",
@@ -178,14 +209,15 @@ fn compare_page(name: &str, page: &PageLayout<'_>, period: ExpectedPeriod, diffe
             differences.push(format!("{name}: header {found:?}, v0.1.1 {expected:?}"));
         }
     }
-    let ids: Vec<usize> = page.marks.iter().map(|mark| mark.track.id()).collect();
+    let marks: Vec<&Mark<'_>> = parts.iter().flat_map(|part| &part.marks).collect();
+    let ids: Vec<usize> = marks.iter().map(|mark| mark.track.id()).collect();
     let expected_ids: Vec<usize> = period.tracks.iter().map(|track| track.id).collect();
     if ids != expected_ids {
         differences.push(format!("{name}: tracks {ids:?}, v0.1.1 {expected_ids:?}"));
         return;
     }
-    for (mark, expected) in page.marks.iter().zip(&period.tracks) {
-        if mark.color != expected.color {
+    for (mark, expected) in marks.iter().zip(&period.tracks) {
+        if parts.len() == 1 && mark.color != expected.color {
             differences.push(format!(
                 "{name}: track {} colour {}, v0.1.1 {}",
                 expected.id, mark.color, expected.color
@@ -197,6 +229,34 @@ fn compare_page(name: &str, page: &PageLayout<'_>, period: ExpectedPeriod, diffe
                 expected.id, mark.start, expected.start
             ));
         }
+    }
+}
+
+#[cfg(test)]
+fn check_parts(name: &str, parts: &[PageLayout<'_>], header: &[HeaderLine], differences: &mut Vec<String>) {
+    let expected_tracks = header.iter().find_map(|line| match line {
+        HeaderLine::Tracks(count) => Some(*count),
+        _ => None,
+    });
+    let mut tracks = 0;
+    for (index, part) in parts.iter().enumerate() {
+        let numbered = part.header.contains(&HeaderLine::Part(Part {
+            number: index + 1,
+            count: parts.len(),
+        }));
+        if !numbered || part.marks.len() > MAX_TRACKS_PER_IMAGE {
+            differences.push(format!(
+                "{name}: part {} of {} is misnumbered or overfull",
+                index + 1,
+                parts.len()
+            ));
+        }
+        tracks += part.marks.len();
+    }
+    if Some(tracks) != expected_tracks {
+        differences.push(format!(
+            "{name}: {tracks} tracks over the parts, v0.1.1 {expected_tracks:?}"
+        ));
     }
 }
 

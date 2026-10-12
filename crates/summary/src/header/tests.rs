@@ -1,6 +1,15 @@
-use super::{HeaderLine, clock, duration, header_lines, whole_seconds};
+use super::{HeaderLine, Scope, clock, duration, header_lines, whole_seconds};
 use crate::periods::Period;
 use crate::testing::track;
+
+fn whole_period_header(name: &str, period: &Period<'_>) -> Vec<HeaderLine> {
+    let scope = Scope {
+        part: None,
+        tracks: period.tracks.len(),
+        window: [period.start, period.end],
+    };
+    header_lines(name, period, scope)
+}
 
 fn period(start: f64, end: f64, ignored: &[[f64; 2]], damaged: &[[f64; 2]]) -> Period<'static> {
     Period {
@@ -39,7 +48,7 @@ fn header_counts_tracks_not_passages_since_only_the_naturalist_confirms_one_and_
     let mut with_one = period(0.0, 300.0, &[], &[]);
     with_one.tracks.push(&one);
     assert_eq!(
-        header_lines("v092", &with_one),
+        whole_period_header("v092", &with_one),
         [
             HeaderLine::Name("v092".to_owned()),
             HeaderLine::Tracks(1),
@@ -47,7 +56,7 @@ fn header_counts_tracks_not_passages_since_only_the_naturalist_confirms_one_and_
         ]
     );
     assert_eq!(
-        header_lines("v092", &period(600.0, 1200.0, &[], &[]))[1..],
+        whole_period_header("v092", &period(600.0, 1200.0, &[], &[]))[1..],
         [HeaderLine::Tracks(0), window("10:00", "20:00")]
     );
 }
@@ -56,7 +65,7 @@ fn header_counts_tracks_not_passages_since_only_the_naturalist_confirms_one_and_
 fn ignored_time_is_listed_rounded_outward_so_reviewing_it_covers_the_whole_gap() {
     let ignored = period(0.0, 300.0, &[[0.0, 8.59], [225.96, 251.21]], &[]);
     assert_eq!(
-        header_lines("v089", &ignored)[3..],
+        whole_period_header("v089", &ignored)[3..],
         [not_analysed("0:00", "0:09"), not_analysed("3:45", "4:12")]
     );
 }
@@ -65,7 +74,7 @@ fn ignored_time_is_listed_rounded_outward_so_reviewing_it_covers_the_whole_gap()
 fn more_than_three_ignored_ranges_are_summed_up_on_a_fourth_line() {
     let ignored = period(0.0, 300.0, &five_short_ranges(), &[]);
     assert_eq!(
-        header_lines("v", &ignored)[3..],
+        whole_period_header("v", &ignored)[3..],
         [
             not_analysed("0:00", "0:02"),
             not_analysed("0:10", "0:12"),
@@ -78,7 +87,7 @@ fn more_than_three_ignored_ranges_are_summed_up_on_a_fourth_line() {
 #[test]
 fn exactly_three_ignored_ranges_need_no_fourth_line() {
     let ignored = period(0.0, 300.0, &five_short_ranges()[..3], &[]);
-    assert_eq!(header_lines("v", &ignored).len(), 6);
+    assert_eq!(whole_period_header("v", &ignored).len(), 6);
 }
 
 fn unreadable(start: &str, end: &str) -> HeaderLine {
@@ -92,7 +101,7 @@ fn unreadable(start: &str, end: &str) -> HeaderLine {
 fn unreadable_spans_are_dated_after_the_unstable_ranges_so_they_can_be_reviewed_by_eye() {
     let both = period(0.0, 300.0, &[[0.0, 8.59]], &[[10.0, 10.5], [40.0, 117.3]]);
     assert_eq!(
-        header_lines("v122", &both)[3..],
+        whole_period_header("v122", &both)[3..],
         [
             not_analysed("0:00", "0:09"),
             unreadable("0:10", "0:11"),
@@ -104,7 +113,7 @@ fn unreadable_spans_are_dated_after_the_unstable_ranges_so_they_can_be_reviewed_
 #[test]
 fn more_than_three_unreadable_spans_are_summed_up_on_their_own_fourth_line() {
     let both = period(0.0, 300.0, &five_short_ranges(), &five_short_ranges());
-    let lines = header_lines("v121", &both);
+    let lines = whole_period_header("v121", &both);
     assert_eq!(lines.len(), 3 + 4 + 4);
     assert_eq!(
         lines[7..],
@@ -122,7 +131,7 @@ fn more_than_three_unreadable_spans_are_summed_up_on_their_own_fourth_line() {
 
 #[test]
 fn period_without_damage_has_no_damage_line() {
-    assert_eq!(header_lines("v092", &period(0.0, 300.0, &[], &[])).len(), 3);
+    assert_eq!(whole_period_header("v092", &period(0.0, 300.0, &[], &[])).len(), 3);
 }
 
 #[test]
@@ -142,7 +151,7 @@ fn spans_that_touch_or_overlap_once_rounded_to_the_second_are_listed_as_one() {
     assert_eq!(whole_seconds(&[[4.2, 4.9], [5.1, 6.0]]), [[4, 6]]);
     assert_eq!(whole_seconds(&[[4.2, 4.9], [6.1, 7.0]]), [[4, 5], [6, 7]]);
     let merged = period(0.0, 300.0, &[], &[[4.2, 5.6], [5.9, 7.3], [7.5, 8.1]]);
-    assert_eq!(header_lines("v121", &merged)[3..], [unreadable("0:04", "0:09")]);
+    assert_eq!(whole_period_header("v121", &merged)[3..], [unreadable("0:04", "0:09")]);
 }
 
 #[test]
@@ -150,7 +159,7 @@ fn the_unreadable_total_counts_the_exact_spans_not_the_merged_seconds() {
     let spans: Vec<[f64; 2]> = (0..5)
         .map(|k| [10.0 * f64::from(k) + 0.5, 10.0 * f64::from(k) + 1.0])
         .collect();
-    let lines = header_lines("v", &period(0.0, 300.0, &[], &spans));
+    let lines = whole_period_header("v", &period(0.0, 300.0, &[], &spans));
     assert_eq!(
         lines.last(),
         Some(&HeaderLine::MoreUnreadable {
@@ -171,4 +180,24 @@ fn a_duration_reads_in_minutes_and_seconds() {
 #[test]
 fn spans_given_out_of_order_are_all_kept() {
     assert_eq!(whole_seconds(&[[10.0, 12.0], [4.0, 5.0]]), [[4, 5], [10, 12]]);
+}
+
+#[test]
+fn a_part_of_a_crowded_period_says_which_part_it_is_and_gives_its_own_tracks_and_times() {
+    let crowded = period(0.0, 600.0, &[[30.0, 40.0]], &[]);
+    let scope = Scope {
+        part: Some(files::names::Part { number: 2, count: 8 }),
+        tracks: 20,
+        window: [135.4, 220.9],
+    };
+    assert_eq!(
+        header_lines("v097", &crowded, scope),
+        [
+            HeaderLine::Name("v097".to_owned()),
+            HeaderLine::Part(files::names::Part { number: 2, count: 8 }),
+            HeaderLine::Tracks(20),
+            window("2:15", "3:40"),
+            not_analysed("0:30", "0:40"),
+        ]
+    );
 }

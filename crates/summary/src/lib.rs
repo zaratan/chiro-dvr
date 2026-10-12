@@ -19,6 +19,7 @@ use std::ops::Range;
 use draw::canvas::{self, Canvas, PixelBox};
 use draw::style::style_for;
 use draw::text::{self, Typeface};
+use files::names::Part;
 
 use crate::compose::{Pen, backdrop, compose};
 use crate::header::Labels;
@@ -39,6 +40,7 @@ pub enum Error {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Page {
     pub minutes: Option<Range<u32>>,
+    pub part: Option<Part>,
     pub canvas: Canvas,
 }
 
@@ -74,6 +76,7 @@ pub fn pages(
             Ok(Page {
                 canvas: compose(&backdrop, &page, pen).map_err(Error::Canvas)?,
                 minutes: page.minutes,
+                part: page.part,
             })
         })
         .collect()

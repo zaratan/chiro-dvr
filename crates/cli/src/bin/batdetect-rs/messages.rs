@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use batdetect::jobs::Job;
+use files::names::Part;
 use summary::header::{Band, HeaderLine, Labels, duration};
 use types::language::Language;
 
@@ -56,6 +57,8 @@ impl Labels for SummaryLabels {
         match (self.0, line) {
             (_, HeaderLine::Name(name)) => name.clone(),
             (_, HeaderLine::Window { start, end }) => format!("{start} - {end}"),
+            (Language::French, HeaderLine::Part(Part { number, count })) => format!("partie {number} / {count}"),
+            (Language::English, HeaderLine::Part(Part { number, count })) => format!("part {number} / {count}"),
             (Language::French, HeaderLine::Tracks(count @ (0 | 1))) => format!("{count} piste"),
             (Language::French, HeaderLine::Tracks(count)) => format!("{count} pistes"),
             (Language::English, HeaderLine::Tracks(1)) => "1 track".to_owned(),
