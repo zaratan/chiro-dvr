@@ -104,8 +104,13 @@ outside_media |= {path: open(path).read() for path in manifests if not path.star
 for found in lines_matching(r"ffmpeg[_-](next|sys[_-]next)", outside_media):
     failures.append(f"C7 FFmpeg outside media: {found}")
 
-if sum(text.count("catch_unwind") for text in sources.values()) > 1:
-    failures.append("C9 more than one catch_unwind")
+def tested(path):
+    return path.endswith(("/tests.rs", "/testing.rs")) or "/tests/" in path
+
+shipped = {path: text for path, text in sources.items() if not tested(path)}
+unwinds = lines_matching(r"^(?!\s*(?:pub\s+)?use\b).*\bcatch_unwind\b", shipped, re.MULTILINE)
+if len(unwinds) > 1 or any(not found.startswith("crates/cli/src/") for found in unwinds):
+    failures.append(f"C9 catch_unwind outside the one in crates/cli/src: {unwinds}")
 profiles = workspace.get("profile", {}).values()
 if any(profile.get("panic") == "abort" for profile in profiles):
     failures.append("C9 a profile aborts on panic")

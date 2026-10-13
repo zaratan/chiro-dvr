@@ -155,3 +155,18 @@ fn a_panicking_reader_hands_its_own_cause_to_the_caller() {
     let cause = reading.join().unwrap_err();
     assert_eq!(cause.downcast_ref::<&str>(), Some(&"broken source"));
 }
+
+#[test]
+#[should_panic(expected = "consumer panic")]
+fn a_panic_of_the_consumer_reaches_the_caller_without_leaving_the_reader_blocked() {
+    let outcome = read_ahead(
+        AHEAD,
+        || 0,
+        counting(1_000),
+        |item, _: &usize| {
+            assert_ne!(item, 3, "consumer panic");
+            Ok::<(), ConsumerFailed>(())
+        },
+    );
+    drop(outcome);
+}

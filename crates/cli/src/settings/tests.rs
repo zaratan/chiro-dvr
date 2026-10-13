@@ -1,6 +1,5 @@
 use std::num::NonZeroUsize;
 
-use engine::config::DetectConfig;
 use engine::settings::{DetectSettings, Region};
 use media::decode::ActiveThreads;
 use media::encode::Codec;
@@ -13,15 +12,12 @@ use super::Settings;
 use crate::options::Options;
 
 fn written(track: TrackConfig, stability: StabilityConfig, decoding: ActiveThreads) -> Value {
-    let settings = Settings::of(
-        &DetectConfig::default(),
+    let options = Options {
         track,
         stability,
-        Options::default(),
-        &[Codec::VideoToolbox, Codec::OpenH264],
-        decoding,
-        10,
-    );
+        ..Options::default()
+    };
+    let settings = Settings::of(&options, &[Codec::VideoToolbox, Codec::OpenH264], decoding, 10);
     serde_json::to_value(settings).unwrap()
 }
 
@@ -121,12 +117,10 @@ fn the_clip_settings_name_the_encoders_tried_in_their_fallback_order() {
 #[test]
 fn the_zoom_choice_its_thresholds_and_the_annotated_video_are_written_with_the_keys_of_v0_1_1() {
     let settings = Settings::of(
-        &DetectConfig::default(),
-        TrackConfig::default(),
-        StabilityConfig::default(),
-        Options {
+        &Options {
             render: RenderConfig::default().with_zoom(ZoomConfig::new(Zoom::Off, 90.0, 30.5).unwrap()),
             annotated: true,
+            ..Options::default()
         },
         &[],
         ActiveThreads::Single,

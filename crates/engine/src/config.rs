@@ -3,12 +3,14 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use types::rate::FrameRate;
 
 use crate::settings::{self, Bound, DetectSettings, Region, Setting};
-use crate::window::most_sampled;
+use crate::window::{Unit, most_sampled};
 
 #[cfg(test)]
 mod tests;
 
 pub(crate) const MIN_BACKGROUND_FRAMES: usize = 3;
+pub(crate) const BACKGROUND_BUDGET: u64 = 4 << 30;
+const BYTES_PER_WINDOW_PIXEL: f64 = size_of::<Unit>() as f64;
 pub(crate) const MIN_WORK_WIDTH: u32 = 16;
 pub(crate) const MAX_MERGE_RADIUS: u32 = 12;
 
@@ -35,6 +37,16 @@ pub enum Error {
     ShortWindow { seconds: f64, rate: f64, frames: usize },
     #[error("one frame in {step} keeps {samples} of {frames} window frames, fewer than {MIN_BACKGROUND_FRAMES}")]
     FewSamples { step: usize, frames: usize, samples: usize },
+    #[error(
+        "a background window of {seconds} s at {rate} frames per second keeps {frames} frames of {pixels} \
+         working pixels, more than the {BACKGROUND_BUDGET} bytes allowed"
+    )]
+    LongWindow {
+        seconds: f64,
+        rate: f64,
+        frames: f64,
+        pixels: usize,
+    },
 }
 
 impl Default for DetectConfig {
@@ -200,9 +212,21 @@ impl DetectConfig {
         self.target_sigma
     }
 
-    pub fn half_window(&self, rate: FrameRate) -> Result<NonZeroUsize, Error> {
+    pub fn half_window(&self, rate: FrameRate, pixels: usize) -> Result<NonZeroUsize, Error> {
         let rate = rate.get().to_f64();
-        let half = (self.window_seconds * rate / 2.0).round() as usize;
+        let exact = (self.window_seconds * rate / 2.0).round();
+        let window_frames = 2.0 * exact + 1.0;
+        let fits =
+            exact.is_finite() && window_frames * pixels as f64 * BYTES_PER_WINDOW_PIXEL <= BACKGROUND_BUDGET as f64;
+        if !fits {
+            return Err(Error::LongWindow {
+                seconds: self.window_seconds,
+                rate,
+                frames: window_frames,
+                pixels,
+            });
+        }
+        let half = exact as usize;
         let frames = 2 * half + 1;
         let Some(nonzero) = NonZeroUsize::new(half) else {
             return Err(Error::ShortWindow {

@@ -192,7 +192,9 @@ crates depuis #100, dépendances à sens unique :
   `bench` → `engine`, `tracking`, `reference`, `media`, `types` (#100) : banc de mesure,
   binaire `batdetect-bench-rs` (`--targets`, `--replay`, `--against`), non livré avant #106 ;
   `cli` (paquet `batdetect`, binaire `batdetect-rs`) → `engine`, `tracking`, `files`,
-  `summary`, `render`, `draw`, `media`, `types`.
+  `summary`, `render`, `draw`, `media`, `types` ; `options` (réglages de la commande),
+  `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), version gravée par
+  `build.rs`.
 
 Charte (23 règles numérotées, lints et raisons dans
 [docs/11](docs/11-migration-rust.md#charte)) :

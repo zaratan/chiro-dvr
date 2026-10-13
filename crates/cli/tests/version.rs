@@ -14,7 +14,10 @@ fn version_names_the_lgpl_ffmpeg_it_links() {
     let output = Command::new(BINARY).arg("--version").output().unwrap();
     let text = String::from_utf8(output.stdout).unwrap();
     assert!(output.status.success());
-    assert!(text.starts_with("batdetect-rs 0.0.0\n"), "{text}");
+    assert!(
+        text.starts_with(concat!("batdetect-rs ", env!("BATDETECT_VERSION"), "\n")),
+        "{text}"
+    );
     assert!(text.contains(&format!("FFmpeg {pinned}-")), "{text}");
     assert!(text.contains("— LGPL version 2.1 or later\n"), "{text}");
 }

@@ -1,11 +1,8 @@
-use engine::config::DetectConfig;
 use engine::settings::DetectSettings;
 use media::decode::ActiveThreads;
 use media::encode::Codec;
 use serde::Serialize;
 use tracking::settings::{StabilitySettings, TrackSettings};
-use tracking::stability::StabilityConfig;
-use tracking::track::TrackConfig;
 
 use crate::options::Options;
 
@@ -54,24 +51,16 @@ enum DecodingKind {
 }
 
 impl Settings {
-    pub(crate) fn of(
-        detect: &DetectConfig,
-        track: TrackConfig,
-        stability: StabilityConfig,
-        options: Options,
-        encoders: &[Codec],
-        decoding: ActiveThreads,
-        detection: usize,
-    ) -> Self {
+    pub(crate) fn of(options: &Options, encoders: &[Codec], decoding: ActiveThreads, detection: usize) -> Self {
         let (decoding_kind, decoding) = match decoding {
             ActiveThreads::Single => (DecodingKind::Single, 1),
             ActiveThreads::Frame(count) => (DecodingKind::Frame, count.get()),
             ActiveThreads::Slice(count) => (DecodingKind::Slice, count.get()),
         };
         Self {
-            detect: DetectSettings::from(detect),
-            track: TrackSettings::from(track),
-            stability: StabilitySettings::from(stability),
+            detect: DetectSettings::from(&options.detect),
+            track: TrackSettings::from(options.track),
+            stability: StabilitySettings::from(options.stability),
             render: RenderSettings {
                 box_pad: options.render.box_pad(),
                 trail_s: options.render.trail_s(),

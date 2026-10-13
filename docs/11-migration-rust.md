@@ -288,7 +288,9 @@ racine, jamais par attribut.
     du workspace sans `unsafe_code` ;
   - aucun `ffmpeg_next` hors de `media` ;
   - les dépendances des crates ne viennent que du workspace ;
-  - au plus un `catch_unwind`, pas de `panic = "abort"` ;
+  - au plus un appel à `catch_unwind` hors des tests (`*/tests.rs`, `*/testing.rs`,
+    `*/tests/*`, lignes `use` exclues, toutes formes comprises), et seulement sous
+    `crates/cli/src/` (#113) ; pas de `panic = "abort"` dans les profils ;
   - au plus 2 % de lignes de commentaire dans `crates/`, en comptant aussi les
     commentaires de fin de ligne et les `/* */` ;
   - aucun mot d'imitation (`round_ties_even`, `opencv`, `numpy`, `python`, `pairwise`).
@@ -401,7 +403,8 @@ Forme et tests :
   les mêmes crates. `png` dépend de `miniz_oxide` 0.8 quand `flate2` prend la 0.9 : le
   doublon existait par `dhat`, il entre avec `png` dans le binaire livré (avertissement
   de `cargo deny`).
-- `clap` n'a que la feature `string` ; `derive` attendra la commande complète (#123).
+- `clap` n'a que la feature `string`, en builder : la commande complète (#113) le garde, et
+  #114 donnera ses textes à l'exécution, ce que `derive` ne fait pas.
 - `cargo deny check` :
   - échoue sur un avis de sécurité, un paquet retiré (`yanked`), une licence hors
     liste, une version sans borne (`*`) ou une source inconnue ;
@@ -1228,13 +1231,29 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       une image sur 3, fusion 6, largeur 960, bruit 8, sigma 1,5), champs en lecture.
       `DetectConfig::try_from(&DetectSettings)` la construit depuis les réglages bruts
       (#149) ; voir `settings`.
-      `half_window(cadence)` arrondit `fenêtre × cadence / 2` au plus proche, moitié
-      vers le haut (la v0.1.1 arrondit au pair : une image d'écart quand ce produit vaut
-      x,5, jamais à 30 i/s), et refuse moins de 3 images de fenêtre ou moins de 3
-      échantillons. Aucune borne haute depuis #151 : le nombre d'échantillons d'une cible
-      intérieure, `⌊2·demi-fenêtre / pas⌋ + 1` (`window::most_sampled`), dimensionne les
+      `half_window(cadence, pixels de travail)` arrondit `fenêtre × cadence / 2` au plus
+      proche, moitié vers le haut (la v0.1.1 arrondit au pair : une image d'écart quand ce
+      produit vaut x,5, jamais à 30 i/s), et refuse moins de 3 images de fenêtre ou moins
+      de 3 échantillons. Le nombre d'échantillons d'une cible intérieure,
+      `⌊2·demi-fenêtre / pas⌋ + 1` (`window::most_sampled`, saturant), dimensionne les
       réseaux et les tampons. La 092 : 15, et 11 échantillons ; `window_2s` : 30 et 21 ;
       2 s au pas de 1 : 61.
+      - Borne haute (#113) : la fenêtre garde toutes ses images, quel que soit le pas,
+        à la taille d'un `window::Unit` (`u16`) par pixel de travail. `half_window` refuse
+        (`LongWindow`), en `f64` et avant tout calcul entier (une fenêtre infinie aussi,
+        même sans pixel), une fenêtre dont les images dépassent
+        `BACKGROUND_BUDGET` = 4 Gio : 3 105 images à 960×720, 1 379 à 1440×1080. Une
+        fenêtre absurde ou infinie (`--bg-window` du banc, `compare`) donne cette erreur
+        au lieu d'un débordement ou d'un manque de mémoire. La commande n'expose pas la
+        fenêtre ; le défaut en prend 31 images.
+      - Mesure `dhat` (13 octobre, vidéo fabriquée de 3 200 images 1440×1080, travail
+        960×720, pic du tas de la détection) : 31 images, 368 Mo ; 301, 876 Mo (884 Mo au
+        pas de 1) ; 1 003, 1 857 Mo (1 992 Mo au pas de 1). Entre 301 et 1 003 images, 1,40
+        Mo par image de fenêtre (2,02 octets par pixel de travail : le modèle du budget
+        tient à 1 % près), sur environ 0,4 Go fixes ; le pas de 1 ajoute les réseaux de
+        tri, 0,13 Go à 1 003 images. Au plafond, la détection tient donc autour de 5 Go au
+        pas de 3, sous la mémoire de la machine de Manon (16 Go). La mesure s'est arrêtée
+        avant les points de 2 000 et 3 105 images (verrou de mesure rendu).
     - `settings` (#149) : `DetectSettings`, les dix réglages de la v0.1.1 sous leurs noms
       Python (`threshold`, `min_area`, `max_area`, `bg_window_s`, `bg_step`,
       `osd_regions`, `merge_radius`, `work_width`, `noise_factor`, `target_sigma`),
@@ -1464,10 +1483,55 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     - La formule sera retentée après la 0.2.0 (issue en Backlog).
 - **`cli`** → `engine`, `tracking`, `files`, `summary`, `render`, `draw`, `media`, `types` : paquet `batdetect`, binaire
   `batdetect-rs` (#123). Tout texte vu par l'utilisateur vit dans `messages.rs`, avec la
-  ligne de commande. La bibliothèque (`jobs`, `language`, `process`, `settings`) sert aux
-  tests.
-  - `batdetect-rs VIDÉO|DOSSIER… -o DOSSIER`. `-o` est obligatoire : sans lui, la commande
-    refuse de démarrer (code 2) ; le défaut se décidera avec #86 et #113.
+  ligne de commande. La bibliothèque (`jobs`, `language`, `options`, `process`, `settings`)
+  sert aux tests.
+  - `batdetect-rs VIDÉO|DOSSIER… -o DOSSIER`. `-o`/`--out-dir` est obligatoire jusqu'à #86 :
+    sans lui, la commande refuse de démarrer (code 2). `--output` n'existe plus.
+  - Options décidées le 10 octobre (#113), en builder `clap`, deux niveaux d'aide :
+    - `-h` : l'essentiel, `VIDÉO…`, `-o/--out-dir`, `--zoom`, `-h`, `--version` ;
+    - `--help` : tout, avec l'utile (`--annotated`, `--max-tracks`, `--clip-margin`,
+      `--osd-region` répétable) et, sous « Settings that change the detection »,
+      `--threshold`, `--min-hits`, `--max-blobs` (0 coupe le filtre), `--work-width`.
+    - Apparence, celle de l'aide d'argparse 3.14 (demande de l'utilisateur) : une ligne
+      par option, le texte en colonne, coupé à la largeur du terminal (feature `wrap_help`,
+      qui ajoute `terminal_size` ; cargo deny l'accepte). clap passe toujours le texte à la
+      ligne suivante en aide longue : `-h` et `--help` sont donc tous deux l'aide courte de
+      clap (`ArgAction::HelpShort`), et le niveau se choisit avant la lecture (`--help`
+      présent avant `--` : tout est visible ; sinon l'utile et l'avancé sont cachés).
+    - Couleurs (`Styles`) : titres et « Usage » en bleu gras, options en cyan gras, noms de
+      valeurs en jaune, valeurs des défauts et valeurs possibles en vert, `error:` en rouge
+      gras. clap les coupe hors terminal et avec `NO_COLOR`, les force avec
+      `CLICOLOR_FORCE` ; aide et erreurs passent par `clap::Error::print`. Limites de clap
+      acceptées : `-h` et `--help` de la même couleur, nom du programme en cyan.
+    - Défauts jamais coupés, sur leur propre ligne (choix de l'utilisateur) : clap coupe ses
+      lignes sur l'espace ASCII et à chaque changement de couleur, même sans espace
+      (`StyledStr::wrap` passe chaque segment de couleur à `LineWrapper::wrap`, qui peut
+      couper avant son premier mot). Son « [default: 20] », en trois segments, laissait donc
+      parfois « ] » seul sur la ligne suivante. La commande écrit elle-même le défaut
+      (`hide_default_value`), après un retour à la ligne : « [default: » et « ] » en texte
+      normal, espace insécable, la valeur en vert. clap ne coupe jamais le premier mot d'une
+      ligne, et la ligne est courte. Les valeurs possibles de `--zoom` suivent sur leur
+      ligne, de la même forme.
+    - La colonne du texte se cale par titre : clap calcule sa largeur pour chaque section
+      séparément, sans réglage pour la partager entre « Options » et les réglages avancés.
+    - Sous environ 95 colonnes, clap repasse le texte de toutes les options d'une section à
+      la ligne suivante dès qu'une seule ne tient plus (règle des 40 % de `help_template`).
+      Les tests rendent l'aide à 100 colonnes fixes.
+    - `-V/--version` est une option de la commande, au ton des autres (« print the
+      version »), comme `-h/--help`.
+    - Le gabarit par défaut de clap garde `before_help` et `after_help` : les exemples de
+      #56 s'y logeront sans changer la forme des options.
+    - Les défauts viennent des configurations, et l'aide les affiche ; les textes sont ceux de
+      la v0.1.1, en anglais jusqu'à #114. Les autres réglages restent au banc.
+    - `options::Options` porte les quatre configurations (`DetectConfig`, `TrackConfig`,
+      `StabilityConfig`, `RenderConfig`) et `annotated` ; `process` et `Settings::of` le
+      reçoivent par référence.
+    - Une valeur refusée (type, borne d'un constructeur, zone mal formée) est une erreur
+      d'usage, code 2, qui nomme l'option (`--threshold must be a finite number > 0, not -1`).
+    - `--osd-region` se lit par `FromStr for engine::settings::Region` (`x0,y0,x1,y1`), la
+      même lecture que le banc ; `Display` l'écrit de la même façon.
+    - Le rappel des réglages avancés modifiés ira dans le bilan (#65) ; `params.json` les
+      enregistre déjà. `--force` part à #70.
   - Un dossier donne ses vidéos (`mp4`, `mov`, `avi`, `mkv`, `m4v`), par ordre de nom.
     Chaque vidéo a son dossier, à son nom ; deux vidéos de même nom prennent
     `<dossier parent>_<nom>_<extension>`, et deux vidéos qui écriraient au même endroit
@@ -1511,13 +1575,40 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     traduira (#114).
   - Une vidéo en échec écrit une ligne sur la sortie d'erreur : son chemin et la chaîne
     des causes. Les autres continuent ; code de sortie 1 si une vidéo a échoué.
+  - Tenue aux pannes (#113) : `outcome::run_all(vidéos, travail, compte rendu)` passe
+    chaque vidéo dans `catch_unwind`, le seul du code livré (règle 10), sur un travail
+    `Fn + RefUnwindSafe` : le compilateur vérifie qu'il ne modifie rien de ce qu'il capture,
+    appelle le compte rendu au fil de l'eau (le binaire n'y fait qu'écrire) et rend un
+    résultat par vidéo, `Result<Done, Failure>` (`Failure::Error` ou `Failure::Panic` avec
+    son message), que le bilan de #65 reprendra. Une panique écrit « {vidéo}: internal
+    error: {message} » après la ligne du crochet par défaut (le crochet propre vient à
+    #64), compte comme un échec (code 1), et la vidéo suivante est traitée.
+    - Pourquoi la vidéo suivante peut repartir : le travail ne capture que des références
+      vers des données qu'il ne modifie pas (options, libellés, versions) ; les fils d'une
+      vidéo sont rejoints ou arrêtés avant la relance (`read_ahead`, `serve_ahead`,
+      `schedule`, rayon), ce que deux tests `should_panic` vérifient pour une panique du
+      consommateur ; la vidéo suivante repart de zéro.
+    - Ce qu'une panique peut laisser : les extraits passent par un temporaire effacé au
+      déroulement, mais pas le CSV ni `params.json` : un CSV peut rester tronqué, comme un
+      échec laisse ses fichiers déjà écrits. Une panique dans l'initialisation de FFmpeg
+      (un `Once`) l'empoisonne, et les vidéos suivantes paniquent aussi. Le manque de
+      mémoire, une panique pendant une panique et une panique dans un `rayon::spawn` ne sont
+      pas rattrapés ; la borne de la fenêtre du fond (`engine`) écarte la première cause
+      connue.
   - `params.json` : réglages rangés par configuration, avec les clés de la v0.1.1
     (`DetectConfig`, `TrackConfig`, `StabilityConfig`, par `tracking::settings` depuis
     #108). Un filtre coupé s'écrit 0, comme dans la v0.1.1. `threads` donne les fils réellement employés : `decoding` et
     `decoding_kind` (`single`, `frame`, `slice`) pour le décodeur, `detection` pour
-    `rayon`. `version` est celle du paquet (`CARGO_PKG_VERSION`, 0.0.0 jusqu'à la
-    première version publiée : elle ne distingue pas encore deux commits), `ffmpeg` celle
-    de FFmpeg liée.
+    `rayon`. `version` est celle de `--version`, gravée par `crates/cli/build.rs`
+    (#113) : la variable `BATDETECT_VERSION` si elle est posée, sinon `git describe --tags
+    --match 'v[0-9]*' --dirty --always` sans le `v` (par exemple `0.1.1-81-g40591c2-dirty` ;
+    le hachage court seul dans un clone sans tags), sinon `CARGO_PKG_VERSION`. Le script
+    ne se relance que si `HEAD`, la branche qu'il nomme, `refs/tags`, `packed-refs`
+    (chemins absolus, worktree compris, seulement ceux qui existent), `crates/`,
+    `Cargo.toml`, `Cargo.lock` ou `rust-toolchain.toml` changent : un `git fetch` ou un
+    commit d'un autre worktree ne le relancent pas ; « -dirty » ne voit pas une
+    modification de `docs/` ou de `mise.toml`, et toute modification de source recompile
+    `cli`, la crate feuille. `ffmpeg` est la version de FFmpeg liée.
     - `RenderConfig` (#112, #103) : `box_pad`, `trail_s`, `clip_margin_s`, `max_tracks`,
       `zoom` (`auto`, `all` ou `none`), `zoom_below_area` (`100.0`),
       `zoom_below_amplitude` (`40.0`), `annotated`, et `encoders`, la liste des encodeurs

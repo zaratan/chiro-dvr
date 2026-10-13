@@ -72,9 +72,10 @@ fn after_an_earlier_run(
         names,
         detected: &detected,
         timeline: &timeline,
-        options: Options {
+        options: &Options {
             render: RenderConfig::new(12, 1.0, 1.5, max_tracks).unwrap(),
             annotated: true,
+            ..Options::default()
         },
     };
     let rendered = render_clips(&clips, &[still(1), still(2)], trial);
@@ -202,7 +203,7 @@ fn a_box_follows_its_target_on_every_detected_frame_after_frames_lost_in_the_mid
         &Plain,
         Threads::Automatic,
         VERSIONS,
-        Options::default(),
+        &Options::default(),
     )
     .unwrap();
     let kept = clip_frames(&video).len();
@@ -270,8 +271,9 @@ fn the_annotated_video_of_a_flight_that_loses_frames_keeps_the_frames_and_pts_of
     let options = Options {
         render: RenderConfig::default(),
         annotated: true,
+        ..Options::default()
     };
-    process(&job, Language::English, &Plain, Threads::Automatic, VERSIONS, options).unwrap();
+    process(&job, Language::English, &Plain, Threads::Automatic, VERSIONS, &options).unwrap();
     let annotated = Names::new(Language::English).annotated_video(&job.dest, video.file_stem().unwrap());
     let source = pts_of(&video);
     assert_eq!(source.len(), KEPT_FRAMES);

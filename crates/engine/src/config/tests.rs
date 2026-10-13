@@ -8,6 +8,8 @@ use super::{DetectConfig, Error};
 use crate::settings::{self, DetectSettings, Region, Setting};
 use crate::window::most_sampled;
 
+const PIXELS: usize = 960 * 720;
+
 fn rate(num: i32, den: i32) -> FrameRate {
     FrameRate::new(Rational::new(num, den).unwrap()).unwrap()
 }
@@ -22,7 +24,7 @@ fn stepping(step: usize) -> DetectConfig {
 #[test]
 fn the_whole_092_keeps_a_half_window_of_15_frames_sampled_one_in_three() {
     let half = DetectConfig::default()
-        .half_window(rate(90_110_000, 3_000_927))
+        .half_window(rate(90_110_000, 3_000_927), PIXELS)
         .unwrap();
 
     assert_eq!(half.get(), 15);
@@ -37,7 +39,7 @@ fn background_window_too_short_for_the_frame_rate_is_rejected() {
     };
 
     assert!(matches!(
-        short.half_window(rate(30, 1)),
+        short.half_window(rate(30, 1), PIXELS),
         Err(Error::ShortWindow { frames: 1, .. })
     ));
 }
@@ -45,7 +47,7 @@ fn background_window_too_short_for_the_frame_rate_is_rejected() {
 #[test]
 fn background_step_leaving_under_three_frames_is_rejected_rather_than_using_one_frame_as_background() {
     assert_eq!(
-        stepping(40).half_window(rate(30, 1)),
+        stepping(40).half_window(rate(30, 1), PIXELS),
         Err(Error::FewSamples {
             step: 40,
             frames: 31,
@@ -56,9 +58,9 @@ fn background_step_leaving_under_three_frames_is_rejected_rather_than_using_one_
 
 #[test]
 fn background_step_leaving_exactly_three_frames_is_accepted_and_one_more_is_rejected() {
-    assert_eq!(stepping(15).half_window(rate(30, 1)).unwrap().get(), 15);
+    assert_eq!(stepping(15).half_window(rate(30, 1), PIXELS).unwrap().get(), 15);
     assert!(matches!(
-        stepping(16).half_window(rate(30, 1)),
+        stepping(16).half_window(rate(30, 1), PIXELS),
         Err(Error::FewSamples { samples: 2, .. })
     ));
 }
@@ -71,15 +73,15 @@ fn any_number_of_background_samples_is_taken() {
         ..DetectSettings::default()
     })
     .unwrap();
-    let half = long.half_window(rate(30, 1)).unwrap();
+    let half = long.half_window(rate(30, 1), PIXELS).unwrap();
 
-    assert_eq!(stepping(1).half_window(rate(30, 1)).unwrap().get(), 15);
+    assert_eq!(stepping(1).half_window(rate(30, 1), PIXELS).unwrap().get(), 15);
     assert_eq!(most_sampled(half, long.step()).get(), 61);
 }
 
 #[test]
 fn every_refusal_names_the_offending_numbers() {
-    let message = stepping(40).half_window(rate(30, 1)).unwrap_err().to_string();
+    let message = stepping(40).half_window(rate(30, 1), PIXELS).unwrap_err().to_string();
 
     assert_eq!(message, "one frame in 40 keeps 1 of 31 window frames, fewer than 3");
 }
@@ -406,4 +408,69 @@ fn a_refused_setting_says_which_bound_it_breaks() {
             "noise_factor must be a finite number ≥ 0, not -1"
         ]
     );
+}
+
+fn lasting(seconds: f64, step: usize) -> DetectConfig {
+    DetectConfig {
+        window_seconds: seconds,
+        step: NonZeroUsize::new(step).unwrap(),
+        ..DetectConfig::default()
+    }
+}
+
+#[test]
+fn a_window_whose_frames_fit_in_four_gibibytes_of_working_pixels_is_kept_and_one_more_frame_is_refused() {
+    let kept = lasting(3104.0, 3).half_window(rate(1, 1), PIXELS).unwrap();
+    assert_eq!(2 * kept.get() + 1, 3105);
+    assert!(matches!(
+        lasting(3106.0, 3).half_window(rate(1, 1), PIXELS),
+        Err(Error::LongWindow { frames, pixels: PIXELS, .. }) if (frames - 3107.0).abs() < 0.5
+    ));
+}
+
+#[test]
+fn a_large_step_does_not_let_a_window_of_too_many_frames_through() {
+    assert!(matches!(
+        lasting(600.0, 200).half_window(rate(30, 1), PIXELS),
+        Err(Error::LongWindow { .. })
+    ));
+}
+
+#[test]
+fn an_absurd_window_is_refused_without_overflowing() {
+    for seconds in [1e300, f64::MAX, f64::INFINITY] {
+        assert!(
+            matches!(
+                lasting(seconds, 3).half_window(rate(30, 1), PIXELS),
+                Err(Error::LongWindow { .. })
+            ),
+            "{seconds}"
+        );
+    }
+    let message = lasting(600.0, 200)
+        .half_window(rate(30, 1), PIXELS)
+        .unwrap_err()
+        .to_string();
+    assert_eq!(
+        message,
+        "a background window of 600 s at 30 frames per second keeps 18001 frames of 691200 working pixels, \
+         more than the 4294967296 bytes allowed"
+    );
+}
+
+#[test]
+fn the_most_sampled_count_saturates_instead_of_overflowing() {
+    let huge = NonZeroUsize::new(usize::MAX).unwrap();
+    assert_eq!(
+        most_sampled(huge, NonZeroUsize::MIN),
+        NonZeroUsize::new(usize::MAX).unwrap()
+    );
+}
+
+#[test]
+fn an_infinite_window_is_refused_even_without_any_working_pixel() {
+    assert!(matches!(
+        lasting(f64::INFINITY, 3).half_window(rate(30, 1), 0),
+        Err(Error::LongWindow { .. })
+    ));
 }

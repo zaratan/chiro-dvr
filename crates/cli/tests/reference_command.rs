@@ -29,7 +29,7 @@ fn the_092_gives_the_fourteen_tracks_and_clips_of_the_reference_and_its_single_z
         &agreement::DebugLabels,
         Threads::Automatic,
         agreement::VERSIONS,
-        Options::default(),
+        &Options::default(),
     )
     .unwrap();
     let found = agreement::agreement(&processed, &recording, rate);

@@ -4,7 +4,7 @@ use reference::location::committed;
 use reference::recording::SUMMARY_FILE;
 use reference::video::VideoSummary;
 
-use super::{DetectSettings, Region, Setting};
+use super::{DetectSettings, Region, RegionShape, Setting};
 
 fn extract_summary() -> String {
     fs::read_to_string(committed("video_092_original_3m24-4m05").join(SUMMARY_FILE)).unwrap()
@@ -96,4 +96,28 @@ fn a_region_contains_the_points_on_its_four_edges_and_none_beyond() {
     for (x, y) in [(0.249, 0.7), (0.751, 0.7), (0.5, 0.499), (0.5, 1.001)] {
         assert!(!region.contains(x, y), "({x}, {y})");
     }
+}
+
+#[test]
+fn a_display_region_reads_from_four_fractions_and_writes_back_the_same() {
+    let region: Region = " 0, 0.9 ,1,1".parse().unwrap();
+    assert_eq!(
+        region,
+        Region {
+            x0: 0.0,
+            y0: 0.9,
+            x1: 1.0,
+            y1: 1.0
+        }
+    );
+    assert_eq!(region.to_string(), "0,0.9,1,1");
+    assert_eq!(region.to_string().parse::<Region>(), Ok(region));
+}
+
+#[test]
+fn a_display_region_that_is_not_four_numbers_is_refused() {
+    for text in ["0,0,1", "a,b,c,d", "0,0,1,1,1", ""] {
+        assert_eq!(text.parse::<Region>(), Err(RegionShape), "{text}");
+    }
+    assert_eq!(RegionShape.to_string(), "expected four fractions X0,Y0,X1,Y1");
 }

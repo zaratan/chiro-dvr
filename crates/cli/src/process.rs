@@ -2,7 +2,6 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use engine::config::DetectConfig;
 use engine::detection::{self, Detected, detect};
 use engine::input::Video;
 use files::names::{Names, params_json};
@@ -18,8 +17,7 @@ use render::source::{self, Source};
 use summary::header::Labels;
 use summary::layout::Summary;
 use tracking::exclusion::exclude;
-use tracking::stability::StabilityConfig;
-use tracking::track::{TrackConfig, track_detections};
+use tracking::track::track_detections;
 use types::language::Language;
 use types::timeline::{self, Timeline};
 use types::track::Track;
@@ -90,19 +88,18 @@ pub fn process(
     labels: &dyn Labels,
     threads: Threads,
     versions: Versions<'_>,
-    options: Options,
+    options: &Options,
 ) -> Result<Processed, Error> {
     let render = options.render;
-    let config = DetectConfig::default();
-    let detected = detect(&job.video, threads, &config).map_err(Error::Detection)?;
+    let config = &options.detect;
+    let detected = detect(&job.video, threads, config).map_err(Error::Detection)?;
     let reading = detected.reading();
     let rate = reading.video().frame_rate();
     let pts = reading.frames().iter().map(|frame| frame.pts()).collect();
     let timeline = Timeline::new(pts, reading.video().time_base(), rate).map_err(Error::Timeline)?;
     let damage = detected.damage();
     let reported = damage.reported_frames();
-    let track = TrackConfig::default();
-    let stability = StabilityConfig::default();
+    let (track, stability) = (options.track, options.stability);
     let exclusion = exclude(
         detected.detections(),
         damage.spans().to_vec(),
@@ -120,9 +117,6 @@ pub fn process(
     write_tracks_csv(&csv, &tracks, &timeline).map_err(Error::Files)?;
     let trial = encoders(render, tracks.len(), reading.video());
     let settings = Settings::of(
-        &config,
-        track,
-        stability,
         options,
         trial.as_deref().unwrap_or_default(),
         detected.active_threads(),
@@ -188,7 +182,7 @@ struct Clips<'a> {
     names: Names,
     detected: &'a Detected,
     timeline: &'a Timeline,
-    options: Options,
+    options: &'a Options,
 }
 
 fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, Error>) -> Result<Rendered, Error> {
