@@ -197,7 +197,8 @@ crates depuis #100, dépendances à sens unique :
   `cli` (paquet `batdetect`, binaire `batdetect-rs`) → `engine`, `tracking`, `files`,
   `summary`, `render`, `draw`, `media`, `types` ; `options` (réglages de la commande),
   `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), version gravée par
-  `build.rs`.
+  `build.rs` ; textes en Fluent dans `locales/{fr,en}.ftl`, langue de l'aide, des erreurs,
+  des lignes et du bandeau (#114).
 
 Charte (23 règles numérotées, lints et raisons dans
 [docs/11](docs/11-migration-rust.md#charte)) :

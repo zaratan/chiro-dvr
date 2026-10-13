@@ -11,16 +11,18 @@ const FRENCH: &str = "fr";
 const ENGLISH: &str = "en";
 
 pub fn system_language() -> Language {
-    language_of(|name| env::var_os(name))
+    language_of(|name| env::var_os(name), sys_locale::get_locale)
 }
 
-fn language_of(variable: impl Fn(&str) -> Option<OsString>) -> Language {
+fn language_of(variable: impl Fn(&str) -> Option<OsString>, system: impl FnOnce() -> Option<String>) -> Language {
     let chosen = VARIABLES
         .iter()
         .filter_map(|name| variable(name))
         .find(|value| !value.is_empty())
-        .unwrap_or_default();
-    let chosen = chosen.to_string_lossy().to_ascii_lowercase();
+        .map(|value| value.to_string_lossy().into_owned())
+        .or_else(system)
+        .unwrap_or_default()
+        .to_ascii_lowercase();
     let known = chosen
         .split(':')
         .find(|item| item.starts_with(FRENCH) || item.starts_with(ENGLISH));

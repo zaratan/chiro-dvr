@@ -6,23 +6,33 @@ use batdetect::options::Options;
 use clap::error::ErrorKind;
 use engine::settings::Region;
 use render::config::Zoom;
+use types::language::Language;
 
 use super::{Level, Request, command, level, parse};
+use crate::errors::rendered;
+use crate::texts::Texts;
+
+const ENGLISH: Texts = Texts::new(Language::English);
+const FRENCH: Texts = Texts::new(Language::French);
 
 fn read(arguments: &[&str]) -> Options {
     let mut all = vec!["batdetect-rs", "a.mp4", "-o", "out"];
     all.extend_from_slice(arguments);
-    parse(all).unwrap().options
+    parse(all, ENGLISH).unwrap().options
 }
 
 fn refused(arguments: &[&str]) -> clap::Error {
     let mut all = vec!["batdetect-rs", "a.mp4", "-o", "out"];
     all.extend_from_slice(arguments);
-    parse(all).unwrap_err()
+    parse(all, ENGLISH).unwrap_err()
 }
 
 fn help(level: Level) -> String {
-    command(level).term_width(100).render_help().to_string()
+    help_in(level, ENGLISH)
+}
+
+fn help_in(level: Level, texts: Texts) -> String {
+    command(level, texts).term_width(100).render_help().to_string()
 }
 
 fn level_of(arguments: &[&str]) -> Level {
@@ -32,7 +42,7 @@ fn level_of(arguments: &[&str]) -> Level {
 
 #[test]
 fn several_videos_and_the_long_out_dir_option_are_read_with_the_v0_1_1_settings() {
-    let request = parse(["batdetect-rs", "a.mp4", "nuit", "--out-dir", "out"]).unwrap();
+    let request = parse(["batdetect-rs", "a.mp4", "nuit", "--out-dir", "out"], ENGLISH).unwrap();
     assert_eq!(
         request,
         Request {
@@ -45,22 +55,22 @@ fn several_videos_and_the_long_out_dir_option_are_read_with_the_v0_1_1_settings(
 
 #[test]
 fn the_short_out_dir_option_may_come_first_and_the_old_long_name_is_refused() {
-    let request = parse(["batdetect-rs", "-o", "out", "a.mp4"]).unwrap();
+    let request = parse(["batdetect-rs", "-o", "out", "a.mp4"], ENGLISH).unwrap();
     assert_eq!(request.out_dir, PathBuf::from("out"));
-    let error = parse(["batdetect-rs", "a.mp4", "--output", "out"]).unwrap_err();
+    let error = parse(["batdetect-rs", "a.mp4", "--output", "out"], ENGLISH).unwrap_err();
     assert_eq!(error.kind(), ErrorKind::UnknownArgument);
 }
 
 #[test]
 fn a_missing_out_dir_is_a_usage_error() {
-    let error = parse(["batdetect-rs", "a.mp4"]).unwrap_err();
+    let error = parse(["batdetect-rs", "a.mp4"], ENGLISH).unwrap_err();
     assert_eq!(error.kind(), ErrorKind::MissingRequiredArgument);
     assert_eq!(error.exit_code(), 2);
 }
 
 #[test]
 fn an_out_dir_without_video_is_a_usage_error() {
-    let error = parse(["batdetect-rs", "-o", "out"]).unwrap_err();
+    let error = parse(["batdetect-rs", "-o", "out"], ENGLISH).unwrap_err();
     assert_eq!(error.kind(), ErrorKind::MissingRequiredArgument);
 }
 
@@ -131,7 +141,8 @@ fn a_value_a_setting_refuses_is_a_usage_error_that_names_the_option() {
     ] {
         let error = refused(arguments);
         assert_eq!(error.exit_code(), 2, "{arguments:?}");
-        assert!(error.to_string().contains(named), "{arguments:?}: {error}");
+        let text = rendered(ENGLISH, &error).to_string();
+        assert!(text.contains(named), "{arguments:?}: {text}");
     }
 }
 
@@ -144,7 +155,8 @@ fn a_value_that_is_not_a_number_or_not_allowed_is_a_usage_error_that_names_the_o
     ] {
         let error = refused(arguments);
         assert_eq!(error.kind(), ErrorKind::ValueValidation, "{arguments:?}");
-        assert!(error.to_string().contains(named), "{arguments:?}: {error}");
+        let text = rendered(ENGLISH, &error).to_string();
+        assert!(text.contains(named), "{arguments:?}: {text}");
     }
 }
 
@@ -152,10 +164,8 @@ fn a_value_that_is_not_a_number_or_not_allowed_is_a_usage_error_that_names_the_o
 fn a_display_region_that_is_not_four_fractions_is_refused() {
     for region in ["0,0,1", "a,b,c,d"] {
         let error = refused(&["--osd-region", region]);
-        assert!(
-            error.to_string().contains("expected four fractions X0,Y0,X1,Y1"),
-            "{region}: {error}"
-        );
+        let text = rendered(ENGLISH, &error).to_string();
+        assert!(text.contains("expected four fractions X0,Y0,X1,Y1"), "{region}: {text}");
     }
 }
 
@@ -195,7 +205,7 @@ fn each_option_of_either_help_keeps_its_text_on_the_option_line_without_blank_li
 
 #[test]
 fn the_help_takes_the_colours_of_argparse_headings_in_bold_blue_options_in_bold_cyan_values_in_yellow() {
-    let coloured = command(Level::Full).render_help().ansi().to_string();
+    let coloured = command(Level::Full, ENGLISH).render_help().ansi().to_string();
     for styled in [
         "\u{1b}[1m\u{1b}[34mOptions:",
         "\u{1b}[1m\u{1b}[34mUsage:",
@@ -207,7 +217,7 @@ fn the_help_takes_the_colours_of_argparse_headings_in_bold_blue_options_in_bold_
     ] {
         assert!(coloured.contains(styled), "{styled:?}: {coloured:?}");
     }
-    let refused = refused(&["--threshold", "-1"]).render().ansi().to_string();
+    let refused = rendered(ENGLISH, &refused(&["--threshold", "-1"])).ansi().to_string();
     assert!(refused.contains("\u{1b}[1m\u{1b}[31merror:"), "{refused:?}");
 }
 
@@ -221,7 +231,7 @@ fn the_long_help_shows_every_option_with_its_effect_its_default_and_a_telling_va
         "--clip-margin <SECONDS>",
         "[default:\u{a0}1.5]",
         "--osd-region <X0,Y0,X1,Y1>",
-        "none by default",
+        "[default:\u{a0}none]",
         "Settings that change the detection:",
         "--threshold <LEVEL>",
         "[default:\u{a0}12]",
@@ -250,7 +260,7 @@ fn the_long_help_is_chosen_by_a_help_flag_before_the_end_of_options_and_both_fla
     assert_eq!(level_of(&["batdetect-rs", "-h", "--help"]), Level::Full);
     assert_eq!(level_of(&["batdetect-rs", "a.mp4", "--", "--help"]), Level::Essential);
     for flag in ["-h", "--help"] {
-        let shown = parse(["batdetect-rs", flag]).unwrap_err();
+        let shown = parse(["batdetect-rs", flag], ENGLISH).unwrap_err();
         assert_eq!(shown.kind(), ErrorKind::DisplayHelp);
         assert_eq!(shown.exit_code(), 0);
     }
@@ -260,9 +270,92 @@ fn the_long_help_is_chosen_by_a_help_flag_before_the_end_of_options_and_both_fla
 fn every_default_stands_whole_at_the_start_of_its_own_line() {
     let long = help(Level::Full);
     let defaults: Vec<&str> = long.lines().filter(|line| line.contains("[default:")).collect();
-    assert_eq!(defaults.len(), 7, "{long}");
+    assert_eq!(defaults.len(), 8, "{long}");
     for line in defaults {
         let tag = line.trim_start();
         assert!(tag.starts_with("[default:\u{a0}") && tag.ends_with(']'), "{line}");
     }
+}
+
+#[test]
+fn the_french_help_of_either_level_keeps_no_english_word_of_clap() {
+    for level in [Level::Essential, Level::Full] {
+        let shown = help_in(level, FRENCH);
+        for english in [
+            "Usage",
+            "Options:",
+            "Arguments:",
+            "Print",
+            "print",
+            "default",
+            "possible values",
+            "Settings",
+        ] {
+            assert!(!shown.contains(english), "{english}: {shown}");
+        }
+    }
+}
+
+#[test]
+fn the_french_help_names_its_values_in_french_and_writes_the_defaults_with_a_decimal_comma() {
+    let long = help_in(Level::Full, FRENCH);
+    for shown in [
+        "Utilisation\u{a0}: batdetect-rs [OPTIONS] --out-dir <DOSSIER> <VIDÉO>...",
+        "Arguments\u{a0}:\n  <VIDÉO>...",
+        "Options\u{a0}:\n  -o, --out-dir <DOSSIER>",
+        "[par défaut\u{a0}:\u{a0}aucune]",
+        "--zoom <CHOIX>",
+        "[valeurs possibles\u{a0}: auto, all, none]",
+        "--max-tracks <NOMBRE>",
+        "--clip-margin <SECONDES>",
+        "[par défaut\u{a0}:\u{a0}1,5]",
+        "Réglages qui changent la détection\u{a0}:",
+        "--threshold <NIVEAU>",
+        "--work-width <PIXELS>",
+    ] {
+        assert!(long.contains(shown), "{shown}: {long}");
+    }
+}
+
+#[test]
+fn every_french_default_stands_whole_at_the_start_of_its_own_line() {
+    let long = help_in(Level::Full, FRENCH);
+    let defaults: Vec<&str> = long.lines().filter(|line| line.contains("[par défaut")).collect();
+    assert_eq!(defaults.len(), 8, "{long}");
+    for line in defaults {
+        let tag = line.trim_start();
+        assert!(
+            tag.starts_with("[par défaut\u{a0}:\u{a0}") && tag.ends_with(']'),
+            "{line}"
+        );
+    }
+}
+
+#[test]
+fn the_french_help_keeps_the_colours_of_the_english_one_and_colours_only_the_value_of_a_default() {
+    let coloured = command(Level::Full, FRENCH).render_help().ansi().to_string();
+    for styled in [
+        "\u{1b}[1m\u{1b}[34mUtilisation\u{a0}:\u{1b}[0m ",
+        "\u{1b}[1m\u{1b}[34mOptions\u{a0}:",
+        "\u{1b}[1m\u{1b}[36m--out-dir",
+        "\u{1b}[33m<DOSSIER>",
+        "[par défaut\u{a0}:\u{a0}\u{1b}[32m1,5\u{1b}[0m]",
+        "[valeurs possibles\u{a0}: \u{1b}[32mauto\u{1b}[0m, ",
+    ] {
+        assert!(coloured.contains(styled), "{styled:?}: {coloured:?}");
+    }
+}
+
+#[test]
+fn the_french_short_help_shows_only_the_essential_options_each_with_its_text_on_its_line() {
+    let short = help_in(Level::Essential, FRENCH);
+    for hidden in ["--annotated", "--threshold", "Réglages qui changent"] {
+        assert!(!short.contains(hidden), "{hidden}: {short}");
+    }
+    let out_dir = short
+        .lines()
+        .find(|line| line.contains("-o, --out-dir <DOSSIER>"))
+        .unwrap();
+    assert!(out_dir.contains("dossier qui reçoit"), "{out_dir}");
+    assert!(short.contains("--help toutes les options"), "{short}");
 }

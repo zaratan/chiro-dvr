@@ -14,13 +14,16 @@ clap.workspace = true
 draw.workspace = true
 engine.workspace = true
 files.workspace = true
+fluent-bundle.workspace = true
 media.workspace = true
 render.workspace = true
 serde.workspace = true
 summary.workspace = true
+sys-locale.workspace = true
 thiserror.workspace = true
 tracking.workspace = true
 types.workspace = true
+unic-langid.workspace = true
 
 [dev-dependencies]
 media = { workspace = true, features = ["testing"] }

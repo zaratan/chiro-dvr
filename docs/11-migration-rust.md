@@ -405,8 +405,16 @@ Forme et tests :
   les mêmes crates. `png` dépend de `miniz_oxide` 0.8 quand `flate2` prend la 0.9 : le
   doublon existait par `dhat`, il entre avec `png` dans le binaire livré (avertissement
   de `cargo deny`).
-- `clap` n'a que la feature `string`, en builder : la commande complète (#113) le garde, et
-  #114 donnera ses textes à l'exécution, ce que `derive` ne fait pas.
+- `clap` en builder, features `string` et `wrap_help` : la commande se construit à
+  l'exécution avec les textes de la langue (#114), ce que `derive` ne fait pas.
+- **Langues (#114, décision 7 du lot 8)** : `fluent-bundle` 0.16.0, `unic-langid` 0.9.6 et
+  `sys-locale` 0.3.2 (MIT OR Apache-2.0). Ils ajoutent 13 crates à `Cargo.lock`
+  (`fluent-syntax`, `fluent-langneg`, `intl-memoizer`, `intl_pluralrules`, `self_cell`,
+  `type-map`, `tinystr`, `zerovec`, `displaydoc`, `unic-langid-impl`), sous MIT, Apache-2.0
+  ou Unicode-3.0, déjà admises. Écartés : `i18n-embed-fl` (macro et chargement de fichiers
+  dont la commande n'a pas besoin) et ICU4X (des dizaines de crates pour formater deux
+  sortes de nombres). La macro `langid!` n'est pas prise : la langue se lit par
+  `"fr".parse()`, et le test des pluriels prouve qu'elle est reconnue.
 - `cargo deny check` :
   - échoue sur un avis de sécurité, un paquet retiré (`yanked`), une licence hors
     liste, une version sans borne (`*`) ou une source inconnue ;
@@ -1503,15 +1511,17 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       1:32 ; 097 2:43, 099 0:19 et 100 1:36 sont dans les deux.
     - La formule sera retentée après la 0.2.0 (issue en Backlog).
 - **`cli`** → `engine`, `tracking`, `files`, `summary`, `render`, `draw`, `media`, `types` : paquet `batdetect`, binaire
-  `batdetect-rs` (#123). Tout texte vu par l'utilisateur vit dans `messages.rs`, avec la
-  ligne de commande. La bibliothèque (`jobs`, `language`, `options`, `process`, `settings`)
+  `batdetect-rs` (#123). Tout texte vu par l'utilisateur vit dans les deux catalogues
+  Fluent `locales/{fr,en}.ftl`, lus par `texts.rs` (#114) ; `messages.rs` fait les messages
+  à partir des vidéos et des erreurs, `arguments.rs` la ligne de commande. La bibliothèque (`jobs`, `language`, `options`, `process`, `settings`)
   sert aux tests.
   - `batdetect-rs VIDÉO|DOSSIER… -o DOSSIER`. `-o`/`--out-dir` est obligatoire jusqu'à #86 :
     sans lui, la commande refuse de démarrer (code 2). `--output` n'existe plus.
   - Options décidées le 10 octobre (#113), en builder `clap`, deux niveaux d'aide :
     - `-h` : l'essentiel, `VIDÉO…`, `-o/--out-dir`, `--zoom`, `-h`, `--version` ;
     - `--help` : tout, avec l'utile (`--annotated`, `--max-tracks`, `--clip-margin`,
-      `--osd-region` répétable) et, sous « Settings that change the detection »,
+      `--osd-region` répétable) et, sous « Settings that change the detection » (« Réglages
+      qui changent la détection »),
       `--threshold`, `--min-hits`, `--max-blobs` (0 coupe le filtre), `--work-width`.
     - Apparence, celle de l'aide d'argparse 3.14 (demande de l'utilisateur) : une ligne
       par option, le texte en colonne, coupé à la largeur du terminal (feature `wrap_help`,
@@ -1540,10 +1550,12 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       Les tests rendent l'aide à 100 colonnes fixes.
     - `-V/--version` est une option de la commande, au ton des autres (« print the
       version »), comme `-h/--help`.
-    - Le gabarit par défaut de clap garde `before_help` et `after_help` : les exemples de
-      #56 s'y logeront sans changer la forme des options.
+    - Le gabarit de la commande (`help_template`, #114) reprend celui de clap avec notre
+      titre d'usage, et garde `{before-help}` et `{after-help}` : les exemples de #56 s'y
+      logeront sans changer la forme des options.
     - Les défauts viennent des configurations, et l'aide les affiche ; les textes sont ceux de
-      la v0.1.1, en anglais jusqu'à #114. Les autres réglages restent au banc.
+      la v0.1.1, dans les deux langues (#114). `--osd-region` a aussi son défaut sur sa ligne
+      (« [default: none] »). Les autres réglages restent au banc.
     - `options::Options` porte les quatre configurations (`DetectConfig`, `TrackConfig`,
       `StabilityConfig`, `RenderConfig`) et `annotated` ; `process` et `Settings::of` le
       reçoivent par référence.
@@ -1585,27 +1597,70 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       openh264 après une erreur de VideoToolbox : {causes} ».
   - Langue du système : la première variable non vide parmi `LANGUAGE`, `LC_ALL`,
     `LC_MESSAGES` et `LANG`. Dans une liste (`LANGUAGE=de:fr`), c'est la première langue
-    qui a des messages qui compte : `fr*` pour le français, `en*` pour l'anglais. Sans
-    aucune des deux, c'est l'anglais. Le Python ne connaissait que le catalogue
-    français : `en:fr` y donnait du français, ici de l'anglais. La langue choisit le nom
-    du CSV et la ligne de chaque vidéo traitée (« nom : N pistes -> dossier »), et aussi
-    le nom et le bandeau de l'image résumé (`SummaryLabels`, dans `messages.rs`).
-  - Textes : les lignes de réussite et la ligne de commande vivent dans `messages.rs`.
-    Les causes d'un échec sont les `Display` des erreurs, en anglais, comme pour
-    `engine` et `files`, y compris celles de la bibliothèque de la commande ; Fluent les
-    traduira (#114).
-  - Une vidéo en échec écrit une ligne sur la sortie d'erreur : son chemin et la chaîne
-    des causes. Les autres continuent ; code de sortie 1 si une vidéo a échoué.
+    qui a des messages qui compte : `fr*` pour le français, `en*` pour l'anglais. Le Python
+    ne connaissait que le catalogue français : `en:fr` y donnait du français, ici de
+    l'anglais. Si aucune variable n'est posée ou toutes sont vides, `sys-locale` lit la
+    langue de l'interface (macOS, Windows) ; à défaut, l'anglais. `LANG=C` reste en
+    anglais : la variable est posée. Les tests qui lancent le binaire fixent tous `LANG`.
+  - Langues (#114) : toute la commande parle la langue choisie, la ligne de commande comme
+    les lignes de console et le bandeau de l'image résumé ; les noms de fichiers restent
+    dans `files::names`.
+    - Deux catalogues Fluent plats, `crates/cli/locales/fr.ftl` et `en.ftl`, inclus dans le
+      binaire (`include_str!`) : ni termes, ni attributs, ni `NUMBER()`. Le français reprend
+      mot pour mot les textes de la v0.1.1 (catalogue de #54) quand ils existent.
+    - `texts::Message` énumère les messages avec leurs arguments typés, `texts::Fixed` ceux
+      qui n'en ont pas. Le test des clés exige : chaque message se forme sans erreur dans les
+      deux langues ; chaque argument sert dans au moins une langue (l'anglais n'accorde ni
+      « réécrit » ni « illisible ») ; aucune clé orpheline ; les deux catalogues se lisent
+      sans erreur ; aucune marque d'isolement U+2068/U+2069 (coupées par
+      `set_use_isolating(false)` : Roboto n'a pas ces glyphes, et elles entreraient dans les
+      chemins copiés depuis la console).
+    - `texts::Texts` ne porte que la langue (`Copy`). Les deux bundles vivent dans deux
+      `static OnceLock`, construits au premier usage sans `Result` : un bundle n'est pas
+      `RefUnwindSafe`, et le travail de `run_all` ne capture ainsi que la langue.
+    - La bibliothèque reste sans texte : `process(job, &dyn Wording, …)` reçoit le trait
+      `Wording` (les libellés du bandeau et la langue des noms) ; ses tests passent des
+      libellés de débogage en anglais.
+    - Nombres : un formateur par langue (`numbers.rs`), branché sur le bundle. Français :
+      virgule décimale, milliers séparés par U+202F dans la console et par U+00A0 dans le
+      bandeau (Roboto n'a pas U+202F). Anglais : point, sans séparateur. `-0` s'écrit `0`.
+      Le CSV, `params.json` et les noms de fichiers n'y passent pas. L'aide affiche
+      « [par défaut : 1,5] », alors que l'option s'écrit `--clip-margin 1.5`, comme en
+      v0.1.1.
+    - Aide : la commande se construit avec les textes de la langue (aides, noms de valeurs,
+      titres par `help_heading`, « Utilisation : » par le gabarit). Les titres français
+      finissent par une espace insécable, puisque clap colle « : ». L'apparence de #113 est
+      la même dans les deux langues. L'usage reste celui que clap génère avec nos noms de
+      valeurs : « [OPTIONS] » s'y lit aussi en français, et `override_usage` n'a pas été
+      pris.
+    - Erreurs de clap : un `ErrorFormatter` par langue (`errors.rs`), branché par
+      `clap::Error::apply`, les rend depuis `ErrorKind` et `ContextKind` ; impression,
+      couleurs et codes de sortie restent ceux de clap. Nos refus portent leur phrase dans
+      `ContextKind::Custom`, et non par `Command::error`, dont le message tout fait ne passe
+      pas par le formateur. En anglais, les erreurs essayées par le test (option inconnue,
+      avec option ou valeur proche et conseil `--`, valeur invalide ou vide, nombre
+      illisible, valeur donnée à un interrupteur, option répétée, argument manquant) sont
+      rendues à l'identique de clap, couleurs comprises ; un genre non
+      prévu donne « the arguments are refused: » (« les arguments sont refusés : ») suivi
+      du texte anglais du genre.
+    - Causes : les `Display` des erreurs des bibliothèques restent en anglais, après une
+      phrase traduite : « {vidéo} : échec : {causes} », « vidéos refusées : {causes} ». #64
+      traduira les causes connues.
+    - Noms d'options : `engine::settings::Setting::flag()` (`threshold`, `work-width`, …)
+      nomme l'option dans la commande comme au banc, pour `Arg::long` comme pour les refus.
+      La phrase du refus reste en deux copies : anglaise au banc, Fluent dans la commande.
+  - Une vidéo en échec écrit une ligne sur la sortie d'erreur : son chemin, « échec » (« failed »)
+    et la chaîne des causes. Les autres continuent ; code de sortie 1 si une vidéo a échoué.
   - Tenue aux pannes (#113) : `outcome::run_all(vidéos, travail, compte rendu)` passe
     chaque vidéo dans `catch_unwind`, le seul du code livré (règle 10), sur un travail
     `Fn + RefUnwindSafe` : le compilateur vérifie qu'il ne modifie rien de ce qu'il capture,
     appelle le compte rendu au fil de l'eau (le binaire n'y fait qu'écrire) et rend un
     résultat par vidéo, `Result<Done, Failure>` (`Failure::Error` ou `Failure::Panic` avec
-    son message), que le bilan de #65 reprendra. Une panique écrit « {vidéo}: internal
-    error: {message} » après la ligne du crochet par défaut (le crochet propre vient à
+    son message), que le bilan de #65 reprendra. Une panique écrit « {vidéo} : erreur
+    interne : {message} » (« internal error ») après la ligne du crochet par défaut (le crochet propre vient à
     #64), compte comme un échec (code 1), et la vidéo suivante est traitée.
     - Pourquoi la vidéo suivante peut repartir : le travail ne capture que des références
-      vers des données qu'il ne modifie pas (options, libellés, versions) ; les fils d'une
+      vers des données qu'il ne modifie pas (options, langue, versions) ; les fils d'une
       vidéo sont rejoints ou arrêtés avant la relance (`read_ahead`, `serve_ahead`,
       `schedule`, rayon), ce que deux tests `should_panic` vérifient pour une panique du
       consommateur ; la vidéo suivante repart de zéro.
@@ -1742,8 +1797,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       du suivi mettra à jour l'attendu des fixtures, avec sa justification dans la même
       série de changements.
 - **`files`** → `types` : fichiers écrits par la commande (#122). Reçoit un
-  `types::Language` ; la langue du système viendra avec la commande (#123), puis
-  Fluent (#114).
+  `types::Language`, celle de la commande (#123, #114).
   - `names` : `Names::new(langue)` et ses méthodes. Français : `extraits`, `piste`,
     `_pistes`, `_resume`, `_annotee`, sans accent. Anglais : `clips`, `track`, `_tracks`,
     `_summary`, `_annotated`. `params.json` n'est pas traduit, `_zoom` est commun.

@@ -10,7 +10,7 @@ use clap::builder::PossibleValuesParser;
 use clap::error::ErrorKind;
 use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use engine::config::DetectConfig;
-use engine::settings::{DetectSettings, Region};
+use engine::settings::{DetectSettings, Region, Setting};
 use tracking::settings::{StabilitySettings, TrackSettings};
 use tracking::stability::StabilityConfig;
 use tracking::track::TrackConfig;
@@ -124,21 +124,38 @@ fn detection_arguments() -> Vec<Arg> {
     let detect = DetectSettings::default();
     let stability = StabilitySettings::from(StabilityConfig::default());
     vec![
-        number("threshold", &detect.threshold, messages::THRESHOLD_HELP).value_parser(value_parser!(f64)),
-        number("min-area", &detect.min_area, messages::MIN_AREA_HELP).value_parser(value_parser!(f64)),
-        number("max-area", &detect.max_area, messages::MAX_AREA_HELP).value_parser(value_parser!(f64)),
-        number("bg-window", &detect.bg_window_s, messages::BG_WINDOW_HELP).value_parser(value_parser!(f64)),
-        number("bg-step", &detect.bg_step, messages::BG_STEP_HELP).value_parser(value_parser!(usize)),
+        number(Setting::Threshold.flag(), &detect.threshold, messages::THRESHOLD_HELP).value_parser(value_parser!(f64)),
+        number(Setting::MinArea.flag(), &detect.min_area, messages::MIN_AREA_HELP).value_parser(value_parser!(f64)),
+        number(Setting::MaxArea.flag(), &detect.max_area, messages::MAX_AREA_HELP).value_parser(value_parser!(f64)),
+        number(Setting::BgWindowS.flag(), &detect.bg_window_s, messages::BG_WINDOW_HELP)
+            .value_parser(value_parser!(f64)),
+        number(Setting::BgStep.flag(), &detect.bg_step, messages::BG_STEP_HELP).value_parser(value_parser!(usize)),
         Arg::new("osd-region")
             .long("osd-region")
             .value_name("X0,Y0,X1,Y1")
             .action(ArgAction::Append)
             .value_parser(value_parser!(Region))
             .help(messages::OSD_REGION_HELP),
-        number("merge-radius", &detect.merge_radius, messages::MERGE_RADIUS_HELP).value_parser(value_parser!(f64)),
-        number("work-width", &detect.work_width, messages::WORK_WIDTH_HELP).value_parser(value_parser!(u32)),
-        number("noise-factor", &detect.noise_factor, messages::NOISE_FACTOR_HELP).value_parser(value_parser!(f64)),
-        number("target-sigma", &detect.target_sigma, messages::TARGET_SIGMA_HELP).value_parser(value_parser!(f64)),
+        number(
+            Setting::MergeRadius.flag(),
+            &detect.merge_radius,
+            messages::MERGE_RADIUS_HELP,
+        )
+        .value_parser(value_parser!(f64)),
+        number(Setting::WorkWidth.flag(), &detect.work_width, messages::WORK_WIDTH_HELP)
+            .value_parser(value_parser!(u32)),
+        number(
+            Setting::NoiseFactor.flag(),
+            &detect.noise_factor,
+            messages::NOISE_FACTOR_HELP,
+        )
+        .value_parser(value_parser!(f64)),
+        number(
+            Setting::TargetSigma.flag(),
+            &detect.target_sigma,
+            messages::TARGET_SIGMA_HELP,
+        )
+        .value_parser(value_parser!(f64)),
         number("max-blobs", &stability.max_blobs, messages::MAX_BLOBS_HELP).value_parser(value_parser!(u32)),
         number("unstable-pad", &stability.pad_s, messages::UNSTABLE_PAD_HELP).value_parser(value_parser!(f64)),
     ]
@@ -188,16 +205,16 @@ fn many<T: Clone + Send + Sync + 'static>(matches: &mut ArgMatches, id: &str) ->
 
 fn detection(matches: &mut ArgMatches) -> Result<DetectConfig, clap::Error> {
     let settings = DetectSettings {
-        threshold: one(matches, "threshold")?,
-        min_area: one(matches, "min-area")?,
-        max_area: one(matches, "max-area")?,
-        bg_window_s: one(matches, "bg-window")?,
-        bg_step: one(matches, "bg-step")?,
+        threshold: one(matches, Setting::Threshold.flag())?,
+        min_area: one(matches, Setting::MinArea.flag())?,
+        max_area: one(matches, Setting::MaxArea.flag())?,
+        bg_window_s: one(matches, Setting::BgWindowS.flag())?,
+        bg_step: one(matches, Setting::BgStep.flag())?,
         osd_regions: many(matches, "osd-region"),
-        merge_radius: one(matches, "merge-radius")?,
-        work_width: one(matches, "work-width")?,
-        noise_factor: one(matches, "noise-factor")?,
-        target_sigma: one(matches, "target-sigma")?,
+        merge_radius: one(matches, Setting::MergeRadius.flag())?,
+        work_width: one(matches, Setting::WorkWidth.flag())?,
+        noise_factor: one(matches, Setting::NoiseFactor.flag())?,
+        target_sigma: one(matches, Setting::TargetSigma.flag())?,
     };
     DetectConfig::try_from(&settings).map_err(|error| refusal(&messages::detection_refused(&error)))
 }

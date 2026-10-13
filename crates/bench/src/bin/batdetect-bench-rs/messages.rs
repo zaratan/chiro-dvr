@@ -5,7 +5,7 @@ use bench::guard::{Change, ClassGuard, Guard};
 use bench::metrics::Evaluation;
 use bench::stats::ClassSummary;
 use bench::synthetic::{self, Class};
-use engine::settings::{self, Setting};
+use engine::settings;
 use tracking::error::Error as TrackingError;
 use tracking::setting::Setting as TrackingSetting;
 
@@ -90,20 +90,6 @@ pub(crate) fn failed(video: &Path, error: &dyn Error) -> String {
     format!("{}{CAUSE_SEPARATOR}{}", video.display(), causes(error))
 }
 
-fn detection_option(setting: Setting) -> &'static str {
-    match setting {
-        Setting::Threshold => "--threshold",
-        Setting::MinArea => "--min-area",
-        Setting::MaxArea => "--max-area",
-        Setting::BgWindowS => "--bg-window",
-        Setting::BgStep => "--bg-step",
-        Setting::MergeRadius => "--merge-radius",
-        Setting::WorkWidth => "--work-width",
-        Setting::NoiseFactor => "--noise-factor",
-        Setting::TargetSigma => "--target-sigma",
-    }
-}
-
 fn tracking_option(setting: TrackingSetting) -> &'static str {
     match setting {
         TrackingSetting::PadS => "--unstable-pad",
@@ -117,7 +103,7 @@ fn tracking_option(setting: TrackingSetting) -> &'static str {
 pub(crate) fn detection_refused(error: &settings::Error) -> String {
     match *error {
         settings::Error::Setting { setting, value, bound } => {
-            format!("{} must be {bound}, not {value}", detection_option(setting))
+            format!("--{} must be {bound}, not {value}", setting.flag())
         }
         settings::Error::Areas { min_area, max_area } => {
             format!("--min-area {min_area} is larger than --max-area {max_area}")

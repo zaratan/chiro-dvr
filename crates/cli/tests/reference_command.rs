@@ -9,7 +9,6 @@ use media::decode::{Decoder, Threads};
 use reference::fixture::fixture;
 use reference::location::committed;
 use reference::recording::Recording;
-use types::language::Language;
 use types::rate::FrameRate;
 use types::rational::Rational;
 
@@ -25,7 +24,6 @@ fn the_092_gives_the_fourteen_tracks_and_clips_of_the_reference_and_its_single_z
     let job = agreement::job(&video, &out.path().join(WHOLE));
     let processed = process(
         &job,
-        Language::English,
         &agreement::DebugLabels,
         Threads::Automatic,
         agreement::VERSIONS,

@@ -1,10 +1,11 @@
 use std::path::Path;
 
 use batdetect::jobs::Job;
-use batdetect::process::{Processed, Versions};
+use batdetect::process::{Processed, Versions, Wording};
 use reference::recording::Recording;
 use reference::track_matching::{Discrepancy, match_tracks};
 use summary::header::{Band, HeaderLine, Labels};
+use types::language::Language;
 use types::rate::FrameRate;
 
 pub(crate) const VERSIONS: Versions<'static> = Versions {
@@ -22,6 +23,12 @@ impl Labels for DebugLabels {
 
     fn band(&self, band: Band) -> String {
         format!("{band:?}")
+    }
+}
+
+impl Wording for DebugLabels {
+    fn language(&self) -> Language {
+        Language::English
     }
 }
 

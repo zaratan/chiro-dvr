@@ -13,7 +13,6 @@ use reference::fixture::fixture;
 use reference::location::committed;
 use reference::recording::Recording;
 use types::frame::FrameIndex;
-use types::language::Language;
 use types::rate::FrameRate;
 
 const EXTRACT: &str = "video_092_original_3m24-4m05";
@@ -31,7 +30,6 @@ fn extract() -> &'static (Recording, FrameRate, Processed, tempfile::TempDir) {
         let job = agreement::job(&video, &out.path().join(EXTRACT));
         let processed = process(
             &job,
-            Language::English,
             &agreement::DebugLabels,
             Threads::Automatic,
             agreement::VERSIONS,

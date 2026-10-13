@@ -1,5 +1,8 @@
 mod arguments;
+mod errors;
 mod messages;
+mod numbers;
+mod texts;
 
 use std::io::{self, Write};
 use std::process::ExitCode;
@@ -10,32 +13,36 @@ use batdetect::options::Options;
 use batdetect::outcome::{Failure, all_succeeded, run_all};
 use batdetect::process::{self, Processed, Versions, process};
 use media::decode::Threads;
-use types::language::Language;
+
+use crate::errors::report;
+use crate::texts::{Fixed, Message, Texts};
 
 fn main() -> ExitCode {
-    let request = match arguments::parse(std::env::args_os()) {
+    let texts = Texts::new(system_language());
+    let request = match arguments::parse(std::env::args_os(), texts) {
         Ok(request) => request,
-        Err(error) => return report(&error),
+        Err(error) => return report(texts, error),
     };
     let jobs = match collect_videos(&request.inputs).and_then(|videos| plan_jobs(&videos, &request.out_dir)) {
-        Ok(jobs) if jobs.is_empty() => return report(&arguments::refusal(messages::NO_VIDEO)),
+        Ok(jobs) if jobs.is_empty() => {
+            return report(texts, arguments::refusal(texts, &Message::Fixed(Fixed::NoVideo)));
+        }
         Ok(jobs) => jobs,
-        Err(error) => return report(&arguments::refusal(&messages::causes(&error))),
+        Err(error) => return report(texts, arguments::refusal(texts, &messages::videos_refused(&error))),
     };
-    run(&jobs, system_language(), &request.options)
+    run(&jobs, texts, &request.options)
 }
 
-fn run(jobs: &[Job], language: Language, options: &Options) -> ExitCode {
+fn run(jobs: &[Job], texts: Texts, options: &Options) -> ExitCode {
     let ffmpeg = media::library::version();
     let versions = Versions {
         program: messages::version(),
         ffmpeg: &ffmpeg,
     };
-    let labels = messages::SummaryLabels(language);
     let outcomes = run_all(
         jobs,
-        |job| process(job, language, &labels, Threads::Automatic, versions, options),
-        |job, result| tell(language, job, result),
+        |job| process(job, &texts, Threads::Automatic, versions, options),
+        |job, result| tell(texts, job, result),
     );
     match outcomes {
         Ok(outcomes) if all_succeeded(&outcomes) => ExitCode::SUCCESS,
@@ -43,7 +50,7 @@ fn run(jobs: &[Job], language: Language, options: &Options) -> ExitCode {
     }
 }
 
-fn tell(language: Language, job: &Job, result: &Result<Processed, Failure>) -> io::Result<()> {
+fn tell(texts: Texts, job: &Job, result: &Result<Processed, Failure>) -> io::Result<()> {
     match result {
         Ok(processed) => {
             let mut stderr = io::stderr().lock();
@@ -51,13 +58,13 @@ fn tell(language: Language, job: &Job, result: &Result<Processed, Failure>) -> i
                 writeln!(
                     stderr,
                     "{}",
-                    messages::redone(language, job, &redone.paths, &redone.cause)
+                    texts.say(&messages::redone(job, &redone.paths, &redone.cause))
                 )?;
             }
             writeln!(
                 io::stdout().lock(),
                 "{}",
-                messages::processed(language, job, processed.tracks.len())
+                texts.say(&messages::processed(job, processed.tracks.len()))
             )
         }
         Err(Failure::Error(process::Error::TooManyTracks {
@@ -67,16 +74,13 @@ fn tell(language: Language, job: &Job, result: &Result<Processed, Failure>) -> i
         })) => writeln!(
             io::stderr().lock(),
             "{}",
-            messages::too_many_tracks(language, job, *count, *limit, *annotated)
+            texts.say(&messages::too_many_tracks(job, *count, *limit, *annotated))
         ),
-        Err(Failure::Error(error)) => writeln!(io::stderr().lock(), "{}", messages::failed(job, error)),
-        Err(Failure::Panic(message)) => writeln!(io::stderr().lock(), "{}", messages::internal_error(job, message)),
-    }
-}
-
-fn report(error: &clap::Error) -> ExitCode {
-    match (error.print(), u8::try_from(error.exit_code())) {
-        (Ok(()), Ok(code)) => ExitCode::from(code),
-        _ => ExitCode::FAILURE,
+        Err(Failure::Error(error)) => writeln!(io::stderr().lock(), "{}", texts.say(&messages::failed(job, error))),
+        Err(Failure::Panic(message)) => writeln!(
+            io::stderr().lock(),
+            "{}",
+            texts.say(&messages::internal_error(job, message))
+        ),
     }
 }

@@ -13,15 +13,22 @@ use serde_json::Value;
 const BINARY: &str = env!("CARGO_BIN_EXE_batdetect-rs");
 
 #[cfg(test)]
-fn run(arguments: &[&Path], lang: &str) -> Output {
-    Command::new(BINARY)
+fn command(arguments: &[&Path], lang: &str) -> Command {
+    let mut command = Command::new(BINARY);
+    command
         .args(arguments)
         .env_remove("LANGUAGE")
         .env_remove("LC_ALL")
         .env_remove("LC_MESSAGES")
-        .env("LANG", lang)
-        .output()
-        .unwrap()
+        .env_remove("CLICOLOR_FORCE")
+        .env_remove("NO_COLOR")
+        .env("LANG", lang);
+    command
+}
+
+#[cfg(test)]
+fn run(arguments: &[&Path], lang: &str) -> Output {
+    command(arguments, lang).output().unwrap()
 }
 
 #[cfg(test)]
@@ -66,13 +73,23 @@ fn a_video_gives_its_tracks_table_and_params_in_a_folder_named_after_it() {
 }
 
 #[test]
-fn outside_a_french_locale_the_table_is_named_in_english() {
+fn outside_a_french_locale_the_table_is_named_in_english_and_holds_the_same_bytes() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
-    let out = root.path().join("out");
-    let output = run(&[&videos.join("flight.mp4"), Path::new("-o"), &out], "C");
+    let (english, french) = (root.path().join("en"), root.path().join("fr"));
+    let output = run(&[&videos.join("flight.mp4"), Path::new("-o"), &english], "C");
     assert!(output.status.success(), "{}", text(&output.stderr));
-    assert!(out.join("flight").join("flight_tracks.csv").is_file());
     assert!(text(&output.stdout).starts_with("flight.mp4: 1 track -> "));
+    let output = run(&[&videos.join("flight.mp4"), Path::new("-o"), &french], "fr_FR.UTF-8");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let read = |path: PathBuf| fs::read(path).unwrap();
+    assert_eq!(
+        read(english.join("flight").join("flight_tracks.csv")),
+        read(french.join("flight").join("flight_pistes.csv"))
+    );
+    assert_eq!(
+        read(english.join("flight").join("params.json")),
+        read(french.join("flight").join("params.json"))
+    );
 }
 
 #[test]
@@ -135,7 +152,26 @@ fn an_unreadable_video_fails_without_stopping_the_others_and_is_named() {
     let errors = text(&output.stderr);
     let failures: Vec<&str> = errors.lines().filter(|line| line.contains(".mp4: ")).collect();
     assert_eq!(failures.len(), 1, "{errors}");
-    assert!(failures[0].contains("broken.mp4: the detection failed: "), "{errors}");
+    assert!(
+        failures[0].contains("broken.mp4: failed: the detection failed: "),
+        "{errors}"
+    );
+}
+
+#[test]
+fn under_a_french_locale_a_failure_says_so_in_french_before_the_cause_left_in_english() {
+    let (root, videos) = videos_with_a_flight(&[]);
+    fs::write(videos.join("broken.mp4"), "not a video").unwrap();
+    let output = run(
+        &[&videos.join("broken.mp4"), Path::new("-o"), &root.path().join("out")],
+        "fr_FR.UTF-8",
+    );
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        text(&output.stderr).contains("broken.mp4 : échec : the detection failed: "),
+        "{}",
+        text(&output.stderr)
+    );
 }
 
 #[test]
@@ -152,6 +188,38 @@ fn a_folder_without_any_video_is_refused() {
     let output = run(&[&videos, Path::new("-o"), &root.path().join("out")], "C");
     assert_eq!(output.status.code(), Some(2));
     assert!(text(&output.stderr).contains("no video found"));
+}
+
+#[test]
+fn under_a_french_locale_the_help_and_the_refusals_are_in_french_with_their_usual_codes() {
+    let (root, videos) = videos_with_a_flight(&[]);
+    let help = run(&[Path::new("-h")], "fr_FR.UTF-8");
+    assert_eq!(help.status.code(), Some(0));
+    assert!(
+        text(&help.stdout).contains("Utilisation\u{a0}: batdetect-rs"),
+        "{}",
+        text(&help.stdout)
+    );
+    let refused = run(&[&videos, Path::new("-o"), &root.path().join("out")], "fr_FR.UTF-8");
+    assert_eq!(refused.status.code(), Some(2));
+    assert!(
+        text(&refused.stderr).starts_with("erreur\u{a0}: aucune vidéo trouvée\n"),
+        "{}",
+        text(&refused.stderr)
+    );
+}
+
+#[test]
+fn a_french_refusal_is_coloured_only_when_colours_are_forced() {
+    let (root, videos) = videos_with_a_flight(&[]);
+    let arguments: [&Path; 3] = [&videos, Path::new("-o"), &root.path().join("out")];
+    let forced = command(&arguments, "fr_FR.UTF-8")
+        .env("CLICOLOR_FORCE", "1")
+        .output()
+        .unwrap();
+    assert!(text(&forced.stderr).starts_with("\u{1b}[1m\u{1b}[31merreur\u{a0}:\u{1b}[0m "));
+    let plain = run(&arguments, "fr_FR.UTF-8");
+    assert!(!text(&plain.stderr).contains('\u{1b}'));
 }
 
 #[test]
