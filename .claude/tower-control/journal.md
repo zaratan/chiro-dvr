@@ -281,3 +281,38 @@ la recommandation de la tour. Les plus lourdes :
 
 **Ordres de grandeur** : 19 issues et 19 PR en trois jours ; jusqu'à quatre agents en parallèle ; chaque compte
 rendu revérifié par la tour avant la Review (statique, tests, extrait, 092, 26 vidéos sous le verrou).
+
+## Lot 7 — 12 et 13 octobre 2026 (zaratan) : moteur générique, extraits, image résumé et banc en Rust
+
+**Fait** (issue → PR) : #144 → #152, #110 → #155, #149 → #156, #104 → #153 et #158, #150 → #162, #127 → #161,
+#151 → #165, #157 → #164, #112 → #163, #107 + #108 + #109 → #166 (une seule PR, choix de l'utilisateur),
+#103 → #169. Parentes fermées : #97, #99, #98, #100, #102 ; #35 et #12 fermées.
+
+**Résultats mesurés**
+- Moteur générique : toute taille, toute plage, tous réglages, zones OSD ; banc d'essai de 16 cas enregistrés par la
+  v0.1.1, 93 pistes sur 93 concordantes ; aux défauts rien n'a bougé (extrait au bit près sur trois systèmes, 26 vidéos
+  à 963 / 3 / 9, qui sont exactement les 9 divergences jugées par Manon au lot 5).
+- `batdetect-rs` produit toutes les sorties : CSV, `params.json`, image résumé (fond noir calé sur 16, pastilles sans
+  recouvrement, frise du temps, coupe à 20 pistes), extraits (un encodeur VideoToolbox par groupe, boîte bornée), zooms
+  (openh264, pleine taille) et vidéo annotée. Au calme : 099 en 39,8 s avec zooms, 092 en 18,4 s (v0.1.1 : 135 s).
+- Banc Rust : 31,6 s contre 243 s ; garde de bascule passée (transit 0/0, chasse 2 perdues 1 gagnée sur 584).
+
+**Décisions marquantes de l'utilisateur** : variante (c) de l'affichage (noir calé sur 16) après un voile vu à l'œil ;
+images résumé coupées au nombre de pistes ; boîte dessinée bornée ; refonte de l'encodage par groupe ; zooms en
+openh264 et en pleine taille ; banc en une seule PR ; vérification lourde une seule fois (agent) et seulement ce que
+la CI ne voit pas (tour).
+
+**Incidents**
+- Attentes qui ne guettaient que le compte rendu : trois agents bloqués sur une question sans que la tour le voie
+  (relevé par l'utilisateur) ; script `guetter.sh` qui rend la main sur une question ou un long arrêt.
+- Compilations froides hors verrou pendant les mesures ; puis critère de calme inapplicable sur ce Mac (charge moyenne
+  5-6 au repos, `chrome_crashpad_handler` toujours là) : `MESURES.md` corrigé deux fois.
+- Le coût de l'image résumé annoncé à 6 s par la tour était du bruit de temps réel (0,5 s mesuré).
+- La tour a voulu faire juger par Manon des pistes déjà jugées au lot 5, et a mal estimé ce que #123 produirait.
+- Retouche proposée par la tour (`summary` sur `media::path`) qui aurait fait dépendre `summary` de FFmpeg : refusée à
+  raison par l'agent.
+- Onze issues créées sans points, priorité, étiquettes ni ligne de complexité, relevé par l'utilisateur.
+- Un verrou d'index git périmé dans un worktree (commande de lecture interrompue).
+
+**Ordres de grandeur** : 15 issues et 13 PR en deux jours ; jusqu'à trois agents en parallèle ; CI d'une PR de 4 min
+(après #146) remontée à 14-17 min avec les nouveaux tests (#167).

@@ -4,6 +4,16 @@ worktree, sous `~/Projects/dvr-wt/`. Ton compte rendu s'écrit dans
 
 **Vérifications avant de rendre**
 
+- **Rust : le lourd une seule fois, à la fin, et seulement ce que le changement peut toucher.** La CI de la PR relance
+  `static`, `test`, `slow` et `reference` sur trois systèmes ; ne fais pas une seconde CI.
+  - En travaillant et à chaque arrêt de sous-phase : `mise run rust:static` et les tests de la crate touchée
+    (`cargo test -p <crate> --profile ci`). Rien de lourd, sauf si l'arrêt sert justement à mesurer (banc d'essai,
+    extraits ou images pour l'œil, temps).
+  - Une fois, avant le compte rendu : `mise run check`, puis seulement les commandes lourdes que le diff peut changer :
+    `rust:reference` et `compare local` si la détection ou le suivi aux réglages par défaut peuvent bouger, `compare
+    settings` si les réglages du moteur bougent, le test `local_` de la crate touchée.
+  - Après une retouche de revue qui ne touche que docs, tests ou noms : `rust:static` et les tests de la crate, pas de
+    nouveau passage lourd.
 - `mise run check` vert (lint, format, types, tests).
 - Si tu touches à `parallel.py`, `video.py`, `detect.py`, `track.py`, `stability.py` ou
   `median.py` : `uv run pytest -m slow`, puis la référence
