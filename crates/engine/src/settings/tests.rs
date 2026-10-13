@@ -80,3 +80,20 @@ fn settings_are_named_as_in_the_v011() {
         ]
     );
 }
+
+#[test]
+fn a_region_contains_the_points_on_its_four_edges_and_none_beyond() {
+    let region = Region {
+        x0: 0.25,
+        y0: 0.5,
+        x1: 0.75,
+        y1: 1.0,
+    };
+
+    for (x, y) in [(0.25, 0.7), (0.75, 0.7), (0.5, 0.5), (0.5, 1.0), (0.5, 0.75)] {
+        assert!(region.contains(x, y), "({x}, {y})");
+    }
+    for (x, y) in [(0.249, 0.7), (0.751, 0.7), (0.5, 0.499), (0.5, 1.001)] {
+        assert!(!region.contains(x, y), "({x}, {y})");
+    }
+}

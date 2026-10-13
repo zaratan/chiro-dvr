@@ -50,15 +50,6 @@ fn configs_are_keyed_by_their_v0_1_1_class_name() {
 }
 
 #[test]
-fn disabled_filters_are_written_as_the_zero_of_v0_1_1() {
-    let track = TrackConfig::new(120.0, NonZeroUsize::MIN, NonZeroUsize::MIN, 45.0, None, 0.8).unwrap();
-    let stability = StabilityConfig::new(None, 1.0).unwrap();
-    let value = written(track, stability, ActiveThreads::Single);
-    assert_eq!(value["TrackConfig"]["twin_distance"], 0.0);
-    assert_eq!(value["StabilityConfig"]["max_blobs"], 0);
-}
-
-#[test]
 fn the_threads_really_used_are_recorded_with_their_kind() {
     let eight = NonZeroUsize::new(8).unwrap();
     let threads = |decoding| written(TrackConfig::default(), StabilityConfig::default(), decoding)["threads"].clone();

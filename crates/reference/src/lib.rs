@@ -1,3 +1,4 @@
+pub mod bench;
 pub mod detection_matching;
 pub mod error;
 mod fields;

@@ -21,6 +21,13 @@ borne, zones OSD, réglages unifiés). Depuis #151, aucun réglage valide n'est 
 les 16 cas du banc sont comparés. L'image résumé
 est arrivée avec #104, sa frise avec #127 ; les extraits sont en cours (#112).
 
+#100 porte le banc de mesure en Rust (#107 à #109, crate `bench`, binaire
+`batdetect-bench-rs`) : fausses chauves-souris injectées par une couture du moteur,
+collecte, appariement, mesures, `bench.json` aux clés de la v0.1.1, et une garde contre
+les deux bancs enregistrés par la v0.1.1 ([Banc de mesure](#banc-de-mesure)). Le cache du
+Python n'est pas porté : `--targets` et `--replay` le remplacent. docs/08 décrit encore
+le banc Python ; il change à #106.
+
 ## Construction
 
 ```bash
@@ -427,6 +434,10 @@ Forme et tests :
   toujours sur les trois systèmes, par `rust:slow`.
 - Les fixtures se trouvent par `reference::fixture::fixture`, qui refuse un pointeur
   LFS non tiré avec le conseil `git lfs pull`.
+- Les tests `local_` de `bench` (#107 à #109) lisent les bancs de la v0.1.1
+  (`BATDETECT_REFERENCE_DIR/bench/`) : `local_injection` et `local_metrics` sans vidéo, en
+  moins d'une seconde ; `local_guard` rejoue les deux bancs sur la 092 du dépôt (LFS),
+  1 min 54 en profil `ci`.
 - `tests/fixtures/rust/video_092_original_3m24-4m05/frames.jsonl` : les détections de
   l'extrait par le Rust, écrites sur le Mac depuis la racine du dépôt par
   `lockf …/mesure.lock cargo run --profile ci -p compare -- extract --frames tests/fixtures/rust`
@@ -737,7 +748,7 @@ Mesure du 11 octobre 2026 (#101) :
 
 ## Crates
 
-Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*"]`. `unsafe` n'est permis que dans `media`.
+Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `members = ["crates/*"]`. `unsafe` n'est permis que dans `media`.
 
 - **`types`** : vocabulaire commun, sans entrée-sortie ni algorithme de détection. Un
   type n'y entre que s'il est produit par une crate et lu par au moins deux autres. Gelé
@@ -1079,6 +1090,14 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
     laisser une paire possible de côté (test qui le fige). Les écarts
     à juger (piste manquée, en trop, points hors tolérance) portent la vidéo, l'image de
     début et son temps par la cadence (`FrameRate::seconds`), triés par image.
+  - `bench` (#107, #108) : les fichiers du banc de la v0.1.1, que le Rust réécrit au
+    même format. `TargetLine` et `Patch` (`bats.jsonl.gz`, `motion` gardé en chaîne,
+    aucun champ inconnu), les lignes `{frame, detections}` (`injected.jsonl.gz`, ordre des
+    images vérifié, vers `FrameDetections`) et `BenchReport` (`bench.json`) : les réglages
+    restent en JSON brut, les clés que la v0.1.1 n'écrit pas (`targets`, `seconds`) sont
+    gardées dans `added`, les entiers du Python se lisent en `f64`. Une ligne enregistrée
+    se réécrit octet pour octet. `location::recorded_bench(nom)` donne
+    `$BATDETECT_REFERENCE_DIR/bench/<nom>/`.
 - **`engine`** → `media`, `types` : le moteur. `input` en est le seul point d'entrée.
   - `Input::open(chemin, Threads)` accepte toute taille et toute plage (#150). Il
     refuse, par une erreur typée qui nomme la vidéo, 0 image annoncée et, par `media`,
@@ -1181,7 +1200,14 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       possible perdu) reste à juger.
   - **Détection** (#118) : `detection::detect(chemin, Threads, &DetectConfig)`, ou
     `detect_input(Input, &DetectConfig)` pour une entrée déjà ouverte (le canari y passe
-    sa couture). Réglages : ceux que `DetectConfig::try_from` accepte (`settings`) ;
+    sa couture). `detect_injected(Input, &DetectConfig, crochet)` (#107) appelle le
+    crochet sur la copie du plan Y que garde le détecteur, une fois par image, dans
+    l'ordre de lecture, avec son `FrameIndex` et une `LumaMut` (vue mutable du plan, à la
+    taille d'origine). Les images du fond de l'image résumé reçoivent l'image lue, avant
+    la copie : le crochet ne les touche pas. `detect_input` passe un crochet vide ; le
+    crochet est générique, la commande ne paie ni appel indirect ni branche.
+    `LumaMut::new(pixels, largeur)` refuse un plan qui n'est pas un nombre entier de
+    lignes non vides. Réglages : ceux que `DetectConfig::try_from` accepte (`settings`) ;
     toute taille (#150). Le pool `rayon`
     est celui de l'appelant (`ThreadPool::install`). `Detected` rend la lecture
     (`Reading`), les détections (`FrameDetections`, une liste par image décodée, vides
@@ -1210,6 +1236,8 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       Une zone OSD (`Region`) s'écrit par ses quatre bornes `x0`, `y0`, `x1`, `y1`, comme
       `asdict` ; `columns(largeur, marge)` et `rows(hauteur, marge)` la convertissent en
       pixels, `[⌊f0·L⌋ − marge, ⌈f1·L⌉ + marge)` borné à l'image, comme `osd_mask`.
+      `contains(x, y)` (#107), bornes comprises, comme `Region.contains`, sert à la
+      visibilité du banc.
       `DetectConfig::try_from` refuse ce que la v0.1.1 refuse (`Error::Setting` avec son
       `Setting` et la borne enfreinte, `Areas`, `Region` avec son rang), avec les mêmes
       écarts que le suivi : NaN et infini refusés. Écart voulu de #151 : `merge_radius`
@@ -1388,7 +1416,8 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       calme, 245 Mo, porte la fenêtre (2 octets par pixel et par image gardée) ; sur
       64 images, il ne change pas avec la fenêtre.
   - **Gris de la détection** (#118, exception à la règle 5) : chaque Y passe par une
-    table de 256 gris mesurée sur OpenCV (`GRAY` dans `reduction` : une rampe Y = 0 à
+    table de 256 gris mesurée sur OpenCV (`GRAY` dans `gray`, privée, lue par
+    `gray::gray(y)`, `const fn` publique depuis #107 : une rampe Y = 0 à
     255, U = V = 128, encodée sans perte en plage `tv`, lue par `cv2.VideoCapture`
     puis `COLOR_BGR2GRAY`), puis la réduction
     pondère ces gris et arrondit à 8 bits avant la gaussienne. La table suit
@@ -1474,8 +1503,8 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
   - Une vidéo en échec écrit une ligne sur la sortie d'erreur : son chemin et la chaîne
     des causes. Les autres continuent ; code de sortie 1 si une vidéo a échoué.
   - `params.json` : réglages rangés par configuration, avec les clés de la v0.1.1
-    (`DetectConfig`, `TrackConfig`, `StabilityConfig`). Un filtre coupé s'écrit 0, comme
-    dans la v0.1.1. `threads` donne les fils réellement employés : `decoding` et
+    (`DetectConfig`, `TrackConfig`, `StabilityConfig`, par `tracking::settings` depuis
+    #108). Un filtre coupé s'écrit 0, comme dans la v0.1.1. `threads` donne les fils réellement employés : `decoding` et
     `decoding_kind` (`single`, `frame`, `slice`) pour le décodeur, `detection` pour
     `rayon`. `version` est celle du paquet (`CARGO_PKG_VERSION`, 0.0.0 jusqu'à la
     première version publiée : elle ne distingue pas encore deux commits), `ffmpeg` celle
@@ -1524,6 +1553,10 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
     abîmées et instables sont vidées, images gardées. `Exclusion` rend aussi le nombre
     d'images ignorées et celui des images abîmées, chacune comptée une fois. `exclude`
     ne peut pas échouer (#144). Le contrôle du nombre d'images reste à #116.
+  - `settings` (#108) : `TrackSettings` et `StabilitySettings`, l'écriture et la lecture
+    des réglages de suivi et de stabilité aux clés de la v0.1.1, venues de `cli` pour que
+    `params.json`, `bench.json` et `run.json` partagent une seule forme. Un filtre coupé
+    s'écrit 0 (`twin_distance`, `max_blobs`).
   - `stability` : `StabilityConfig::new(max_blobs, pad_s)`, par défaut 20 et 1,0 s ;
     `max_blobs` est un `Option<NonZeroU32>`, `None` coupe le filtre (la commande
     traduira `--max-blobs 0`) ; `pad_s` fini, positif ou nul, sinon `Error::Setting`
@@ -1900,6 +1933,93 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       chose sur un autre système, ce test le montrera ; l'écart remonte alors à
       l'utilisateur.
 
+- **`bench`** → `engine`, `tracking`, `reference`, `media`, `types` (#107 à #109) : le
+  banc de mesure, bibliothèque et binaire `batdetect-bench-rs` (le nom ne heurte pas
+  `uv run batdetect-bench` avant #106). Aucune dépendance de plus au workspace.
+  - `random` : SplitMix64 (une graine par cible, tirée de `--seed` dans l'ordre des
+    numéros, comme `SeedSequence.spawn` : le tirage d'une cible ne dépend pas du nombre
+    d'essais des précédentes) et xoshiro256\*\*, écrits dans le dépôt, épinglés sur les
+    sorties publiées par leurs auteurs. `uniform(a, b)` rend une valeur de `[a, b]`
+    (l'arrondi peut rendre `b`), `below(n)` tire par rejet, sans biais.
+  - `synthetic` : `Motion` (`pass`, `hunt`, `circle`), `Class` (amplitude finie, σ > 0),
+    `Target` (au moins une position, une amplitude par position), `Scene`.
+    `trajectory` (saccades, Bézier quadratique, transit), `hunting` (virages, lignes
+    droites, entrée par un bord, chasse et cercle), `sampling` (tirage loin des pistes de
+    référence et des cibles déjà placées, 500 essais) sont un portage du calcul, pas de
+    l'ordre des tirages de numpy (règle 5). Les constantes sont celles du Python.
+  - Le tirage passe par `exp`, `atan2`, `powf`, `hypot`, `sin` et `cos` de la
+    bibliothèque mathématique du système : un ulp d'écart peut changer un arrondi ou un
+    rejet, puis tout ce qui suit. Une graine n'est reproductible que sur un même système ;
+    aucun tirage n'est épinglé en CI, les tests épinglent des propriétés.
+  - `injection` : sur le plan Y, avant la détection, par `detect_injected`. Fenêtre
+    `[⌊x⌋ − ⌈3σ⌉, ⌊x⌋ + ⌈3σ⌉]` bornée à l'image ; pour chaque pixel, le gris visé est
+    `gris(Y) + ⌊a·exp(−d²/2σ²)⌋` borné à [0, 255], puis Y devient le Y dont le gris est
+    le plus proche (`nearest_luma`, table calculée à la compilation). La table `GRAY`
+    saute un gris sur six environ ; un gris sauté se rend alternativement un niveau plus
+    sombre et un niveau plus clair (décision de #107). Mesure de `local_injection` sur
+    les 986 patchs enregistrés (471 046 pixels, fonds Y de 80 à 215) : partie entière
+    de la gaussienne identique au Python sur 100 % des pixels, changement de gris à un
+    niveau près du Python sur 100 %, biais moyen +0,0010 niveau (−0,1558 en allant
+    toujours vers le Y le plus sombre, +0,1558 vers le plus clair). Le contraste
+    effectif est le changement de gris réalisé, un entier (la v0.1.1 enregistrait le
+    changement non arrondi). `Injector` range les cibles par image (un `Vec` par image)
+    et rend chaque cible avec ses observations (`Injected`).
+  - `recorded` : une ligne de `bats.jsonl.gz` vers une cible et ses observations, et
+    retour ; `motion` inconnu, contraste hors du vol ou hors de l'ordre des images,
+    cible nommée deux fois et dernière image impossible à numéroter refusés.
+  - `config` (`MatchConfig` : rayon > 0, pureté dans ]0, 1], 24 px et 0,5 par défaut ;
+    classes dans l'ordre du Python), `matching` (portage de `matching.py` : distance
+    ≤ rayon, une piste va à la cible qu'elle couvre le plus si la pureté atteint 0,5, à
+    égalité la première rencontrée), `metrics` (visibilité : centre à 2σ des bords, hors
+    zone OSD, |contraste| ≥ 8, image hors des plages ignorées du passage injecté ;
+    trouvée, complétude, retard, fin précoce, fragments, fausses pistes), `median`,
+    `stats` (Wilson à z = 1,96, résumé par classe), sans arrondi (règle 5).
+  - `run`, `folder`, `collect` : un passage (vidéo, détections de référence et
+    injectées, cibles et observations, plages abîmées, réglages de détection,
+    provenance des cibles). `collect` lance la détection de référence, tire les cibles
+    loin des pistes de référence (ou prend celles de `--targets`, refusées si elles
+    dépassent la vidéo), puis la détection injectée, et chronomètre les deux. `folder`
+    écrit et relit un dossier : `run.json` (format propre au Rust : vidéo, taille,
+    cadence exacte, plages, images signalées, demi-fenêtre, réglages de détection,
+    provenance avec, pour un tirage, la graine, les classes et les réglages de suivi du
+    placement), `reference.jsonl.gz`, `injected.jsonl.gz` et `bats.jsonl.gz` (formats de
+    la v0.1.1).
+  - `report` : `bench.json` aux clés de la v0.1.1, plus `targets` (tirées, graine ; ou
+    rejouées, chemin) et `seconds` (détections, évaluation, total). `sampling` vaut
+    `null` pour des cibles rejouées. `code` : `git describe --always --dirty` du dossier
+    courant, ou `unknown`.
+  - `guard`, `against` : la garde de la bascule ([Banc de mesure](#banc-de-mesure)).
+  - Commande : `batdetect-bench-rs VIDÉO [-o DOSSIER]` avec les options du Python
+    (`--per-class`, `--amplitudes`, `--sigmas`, `--motions`, `--seed`,
+    `--match-radius`, les dix de détection, `--max-blobs`, `--unstable-pad`, les six de
+    suivi), sans `--mode` ni `--workers`, plus `--targets FICHIER`, `--replay DOSSIER` et
+    `--against DOSSIER`. Sortie dans `<-o>/<nom de la vidéo>/` (défaut `out/bench`).
+    - `--targets` rejoue positions et amplitudes ; l'évaluation prend le contraste
+      mesuré par le Rust. Refusé avec une option de tirage ou `--against`.
+    - `--replay` réévalue un dossier écrit par le banc, sans détection, avec d'autres
+      réglages de suivi, de stabilité ou d'appariement ; la détection et les cibles
+      viennent de `run.json`, leurs options sont refusées. Il écrit `bench.json`
+      directement dans `-o`. Avec la vidéo telle qu'elle a été tapée, `run.json` garde le
+      chemin relatif au dossier de lancement : relu d'ailleurs, `video` ne situe plus le
+      fichier. La demi-fenêtre y est gardée pour information : les plages abîmées sont
+      déjà élargies.
+    - Une sortie qui écraserait l'entrée (`--replay` dans le dossier rejoué, `--targets`
+      dont le fichier est dans le dossier de sortie) est refusée avant toute détection.
+    - `--against` écrit dans `<-o>/<vidéo>_<dossier enregistré>/`, pour que transit et
+      chasse ne s'écrasent pas ; voir [Banc de mesure](#banc-de-mesure).
+    - Les nombres négatifs sont acceptés derrière une option ; une vidéo placée après
+      `--amplitudes` serait lue comme une amplitude (comme argparse) : elle se met
+      avant. Les erreurs de réglage nomment l'option (`--bg-window`, pas `bg_window_s`).
+    - Code 0, 1 en cas d'échec ou de garde en échec, 2 pour une erreur d'usage.
+  - Tests : vidéo de 96 × 72 et 60 images fabriquée par openh264 (fond bruité), avec une
+    cible lente rejouée (−60, σ 3), trouvée ; les cibles tirées y seraient presque
+    jamais trouvées, le tirage se teste par ses propriétés. `tests/command.rs` lance le
+    binaire (cibles rejouées, tirées, rejeu, garde contre son propre passage).
+    `local_injection`, `local_metrics` (les détections et les cibles enregistrées
+    redonnent `bench.json` cible par cible : entiers exacts, flottants à 1e−12 ; résumé
+    à 5e−4 pour Wilson et la complétude, 5e−3 pour les fragments, 5e−2 pour le contraste)
+    et `local_guard` lisent `BATDETECT_REFERENCE_DIR/bench/{transit,hunt}`.
+
 ## Réglages
 
 #149 donne au moteur un banc d'essai hors des réglages par défaut : 16 références de la
@@ -1988,8 +2108,11 @@ l'intérieur du verrou (CPU = utilisateur + système).
   sortie au bit près avec 1, 3 et 4 fils à 61 échantillons, tache sous un masque jamais
   vue, unités préparées sous la bande indépendantes de l'écran, gain insensible à une
   bande qui scintille sous le masque.
-- **Niveau 3, plus tard (#107 à #109)** : par classe du banc, la proportion trouvée par
-  le Rust dans l'intervalle de Wilson du Python. Ne bloque pas #98.
+- **Niveau 3, le banc (#109)** : les cibles des deux bancs de la v0.1.1 rejouées par le
+  Rust, la visibilité décidée par le contraste enregistré par le Python. Par classe,
+  échec automatique seulement si la proportion trouvée par le Rust tombe sous la borne
+  basse de Wilson de la v0.1.1 ; sinon, la liste des cibles perdues et gagnées est
+  jugée par l'utilisateur ([Banc de mesure](#banc-de-mesure)).
 
 ### Mesure de #149 (12 octobre 2026, M1 Max, profil `ci`, sous le verrou)
 
@@ -2104,6 +2227,73 @@ Référence `tests/fixtures/reference/video_092_original_width_1440/` (`--detect
 03:29.31 (image 6285, en (1438, 373), au bord droit, celle de `width_1440`). Mémoire
 sous la borne de 2 Go de #98. Dans `rust:reference`, les deux tests de la 092 tournent
 en même temps dans le même binaire : leurs temps de détection s'y mélangent.
+
+## Banc de mesure
+
+Le banc porté à #100 (crate `bench`). Le Python reste le banc livré jusqu'à #106 et
+docs/08 le décrit ; ici, ce que le Rust fait de plus ou autrement, et la garde de la
+bascule.
+
+### Garde
+
+`batdetect-bench-rs VIDÉO --against DOSSIER` (et le test `local_guard`, qui appelle la
+même fonction `bench::against::against`) rejoue un banc enregistré par la v0.1.1 :
+
+- `DOSSIER` contient `bench.json` et `bats.jsonl.gz` (`$BATDETECT_REFERENCE_DIR/bench/`
+  `transit` ou `hunt`). Un banc fait à d'autres réglages de détection, de suivi, de
+  stabilité ou d'appariement est refusé, le réglage nommé.
+- Mêmes cibles des deux côtés : positions et amplitudes de `bats.jsonl.gz`, placées par
+  le numéro d'image du décodeur de `media` (identique à celui d'OpenCV sur la 092 ; une
+  vidéo où ils diffèrent décalerait les cibles). Le Rust injecte et détecte.
+- Deux évaluations du passage Rust. `bench.json` et le tableau prennent le contraste
+  mesuré par le Rust, comme tout passage. La garde prend le contraste enregistré par le
+  Python, qui décide donc de la visibilité des deux côtés ; seules les plages ignorées
+  propres à chaque passage injecté peuvent encore la changer.
+- Par classe, sur les cibles visibles des deux côtés : leur nombre, les trouvées de
+  chaque côté, la borne basse de Wilson de la v0.1.1 recalculée sur ces cibles (elle
+  diffère du `found_ci95` de son `bench.json` dès qu'une cible n'est visible que d'un
+  côté), les cibles perdues et gagnées (numéro et image de début). À part : les cibles
+  visibles d'un seul côté, celles dont la visibilité change avec le contraste mesuré par
+  le Rust, les fausses pistes et les pistes de référence de chaque côté (14 et 14 sur la
+  092 : un nombre différent dirait une autre vidéo).
+- **Échec automatique** (code 1) seulement si la proportion trouvée par le Rust tombe
+  sous cette borne basse. Sinon la liste est jugée par l'utilisateur. Une classe dont
+  toutes les cibles quittent le dénominateur ne peut pas échouer : elle n'apparaît
+  que dans la liste des cibles visibles d'un seul côté.
+- Sortie : `<-o>/<vidéo>_<dossier>/`, le passage, `bench.json` et `guard.txt`, le même
+  texte que la sortie standard.
+- `--replay` d'un passage tiré avec un `--match-radius` plus grand que celui du tirage
+  rompt l'écart de 3 rayons entre cibles sur lequel repose la règle d'égalité de
+  `matching` ; rien ne le refuse.
+
+### Mesure de #109 (13 octobre 2026, M1 Max, `release`, sous le verrou)
+
+La 092 du dépôt (LFS), réglages par défaut. Garde : aucun échec, sur les deux bancs.
+
+| Banc | Cibles visibles des deux côtés | Trouvées v0.1.1 | Trouvées Rust | Perdues | Gagnées | Visibilité changée par le contraste Rust |
+|---|---|---|---|---|---|---|
+| transit (9 classes × 30) | 253 | 148 | 148 | 0 | 0 | 0 |
+| chasse (12 classes × 60) | 584 | 456 | 455 | 2 | 1 | 5 |
+
+- Chasse : perdues la 19 (hunt −60 σ 1,5, image 3 221 ; 45 trouvées sur 53 pour une
+  borne de 0,752) et la 543 (circle −30 σ 1,5, image 6 935) ; gagnée la 555 (circle −30
+  σ 1,5, image 7 948). Visibilité changée par le contraste mesuré par le Rust : 84, 120,
+  341, 602 et 665. Aucune cible visible d'un seul côté ; aucune fausse piste ; 14 pistes
+  de référence de chaque côté.
+- Avec son propre contraste, le Rust évalue 589 cibles de chasse (131 non visibles,
+  contre 136) et en trouve 455 ; le transit est identique (253, 17, 148). Pistes du
+  passage injecté : 163 et 514 (515 pour la v0.1.1).
+- Temps d'un passage (deux détections de la 092 et l'évaluation), contre la v0.1.1
+  (README de la référence, non relancée) :
+
+  | Passage | Temps réel | CPU | Mémoire |
+  |---|---|---|---|
+  | Rust, banc tiré par défaut | 31,6 s | 222,5 s | 0,55 Go |
+  | Rust, garde transit | 31,4 s | 221,1 s | 0,55 Go |
+  | Rust, garde chasse | 32,4 s | 222,2 s | 0,60 Go |
+  | v0.1.1, banc transit | 243 s | 689 s | |
+
+  L'évaluation seule prend moins de 10 ms : un `--replay` est immédiat.
 
 ## Référence v0.1.1
 

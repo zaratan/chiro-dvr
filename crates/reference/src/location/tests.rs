@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 use std::fs;
 
-use super::{committed, recording_directories_under, video_under};
+use super::{bench_under, committed, recording_directories_under, video_under};
 use crate::error::Error;
 
 #[test]
@@ -71,4 +71,14 @@ fn an_unset_or_empty_videos_variable_names_the_variable() {
             "the variable BATDETECT_VIDEOS_DIR does not name a folder"
         );
     }
+}
+
+#[test]
+fn a_recorded_bench_lives_under_bench_by_its_name_and_needs_the_variable() {
+    let root = tempfile::tempdir().unwrap();
+
+    let found = bench_under(Some(root.path().into()), "transit").unwrap();
+
+    assert_eq!(found, root.path().join("bench").join("transit"));
+    assert!(matches!(bench_under(None, "transit"), Err(Error::UnsetVariable { .. })));
 }

@@ -1,6 +1,7 @@
 use proptest::prelude::*;
 
-use super::{GRAY, Reduction, Rounding};
+use super::{Reduction, Rounding};
+use crate::gray::GRAY;
 
 fn reduced(luma: &[u8], source: (usize, usize), work: (usize, usize)) -> Vec<u8> {
     let mut gray = vec![0; work.0 * work.1];
@@ -54,17 +55,6 @@ fn previous_three_to_two(luma: &[u8], source_width: usize) -> Vec<u8> {
         }
     }
     gray
-}
-
-#[test]
-fn the_measured_gray_follows_the_limited_range_one_to_two_and_a_half_levels_below_its_formula() {
-    let below: Vec<f64> = (17..=236_u8)
-        .map(|luma| (f64::from(luma) - 16.0) * 255.0 / 219.0 - f64::from(GRAY[usize::from(luma)]))
-        .collect();
-
-    assert!(below.iter().all(|&gap| (1.1..2.4).contains(&gap)), "{below:?}");
-    assert!(GRAY.windows(2).all(|pair| pair[0] <= pair[1]));
-    assert_eq!((GRAY[17], GRAY[18], GRAY[236], GRAY[237]), (0, 1, 254, 255));
 }
 
 #[test]
