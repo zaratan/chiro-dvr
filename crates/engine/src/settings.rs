@@ -104,6 +104,22 @@ pub enum Setting {
     TargetSigma,
 }
 
+impl Setting {
+    pub fn flag(self) -> &'static str {
+        match self {
+            Self::Threshold => "threshold",
+            Self::MinArea => "min-area",
+            Self::MaxArea => "max-area",
+            Self::BgWindowS => "bg-window",
+            Self::BgStep => "bg-step",
+            Self::MergeRadius => "merge-radius",
+            Self::WorkWidth => "work-width",
+            Self::NoiseFactor => "noise-factor",
+            Self::TargetSigma => "target-sigma",
+        }
+    }
+}
+
 impl fmt::Display for Setting {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {

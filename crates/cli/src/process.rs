@@ -68,6 +68,10 @@ pub enum Error {
     },
 }
 
+pub trait Wording: Labels {
+    fn language(&self) -> Language;
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Versions<'a> {
     pub program: &'a str,
@@ -84,8 +88,7 @@ pub struct Processed {
 
 pub fn process(
     job: &Job,
-    language: Language,
-    labels: &dyn Labels,
+    wording: &dyn Wording,
     threads: Threads,
     versions: Versions<'_>,
     options: &Options,
@@ -112,7 +115,7 @@ pub fn process(
         dest: job.dest.clone(),
         source,
     })?;
-    let names = Names::new(language);
+    let names = Names::new(wording.language());
     let csv = names.tracks_csv(&job.dest, job.video.file_stem().unwrap_or_default());
     write_tracks_csv(&csv, &tracks, &timeline).map_err(Error::Files)?;
     let trial = encoders(render, tracks.len(), reading.video());
@@ -137,7 +140,7 @@ pub fn process(
         video: &job.video,
         dest: &job.dest,
         names,
-        labels,
+        labels: wording,
         regions: config.osd_regions(),
     };
     let name = job.video.file_stem().unwrap_or_default().to_string_lossy();

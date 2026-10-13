@@ -121,3 +121,33 @@ fn a_display_region_that_is_not_four_numbers_is_refused() {
     }
     assert_eq!(RegionShape.to_string(), "expected four fractions X0,Y0,X1,Y1");
 }
+
+#[test]
+fn each_setting_names_the_long_option_of_both_commands_without_its_dashes() {
+    let flags = [
+        Setting::Threshold,
+        Setting::MinArea,
+        Setting::MaxArea,
+        Setting::BgWindowS,
+        Setting::BgStep,
+        Setting::MergeRadius,
+        Setting::WorkWidth,
+        Setting::NoiseFactor,
+        Setting::TargetSigma,
+    ]
+    .map(Setting::flag);
+    assert_eq!(
+        flags,
+        [
+            "threshold",
+            "min-area",
+            "max-area",
+            "bg-window",
+            "bg-step",
+            "merge-radius",
+            "work-width",
+            "noise-factor",
+            "target-sigma",
+        ]
+    );
+}

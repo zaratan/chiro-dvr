@@ -21,7 +21,7 @@ use types::rational::Rational;
 use types::timeline::Timeline;
 use types::track::Track;
 
-use super::{Clips, Error, Versions, process, render_clips};
+use super::{Clips, Error, Versions, Wording, process, render_clips};
 use crate::flight;
 use crate::jobs::Job;
 use crate::options::Options;
@@ -120,6 +120,12 @@ impl Labels for Plain {
     }
 }
 
+impl Wording for Plain {
+    fn language(&self) -> Language {
+        Language::English
+    }
+}
+
 const VERSIONS: Versions<'static> = Versions {
     program: "test",
     ffmpeg: "test",
@@ -197,15 +203,7 @@ fn a_box_follows_its_target_on_every_detected_frame_after_frames_lost_in_the_mid
         video: video.clone(),
         dest: folder.path().join("out"),
     };
-    let processed = process(
-        &job,
-        Language::English,
-        &Plain,
-        Threads::Automatic,
-        VERSIONS,
-        &Options::default(),
-    )
-    .unwrap();
+    let processed = process(&job, &Plain, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
     let kept = clip_frames(&video).len();
     assert_eq!((kept, processed.tracks.len()), (KEPT_FRAMES, 2));
     let rate = FrameRate::new(Rational::new(10, 1).unwrap()).unwrap();
@@ -273,7 +271,7 @@ fn the_annotated_video_of_a_flight_that_loses_frames_keeps_the_frames_and_pts_of
         annotated: true,
         ..Options::default()
     };
-    process(&job, Language::English, &Plain, Threads::Automatic, VERSIONS, &options).unwrap();
+    process(&job, &Plain, Threads::Automatic, VERSIONS, &options).unwrap();
     let annotated = Names::new(Language::English).annotated_video(&job.dest, video.file_stem().unwrap());
     let source = pts_of(&video);
     assert_eq!(source.len(), KEPT_FRAMES);

@@ -37,7 +37,6 @@ fn the_twenty_six_videos_give_the_tracks_of_the_reference_but_for_the_known_dive
         let job = agreement::job(&recorded_video(&name).unwrap(), &out.path().join(&name));
         let processed = process(
             &job,
-            Language::English,
             &agreement::DebugLabels,
             Threads::Automatic,
             agreement::VERSIONS,
@@ -172,7 +171,6 @@ fn the_annotated_103_keeps_the_pts_of_its_decoded_frames_through_its_lost_frames
     };
     process(
         &job,
-        Language::English,
         &agreement::DebugLabels,
         Threads::Automatic,
         agreement::VERSIONS,
