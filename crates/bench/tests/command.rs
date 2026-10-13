@@ -1,11 +1,11 @@
-#[path = "support/noisy.rs"]
-mod noisy;
-
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use reference::bench::{BenchReport, read_report};
+use bench::noisy;
+use bench::recorded::line;
+use bench::synthetic::injection::Injected;
+use reference::bench::{BenchReport, read_report, write_targets};
 use tempfile::TempDir;
 
 const BINARY: &str = env!("CARGO_BIN_EXE_batdetect-bench-rs");
@@ -29,8 +29,12 @@ fn path(path: &Path) -> &str {
 fn benched(root: &Path) -> (PathBuf, PathBuf) {
     let video = root.join("noisy.mp4");
     let targets = root.join("slow.jsonl.gz");
-    noisy::write_video(&video);
-    noisy::write_slow_target(&targets);
+    noisy::write_video(&video).unwrap();
+    let slow = Injected {
+        target: noisy::slow_target(0, 10, 40).unwrap(),
+        observations: Vec::new(),
+    };
+    write_targets(&targets, &[line(&slow)]).unwrap();
     let out = root.join("out");
     let output = run(&[path(&video), "--targets", path(&targets), "-o", path(&out)]);
     assert!(output.status.success(), "{}", text(&output.stderr));
@@ -130,7 +134,7 @@ fn a_bench_checked_against_its_own_recording_passes_its_guard() {
 fn drawn_targets_record_their_sampling() {
     let root = TempDir::new().unwrap();
     let video = root.path().join("noisy.mp4");
-    noisy::write_video(&video);
+    noisy::write_video(&video).unwrap();
     let out = root.path().join("out");
 
     let output = run(&[

@@ -1,4 +1,3 @@
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::NonZeroUsize;
 use std::path::Path;
 
@@ -7,6 +6,7 @@ use types::rational::Rational;
 
 use super::{Placed, microseconds};
 use crate::decode::{Decoder, Threads};
+use crate::fingerprint;
 use crate::frame::{ColorRange, YuvFrame};
 use crate::testing;
 
@@ -14,18 +14,12 @@ fn one_thread(path: &Path) -> Decoder {
     Decoder::open(path, Threads::Exactly(NonZeroUsize::MIN)).unwrap()
 }
 
-fn fingerprint(frame: &YuvFrame) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    (frame.y(), frame.u(), frame.v()).hash(&mut hasher);
-    hasher.finish()
-}
-
 fn sequential(path: &Path) -> Vec<(Pts, u64)> {
     let mut decoder = one_thread(path);
     let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     let mut frames = Vec::new();
     while let Some(info) = decoder.next(&mut frame).unwrap() {
-        frames.push((info.pts().unwrap(), fingerprint(&frame)));
+        frames.push((info.pts().unwrap(), fingerprint::of(&frame)));
     }
     frames
 }
@@ -34,7 +28,7 @@ fn served(mut placed: Placed) -> Vec<(Pts, u64)> {
     let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     let mut frames = Vec::new();
     while let Some(placed_frame) = placed.next(&mut frame).unwrap() {
-        frames.push((placed_frame.pts().unwrap(), fingerprint(&frame)));
+        frames.push((placed_frame.pts().unwrap(), fingerprint::of(&frame)));
     }
     frames
 }

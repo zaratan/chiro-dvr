@@ -1,5 +1,4 @@
 use std::fs;
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::Path;
 
@@ -15,6 +14,7 @@ use super::{
 };
 use crate::decode_errors::DecodeErrors;
 use crate::encode::Codec;
+use crate::fingerprint;
 use crate::frame::{ColorRange, YuvFrame};
 use crate::testing::{self, HEIGHT, WIDTH};
 
@@ -266,9 +266,7 @@ fn fingerprints(mut decoder: Decoder) -> Vec<(FrameInfo, u64)> {
     let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     let mut fingerprints = Vec::new();
     while let Some(info) = decoder.next(&mut frame).unwrap() {
-        let mut hasher = DefaultHasher::new();
-        (frame.y(), frame.u(), frame.v()).hash(&mut hasher);
-        fingerprints.push((info, hasher.finish()));
+        fingerprints.push((info, fingerprint::of(&frame)));
     }
     fingerprints
 }

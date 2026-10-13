@@ -1,5 +1,4 @@
 use std::fs;
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::NonZeroUsize;
 use std::path::Path;
 
@@ -9,6 +8,7 @@ use types::rational::Rational;
 use super::Fanout;
 use crate::decode::{Decoder, Threads};
 use crate::encode::{Codec, Error, Settings, Stamps, StampsError};
+use crate::fingerprint;
 use crate::frame::{ColorRange, YuvFrame};
 use crate::testing::{HEIGHT, WIDTH, pattern};
 
@@ -22,9 +22,7 @@ fn read(path: &Path) -> Vec<(bool, i64, u64)> {
     let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     let mut frames = Vec::new();
     while let Some(info) = decoder.next(&mut frame).unwrap() {
-        let mut hasher = DefaultHasher::new();
-        (frame.y(), frame.u(), frame.v()).hash(&mut hasher);
-        frames.push((info.is_key(), info.pts().unwrap().get(), hasher.finish()));
+        frames.push((info.is_key(), info.pts().unwrap().get(), fingerprint::of(&frame)));
     }
     frames
 }

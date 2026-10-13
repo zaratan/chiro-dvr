@@ -12,10 +12,11 @@ use super::{Error, Targets, collect};
 use crate::config::MatchConfig;
 use crate::matching::near;
 use crate::metrics::{Judging, evaluate};
+use crate::noisy::FRAMES;
 use crate::run::Provenance;
 use crate::synthetic::sampling::Sampling;
 use crate::synthetic::{Class, Motion};
-use crate::testing::{VIDEO_FRAMES, noisy_video, slow_target};
+use crate::testing::{noisy_video, slow_target};
 
 fn replayed(targets: Vec<crate::synthetic::Target>) -> Targets {
     Targets::Replayed {
@@ -41,7 +42,7 @@ fn a_slow_dark_target_replayed_on_a_noisy_video_is_found_where_it_was_injected()
     let evaluation = evaluate(run, Judging::default()).unwrap();
 
     assert_eq!(run.reference.detection_count(), 0);
-    assert_eq!(run.injected.frame_count(), VIDEO_FRAMES);
+    assert_eq!(run.injected.frame_count(), FRAMES);
     assert_eq!(run.targets[0].observations.len(), 40);
     for observation in &run.targets[0].observations {
         assert_eq!(Some(observation.at), target.position(observation.frame));
@@ -117,7 +118,7 @@ fn drawn_targets_are_placed_inside_the_video_and_their_drawing_is_recorded() {
     assert!(
         run.targets
             .iter()
-            .all(|placed| placed.target.end() < FrameIndex::new(VIDEO_FRAMES))
+            .all(|placed| placed.target.end() < FrameIndex::new(FRAMES))
     );
     assert!(matches!(run.provenance, Provenance::Drawn { sampling: drawn, .. } if drawn == sampling));
 }

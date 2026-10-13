@@ -1,10 +1,10 @@
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{self, Write};
 use std::num::NonZeroUsize;
 
 use engine::damage::Damage;
 use engine::input::{Error, Input};
 use media::decode::{FrameInfo, Threads};
+use media::fingerprint;
 use reference::location::{recorded_video, recording_directories};
 use reference::recording::SUMMARY_FILE;
 use reference::video::VideoSummary;
@@ -17,9 +17,7 @@ fn frames(name: &str, half_window: usize, threads: Threads) -> (Damage, Vec<(Fra
     let mut frames = Vec::new();
     let reading = input
         .read(|info, frame| {
-            let mut hasher = DefaultHasher::new();
-            (frame.y(), frame.u(), frame.v()).hash(&mut hasher);
-            frames.push((info, hasher.finish()));
+            frames.push((info, fingerprint::of(frame)));
             Ok::<(), Error>(())
         })
         .unwrap();

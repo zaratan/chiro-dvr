@@ -133,6 +133,7 @@ dependencies = [
 name = "bench"
 version = "0.0.0"
 dependencies = [
+ "bench",
  "clap",
  "engine",
  "media",

@@ -1,5 +1,4 @@
 use std::fs;
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
 
@@ -189,7 +188,7 @@ fn groups_and_zooms_written_in_parallel_give_the_same_bytes_as_a_single_thread()
     let folder = tempfile::tempdir().unwrap();
     let (_, source) = source(folder.path());
     let tracks = tracks(&[(3..=7, 2), (8..=12, 1), (20..=26, 3), (40..=46, 1)]);
-    let written: Vec<Vec<(usize, u64)>> = [1, 4]
+    let written: Vec<Vec<Vec<u8>>> = [1, 4]
         .iter()
         .map(|threads| {
             let out = folder.path().join(format!("threads_{threads}"));
@@ -209,17 +208,16 @@ fn groups_and_zooms_written_in_parallel_give_the_same_bytes_as_a_single_thread()
                 .clips
                 .iter()
                 .chain(&outputs.zooms)
-                .map(|clip| {
-                    let bytes = fs::read(&clip.path).unwrap();
-                    let mut hasher = DefaultHasher::new();
-                    bytes.hash(&mut hasher);
-                    (bytes.len(), hasher.finish())
-                })
+                .map(|clip| fs::read(&clip.path).unwrap())
                 .collect()
         })
         .collect();
     assert_eq!(written[0].len(), 14);
-    assert_eq!(written[0], written[1]);
+    let differing = written[0]
+        .iter()
+        .zip(&written[1])
+        .position(|(single, parallel)| single != parallel);
+    assert_eq!(differing, None);
 }
 
 #[test]
