@@ -41,9 +41,9 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
   (`tests/fixtures/rust/`) aussi, écrites par `compare --frames` et redemandées au bit
   près sur chaque système. La 092 entière `video_092_original.mp4` est
   une copie exacte de `in/`. Son test, marqueur `reference`, est exclu de `pytest` par
-  défaut et tourne dans sa propre tâche de CI : `uv run pytest -m reference`. La tâche
-  `slow-tests` ne récupère que l'extrait ; les tâches `rust` et `rust-windows`, l'extrait et
-  sa 720×540.
+  défaut et tourne dans sa propre tâche de CI : `uv run pytest -m reference`. Les tâches
+  `slow-tests` et `rust-windows` ne récupèrent que l'extrait ; les tâches `rust` et
+  `rust-settings`, l'extrait et sa 720×540.
   Tolérances du test de référence, sur les deux vidéos : nombre de pistes exact, début ±5
   images, points ±3, qui couvrent l'écart mesuré entre Mac et Linux (4 images, 2 points).
 - **Les vidéos se copient depuis les jumelles en USB**, jamais par l'export Stream Vision 2,
@@ -158,6 +158,7 @@ lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:ffmpeg  # FFmpeg 
 mise run rust:static      # fmt, clippy, règles de la charte, cargo deny, cargo shear
 mise run rust:test        # tests rapides, couverture ≥ 95 %
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:slow       # l'extrait LFS, le test de mémoire (hors couverture)
+lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:settings   # les 16 cas de réglages, sous Linux seulement en CI
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 092 entière
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --profile ci -p compare -- local  # écarts à la référence (extract, 092, settings, local)
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --release -p bench -- VIDÉO --against DOSSIER  # garde du banc contre un banc de la v0.1.1
@@ -206,7 +207,7 @@ Charte (23 règles numérotées, lints et raisons dans
 - Aucun type de `ffmpeg_next` hors de `media`. Configurations validées à la
   construction.
 - Un module, ses tests dans `src/<module>/tests.rs`. Le niveau d'un test se choisit par
-  le nom de son fichier : `tests/slow_*.rs`, `tests/reference_*.rs`.
+  le nom de son fichier : `tests/slow_*.rs`, `tests/settings_*.rs`, `tests/reference_*.rs`.
 - Une dépendance se déclare une fois dans `[workspace.dependencies]`.
 - **Commentaires** : la règle du zéro commentaire vaut aussi en Rust, avec deux
   exceptions. Chaque bloc `unsafe` contient une seule opération et porte une ligne

@@ -18,26 +18,29 @@ const WIDTH: usize = 360;
 const HEIGHT: usize = 180;
 const GRAY: f64 = 200.0;
 const NOISE: f64 = 3.0;
+const NARROW_WIDTH: usize = 144;
+const NARROW_HEIGHT: usize = 24;
 
 fn detected(frames: impl IntoIterator<Item = Vec<u8>>) -> Vec<Vec<Detection>> {
     detected_by(frames, BATCH)
 }
 
 fn detected_by(frames: impl IntoIterator<Item = Vec<u8>>, batch: NonZeroUsize) -> Vec<Vec<Detection>> {
-    detected_with(frames, batch, 15, &DetectConfig::default())
+    detected_with(frames, (WIDTH, HEIGHT), batch, 15, &DetectConfig::default())
 }
 
 fn detected_with(
     frames: impl IntoIterator<Item = Vec<u8>>,
+    (width, height): (usize, usize),
     batch: NonZeroUsize,
     half: usize,
     config: &DetectConfig,
 ) -> Vec<Vec<Detection>> {
     let source = SourceSize::new(
-        NonZeroU32::new(WIDTH as u32).unwrap(),
-        NonZeroU32::new(HEIGHT as u32).unwrap(),
+        NonZeroU32::new(width as u32).unwrap(),
+        NonZeroU32::new(height as u32).unwrap(),
     );
-    let geometry = Geometry::new(source, NonZeroU32::new(WIDTH as u32 / 3 * 2).unwrap()).unwrap();
+    let geometry = Geometry::new(source, NonZeroU32::new(width as u32 / 3 * 2).unwrap()).unwrap();
     let blur = Blur::new(1.0, geometry).unwrap();
     let disk = Disk::new(4.0, geometry);
     let unmasked = Mask::new(&[], geometry.width(), geometry.height(), 0).unwrap();
@@ -234,6 +237,16 @@ fn the_detections_are_the_same_bit_for_bit_whatever_the_threads_and_the_batch() 
     assert_eq!(run(4, 64), one_by_one);
 }
 
+fn narrow_flickering(index: usize, noise: &mut Noise) -> Vec<u8> {
+    let mut frame = background(NARROW_WIDTH, NARROW_HEIGHT, GRAY, NOISE, index as u64);
+    for row in [3, 15] {
+        for column in [114, 126] {
+            frame = with_square(frame, NARROW_WIDTH, (column, row), 6, 15.0 * noise.gaussian());
+        }
+    }
+    with_square(frame, NARROW_WIDTH, (6 + index, 9), 6, -80.0)
+}
+
 #[test]
 fn sixty_one_and_eighty_one_background_samples_give_the_same_detections_bit_for_bit_whatever_the_threads() {
     let every_frame = DetectConfig::try_from(&DetectSettings {
@@ -243,9 +256,7 @@ fn sixty_one_and_eighty_one_background_samples_give_the_same_detections_bit_for_
     .unwrap();
     let frames: Vec<Vec<u8>> = {
         let mut noise = Noise::new(13);
-        (0..100)
-            .map(|index| with_square(flickering(index, &mut noise), WIDTH, (30 + 3 * index, 90), 6, -80.0))
-            .collect()
+        (0..100).map(|index| narrow_flickering(index, &mut noise)).collect()
     };
     for half in [30, 40] {
         let run = |threads: usize, batch: usize| {
@@ -253,7 +264,15 @@ fn sixty_one_and_eighty_one_background_samples_give_the_same_detections_bit_for_
                 .num_threads(threads)
                 .build()
                 .unwrap()
-                .install(|| detected_with(frames.clone(), NonZeroUsize::new(batch).unwrap(), half, &every_frame))
+                .install(|| {
+                    detected_with(
+                        frames.clone(),
+                        (NARROW_WIDTH, NARROW_HEIGHT),
+                        NonZeroUsize::new(batch).unwrap(),
+                        half,
+                        &every_frame,
+                    )
+                })
         };
 
         let one_by_one = run(1, 1);

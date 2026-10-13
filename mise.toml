@@ -45,6 +45,7 @@ run = [
   { task = "rust:static" },
   { task = "rust:test" },
   { task = "rust:slow" },
+  { task = "rust:settings" },
 ]
 
 [tasks."rust:ffmpeg"]
@@ -131,6 +132,10 @@ run = "cargo llvm-cov --profile ci --workspace --locked --fail-under-lines 95"
 [tasks."rust:slow"]
 depends = ["rust:link"]
 run = "cargo test --workspace --locked --profile ci --test 'slow_*' -- --include-ignored"
+
+[tasks."rust:settings"]
+depends = ["rust:link"]
+run = "cargo test --workspace --locked --profile ci --test 'settings_*' -- --include-ignored"
 
 [tasks."rust:reference"]
 depends = ["rust:link"]
