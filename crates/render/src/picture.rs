@@ -1,10 +1,8 @@
 use draw::canvas::{self, Canvas};
 use draw::color::INK;
-use media::convert::{self, Converter, SourceRange};
+use media::convert::{self, Converter, Region, SourceRange};
 use media::frame::{self, ColorRange, YuvFrame};
 use types::frame::FrameIndex;
-
-use crate::overlay::Overlay;
 
 #[cfg(test)]
 mod tests;
@@ -19,6 +17,11 @@ pub enum Error {
     Canvas(#[source] canvas::Error),
     #[error("cannot hold the drawn frame")]
     Frame(#[source] frame::Error),
+}
+
+pub(crate) trait Marks {
+    fn zones(&self, frame: FrameIndex, width: u32, height: u32) -> Vec<Region>;
+    fn draw(&self, canvas: &mut Canvas, frame: FrameIndex);
 }
 
 #[derive(Debug)]
@@ -37,17 +40,22 @@ impl Picture {
         })
     }
 
-    pub(crate) fn draw(&mut self, source: &YuvFrame, overlay: &Overlay, frame: FrameIndex) -> Result<&YuvFrame, Error> {
+    pub(crate) fn draw(
+        &mut self,
+        source: &YuvFrame,
+        marks: &impl Marks,
+        frame: FrameIndex,
+    ) -> Result<&YuvFrame, Error> {
         self.converter
             .display(source, &mut self.drawn)
             .map_err(Error::Convert)?;
-        let zones = overlay.zones(frame, source.width(), source.height());
+        let zones = marks.zones(frame, source.width(), source.height());
         for zone in &zones {
             self.converter
                 .yuv_to_rgba_region(source, self.canvas.rgba_mut(), *zone)
                 .map_err(Error::Convert)?;
         }
-        overlay.draw(&mut self.canvas, frame);
+        marks.draw(&mut self.canvas, frame);
         for zone in &zones {
             self.converter
                 .rgba_to_yuv_region(self.canvas.rgba(), &mut self.drawn, *zone)

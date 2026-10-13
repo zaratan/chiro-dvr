@@ -228,3 +228,71 @@ fn the_clips_of_an_earlier_run_are_removed_before_the_new_ones_are_written() {
     assert!(output.status.success(), "{}", text(&output.stderr));
     assert_eq!(clips::lengths(&folder), [("track_01_0m00s.mp4".to_owned(), 20)]);
 }
+
+#[test]
+fn zoom_all_writes_beside_each_clip_a_zoom_of_the_same_frames() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    let output = run(
+        &[&videos, Path::new("-o"), &out, Path::new("--zoom"), Path::new("all")],
+        "fr_FR.UTF-8",
+    );
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let lengths = clips::lengths(&out.join("flight").join("extraits"));
+    assert_eq!(
+        lengths,
+        [
+            ("piste_01_0m00s.mp4".to_owned(), 20),
+            ("piste_01_0m00s_zoom.mp4".to_owned(), 20)
+        ]
+    );
+    let params: Value =
+        serde_json::from_str(&fs::read_to_string(out.join("flight").join("params.json")).unwrap()).unwrap();
+    assert_eq!(params["RenderConfig"]["zoom"], "all");
+}
+
+#[test]
+fn a_track_that_is_neither_small_nor_faint_gets_no_zoom_by_default() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    let output = run(&[&videos, Path::new("-o"), &out], "C");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let names: Vec<String> = clips::lengths(&out.join("flight").join("clips"))
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect();
+    assert_eq!(names, ["track_01_0m00s.mp4"]);
+}
+
+#[test]
+fn annotated_writes_the_whole_video_beside_its_results() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    let output = run(
+        &[&videos, Path::new("-o"), &out, Path::new("--annotated")],
+        "fr_FR.UTF-8",
+    );
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    assert_eq!(
+        clips::frame_count(&out.join("flight").join("flight_annotee.mp4")),
+        clips::frame_count(flight())
+    );
+    let params: Value =
+        serde_json::from_str(&fs::read_to_string(out.join("flight").join("params.json")).unwrap()).unwrap();
+    assert_eq!(params["RenderConfig"]["annotated"], true);
+}
+
+#[test]
+fn an_annotated_video_of_an_earlier_run_is_removed_when_none_is_asked_for() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    let folder = out.join("flight");
+    fs::create_dir_all(&folder).unwrap();
+    for name in ["flight_annotated.mp4", ".flight_annotated.mp4.partial"] {
+        fs::write(folder.join(name), "").unwrap();
+    }
+    let output = run(&[&videos, Path::new("-o"), &out], "C");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    assert!(!folder.join("flight_annotated.mp4").exists());
+    assert!(!folder.join(".flight_annotated.mp4.partial").exists());
+}

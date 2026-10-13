@@ -4,9 +4,10 @@ use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
 
 use media::encode::{self, Codec};
+use types::frame::{FrameIndex, Pts};
 use types::track::Track;
 
-use super::{Clip, Error, Rendered, Video, render, render_with};
+use super::{Clip, Error, Outputs, Rendered, Video, render, render_with};
 use crate::config::RenderConfig;
 use crate::encoders::Ffmpeg;
 use crate::sequential::{self, Sequential};
@@ -56,6 +57,23 @@ fn clips(folder: &Path, tracks: &[Track]) -> Vec<Clip> {
         .collect()
 }
 
+fn zooms(folder: &Path, tracks: &[Track]) -> Vec<Clip> {
+    (0..tracks.len())
+        .map(|track| Clip {
+            track,
+            path: folder.join(format!("clip_{track}_zoom.mp4")),
+        })
+        .collect()
+}
+
+fn only(clips: &[Clip]) -> Outputs {
+    Outputs {
+        clips: clips.to_vec(),
+        zooms: Vec::new(),
+        annotated: None,
+    }
+}
+
 fn written_with(
     fake: &Fake,
     threads: usize,
@@ -69,7 +87,7 @@ fn written_with(
         tracks,
         config: tenth_of_a_second(),
     };
-    render_with(&fake, threads, &video, clips, codecs)
+    render_with(&fake, threads, &video, &only(clips), codecs)
 }
 
 fn frame_count(path: &Path) -> usize {
@@ -91,7 +109,7 @@ fn each_clip_holds_every_frame_of_its_window_bounded_by_the_video() {
     let (_, source) = source(folder.path());
     let tracks = tracks(&[(3..=7, 1), (8..=12, 1), (15..=17, 1), (40..=46, 1)]);
     let clips = clips(folder.path(), &tracks);
-    let rendered = render(&source, &tracks, &clips, tenth_of_a_second(), &[Codec::OpenH264]).unwrap();
+    let rendered = render(&source, &tracks, &only(&clips), tenth_of_a_second(), &[Codec::OpenH264]).unwrap();
     assert_eq!((rendered.restarts, rendered.redone.len()), (0, 0));
     let counts: Vec<usize> = clips.iter().map(|clip| frame_count(&clip.path)).collect();
     assert_eq!(counts, [11, 11, 9, 11]);
@@ -107,7 +125,7 @@ fn only_the_requested_clips_are_written() {
         track: 1,
         path: wanted.clone(),
     }];
-    render(&source, &tracks, &clips, tenth_of_a_second(), &[Codec::OpenH264]).unwrap();
+    render(&source, &tracks, &only(&clips), tenth_of_a_second(), &[Codec::OpenH264]).unwrap();
     assert_eq!(frame_count(&wanted), 11);
     assert_eq!(names_in(folder.path()), ["binoculars.mp4", "second.mp4"]);
 }
@@ -119,7 +137,7 @@ fn a_window_read_again_from_the_first_frame_is_counted() {
     let source = Source::new(&path, &read.timeline, &[], &read.errors).unwrap();
     let tracks = tracks(&[(3..=7, 1), (20..=24, 1)]);
     let clips = clips(folder.path(), &tracks);
-    let rendered = render(&source, &tracks, &clips, tenth_of_a_second(), &[Codec::OpenH264]).unwrap();
+    let rendered = render(&source, &tracks, &only(&clips), tenth_of_a_second(), &[Codec::OpenH264]).unwrap();
     assert_eq!(rendered.restarts, 2);
 }
 
@@ -133,7 +151,14 @@ fn a_clip_for_a_track_the_video_does_not_hold_is_refused_before_any_writing() {
             track,
             path: folder.path().join("clip.mp4"),
         };
-        let error = render(&source, &tracks, &[clip], tenth_of_a_second(), &[Codec::OpenH264]).unwrap_err();
+        let error = render(
+            &source,
+            &tracks,
+            &only(&[clip]),
+            tenth_of_a_second(),
+            &[Codec::OpenH264],
+        )
+        .unwrap_err();
         assert!(matches!(error, Error::UnknownTrack { track: refused } if refused == track));
     }
     assert_eq!(names_in(folder.path()), ["binoculars.mp4"]);
@@ -154,13 +179,13 @@ fn a_clip_that_cannot_be_written_there_stops_the_video_and_leaves_no_partial_fil
             path: folder.path().join("missing").join("clip_1.mp4"),
         },
     ];
-    let error = render(&source, &tracks, &clips, tenth_of_a_second(), &[Codec::OpenH264]).unwrap_err();
+    let error = render(&source, &tracks, &only(&clips), tenth_of_a_second(), &[Codec::OpenH264]).unwrap_err();
     assert!(matches!(error, Error::Destination { path: refused, .. } if refused == clips[1].path));
     assert_eq!(names_in(folder.path()), ["binoculars.mp4"]);
 }
 
 #[test]
-fn groups_written_in_parallel_give_the_same_bytes_as_a_single_thread() {
+fn groups_and_zooms_written_in_parallel_give_the_same_bytes_as_a_single_thread() {
     let folder = tempfile::tempdir().unwrap();
     let (_, source) = source(folder.path());
     let tracks = tracks(&[(3..=7, 2), (8..=12, 1), (20..=26, 3), (40..=46, 1)]);
@@ -169,15 +194,21 @@ fn groups_written_in_parallel_give_the_same_bytes_as_a_single_thread() {
         .map(|threads| {
             let out = folder.path().join(format!("threads_{threads}"));
             fs::create_dir(&out).unwrap();
-            let clips = clips(&out, &tracks);
+            let outputs = Outputs {
+                clips: clips(&out, &tracks),
+                zooms: zooms(&out, &tracks),
+                annotated: None,
+            };
             let video = Video {
                 source: &source,
                 tracks: &tracks,
                 config: tenth_of_a_second(),
             };
-            render_with(&Ffmpeg, *threads, &video, &clips, &[Codec::OpenH264]).unwrap();
-            clips
+            render_with(&Ffmpeg, *threads, &video, &outputs, &[Codec::OpenH264]).unwrap();
+            outputs
+                .clips
                 .iter()
+                .chain(&outputs.zooms)
                 .map(|clip| {
                     let bytes = fs::read(&clip.path).unwrap();
                     let mut hasher = DefaultHasher::new();
@@ -187,7 +218,7 @@ fn groups_written_in_parallel_give_the_same_bytes_as_a_single_thread() {
                 .collect()
         })
         .collect();
-    assert_eq!(written[0].len(), 7);
+    assert_eq!(written[0].len(), 14);
     assert_eq!(written[0], written[1]);
 }
 
@@ -316,4 +347,153 @@ fn a_videotoolbox_failure_after_a_clip_of_the_group_is_finished_writes_that_clip
     assert_eq!(fake.opened(), opened);
     assert_eq!((frame_count(&clips[0].path), frame_count(&clips[1].path)), (11, 14));
     assert_eq!(names_in(folder.path()), ["binoculars.mp4", "clip_0.mp4", "clip_1.mp4"]);
+}
+
+fn with_zooms(
+    fake: &Fake,
+    threads: usize,
+    source: &Source,
+    tracks: &[Track],
+    folder: &Path,
+) -> Result<Rendered, Error> {
+    let video = Video {
+        source,
+        tracks,
+        config: tenth_of_a_second(),
+    };
+    let outputs = Outputs {
+        clips: clips(folder, tracks),
+        zooms: zooms(folder, tracks),
+        annotated: None,
+    };
+    render_with(&fake, threads, &video, &outputs, &BOTH)
+}
+
+#[test]
+fn each_zoom_holds_the_frames_of_its_clip_and_is_written_by_openh264_outside_the_videotoolbox_sessions() {
+    let folder = tempfile::tempdir().unwrap();
+    let (_, source) = source(folder.path());
+    let tracks = tracks(&[(3..=7, 1), (20..=24, 1)]);
+    let fake = Fake::default();
+    with_zooms(&fake, 2, &source, &tracks, folder.path()).unwrap();
+    let mut opened = fake.opened();
+    opened.sort_by(|a, b| a.0.cmp(&b.0));
+    let expected = [
+        ("clip_0.mp4", Codec::VideoToolbox),
+        ("clip_0_zoom.mp4", Codec::OpenH264),
+        ("clip_1.mp4", Codec::VideoToolbox),
+        ("clip_1_zoom.mp4", Codec::OpenH264),
+    ]
+    .map(|(name, codec)| (name.to_owned(), codec));
+    assert_eq!(opened, expected);
+    assert!(fake.most_hardware_at_once() <= 2);
+    for track in 0..2 {
+        let (clip, zoom) = (
+            folder.path().join(format!("clip_{track}.mp4")),
+            folder.path().join(format!("clip_{track}_zoom.mp4")),
+        );
+        assert_eq!(frame_count(&zoom), frame_count(&clip));
+    }
+}
+
+#[test]
+fn an_openh264_failure_on_a_zoom_stops_the_video_and_names_the_zoom() {
+    let folder = tempfile::tempdir().unwrap();
+    let (_, source) = source(folder.path());
+    let tracks = tracks(&[(3..=7, 1)]);
+    let fake = Fake::breaking(vec![("clip_0_zoom.mp4", Codec::OpenH264, Breaking::PushAt(2))]);
+    let error = with_zooms(&fake, 1, &source, &tracks, folder.path()).unwrap_err();
+    let zoom = folder.path().join("clip_0_zoom.mp4");
+    assert!(matches!(&error, Error::Clip { path, .. } if *path == zoom), "{error:?}");
+}
+
+#[test]
+fn a_zoom_for_a_track_the_video_does_not_hold_is_refused_before_any_writing() {
+    let folder = tempfile::tempdir().unwrap();
+    let (_, source) = source(folder.path());
+    let tracks = tracks(&[(3..=7, 1)]);
+    let outputs = Outputs {
+        clips: Vec::new(),
+        zooms: vec![Clip {
+            track: 1,
+            path: folder.path().join("lost_zoom.mp4"),
+        }],
+        annotated: None,
+    };
+    let error = render(&source, &tracks, &outputs, tenth_of_a_second(), &[Codec::OpenH264]).unwrap_err();
+    assert!(matches!(error, Error::UnknownTrack { track: 1 }));
+    assert_eq!(names_in(folder.path()), ["binoculars.mp4"]);
+}
+
+fn annotated_by(fake: &Fake, source: &Source, tracks: &[Track], folder: &Path) -> Result<Rendered, Error> {
+    let video = Video {
+        source,
+        tracks,
+        config: tenth_of_a_second(),
+    };
+    let outputs = Outputs {
+        clips: clips(folder, tracks),
+        zooms: Vec::new(),
+        annotated: Some(folder.join("annotated.mp4")),
+    };
+    render_with(&fake, 2, &video, &outputs, &BOTH)
+}
+
+fn pts_of(read: &Sequential) -> Vec<Option<i64>> {
+    (0..read.timeline.frame_count())
+        .map(|frame| read.timeline.pts(FrameIndex::new(frame)).map(Pts::get))
+        .collect()
+}
+
+#[test]
+fn the_annotated_video_keeps_every_frame_of_a_video_that_loses_some_at_the_source_pts() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = testing::losing_frames(folder.path(), 5..6, 12);
+    let read = sequential::read(&path);
+    assert_ne!(read.errors, []);
+    let source = Source::new(&path, &read.timeline, &read.keys, &read.errors).unwrap();
+    let tracks = tracks(&[(3..=7, 1)]);
+    let fake = Fake::default();
+    annotated_by(&fake, &source, &tracks, folder.path()).unwrap();
+    assert!(
+        fake.opened()
+            .contains(&("annotated.mp4".to_owned(), Codec::VideoToolbox))
+    );
+    let annotated = sequential::read(&folder.path().join("annotated.mp4"));
+    assert_eq!(pts_of(&annotated), pts_of(&read));
+    assert_eq!(annotated.timeline.time_base(), read.timeline.time_base());
+}
+
+#[test]
+fn a_videotoolbox_failure_writes_the_whole_annotated_video_again_with_openh264() {
+    let folder = tempfile::tempdir().unwrap();
+    let (_, source) = source(folder.path());
+    let tracks = tracks(&[(3..=7, 1)]);
+    let fake = Fake::breaking(vec![("annotated.mp4", Codec::VideoToolbox, Breaking::PushAt(20))]);
+    let rendered = annotated_by(&fake, &source, &tracks, folder.path()).unwrap();
+    let annotated = folder.path().join("annotated.mp4");
+    assert_eq!(rendered.redone.len(), 1);
+    assert_eq!(rendered.redone[0].paths, std::slice::from_ref(&annotated));
+    assert!(fake.opened().contains(&("annotated.mp4".to_owned(), Codec::OpenH264)));
+    assert_eq!(frame_count(&annotated), testing::FRAMES);
+}
+
+#[test]
+fn the_annotated_video_spaces_its_key_frames_up_to_a_second_apart_rather_than_twelve_frames() {
+    let folder = tempfile::tempdir().unwrap();
+    let (_, source) = source(folder.path());
+    let annotated = folder.path().join("annotated.mp4");
+    let outputs = Outputs {
+        clips: Vec::new(),
+        zooms: Vec::new(),
+        annotated: Some(annotated.clone()),
+    };
+    for codecs in [&BOTH[..], &[Codec::OpenH264]] {
+        render(&source, &[], &outputs, tenth_of_a_second(), codecs).unwrap();
+        let keys: Vec<usize> = sequential::read(&annotated).keys.iter().map(|key| key.get()).collect();
+        let gaps: Vec<usize> = keys.windows(2).map(|pair| pair[1] - pair[0]).collect();
+        assert_eq!(keys.first(), Some(&0), "{codecs:?}");
+        assert!(gaps.iter().all(|gap| (13..=30).contains(gap)), "{codecs:?}: {keys:?}");
+        assert!(testing::FRAMES - keys.last().unwrap() <= 30, "{codecs:?}: {keys:?}");
+    }
 }

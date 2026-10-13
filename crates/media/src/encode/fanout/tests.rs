@@ -3,11 +3,12 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::NonZeroUsize;
 use std::path::Path;
 
+use types::frame::Pts;
 use types::rational::Rational;
 
 use super::Fanout;
 use crate::decode::{Decoder, Threads};
-use crate::encode::{Codec, Error, Settings};
+use crate::encode::{Codec, Error, Settings, Stamps, StampsError};
 use crate::frame::{ColorRange, YuvFrame};
 use crate::testing::{HEIGHT, WIDTH, pattern};
 
@@ -91,4 +92,74 @@ fn a_clip_in_a_missing_folder_is_a_destination_error() {
         .open(&folder.path().join("missing").join("clip.mp4"), 3)
         .unwrap_err();
     assert!(error.concerns_the_destination(), "{error:?}");
+}
+
+fn ten_thousandth() -> Rational {
+    Rational::new(1, 10_000).unwrap()
+}
+
+fn stamped(ticks: &[i64]) -> Vec<Pts> {
+    ticks.iter().copied().map(Pts::new).collect()
+}
+
+fn written_stamps(ticks: &[i64]) -> (Vec<i64>, Rational, Option<i64>) {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().join("stamped.mp4");
+    let mut fanout = fanout();
+    fanout
+        .open_stamped(&path, Stamps::new(&stamped(ticks), ten_thousandth()).unwrap())
+        .unwrap();
+    for index in 0..ticks.len() {
+        fanout.push(&pattern(index as u8)).unwrap();
+    }
+    fanout.finish().unwrap();
+    let mut decoder = Decoder::open(&path, Threads::Exactly(NonZeroUsize::MIN)).unwrap();
+    let (time_base, duration) = (decoder.stream().time_base(), decoder.stream().duration());
+    let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
+    let mut pts = Vec::new();
+    while let Some(info) = decoder.next(&mut frame).unwrap() {
+        pts.push(info.pts().unwrap().get());
+    }
+    (pts, time_base, duration)
+}
+
+#[test]
+fn a_stamped_clip_keeps_the_source_timestamps_across_a_jump_and_its_last_frame_lasts_one_frame() {
+    let ticks = [0, 333, 666, 2997, 3330, 3663];
+    let (pts, time_base, duration) = written_stamps(&ticks);
+    assert_eq!(time_base, ten_thousandth());
+    assert_eq!(pts, ticks);
+    assert_eq!(duration, Some(3663 + 333));
+}
+
+#[test]
+fn a_stamped_clip_that_starts_after_zero_keeps_its_first_timestamp() {
+    let ticks = [3330, 3663, 3996];
+    let (pts, _, _) = written_stamps(&ticks);
+    assert_eq!(pts, ticks);
+}
+
+#[test]
+fn timestamps_that_are_empty_negative_or_not_increasing_are_refused() {
+    let base = ten_thousandth();
+    assert_eq!(Stamps::new(&[], base), Err(StampsError::Empty));
+    assert_eq!(
+        Stamps::new(&stamped(&[-1, 333]), base),
+        Err(StampsError::Negative { tick: -1 })
+    );
+    assert_eq!(
+        Stamps::new(&stamped(&[0, 333, 333]), base),
+        Err(StampsError::NotIncreasing { before: 333, tick: 333 })
+    );
+    let backwards = Rational::new(-1, 10_000).unwrap();
+    assert_eq!(
+        Stamps::new(&stamped(&[0]), backwards),
+        Err(StampsError::TimeBase { time_base: backwards })
+    );
+}
+
+#[test]
+fn a_single_stamped_frame_lasts_one_frame_of_the_encoder_rate() {
+    let (_, _, duration) = written_stamps(&[0]);
+    assert_eq!(duration, Some(333));
 }

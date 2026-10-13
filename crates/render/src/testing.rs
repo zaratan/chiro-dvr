@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use media::encode::fanout::Fanout;
-use media::encode::{self, Codec, Encoder, Settings};
+use media::encode::{self, Codec, Encoder, Settings, Stamps};
 use media::frame::{ColorRange, YuvFrame};
 use types::detection::Detection;
 use types::frame::FrameIndex;
@@ -169,18 +169,13 @@ impl<'a> Open for &'a Fake {
 
 impl Sink for FakeSink<'_> {
     fn open(&mut self, path: &Path, frames: usize) -> Result<(), encode::Error> {
-        let name = path.file_name().unwrap().to_string_lossy().into_owned();
-        let found = self
-            .fake
-            .breaks
-            .iter()
-            .find(|(broken, codec, _)| *broken == name && *codec == self.codec);
-        if let Some((_, _, breaking)) = found {
-            self.breaking = Some((path.to_path_buf(), *breaking, frames));
-            self.pushed = 0;
-        }
-        self.fake.opened.lock().unwrap().push((name, self.codec));
+        self.note(path, frames);
         self.fanout.open(path, frames)
+    }
+
+    fn open_stamped(&mut self, path: &Path, stamps: Stamps) -> Result<(), encode::Error> {
+        self.note(path, stamps.frame_count());
+        self.fanout.open_stamped(path, stamps)
     }
 
     fn push(&mut self, frame: &YuvFrame) -> Result<(), encode::Error> {
@@ -202,5 +197,21 @@ impl Sink for FakeSink<'_> {
 
     fn finish(self) -> Result<(), encode::Error> {
         self.fanout.finish()
+    }
+}
+
+impl FakeSink<'_> {
+    fn note(&mut self, path: &Path, frames: usize) {
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        let found = self
+            .fake
+            .breaks
+            .iter()
+            .find(|(broken, codec, _)| *broken == name && *codec == self.codec);
+        if let Some((_, _, breaking)) = found {
+            self.breaking = Some((path.to_path_buf(), *breaking, frames));
+            self.pushed = 0;
+        }
+        self.fake.opened.lock().unwrap().push((name, self.codec));
     }
 }

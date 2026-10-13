@@ -3,19 +3,21 @@ mod agreement;
 #[path = "support/clips.rs"]
 mod clips;
 
+use batdetect::options::Options;
 use batdetect::process::process;
-use media::decode::Threads;
+use media::decode::{Decoder, Threads};
 use reference::fixture::fixture;
 use reference::location::committed;
 use reference::recording::Recording;
 use types::language::Language;
 use types::rate::FrameRate;
+use types::rational::Rational;
 
 const WHOLE: &str = "video_092_original";
 
 #[test]
 #[ignore = "reference"]
-fn the_092_gives_the_fourteen_tracks_and_clips_of_the_reference() {
+fn the_092_gives_the_fourteen_tracks_and_clips_of_the_reference_and_its_single_zoom() {
     let recording = Recording::read(&committed(WHOLE)).unwrap();
     let rate = FrameRate::new(recording.summary.stream.avg_frame_rate).unwrap();
     let out = tempfile::tempdir().unwrap();
@@ -27,6 +29,7 @@ fn the_092_gives_the_fourteen_tracks_and_clips_of_the_reference() {
         &agreement::DebugLabels,
         Threads::Automatic,
         agreement::VERSIONS,
+        Options::default(),
     )
     .unwrap();
     let found = agreement::agreement(&processed, &recording, rate);
@@ -39,6 +42,7 @@ fn the_092_gives_the_fourteen_tracks_and_clips_of_the_reference() {
         ("track_01_0m07s.mp4", 113),
         ("track_02_0m33s.mp4", 131),
         ("track_03_0m51s.mp4", 99),
+        ("track_03_0m51s_zoom.mp4", 99),
         ("track_04_0m53s.mp4", 125),
         ("track_05_1m12s.mp4", 129),
         ("track_06_1m48s.mp4", 123),
@@ -53,4 +57,7 @@ fn the_092_gives_the_fourteen_tracks_and_clips_of_the_reference() {
     ]
     .map(|(name, frames)| (name.to_owned(), frames));
     assert_eq!(lengths, expected);
+    let zoom = out.path().join(WHOLE).join("clips").join("track_03_0m51s_zoom.mp4");
+    let slowed = Decoder::open(&zoom, Threads::Automatic).unwrap().stream().frame_rate();
+    assert_eq!(slowed.get(), Rational::new(22_527_500, 3_000_927).unwrap());
 }

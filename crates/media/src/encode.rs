@@ -10,6 +10,7 @@ use ffmpeg::util::color::{Primaries, Range, Space, TransferCharacteristic};
 use ffmpeg::util::error::EAGAIN;
 use ffmpeg_next as ffmpeg;
 use tempfile::TempPath;
+use types::frame::Pts;
 use types::rational::Rational;
 
 use crate::failure::LibraryError;
@@ -82,6 +83,10 @@ pub enum Error {
     ShortClip { path: PathBuf },
     #[error("the encoder gave a packet without a timestamp")]
     UntimedPacket,
+    #[error("{} has no timestamp for its frame {frame}", path.display())]
+    Unstamped { path: PathBuf, frame: i64 },
+    #[error("{} received a packet decoded out of its display order", path.display())]
+    Reordered { path: PathBuf },
     #[error("cannot move the finished video to {}", path.display())]
     Persist {
         path: PathBuf,
@@ -100,6 +105,8 @@ impl Error {
             | Self::Writing { path, .. }
             | Self::EmptyClip { path }
             | Self::ShortClip { path }
+            | Self::Unstamped { path, .. }
+            | Self::Reordered { path }
             | Self::Persist { path, .. } => Some(path),
             _ => None,
         }
@@ -202,6 +209,69 @@ impl Settings {
     pub(crate) fn with_codec(self, codec: Codec) -> Self {
         Self { codec, ..self }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum StampsError {
+    #[error("a video needs at least one timestamp")]
+    Empty,
+    #[error("timestamp {tick} comes before 0")]
+    Negative { tick: i64 },
+    #[error("timestamp {tick} does not come after {before}")]
+    NotIncreasing { before: i64, tick: i64 },
+    #[error("{time_base} is not a time base")]
+    TimeBase { time_base: Rational },
+}
+
+/// The source timestamps a written video keeps, one per frame, in the source time base.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Stamps {
+    ticks: Vec<i64>,
+    time_base: Rational,
+}
+
+impl Stamps {
+    pub fn new(stamps: &[Pts], time_base: Rational) -> Result<Self, StampsError> {
+        if time_base.num() <= 0 {
+            return Err(StampsError::TimeBase { time_base });
+        }
+        let ticks: Vec<i64> = stamps.iter().map(|pts| pts.get()).collect();
+        let first = *ticks.first().ok_or(StampsError::Empty)?;
+        if first < 0 {
+            return Err(StampsError::Negative { tick: first });
+        }
+        if let Some((before, tick)) = ticks
+            .iter()
+            .zip(ticks.iter().skip(1))
+            .find(|(before, tick)| tick <= before)
+        {
+            return Err(StampsError::NotIncreasing {
+                before: *before,
+                tick: *tick,
+            });
+        }
+        Ok(Self { ticks, time_base })
+    }
+
+    pub fn frame_count(&self) -> usize {
+        self.ticks.len()
+    }
+
+    fn rational(&self) -> ffmpeg::Rational {
+        ffmpeg::Rational::new(self.time_base.num(), self.time_base.den())
+    }
+
+    fn timing(&self, frame: i64, frame_length: i64) -> Option<(i64, i64)> {
+        let index = usize::try_from(frame).ok()?;
+        let tick = *self.ticks.get(index)?;
+        let until_next = self.ticks.get(index + 1).map(|next| next - tick);
+        Some((tick, until_next.unwrap_or(frame_length).max(1)))
+    }
+}
+
+/// The temporary name a video takes while it is written, beside its final one.
+pub fn partial_path(path: &Path) -> Option<PathBuf> {
+    path::partial(path)
 }
 
 /// Writes an H.264 mp4 under a temporary name in the destination folder; only `finish` gives it its name.
@@ -317,12 +387,17 @@ struct Destination {
     output: ffmpeg::format::context::Output,
     stream: usize,
     stream_time_base: ffmpeg::Rational,
+    stamps: Option<Stamps>,
     temporary: TempPath,
     path: PathBuf,
 }
 
 impl Destination {
     fn create(path: &Path, opened: &Opened) -> Result<Self, Error> {
+        Self::create_with(path, opened, None)
+    }
+
+    fn create_with(path: &Path, opened: &Opened, stamps: Option<Stamps>) -> Result<Self, Error> {
         let unusable = || Error::UnusablePath {
             path: path.to_path_buf(),
         };
@@ -347,16 +422,16 @@ impl Destination {
         })?;
         let mut stream = output.add_stream(opened.codec).map_err(writing)?;
         stream.set_parameters(&opened.context);
-        stream.set_time_base(opened.codec_time_base);
+        let wanted = stamps.as_ref().map_or(opened.codec_time_base, Stamps::rational);
+        stream.set_time_base(wanted);
         let index = stream.index();
         output.write_header().map_err(writing)?;
-        let stream_time_base = output
-            .stream(index)
-            .map_or(opened.codec_time_base, |stream| stream.time_base());
+        let stream_time_base = output.stream(index).map_or(wanted, |stream| stream.time_base());
         Ok(Self {
             output,
             stream: index,
             stream_time_base,
+            stamps,
             temporary,
             path: path.to_path_buf(),
         })
@@ -374,7 +449,26 @@ impl Destination {
         if packet.duration() == 0 {
             packet.set_duration(1);
         }
-        packet.rescale_ts(codec_time_base, self.stream_time_base);
+        match &self.stamps {
+            None => packet.rescale_ts(codec_time_base, self.stream_time_base),
+            Some(stamps) => {
+                let frame = packet.pts().ok_or(Error::UntimedPacket)?;
+                if packet.dts() != Some(frame) {
+                    return Err(Error::Reordered {
+                        path: self.path.clone(),
+                    });
+                }
+                let frame_length = ffmpeg::Rescale::rescale(&1, codec_time_base, stamps.rational());
+                let (tick, length) = stamps.timing(frame, frame_length).ok_or_else(|| Error::Unstamped {
+                    path: self.path.clone(),
+                    frame,
+                })?;
+                packet.set_pts(Some(tick));
+                packet.set_dts(Some(tick));
+                packet.set_duration(length);
+                packet.rescale_ts(stamps.rational(), self.stream_time_base);
+            }
+        }
         packet
             .write_interleaved(&mut self.output)
             .map_err(|source| Error::Writing {

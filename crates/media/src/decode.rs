@@ -101,6 +101,7 @@ pub struct StreamInfo {
     time_base: Rational,
     range: ColorRange,
     start: Option<Pts>,
+    duration: Option<i64>,
     announced_frames: Option<NonZeroU64>,
 }
 
@@ -131,6 +132,11 @@ impl StreamInfo {
 
     pub fn start(&self) -> Option<Pts> {
         self.start
+    }
+
+    /// The stream length the container announces, in the stream time base.
+    pub fn duration(&self) -> Option<i64> {
+        self.duration
     }
 
     pub fn announced_frames(&self) -> Option<NonZeroU64> {
@@ -261,6 +267,7 @@ impl Decoder {
         let frame_rate = frame_rate(stream.avg_frame_rate(), stream.rate())?;
         let time_base = positive(stream.time_base()).ok_or(Error::UnknownTimeBase)?;
         let announced_frames = u64::try_from(stream.frames()).ok().and_then(NonZeroU64::new);
+        let duration = Some(stream.duration()).filter(|duration| *duration > 0);
         let start = known_pts(stream.start_time());
         let mut context = ffmpeg::codec::context::Context::from_parameters(stream.parameters()).map_err(failed)?;
         let mut threading = threading::Config::kind(threading::Type::Frame);
@@ -279,6 +286,7 @@ impl Decoder {
             time_base,
             range,
             start,
+            duration,
             announced_frames,
         };
         Ok(Self {

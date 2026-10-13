@@ -2,11 +2,12 @@ use engine::config::DetectConfig;
 use engine::settings::DetectSettings;
 use media::decode::ActiveThreads;
 use media::encode::Codec;
-use render::config::RenderConfig;
 use serde::Serialize;
 use tracking::settings::{StabilitySettings, TrackSettings};
 use tracking::stability::StabilityConfig;
 use tracking::track::TrackConfig;
+
+use crate::options::Options;
 
 #[cfg(test)]
 mod tests;
@@ -30,6 +31,10 @@ struct RenderSettings {
     trail_s: f64,
     clip_margin_s: f64,
     max_tracks: usize,
+    zoom: &'static str,
+    zoom_below_area: f64,
+    zoom_below_amplitude: f64,
+    annotated: bool,
     encoders: Vec<&'static str>,
 }
 
@@ -53,7 +58,7 @@ impl Settings {
         detect: &DetectConfig,
         track: TrackConfig,
         stability: StabilityConfig,
-        render: RenderConfig,
+        options: Options,
         encoders: &[Codec],
         decoding: ActiveThreads,
         detection: usize,
@@ -68,10 +73,14 @@ impl Settings {
             track: TrackSettings::from(track),
             stability: StabilitySettings::from(stability),
             render: RenderSettings {
-                box_pad: render.box_pad(),
-                trail_s: render.trail_s(),
-                clip_margin_s: render.clip_margin_s(),
-                max_tracks: render.max_tracks(),
+                box_pad: options.render.box_pad(),
+                trail_s: options.render.trail_s(),
+                clip_margin_s: options.render.clip_margin_s(),
+                max_tracks: options.render.max_tracks(),
+                zoom: options.render.zoom().choice().name(),
+                zoom_below_area: options.render.zoom().below_area(),
+                zoom_below_amplitude: options.render.zoom().below_amplitude(),
+                annotated: options.annotated,
                 encoders: encoders.iter().map(|codec| encoder_name(*codec)).collect(),
             },
             threads: ThreadSettings {

@@ -10,9 +10,9 @@ use files::params::{Params, spans_in_seconds, write_params};
 use files::table::write_tracks_csv;
 use files::time::frame_seconds;
 use media::decode::Threads;
-use media::encode::Codec;
 use media::encode::fallback::{self, Fallback};
-use render::clips::{self, Clip, Rendered};
+use media::encode::{self, Codec};
+use render::clips::{self, Clip, Outputs, Rendered};
 use render::config::RenderConfig;
 use render::source::{self, Source};
 use summary::header::Labels;
@@ -25,6 +25,7 @@ use types::timeline::{self, Timeline};
 use types::track::Track;
 
 use crate::jobs::Job;
+use crate::options::Options;
 use crate::overview::{self, Overview, write_overview};
 use crate::settings::Settings;
 
@@ -62,7 +63,11 @@ pub enum Error {
     #[error("the clips cannot be written")]
     Clips(#[source] clips::Error),
     #[error("{count} tracks, above {limit}: clips skipped")]
-    TooManyTracks { count: usize, limit: usize },
+    TooManyTracks {
+        count: usize,
+        limit: usize,
+        annotated: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -85,7 +90,9 @@ pub fn process(
     labels: &dyn Labels,
     threads: Threads,
     versions: Versions<'_>,
+    options: Options,
 ) -> Result<Processed, Error> {
+    let render = options.render;
     let config = DetectConfig::default();
     let detected = detect(&job.video, threads, &config).map_err(Error::Detection)?;
     let reading = detected.reading();
@@ -111,13 +118,12 @@ pub fn process(
     let names = Names::new(language);
     let csv = names.tracks_csv(&job.dest, job.video.file_stem().unwrap_or_default());
     write_tracks_csv(&csv, &tracks, &timeline).map_err(Error::Files)?;
-    let render = RenderConfig::default();
     let trial = encoders(render, tracks.len(), reading.video());
     let settings = Settings::of(
         &config,
         track,
         stability,
-        render,
+        options,
         trial.as_deref().unwrap_or_default(),
         detected.active_threads(),
         detected.detection_threads(),
@@ -154,7 +160,7 @@ pub fn process(
         names,
         detected: &detected,
         timeline: &timeline,
-        render,
+        options,
     };
     let rendered = render_clips(&clips, &tracks, trial)?;
     Ok(Processed {
@@ -182,10 +188,24 @@ struct Clips<'a> {
     names: Names,
     detected: &'a Detected,
     timeline: &'a Timeline,
-    render: RenderConfig,
+    options: Options,
 }
 
 fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, Error>) -> Result<Rendered, Error> {
+    let stem = clips.job.video.file_stem().unwrap_or_default();
+    let annotated = clips.names.annotated_video(&clips.job.dest, stem);
+    for path in [Some(annotated.clone()), encode::partial_path(&annotated)]
+        .into_iter()
+        .flatten()
+    {
+        match fs::remove_file(&path) {
+            Err(source) if source.kind() != io::ErrorKind::NotFound => {
+                return Err(Error::Clear { path, source });
+            }
+            _ => {}
+        }
+    }
+    let render = clips.options.render;
     let folder = clips.names.clips_dir(&clips.job.dest);
     match fs::remove_dir_all(&folder) {
         Err(source) if source.kind() != io::ErrorKind::NotFound => {
@@ -197,26 +217,37 @@ fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, E
         dest: folder.clone(),
         source,
     })?;
-    if !clips.render.renders_clips_for(tracks.len()) {
+    if !render.renders_clips_for(tracks.len()) {
         return Err(Error::TooManyTracks {
             count: tracks.len(),
-            limit: clips.render.max_tracks(),
+            limit: render.max_tracks(),
+            annotated: clips.options.annotated,
         });
     }
     let encoders = trial?;
     let reading = clips.detected.reading();
     let errors = clips.detected.damage().error_frames();
     let source = Source::new(&clips.job.video, clips.timeline, &reading.key_frames(), errors).map_err(Error::Source)?;
-    let wanted: Vec<Clip> = tracks
-        .iter()
-        .enumerate()
-        .map(|(index, track)| {
-            let start = frame_seconds(clips.timeline, track.first().frame);
-            Clip {
+    let start = |track: &Track| frame_seconds(clips.timeline, track.first().frame);
+    let outputs = Outputs {
+        clips: tracks
+            .iter()
+            .enumerate()
+            .map(|(index, track)| Clip {
                 track: index,
-                path: folder.join(clips.names.clip(track, start, tracks.len())),
-            }
-        })
-        .collect();
-    clips::render(&source, tracks, &wanted, clips.render, &encoders).map_err(Error::Clips)
+                path: folder.join(clips.names.clip(track, start(track), tracks.len())),
+            })
+            .collect(),
+        zooms: tracks
+            .iter()
+            .enumerate()
+            .filter(|(_, track)| render.zoom().wants(track))
+            .map(|(index, track)| Clip {
+                track: index,
+                path: folder.join(clips.names.zoomed_clip(track, start(track), tracks.len())),
+            })
+            .collect(),
+        annotated: clips.options.annotated.then_some(annotated),
+    };
+    clips::render(&source, tracks, &outputs, render, &encoders).map_err(Error::Clips)
 }

@@ -8,6 +8,7 @@ use types::frame::FrameIndex;
 use super::{Error, Picture};
 use crate::config::RenderConfig;
 use crate::overlay::Overlay;
+use crate::picture::Marks;
 use crate::testing::{thirty, track};
 
 const WIDTH: u32 = 400;

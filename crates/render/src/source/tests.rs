@@ -255,3 +255,42 @@ fn a_reading_through_a_frame_in_error_takes_one_thread_and_a_clean_one_takes_the
         Threads::Automatic
     );
 }
+
+fn pieces_of(errors: &[usize], pts: impl Fn(&Sequential) -> Vec<Option<Pts>>) -> (Vec<Span>, Source, Sequential) {
+    let folder = tempfile::tempdir().unwrap();
+    let path = testing::binoculars(folder.path());
+    let read = sequential::read(&path);
+    let errors: Vec<FrameIndex> = errors.iter().copied().map(FrameIndex::new).collect();
+    let source = Source::new(&path, &forged(&read, pts(&read)), &read.keys, &errors).unwrap();
+    (source.pieces(), source, read)
+}
+
+#[test]
+fn a_clean_video_is_read_as_a_single_piece() {
+    let (pieces, _, _) = pieces_of(&[], all_pts);
+    assert_eq!(pieces, [span(0, 47)]);
+}
+
+#[test]
+fn a_frame_in_error_is_read_alone_from_the_key_frame_before_it_to_the_key_frame_after_it() {
+    let (pieces, _, _) = pieces_of(&[19, 21], all_pts);
+    assert_eq!(pieces, [span(0, 15), span(16, 23), span(24, 47)]);
+}
+
+#[test]
+fn a_frame_without_pts_is_left_out_of_every_piece_and_of_the_stamps() {
+    let without_30 = |read: &Sequential| {
+        let mut pts = all_pts(read);
+        pts[30] = None;
+        pts
+    };
+    let (pieces, source, read) = pieces_of(&[], without_30);
+    assert_eq!(pieces, [span(0, 29), span(31, 47)]);
+    let stamps = source.stamps(&pieces);
+    let expected: Vec<Pts> = (0..48)
+        .filter(|frame| *frame != 30)
+        .map(|frame| read.timeline.pts(FrameIndex::new(frame)).unwrap())
+        .collect();
+    assert_eq!(stamps, expected);
+    assert_eq!(source.time_base(), read.timeline.time_base());
+}

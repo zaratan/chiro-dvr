@@ -5,6 +5,7 @@ mod encoders;
 mod group;
 mod overlay;
 pub mod picture;
+mod positions;
 mod schedule;
 #[cfg(test)]
 #[path = "../tests/support/sequential.rs"]
@@ -13,3 +14,6 @@ pub mod source;
 #[cfg(test)]
 mod testing;
 pub mod windows;
+mod work;
+mod zones;
+mod zoom;
