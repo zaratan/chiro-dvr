@@ -6,8 +6,10 @@ use std::process::ExitCode;
 
 use batdetect::jobs::{Job, collect_videos, plan_jobs};
 use batdetect::language::system_language;
+use batdetect::options::Options;
 use batdetect::process::{self, Versions, process};
 use media::decode::Threads;
+use render::config::{RenderConfig, ZoomConfig};
 use types::language::Language;
 
 fn main() -> ExitCode {
@@ -20,10 +22,14 @@ fn main() -> ExitCode {
         Ok(jobs) => jobs,
         Err(error) => return report(&arguments::refusal(&messages::causes(&error))),
     };
-    run(&jobs, system_language())
+    let options = Options {
+        render: RenderConfig::default().with_zoom(ZoomConfig::choosing(request.zoom)),
+        annotated: request.annotated,
+    };
+    run(&jobs, system_language(), options)
 }
 
-fn run(jobs: &[Job], language: Language) -> ExitCode {
+fn run(jobs: &[Job], language: Language, options: Options) -> ExitCode {
     let ffmpeg = media::library::version();
     let versions = Versions {
         program: messages::version(),
@@ -32,7 +38,7 @@ fn run(jobs: &[Job], language: Language) -> ExitCode {
     let mut failures = 0_usize;
     for job in jobs {
         let labels = messages::SummaryLabels(language);
-        let line = match process(job, language, &labels, Threads::Automatic, versions) {
+        let line = match process(job, language, &labels, Threads::Automatic, versions, options) {
             Ok(processed) => {
                 let mut stderr = io::stderr().lock();
                 let redone = processed.rendered.redone.iter().try_for_each(|redone| {
@@ -50,12 +56,16 @@ fn run(jobs: &[Job], language: Language) -> ExitCode {
                     )
                 })
             }
-            Err(process::Error::TooManyTracks { count, limit }) => {
+            Err(process::Error::TooManyTracks {
+                count,
+                limit,
+                annotated,
+            }) => {
                 failures += 1;
                 writeln!(
                     io::stderr().lock(),
                     "{}",
-                    messages::too_many_tracks(language, job, count, limit)
+                    messages::too_many_tracks(language, job, count, limit, annotated)
                 )
             }
             Err(error) => {

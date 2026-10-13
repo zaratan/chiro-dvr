@@ -4,8 +4,9 @@ use std::path::{Path, PathBuf};
 use media::decode::placed::{Placed, SeekError};
 use media::decode::{self, Decoder, Threads};
 use media::frame::{self, ColorRange, YuvFrame};
-use types::frame::FrameIndex;
+use types::frame::{FrameIndex, Pts};
 use types::rate::FrameRate;
+use types::rational::Rational;
 use types::span::Span;
 use types::timeline::Timeline;
 
@@ -69,6 +70,7 @@ pub struct Source {
     path: PathBuf,
     frames: usize,
     rate: FrameRate,
+    time_base: Rational,
     numbering: Numbering,
     keys: Vec<FrameIndex>,
     errors: Vec<FrameIndex>,
@@ -86,6 +88,7 @@ impl Source {
             path: path.to_path_buf(),
             frames: timeline.frame_count(),
             rate: timeline.rate(),
+            time_base: timeline.time_base(),
             numbering: Numbering::of(timeline)?,
             keys: sorted(keys),
             errors: sorted(errors),
@@ -98,6 +101,52 @@ impl Source {
 
     pub fn rate(&self) -> FrameRate {
         self.rate
+    }
+
+    pub(crate) fn time_base(&self) -> Rational {
+        self.time_base
+    }
+
+    pub(crate) fn stamps(&self, pieces: &[Span]) -> Vec<Pts> {
+        pieces
+            .iter()
+            .flat_map(|piece| piece.first().get()..=piece.last().get())
+            .filter_map(|frame| self.numbering.pts(FrameIndex::new(frame)))
+            .collect()
+    }
+
+    pub(crate) fn pieces(&self) -> Vec<Span> {
+        let damaged: Vec<(usize, usize)> = self
+            .errors
+            .iter()
+            .map(|error| {
+                let after = self.keys.partition_point(|key| key <= error);
+                let start = after
+                    .checked_sub(1)
+                    .and_then(|before| self.keys.get(before))
+                    .map_or(0, |key| key.get());
+                let end = self.keys.get(after).map_or(self.frames, |key| key.get());
+                (start, end)
+            })
+            .collect();
+        let mut pieces = Vec::new();
+        let mut current: Option<(usize, usize, bool)> = None;
+        for frame in 0..self.frames {
+            if self.numbering.pts(FrameIndex::new(frame)).is_none() {
+                pieces.extend(current.take().map(|(first, last, _)| span(first, last)));
+                continue;
+            }
+            let hurt = damaged.iter().any(|(start, end)| (*start..*end).contains(&frame));
+            current = match current {
+                Some((first, last, kind)) if kind == hurt && last + 1 == frame => Some((first, frame, kind)),
+                other => {
+                    pieces.extend(other.map(|(first, last, _)| span(first, last)));
+                    Some((frame, frame, hurt))
+                }
+            };
+        }
+        pieces.extend(current.map(|(first, last, _)| span(first, last)));
+        pieces
     }
 
     pub fn serve<E: From<Error>>(
@@ -195,4 +244,8 @@ impl Source {
         }
         Err(Error::Missing { frame: wanted }.into())
     }
+}
+
+fn span(first: usize, last: usize) -> Span {
+    Span::single(FrameIndex::new(first)).hull(Span::single(FrameIndex::new(last)))
 }

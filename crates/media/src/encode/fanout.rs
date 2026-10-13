@@ -4,7 +4,7 @@ use std::path::Path;
 use ffmpeg::picture;
 use ffmpeg_next as ffmpeg;
 
-use super::{Codec, Destination, Error, Opened, Settings, fill, receive, send};
+use super::{Codec, Destination, Error, Opened, Settings, Stamps, fill, receive, send};
 use crate::frame::YuvFrame;
 
 #[cfg(test)]
@@ -53,13 +53,22 @@ impl Fanout {
     }
 
     pub fn open(&mut self, path: &Path, frames: usize) -> Result<(), Error> {
+        self.open_with(path, frames, None)
+    }
+
+    /// The clip keeps these source timestamps instead of counting its frames at the encoder rate.
+    pub fn open_stamped(&mut self, path: &Path, stamps: Stamps) -> Result<(), Error> {
+        self.open_with(path, stamps.frame_count(), Some(stamps))
+    }
+
+    fn open_with(&mut self, path: &Path, frames: usize, stamps: Option<Stamps>) -> Result<(), Error> {
         let length = i64::try_from(frames).ok().filter(|length| *length > 0);
         let Some(length) = length else {
             return Err(Error::EmptyClip {
                 path: path.to_path_buf(),
             });
         };
-        let destination = Destination::create(path, &self.opened)?;
+        let destination = Destination::create_with(path, &self.opened, stamps)?;
         self.clips.push(Clip {
             destination,
             first: self.next_pts,

@@ -1,8 +1,10 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+use clap::builder::PossibleValuesParser;
 use clap::error::ErrorKind;
 use clap::{Arg, ArgAction, Command, value_parser};
+use render::config::Zoom;
 
 use crate::messages;
 
@@ -13,6 +15,8 @@ mod tests;
 pub(crate) struct Request {
     pub(crate) inputs: Vec<PathBuf>,
     pub(crate) output: PathBuf,
+    pub(crate) zoom: Zoom,
+    pub(crate) annotated: bool,
 }
 
 fn command() -> Command {
@@ -41,6 +45,20 @@ fn command() -> Command {
                 .value_parser(value_parser!(PathBuf))
                 .help(messages::OUTPUT_HELP),
         )
+        .arg(
+            Arg::new("zoom")
+                .long("zoom")
+                .value_name("WHICH")
+                .default_value(Zoom::Auto.name())
+                .value_parser(PossibleValuesParser::new(Zoom::CHOICES.map(Zoom::name)))
+                .help(messages::ZOOM_HELP),
+        )
+        .arg(
+            Arg::new("annotated")
+                .long("annotated")
+                .action(ArgAction::SetTrue)
+                .help(messages::ANNOTATED_HELP),
+        )
 }
 
 pub(crate) fn parse(arguments: impl IntoIterator<Item = impl Into<OsString> + Clone>) -> Result<Request, clap::Error> {
@@ -52,7 +70,17 @@ pub(crate) fn parse(arguments: impl IntoIterator<Item = impl Into<OsString> + Cl
     let output = matches
         .remove_one::<PathBuf>("output")
         .ok_or_else(|| refusal(messages::NO_OUTPUT))?;
-    Ok(Request { inputs, output })
+    let zoom = matches
+        .remove_one::<String>("zoom")
+        .and_then(|name| Zoom::CHOICES.into_iter().find(|choice| choice.name() == name))
+        .unwrap_or(Zoom::Auto);
+    let annotated = matches.get_flag("annotated");
+    Ok(Request {
+        inputs,
+        output,
+        zoom,
+        annotated,
+    })
 }
 
 pub(crate) fn refusal(message: &str) -> clap::Error {

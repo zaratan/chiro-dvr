@@ -1,6 +1,8 @@
+use std::num::NonZeroU32;
+
 use proptest::prelude::*;
 
-use super::{Error, ParseError, Rational, gcd};
+use super::{DivisionError, Error, ParseError, Rational, gcd};
 
 #[test]
 fn a_zero_denominator_is_refused() {
@@ -111,4 +113,33 @@ fn a_rate_is_a_json_string() {
     let rate: Rational = serde_json::from_str("\"10000/333\"").unwrap();
     assert_eq!(serde_json::to_string(&rate).unwrap(), "\"10000/333\"");
     assert!(serde_json::from_str::<Rational>("\"30\"").is_err());
+}
+
+#[test]
+fn a_division_keeps_zero_and_the_sign_and_stays_reduced() {
+    let three = NonZeroU32::new(3).unwrap();
+    assert_eq!(
+        Rational::new(0, 7).unwrap().divided_by(three),
+        Ok(Rational::new(0, 1).unwrap())
+    );
+    assert_eq!(
+        Rational::new(-6, 5).unwrap().divided_by(three),
+        Ok(Rational::new(-2, 5).unwrap())
+    );
+    let too_fine = Rational::new(1, i32::MAX).unwrap();
+    assert_eq!(
+        too_fine.divided_by(three),
+        Err(DivisionError {
+            value: too_fine,
+            factor: 3
+        })
+    );
+    assert_eq!(
+        DivisionError {
+            value: too_fine,
+            factor: 3
+        }
+        .to_string(),
+        "1/2147483647 divided by 3 does not fit in 32-bit terms"
+    );
 }

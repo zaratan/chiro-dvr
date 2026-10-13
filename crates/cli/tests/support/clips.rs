@@ -14,13 +14,19 @@ pub(crate) fn lengths(folder: &Path) -> Vec<(String, usize)> {
     names
         .into_iter()
         .map(|name| {
-            let mut decoder = Decoder::open(&folder.join(&name), Threads::Automatic).unwrap();
-            let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
-            let mut count = 0;
-            while decoder.next(&mut frame).unwrap().is_some() {
-                count += 1;
-            }
+            let count = frame_count(&folder.join(&name));
             (name, count)
         })
         .collect()
+}
+
+#[cfg(test)]
+pub(crate) fn frame_count(path: &Path) -> usize {
+    let mut decoder = Decoder::open(path, Threads::Automatic).unwrap();
+    let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
+    let mut count = 0;
+    while decoder.next(&mut frame).unwrap().is_some() {
+        count += 1;
+    }
+    count
 }
