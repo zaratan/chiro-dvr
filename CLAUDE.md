@@ -185,7 +185,7 @@ crates depuis #100, dépendances à sens unique :
   (`source`), reprise sur la dernière image-clé saine, un seul fil de décodage sur une plage abîmée ;
   fenêtres et groupes (`windows`), boîtes, `#N` et traces (`overlay`, `picture`),
   un encodeur par groupe (`media::encode::fanout`), groupes en parallèle (`clips`,
-  `schedule`, `group`, `ahead`, `encoders`).
+  `schedule`, `group`, `ahead`, `encoders`) ; zooms ralentis en openh264 (`zoom`, `work`, #103) ; vidéo annotée aux `pts` de la source, lue par tronçons (#103).
 - `summary` → `draw`, `types`, `files` (#104) : l'image résumé (tranches, couleurs,
   flèches, pastilles, bandeau, frise du temps, PNG), sans FFmpeg.
 - `compare` → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de

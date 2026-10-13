@@ -1,20 +1,20 @@
 use std::fs;
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::path::{Path, PathBuf};
 
 use engine::config::DetectConfig;
 use engine::detection::detect;
 use files::names::Names;
 use media::decode::{Decoder, Threads};
-use media::encode::Codec;
 use media::encode::fallback::{self, Fallback};
+use media::encode::{self, Codec};
 use media::frame::{ColorRange, YuvFrame};
 use render::clips::Rendered;
 use render::config::RenderConfig;
 use render::windows::clip_windows;
 use summary::header::{Band, HeaderLine, Labels};
 use types::detection::Detection;
-use types::frame::FrameIndex;
+use types::frame::{FrameIndex, Pts};
 use types::language::Language;
 use types::rate::FrameRate;
 use types::rational::Rational;
@@ -24,6 +24,7 @@ use types::track::Track;
 use super::{Clips, Error, Versions, process, render_clips};
 use crate::flight;
 use crate::jobs::Job;
+use crate::options::Options;
 
 fn still(id: usize) -> Track {
     let points = (0..3)
@@ -61,26 +62,43 @@ fn after_an_earlier_run(
     let clips_dir = names.clips_dir(&job.dest);
     fs::create_dir_all(&clips_dir).unwrap();
     fs::write(clips_dir.join("track_01_0m00s.mp4"), "").unwrap();
+    let annotated = names.annotated_video(&job.dest, job.video.file_stem().unwrap());
+    let partial = encode::partial_path(&annotated).unwrap();
+    for earlier in [&annotated, &partial] {
+        fs::write(earlier, "").unwrap();
+    }
     let clips = Clips {
         job: &job,
         names,
         detected: &detected,
         timeline: &timeline,
-        render: RenderConfig::new(12, 1.0, 1.5, max_tracks).unwrap(),
+        options: Options {
+            render: RenderConfig::new(12, 1.0, 1.5, max_tracks).unwrap(),
+            annotated: true,
+        },
     };
-    (render_clips(&clips, &[still(1), still(2)], trial), clips_dir)
+    let rendered = render_clips(&clips, &[still(1), still(2)], trial);
+    assert!(!annotated.exists() && !partial.exists());
+    (rendered, clips_dir)
 }
 
 #[test]
-fn above_the_track_limit_the_clips_folder_is_emptied_and_no_clip_is_written() {
+fn above_the_track_limit_the_clips_folder_and_the_annotated_video_are_removed_and_nothing_is_written() {
     let folder = tempfile::tempdir().unwrap();
     let (rendered, clips_dir) = after_an_earlier_run(folder.path(), 1, Ok(vec![Codec::OpenH264]));
-    assert!(matches!(rendered, Err(Error::TooManyTracks { count: 2, limit: 1 })));
+    assert!(matches!(
+        rendered,
+        Err(Error::TooManyTracks {
+            count: 2,
+            limit: 1,
+            annotated: true
+        })
+    ));
     assert_eq!(clips_dir.read_dir().unwrap().count(), 0);
 }
 
 #[test]
-fn without_a_working_encoder_the_clips_folder_is_emptied_before_the_failure_of_the_trial_is_returned() {
+fn without_a_working_encoder_the_clips_folder_and_the_annotated_video_are_removed_before_the_failure_is_returned() {
     let folder = tempfile::tempdir().unwrap();
     let failed = Fallback::new(Vec::new()).map(|_| Vec::new()).map_err(Error::Encoders);
     let (rendered, clips_dir) = after_an_earlier_run(folder.path(), 300, failed);
@@ -178,7 +196,15 @@ fn a_box_follows_its_target_on_every_detected_frame_after_frames_lost_in_the_mid
         video: video.clone(),
         dest: folder.path().join("out"),
     };
-    let processed = process(&job, Language::English, &Plain, Threads::Automatic, VERSIONS).unwrap();
+    let processed = process(
+        &job,
+        Language::English,
+        &Plain,
+        Threads::Automatic,
+        VERSIONS,
+        Options::default(),
+    )
+    .unwrap();
     let kept = clip_frames(&video).len();
     assert_eq!((kept, processed.tracks.len()), (KEPT_FRAMES, 2));
     let rate = FrameRate::new(Rational::new(10, 1).unwrap()).unwrap();
@@ -219,4 +245,35 @@ fn a_box_follows_its_target_on_every_detected_frame_after_frames_lost_in_the_mid
             assert!(inside, "{:?}: square at ({bright_x}, {bright_y})", point.frame);
         }
     }
+}
+
+fn pts_of(path: &Path) -> Vec<Option<i64>> {
+    let mut decoder = Decoder::open(path, Threads::Exactly(NonZeroUsize::MIN)).unwrap();
+    let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
+    let mut pts = Vec::new();
+    while let Some(info) = decoder.next(&mut frame).unwrap() {
+        pts.push(info.pts().map(Pts::get));
+    }
+    pts
+}
+
+#[test]
+fn the_annotated_video_of_a_flight_that_loses_frames_keeps_the_frames_and_pts_of_the_source() {
+    let folder = tempfile::tempdir().unwrap();
+    let video = folder.path().join("flight.mp4");
+    flight::write_flight_of(&video, LONG_FLIGHT, NonZeroU32::new(KEY_INTERVAL));
+    media::payload::wipe(&video, LOST_PART..LOST_PART + 1, PARTS).unwrap();
+    let job = Job {
+        video: video.clone(),
+        dest: folder.path().join("out"),
+    };
+    let options = Options {
+        render: RenderConfig::default(),
+        annotated: true,
+    };
+    process(&job, Language::English, &Plain, Threads::Automatic, VERSIONS, options).unwrap();
+    let annotated = Names::new(Language::English).annotated_video(&job.dest, video.file_stem().unwrap());
+    let source = pts_of(&video);
+    assert_eq!(source.len(), KEPT_FRAMES);
+    assert_eq!(pts_of(&annotated), source);
 }

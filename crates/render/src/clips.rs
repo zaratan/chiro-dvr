@@ -2,18 +2,20 @@ use std::path::{Path, PathBuf};
 use std::thread;
 
 use draw::text::{self, Typeface};
-use media::encode::{self, Codec};
+use media::encode::{self, Codec, StampsError};
 use media::frame;
+use types::rational::DivisionError;
 use types::track::Track;
 
 use crate::config::RenderConfig;
 use crate::encoders::{Encoders, Ffmpeg, Open};
-use crate::group::{Rendering, Written};
+use crate::group::{Rendering, Scratch};
 use crate::overlay::Overlay;
-use crate::picture::{self, Picture};
+use crate::picture;
 use crate::schedule::{self, Alone};
-use crate::source::{self, Origin, Source};
-use crate::windows::{Group, Window, clip_windows, groups};
+use crate::source::{self, Source};
+use crate::windows::{Window, clip_windows, groups};
+use crate::work::{Paths, Work, works};
 
 #[cfg(test)]
 mod tests;
@@ -51,6 +53,24 @@ pub enum Error {
     Unserved { served: usize, expected: usize },
     #[error("stopped because another clip failed")]
     Stopped,
+    #[error("a {found_width}×{found_height} frame reached a zoom made for {width}×{height}")]
+    ZoomSize {
+        width: u32,
+        height: u32,
+        found_width: u32,
+        found_height: u32,
+    },
+    #[error("the frames of {} cannot keep the source timestamps", path.display())]
+    Stamps {
+        path: PathBuf,
+        #[source]
+        source: StampsError,
+    },
+    #[error("the zoom cannot be slowed down")]
+    SlowMotion {
+        #[source]
+        source: DivisionError,
+    },
 }
 
 impl Error {
@@ -70,6 +90,13 @@ pub struct Clip {
     pub path: PathBuf,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Outputs {
+    pub clips: Vec<Clip>,
+    pub zooms: Vec<Clip>,
+    pub annotated: Option<PathBuf>,
+}
+
 #[derive(Debug)]
 pub struct Redone {
     pub paths: Vec<PathBuf>,
@@ -85,13 +112,13 @@ pub struct Rendered {
 pub fn render(
     source: &Source,
     tracks: &[Track],
-    clips: &[Clip],
+    outputs: &Outputs,
     config: RenderConfig,
     codecs: &[Codec],
 ) -> Result<Rendered, Error> {
     let threads = thread::available_parallelism().map_or(1, |cores| cores.get() / CORES_PER_THREAD);
     let video = Video { source, tracks, config };
-    render_with(&Ffmpeg, threads, &video, clips, codecs)
+    render_with(&Ffmpeg, threads, &video, outputs, codecs)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -105,24 +132,26 @@ pub(crate) fn render_with<O: Open>(
     open: &O,
     threads: usize,
     video: &Video<'_>,
-    clips: &[Clip],
+    outputs: &Outputs,
     codecs: &[Codec],
 ) -> Result<Rendered, Error> {
     let Video { source, tracks, config } = *video;
-    let mut paths: Vec<Option<&Path>> = vec![None; tracks.len()];
-    for clip in clips {
-        let path = paths
-            .get_mut(clip.track)
-            .ok_or(Error::UnknownTrack { track: clip.track })?;
-        *path = Some(&clip.path);
-    }
+    let paths = by_track(&outputs.clips, tracks.len())?;
+    let zooms = by_track(&outputs.zooms, tracks.len())?;
     let (frames, rate) = (source.frame_count(), source.rate());
-    let windows: Vec<Window> = clip_windows(tracks, frames, config, rate)
-        .into_iter()
-        .filter(|window| paths.get(window.track).copied().flatten().is_some())
-        .collect();
-    if let Some(clip) = clips
+    let windows = clip_windows(tracks, frames, config, rate);
+    let wanted = |paths: &[Option<&Path>]| -> Vec<Window> {
+        windows
+            .iter()
+            .copied()
+            .filter(|window| paths.get(window.track).copied().flatten().is_some())
+            .collect()
+    };
+    let (clip_windows, zoom_windows) = (wanted(&paths), wanted(&zooms));
+    if let Some(clip) = outputs
+        .clips
         .iter()
+        .chain(&outputs.zooms)
         .find(|clip| windows.iter().all(|window| window.track != clip.track))
     {
         return Err(Error::UnknownTrack { track: clip.track });
@@ -130,50 +159,59 @@ pub(crate) fn render_with<O: Open>(
     let typeface = Typeface::roboto().map_err(Error::Typeface)?;
     let overlay = Overlay::new(tracks, frames, config, rate, &typeface);
     let encoders = Encoders::new(open, codecs, rate);
+    let table = Paths {
+        clips: &paths,
+        zooms: &zooms,
+    };
     let rendering = Rendering {
         source,
         overlay: &overlay,
         encoders: &encoders,
-        paths: &paths,
+        paths: table,
+        tracks,
+        trail_frames: config.trail_frames(rate),
     };
-    let groups = groups(&windows);
+    let works = works(
+        groups(&clip_windows),
+        &zoom_windows,
+        outputs.annotated.as_deref().filter(|_| frames > 0),
+    );
     let written = schedule::run(
-        &groups,
+        &works,
         threads,
         HARDWARE_SESSIONS,
-        |_| encoders.hardware_sessions(),
-        |picture: &mut Option<Picture>, group, lease| rendering.render(group, picture, lease),
+        |work| match work {
+            Work::Annotated(_) | Work::Clips(_) => encoders.hardware_sessions(),
+            Work::Zoom(_) => 0,
+        },
+        |scratch: &mut Scratch, work, lease| rendering.render(work, scratch, lease),
     )?;
     let mut rendered = Rendered::default();
-    let mut picture = None;
-    for (group, written) in groups.iter().zip(written) {
-        rendered.restarts += restarts(&written);
+    let mut scratch = Scratch::default();
+    for (work, written) in works.iter().zip(written) {
+        rendered.restarts += written.restarts;
         let Some(cause) = written.failed else {
             continue;
         };
-        let again = rendering.render(group, &mut picture, &Alone)?;
+        let again = rendering.render(work, &mut scratch, &Alone)?;
+        let paths = work.paths(table);
         if let Some(twice) = again.failed {
-            let lead = clips_of(group, &paths).into_iter().next().unwrap_or_default();
+            let lead = paths.into_iter().next().unwrap_or_default();
             return Err(Error::writing(&lead, twice));
         }
-        rendered.restarts += restarts(&again);
-        rendered.redone.push(Redone {
-            paths: clips_of(group, &paths),
-            cause,
-        });
+        rendered.restarts += again.restarts;
+        rendered.redone.push(Redone { paths, cause });
     }
     Ok(rendered)
 }
 
-fn restarts(written: &Written) -> usize {
-    usize::from(matches!(written.origin, Some(Origin::Start(_))))
-}
-
-fn clips_of(group: &Group, paths: &[Option<&Path>]) -> Vec<PathBuf> {
-    group
-        .members()
-        .iter()
-        .filter_map(|member| paths.get(member.track).copied().flatten())
-        .map(Path::to_path_buf)
-        .collect()
+fn by_track(clips: &[Clip], tracks: usize) -> Result<Vec<Option<&Path>>, Error> {
+    let mut paths: Vec<Option<&Path>> = vec![None; tracks];
+    for clip in clips {
+        let path = paths
+            .get_mut(clip.track)
+            .ok_or(Error::UnknownTrack { track: clip.track })?;
+        *path = Some(&clip.path);
+    }
+    Ok(paths)
 }

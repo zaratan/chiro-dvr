@@ -1,4 +1,5 @@
 use types::rate::FrameRate;
+use types::track::Track;
 
 #[cfg(test)]
 mod tests;
@@ -7,6 +8,89 @@ mod tests;
 pub enum Error {
     #[error("{name} must be a finite number of seconds, at least 0, not {value}")]
     Seconds { name: &'static str, value: f64 },
+    #[error("{name} must be a finite number above 0, not {value}")]
+    Threshold { name: &'static str, value: f64 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Zoom {
+    Auto,
+    All,
+    Off,
+}
+
+impl Zoom {
+    pub const CHOICES: [Self; 3] = [Self::Auto, Self::All, Self::Off];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::All => "all",
+            Self::Off => "none",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ZoomConfig {
+    choice: Zoom,
+    below_area: f64,
+    below_amplitude: f64,
+}
+
+impl Default for ZoomConfig {
+    fn default() -> Self {
+        Self {
+            choice: Zoom::Auto,
+            below_area: 100.0,
+            below_amplitude: 40.0,
+        }
+    }
+}
+
+impl ZoomConfig {
+    pub fn new(choice: Zoom, below_area: f64, below_amplitude: f64) -> Result<Self, Error> {
+        for (name, value) in [
+            ("zoom_below_area", below_area),
+            ("zoom_below_amplitude", below_amplitude),
+        ] {
+            if !(value.is_finite() && value > 0.0) {
+                return Err(Error::Threshold { name, value });
+            }
+        }
+        Ok(Self {
+            choice,
+            below_area,
+            below_amplitude,
+        })
+    }
+
+    pub fn choosing(choice: Zoom) -> Self {
+        Self {
+            choice,
+            ..Self::default()
+        }
+    }
+
+    pub fn choice(self) -> Zoom {
+        self.choice
+    }
+
+    pub fn below_area(self) -> f64 {
+        self.below_area
+    }
+
+    pub fn below_amplitude(self) -> f64 {
+        self.below_amplitude
+    }
+
+    pub fn wants(self, track: &Track) -> bool {
+        match self.choice {
+            Zoom::All => true,
+            Zoom::Off => false,
+            Zoom::Auto => track.max_area() < self.below_area || track.peak_amplitude() < self.below_amplitude,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -15,6 +99,7 @@ pub struct RenderConfig {
     trail_s: f64,
     clip_margin_s: f64,
     max_tracks: usize,
+    zoom: ZoomConfig,
 }
 
 impl Default for RenderConfig {
@@ -24,6 +109,7 @@ impl Default for RenderConfig {
             trail_s: 1.0,
             clip_margin_s: 1.5,
             max_tracks: 300,
+            zoom: ZoomConfig::default(),
         }
     }
 }
@@ -40,7 +126,17 @@ impl RenderConfig {
             trail_s,
             clip_margin_s,
             max_tracks,
+            zoom: ZoomConfig::default(),
         })
+    }
+
+    #[must_use]
+    pub fn with_zoom(self, zoom: ZoomConfig) -> Self {
+        Self { zoom, ..self }
+    }
+
+    pub fn zoom(self) -> ZoomConfig {
+        self.zoom
     }
 
     pub fn box_pad(self) -> u32 {

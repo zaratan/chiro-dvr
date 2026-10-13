@@ -1,5 +1,5 @@
 use std::fmt;
-use std::num::{NonZeroI32, ParseIntError};
+use std::num::{NonZeroI32, NonZeroU32, ParseIntError};
 use std::str::FromStr;
 
 use serde::de::Error as _;
@@ -20,6 +20,13 @@ pub enum Error {
     ZeroDenominator,
     #[error("{num}/{den} does not fit in 32-bit terms once reduced")]
     OutOfRange { num: i32, den: i32 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("{value} divided by {factor} does not fit in 32-bit terms")]
+pub struct DivisionError {
+    pub value: Rational,
+    pub factor: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -56,6 +63,19 @@ impl Rational {
 
     pub fn den(self) -> i32 {
         self.den.get()
+    }
+
+    pub fn divided_by(self, factor: NonZeroU32) -> Result<Self, DivisionError> {
+        let common = i64::from(gcd(self.num.unsigned_abs(), factor.get()));
+        let num = i32::try_from(i64::from(self.num) / common);
+        let den = i64::from(self.den.get()) * (i64::from(factor.get()) / common);
+        match (num, i32::try_from(den).ok().and_then(NonZeroI32::new)) {
+            (Ok(num), Some(den)) => Ok(Self { num, den }),
+            _ => Err(DivisionError {
+                value: self,
+                factor: factor.get(),
+            }),
+        }
     }
 
     pub fn to_f64(self) -> f64 {

@@ -855,6 +855,15 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     `Encoder::create`, `push` et `finish`, en openh264 ou VideoToolbox, sans images B.
     `fanout::Fanout` (#112) : un encodeur, plusieurs mp4 (`open(chemin, images)` avant la
     première image de chaque extrait, image-clé forcée) ; voir « Dans les extraits ».
+    `open_stamped(chemin, Stamps)` (#103) : la sortie garde les `pts` de la source au
+    lieu de compter ses images à la cadence de l'encodeur. `Stamps` (un `pts` par image,
+    base de temps de la source) est refusé vide, négatif, non croissant ou sur une base
+    non positive. Le flux mp4 prend la base de la source (1/10000 sur les jumelles, gardée
+    telle quelle par le muxeur) ; chaque paquet reprend le `pts` de son image, `dts`
+    égal (pas d'images B, sinon `Reordered`), et dure jusqu'à l'image suivante, la
+    dernière un pas de la cadence de l'encodeur (sur l'extrait, la durée égale celle de
+    la source : 40,959 s). Un premier `pts` non nul est gardé. `partial_path` donne le nom temporaire d'une vidéo
+    (pour le ménage de `cli`) ; `StreamInfo::duration` la durée annoncée du flux.
     Erreurs de destination (`concerns_the_destination`) : chemin refusé, temporaire non
     créé, fichier non ouvert (`OpenFile`), renommage raté ; une écriture refusée
     (`Writing`) n'en est pas une, pour que la bascule vers openh264 joue.
@@ -1526,11 +1535,13 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     `rayon`. `version` est celle du paquet (`CARGO_PKG_VERSION`, 0.0.0 jusqu'à la
     première version publiée : elle ne distingue pas encore deux commits), `ffmpeg` celle
     de FFmpeg liée.
-    - `RenderConfig` (#112) : `box_pad`, `trail_s`, `clip_margin_s`, `max_tracks`, et
-      `encoders`, la liste des encodeurs retenue par l'essai (vide au-delà de la garde).
+    - `RenderConfig` (#112, #103) : `box_pad`, `trail_s`, `clip_margin_s`, `max_tracks`,
+      `zoom` (`auto`, `all` ou `none`), `zoom_below_area` (`100.0`),
+      `zoom_below_amplitude` (`40.0`), `annotated`, et `encoders`, la liste des encodeurs
+      retenue par l'essai (vide au-delà de la garde).
     - Écarts à la v0.1.1 : `mode` et `ffprobe` retirés ; dans `RenderConfig`, `crf`,
-      `encoder`, `vt_quality`, `annotated` et les trois réglages du zoom (#103) ne sont
-      pas écrits, `encoders` les remplace pour l'encodage ; `version`, `ffmpeg` et
+      `encoder` et `vt_quality` ne sont pas écrits, `encoders` les remplace pour
+      l'encodage ; `version`, `ffmpeg` et
       `threads` ajoutés ; les nombres réels s'écrivent `12.0` et non `12`.
       `DetectConfig` s'écrit par `engine::settings::DetectSettings`, `osd_regions`
       compris, en objets `{x0, y0, x1, y1}` à sa place (#151).
@@ -1672,7 +1683,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     - Le nombre de fils réel arrive avec #123.
     - `files` n'impose pas les clés des réglages. Garder celles de la v0.1.1 (une clé
       par configuration, au nom de sa classe, dont les seuils de zoom dans
-      `RenderConfig`) revient à l'appelant : #123 et #101 en portent les tests.
+      `RenderConfig`) revient à l'appelant : #123 porte le test des clés, #103 celui des
+      seuils de zoom (`cli/src/settings/tests.rs`).
     - Une clé `video` ou `fps` venue des réglages serait écrite en double.
   - Mesure (11 octobre 2026), CSV écrit depuis les pistes de la référence :
     - extrait : identique à l'octet au `tracks.csv` de la v0.1.1, aux fins de ligne près
@@ -1689,8 +1701,9 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       multiples de 2,25) : le Rust arrondit à mi-chemin vers le haut, la v0.1.1 au pair.
       Gardé (règle 5).
 - **`render`** → `media`, `draw`, `types` (#110, #112) : les extraits, du choix
-  des images à l'écriture. `clips::render(source, pistes, extraits, RenderConfig,
-  encodeurs)` en est le point d'entrée ; `cli` l'appelle depuis #112.
+  des images à l'écriture. `clips::render(source, pistes, Outputs { clips, zooms },
+  RenderConfig, encodeurs)` en est le point d'entrée ; `cli` l'appelle depuis #112, et
+  choisit les zooms par `ZoomConfig::wants` (#103).
   - `source` : `Source::new(chemin, Timeline, images-clés, images en erreur)`, puis
     `serve(plage, visite)`, qui rend chaque image de la plage une fois, dans l'ordre,
     avec son `FrameIndex`. Les images-clés et les images en erreur viennent du moteur
@@ -1754,7 +1767,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
   - `config` : `RenderConfig` (`box_pad` 12 px, `trail_s` 1 s, `clip_margin_s` 1,5 s,
     `max_tracks` 300, 0 pour sans limite), valeurs de la v0.1.1, validées à la
     construction (ni `NaN`, ni infini, ni négatif). Les secondes deviennent des images
-    par `round(secondes × cadence)` (`f64::round`).
+    par `round(secondes × cadence)` (`f64::round`). `ZoomConfig` (#103) : `Zoom::Auto`,
+    `All` ou `None`, et les seuils de la v0.1.1, `max_area < 100` px² ou
+    `peak_amplitude < 40`, comparés strictement sur les mesures de la piste ; seuils finis
+    et au-dessus de 0.
   - `windows` : la fenêtre d'une piste va de sa première image moins la marge à sa
     dernière plus la marge, bornée à la vidéo. Les fenêtres qui se chevauchent ou se
     touchent forment un groupe, décodé une fois sur son enveloppe et encodé une fois.
@@ -1763,7 +1779,44 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     `overlay.py` de la v0.1.1). Boîte rouge de 2 px sur un point détecté, de 1 px sur un
     point interpolé, `#N` au-dessus, trace jaune sur `trail_s`. Les couleurs et les
     tailles viennent de `draw` ; les constantes propres aux extraits restent dans
-    `overlay`.
+    `overlay`. `Picture::draw` prend tout ce qui implémente `Marks` (ses zones, son
+    dessin) : l'`Overlay` des extraits et la trace du zoom. Les zones viennent de
+    `zones` (paires, arrondies à 16, bornées, fusionnées), les boîtes bornées et les
+    points interpolés de `positions`.
+  - Zoom (`zoom`, #103) : la vue lisible d'une petite cible, `<extrait>_zoom.mp4`.
+    - Fenêtre : celle de l'extrait, mêmes images ; cadence déclarée divisée par 4
+      (`FrameRate::slowed`, rationnel exact : 22527500/3000927 sur la 092, quand la
+      v0.1.1 écrivait 908336/121001).
+    - Cadre fixe pour la piste, formule de la v0.1.1 sur les **boîtes bornées** : leur
+      enveloppe plus 40 px, en unités du PGCD de la largeur et de la hauteur (4×3 en
+      1440×1080), au moins le quart de l'image (×4 au plus), centré puis borné à l'image.
+      Placement par `f64::round` (la v0.1.1 arrondissait au pair : un pixel d'écart sur
+      une égalité exacte).
+    - Taille de sortie : celle de la vidéo. Une sortie en 720×540 pour les cadres qui y
+      tiennent (86 % des zooms) a été essayée le 13 octobre : 099 en 36,3 s au lieu de
+      41,8 s, zooms de 260 Mio au lieu de 413. Elle n'est pas retenue (décision de
+      l'utilisateur) : la pleine taille montre mieux les objets diffus.
+    - Agrandissement au plus proche, en YUV : pixel de sortie `x` ← `gauche + x ×
+      largeur du cadre / largeur de sortie` (entiers), chroma de sortie `cx` ← chroma de
+      la source de la luma `2·cx`. Les lignes répétées se recopient.
+    - Trace seule, 1 px, jaune : centres des points détectés sur `trail_s` et position
+      courante (boîte bornée, interpolée entre deux points), coupée dans la boîte
+      courante élargie de 16 px (Liang-Barsky), placée à `(x − gauche + 0,5) × échelle`.
+      Ni boîte ni `#N`. Affichage et conversion par zones comme les extraits.
+    - Encodé en **openh264**, règle fixe : les zooms ne prennent aucune session
+      VideoToolbox et occupent les cœurs libres. Un échec d'openh264 sur un zoom fait
+      échouer la vidéo. Mesure au calme (13 octobre, 3 passages en alternance, `release`,
+      zoom `auto`) contre une variante temporaire tout en VideoToolbox, zooms compris :
+
+      | Vidéo | Zooms openh264 | Tout VideoToolbox | CPU (openh264 / VT) | Cœurs occupés pendant le rendu |
+      | --- | --- | --- | --- | --- |
+      | 092 (1 zoom) | 18,38 s | 19,09 s | 130 s / 129 s | 3,5 / 3,7 |
+      | 099 (46 zooms) | 39,79 s | 43,81 s | 304 s / 231 s | 7,7 / 4,0 |
+
+      Cœurs occupés : temps CPU du processus relevé chaque seconde, après la détection
+      (les 14 premières secondes, environ 8 cœurs dans les deux cas). Sur la 099, openh264
+      prend 73 s de CPU de plus, sur des cœurs qui restaient libres, et rend la commande
+      9 % plus courte : VideoToolbox, partagé entre extraits et zooms, plafonnait.
   - Conversion par zones (#112, décision de l'utilisateur) : l'image entière passe par
     les tables d'affichage de `Converter` ; seules les zones autour des dessins
     passent en RGBA, reçoivent le dessin, et reviennent en YUV. La zone d'une marque
@@ -1775,8 +1828,27 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     touchées par un dessin font 0,56 % de l'image en moyenne, 3,8 % au plus.
     `ACCURATE_RND` et `BITEXACT` sont gardés (ils coûtent environ 2,1 ms par image
     entière, presque tout dans le sens YUV → RGBA).
-  - Ordonnancement (`clips`, `schedule`, `group`, `ahead`) :
-    - les groupes partent dans l'ordre, sur la moitié des cœurs
+  - Vidéo annotée (`--annotated`, #103) : `<nom>_annotee.mp4` (`_annotated`), toutes les
+    images qui ont un `pts`, avec le dessin des extraits, aux `pts` de la source (en
+    phase avec le CSV après une perte d'images). Elle se lit par tronçons
+    (`Source::pieces`) : une image en erreur isole le tronçon qui va de l'image-clé
+    d'avant à l'image-clé d'après, lu sur un fil ; le reste se lit sur tous les fils ;
+    une image sans `pts` coupe un tronçon et n'est pas écrite. Un seul encodeur pour
+    toute la vidéo, VideoToolbox d'abord, une image-clé toutes les `round(cadence)`
+    images avec les deux encodeurs. Elle ne partage rien avec les extraits. Relevé
+    (13 octobre, un passage) : +19,7 s sur la 092 (18,4 → 38,1 s), +23,0 s sur la 103
+    (37,7 → 60,7 s). Quand VideoToolbox casse, elle est refaite entière en openh264, sur
+    un fil : tout en openh264, la 092 avec `--annotated` prend 133 s.
+    `cli` efface la vidéo annotée de la langue courante et son `.partial` au début de
+    l'étape vidéo, même sans `--annotated`, avant la garde `max_tracks` et l'essai
+    d'encodeur ; au-delà de la garde, le message dit « clips and annotated video
+    skipped » quand elle était demandée.
+  - Ordonnancement (`clips`, `work`, `schedule`, `group`, `ahead`) :
+    - les travaux sont la vidéo annotée, les groupes d'extraits et les zooms (#103),
+      chacun relu sur sa plage ; la vidéo annotée part la première (la plus longue),
+      puis les autres par image de début, le groupe avant le zoom qui commence avec
+      lui ;
+    - les travaux partent dans l'ordre, sur la moitié des cœurs
       (`available_parallelism / 2`) ; chaque fil garde son `Picture`, car `Converter`
       n'est pas `Send` ;
     - dans un groupe, un fil décode en avance (file de 4 images, cases recyclées), et
@@ -1835,7 +1907,28 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       (y compris un extrait déjà renommé), pas de reprise après une erreur de
       destination, l'erreur qui nomme l'extrait fautif, un échec d'openh264 qui arrête
       la vidéo, sans `.partial`. Un fil et quatre donnent les mêmes fichiers à l'octet en
-      openh264 ;
+      openh264, zooms compris ;
+    - zoom (#103) : seuils stricts, `all` et `none` ; cadre en unités, ×4 au plus, borné à
+      l'image, insensible à une tache étalée ; agrandissement ×4, ×3
+      depuis un coin impair (Y et chroma) et ×1 qui rend l'image ; trace coupée,
+      immobile ou verticale, et tout pixel de trace dans une zone ; un zoom en openh264,
+      sans session VideoToolbox, de la fenêtre de son extrait, à la cadence ÷ 4 ; un
+      échec d'openh264 sur un zoom nomme le zoom ; `--zoom` et ses clés dans
+      `params.json` (`cli`) ;
+    - mêmes zooms que la v0.1.1 (`local_command`) : décision Rust sur les pistes Rust
+      contre décision v0.1.1 sur les pistes appariées de la référence, sur les 26 vidéos.
+      Une seule bascule, figée : la 097, piste 88, zoomée en Rust (aire maximale 94,5 px²
+      contre 117), conséquence de la divergence connue de 4872 (24 points contre 86),
+      pas d'un seuil. Les zooms enregistrés de la v0.1.1 (097, 125) sont exactement ceux
+      que la règle recalcule sur ses pistes ;
+    - vidéo annotée (#103) : tronçons (vidéo saine d'un seul tenant, image en erreur
+      isolée entre deux images-clés, image sans `pts` laissée de côté) ; `Stamps`
+      refusés ; `pts` relus exacts, saut et premier `pts` non nul compris, durée de la
+      dernière image ; une session VideoToolbox, reprise entière en openh264 ;
+      images-clés au plus à `round(cadence)` d'intervalle avec VideoToolbox et
+      openh264 ; vol fabriqué qui perd 8 images : mêmes images et mêmes `pts` que la
+      source (`cli`) ; `--annotated`, clé `annotated`, ménage sans `--annotated` et
+      au-delà de la garde, message de garde ;
     - boîte qui suit la cible après un trou (`cli`, `process/tests.rs`) : vol fabriqué
       de 80 images, une image-clé toutes les 8, un dixième du `mdat` écrasé (8 images
       perdues, deux pistes de part et d'autre). Sur chaque point détecté, les quatre

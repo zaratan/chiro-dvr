@@ -6,6 +6,7 @@ mod clips;
 use std::fs;
 use std::sync::OnceLock;
 
+use batdetect::options::Options;
 use batdetect::process::{Processed, process};
 use media::decode::Threads;
 use reference::fixture::fixture;
@@ -34,6 +35,7 @@ fn extract() -> &'static (Recording, FrameRate, Processed, tempfile::TempDir) {
             &agreement::DebugLabels,
             Threads::Automatic,
             agreement::VERSIONS,
+            Options::default(),
         )
         .unwrap();
         (recording, rate, processed, out)

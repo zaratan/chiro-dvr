@@ -12,6 +12,8 @@ mod tests;
 pub(crate) const ABOUT: &str = "Detects and tracks bats in thermal binocular videos";
 pub(crate) const INPUTS_HELP: &str = "videos, or folders whose videos are all processed";
 pub(crate) const OUTPUT_HELP: &str = "folder that receives one folder of results per video";
+pub(crate) const ZOOM_HELP: &str = "slowed, magnified clip: auto for small or faint tracks only, all, or none";
+pub(crate) const ANNOTATED_HELP: &str = "also write the whole video with every track drawn";
 pub(crate) const NO_VIDEO: &str = "no video found";
 pub(crate) const NO_OUTPUT: &str = "the output folder is missing";
 const CAUSE_SEPARATOR: &str = ": ";
@@ -35,11 +37,17 @@ pub(crate) fn processed(language: Language, job: &Job, tracks: usize) -> String 
     }
 }
 
-pub(crate) fn too_many_tracks(language: Language, job: &Job, count: usize, limit: usize) -> String {
+pub(crate) fn too_many_tracks(language: Language, job: &Job, count: usize, limit: usize, annotated: bool) -> String {
     let video = job.video.display();
+    let skipped = match (language, annotated) {
+        (Language::French, false) => "extraits non écrits",
+        (Language::French, true) => "extraits et vidéo annotée non écrits",
+        (Language::English, false) => "clips skipped",
+        (Language::English, true) => "clips and annotated video skipped",
+    };
     match language {
-        Language::French => format!("{video} : {count} pistes, au-delà de {limit} : extraits non écrits"),
-        Language::English => format!("{video}: {count} tracks, above {limit}: clips skipped"),
+        Language::French => format!("{video} : {count} pistes, au-delà de {limit} : {skipped}"),
+        Language::English => format!("{video}: {count} tracks, above {limit}: {skipped}"),
     }
 }
 

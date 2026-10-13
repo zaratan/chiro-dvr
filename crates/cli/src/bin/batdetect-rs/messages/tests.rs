@@ -203,12 +203,20 @@ fn a_part_of_a_crowded_summary_says_which_one_it_is_in_each_language() {
 #[test]
 fn too_many_tracks_names_the_video_the_count_and_the_limit_in_the_language_of_the_user() {
     assert_eq!(
-        too_many_tracks(Language::French, &job(), 301, 300),
+        too_many_tracks(Language::French, &job(), 301, 300, false),
         "nuit/video_092.mp4 : 301 pistes, au-delà de 300 : extraits non écrits"
     );
     assert_eq!(
-        too_many_tracks(Language::English, &job(), 301, 300),
+        too_many_tracks(Language::English, &job(), 301, 300, false),
         "nuit/video_092.mp4: 301 tracks, above 300: clips skipped"
+    );
+    assert_eq!(
+        too_many_tracks(Language::French, &job(), 301, 300, true),
+        "nuit/video_092.mp4 : 301 pistes, au-delà de 300 : extraits et vidéo annotée non écrits"
+    );
+    assert_eq!(
+        too_many_tracks(Language::English, &job(), 301, 300, true),
+        "nuit/video_092.mp4: 301 tracks, above 300: clips and annotated video skipped"
     );
 }
 

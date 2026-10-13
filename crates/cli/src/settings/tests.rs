@@ -4,19 +4,20 @@ use engine::config::DetectConfig;
 use engine::settings::{DetectSettings, Region};
 use media::decode::ActiveThreads;
 use media::encode::Codec;
-use render::config::RenderConfig;
+use render::config::{RenderConfig, Zoom, ZoomConfig};
 use serde_json::{Value, json};
 use tracking::stability::StabilityConfig;
 use tracking::track::TrackConfig;
 
 use super::Settings;
+use crate::options::Options;
 
 fn written(track: TrackConfig, stability: StabilityConfig, decoding: ActiveThreads) -> Value {
     let settings = Settings::of(
         &DetectConfig::default(),
         track,
         stability,
-        RenderConfig::default(),
+        Options::default(),
         &[Codec::VideoToolbox, Codec::OpenH264],
         decoding,
         10,
@@ -108,7 +109,37 @@ fn the_clip_settings_name_the_encoders_tried_in_their_fallback_order() {
             "trail_s": 1.0,
             "clip_margin_s": 1.5,
             "max_tracks": 300,
+            "zoom": "auto",
+            "zoom_below_area": 100.0,
+            "zoom_below_amplitude": 40.0,
+            "annotated": false,
             "encoders": ["videotoolbox", "openh264"],
         })
+    );
+}
+
+#[test]
+fn the_zoom_choice_its_thresholds_and_the_annotated_video_are_written_with_the_keys_of_v0_1_1() {
+    let settings = Settings::of(
+        &DetectConfig::default(),
+        TrackConfig::default(),
+        StabilityConfig::default(),
+        Options {
+            render: RenderConfig::default().with_zoom(ZoomConfig::new(Zoom::Off, 90.0, 30.5).unwrap()),
+            annotated: true,
+        },
+        &[],
+        ActiveThreads::Single,
+        10,
+    );
+    let render = &serde_json::to_value(settings).unwrap()["RenderConfig"];
+    assert_eq!(
+        (
+            &render["zoom"],
+            &render["zoom_below_area"],
+            &render["zoom_below_amplitude"],
+            &render["annotated"]
+        ),
+        (&json!("none"), &json!(90.0), &json!(30.5), &json!(true))
     );
 }

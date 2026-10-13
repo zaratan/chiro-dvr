@@ -5,7 +5,7 @@ use media::frame::{ColorRange, YuvFrame};
 use types::rate::FrameRate;
 use types::rational::Rational;
 
-use super::{Encoders, Ffmpeg};
+use super::{Encoders, Ffmpeg, Purpose};
 use crate::clips::Error;
 use crate::sequential;
 use crate::testing::{Fake, thirty};
@@ -38,7 +38,9 @@ fn once_videotoolbox_is_set_aside_a_group_opens_openh264() {
     let folder = tempfile::tempdir().unwrap();
     let encoders = Encoders::new(&Ffmpeg, &[Codec::VideoToolbox, Codec::OpenH264], thirty());
     encoders.set_hardware_aside();
-    let (_sink, codec) = encoders.open(&folder.path().join("clip.mp4"), WIDTH, HEIGHT).unwrap();
+    let (_sink, codec) = encoders
+        .open(&folder.path().join("clip.mp4"), WIDTH, HEIGHT, Purpose::Clips)
+        .unwrap();
     assert_eq!(codec, Codec::OpenH264);
 }
 
@@ -47,7 +49,7 @@ fn openh264_writes_a_key_frame_every_second() {
     let folder = tempfile::tempdir().unwrap();
     let path = folder.path().join("clip.mp4");
     let encoders = Encoders::new(&Ffmpeg, &[Codec::OpenH264], thirty());
-    let (mut sink, codec) = encoders.open(&path, WIDTH, HEIGHT).unwrap();
+    let (mut sink, codec) = encoders.open(&path, WIDTH, HEIGHT, Purpose::Clips).unwrap();
     assert_eq!(codec, Codec::OpenH264);
     sink.open(&path, 70).unwrap();
     let frame = gray();
@@ -70,7 +72,7 @@ fn a_clip_whose_folder_is_missing_is_a_destination_error_of_the_clip() {
     let folder = tempfile::tempdir().unwrap();
     let path = folder.path().join("missing").join("clip.mp4");
     let encoders = Encoders::new(&Ffmpeg, &[Codec::OpenH264], thirty());
-    let (mut sink, _) = encoders.open(&path, WIDTH, HEIGHT).unwrap();
+    let (mut sink, _) = encoders.open(&path, WIDTH, HEIGHT, Purpose::Clips).unwrap();
     assert!(sink.open(&path, 3).unwrap_err().concerns_the_destination());
 }
 
@@ -80,7 +82,7 @@ fn a_group_left_without_any_codec_is_refused_without_writing() {
     let path = folder.path().join("clip.mp4");
     let encoders = Encoders::new(&Ffmpeg, &[Codec::VideoToolbox], thirty());
     encoders.set_hardware_aside();
-    let error = encoders.open(&path, WIDTH, HEIGHT).unwrap_err();
+    let error = encoders.open(&path, WIDTH, HEIGHT, Purpose::Clips).unwrap_err();
     assert!(matches!(error, Error::NoEncoder { path: refused } if refused == path));
     assert_eq!(folder.path().read_dir().unwrap().count(), 0);
 }
@@ -90,7 +92,7 @@ fn an_odd_size_refused_by_h264_names_the_first_clip_of_the_group() {
     let folder = tempfile::tempdir().unwrap();
     let path = folder.path().join("clip.mp4");
     let encoders = Encoders::new(&Ffmpeg, &[Codec::OpenH264], thirty());
-    let error = encoders.open(&path, WIDTH + 1, HEIGHT).unwrap_err();
+    let error = encoders.open(&path, WIDTH + 1, HEIGHT, Purpose::Clips).unwrap_err();
     assert!(matches!(error, Error::Clip { path: refused, .. } if refused == path));
 }
 
@@ -101,7 +103,7 @@ fn a_videotoolbox_that_refuses_to_open_hands_its_group_to_openh264_and_stays_all
     let opener = &fake;
     let encoders = Encoders::new(&opener, &[Codec::VideoToolbox, Codec::OpenH264], thirty());
     let (_refused, codec) = encoders
-        .open(&folder.path().join("refused.mp4"), WIDTH, HEIGHT)
+        .open(&folder.path().join("refused.mp4"), WIDTH, HEIGHT, Purpose::Clips)
         .unwrap();
     assert_eq!(codec, Codec::OpenH264);
     assert_eq!(encoders.hardware_sessions(), 1);

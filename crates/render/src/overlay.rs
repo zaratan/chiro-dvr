@@ -9,6 +9,9 @@ use types::rate::FrameRate;
 use types::track::Track;
 
 use crate::config::RenderConfig;
+use crate::picture::Marks;
+use crate::positions::{bounded, filled};
+use crate::zones::{even_region, merged};
 
 #[cfg(test)]
 mod tests;
@@ -18,10 +21,8 @@ const BOX_WIDTH: u32 = 2;
 const INTERPOLATED_BOX_WIDTH: u32 = 1;
 const TRAIL_WIDTH: f32 = 2.0;
 const PIXEL_CENTER: f64 = 0.5;
-const BOX_SPREAD_LIMIT: f64 = 4.0;
 const LABEL_HEIGHTS: f32 = 2.0;
 const ZONE_MARGIN: i32 = 4;
-const ZONE_STEP: u32 = 16;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Mark {
@@ -42,6 +43,49 @@ pub(crate) struct Overlay {
     frames: Vec<Vec<Mark>>,
     box_pad: i32,
     trail_frames: usize,
+}
+
+impl Marks for Overlay {
+    fn draw(&self, canvas: &mut Canvas, frame: FrameIndex) {
+        let Some(marks) = self.frames.get(frame.get()) else {
+            return;
+        };
+        for mark in marks {
+            let Some(track) = self.tracks.get(mark.track) else {
+                continue;
+            };
+            let area = self.area(&mark.detection);
+            let width = if mark.interpolated {
+                INTERPOLATED_BOX_WIDTH
+            } else {
+                BOX_WIDTH
+            };
+            canvas.rectangle(area, BOX, width);
+            let baseline = Point {
+                x: area.left as f32,
+                y: area.top.saturating_sub(LABEL_LIFT) as f32,
+            };
+            canvas.shaped_text(&track.label, baseline, BOX);
+            let trail = self.trail(track, mark);
+            if trail.len() > 1 {
+                canvas.polyline(&trail, TRAIL, TRAIL_WIDTH);
+            }
+        }
+    }
+
+    fn zones(&self, frame: FrameIndex, width: u32, height: u32) -> Vec<Region> {
+        let Some(marks) = self.frames.get(frame.get()) else {
+            return Vec::new();
+        };
+        let zones = marks
+            .iter()
+            .filter_map(|mark| {
+                let track = self.tracks.get(mark.track)?;
+                even_region(self.extent(track, mark), width, height)
+            })
+            .collect();
+        merged(zones, width, height)
+    }
 }
 
 impl Overlay {
@@ -81,53 +125,6 @@ impl Overlay {
             box_pad: i32::try_from(config.box_pad()).unwrap_or(i32::MAX),
             trail_frames: config.trail_frames(rate),
         }
-    }
-
-    pub(crate) fn draw(&self, canvas: &mut Canvas, frame: FrameIndex) {
-        let Some(marks) = self.frames.get(frame.get()) else {
-            return;
-        };
-        for mark in marks {
-            let Some(track) = self.tracks.get(mark.track) else {
-                continue;
-            };
-            let area = self.area(&mark.detection);
-            let width = if mark.interpolated {
-                INTERPOLATED_BOX_WIDTH
-            } else {
-                BOX_WIDTH
-            };
-            canvas.rectangle(area, BOX, width);
-            let baseline = Point {
-                x: area.left as f32,
-                y: area.top.saturating_sub(LABEL_LIFT) as f32,
-            };
-            canvas.shaped_text(&track.label, baseline, BOX);
-            let trail = self.trail(track, mark);
-            if trail.len() > 1 {
-                canvas.polyline(&trail, TRAIL, TRAIL_WIDTH);
-            }
-        }
-    }
-
-    pub(crate) fn zones(&self, frame: FrameIndex, width: u32, height: u32) -> Vec<Region> {
-        let Some(marks) = self.frames.get(frame.get()) else {
-            return Vec::new();
-        };
-        let mut zones: Vec<Region> = marks
-            .iter()
-            .filter_map(|mark| {
-                let track = self.tracks.get(mark.track)?;
-                even_region(self.extent(track, mark), width, height)
-            })
-            .collect();
-        while let Some((first, second)) = touching(&zones) {
-            let other = zones.swap_remove(second);
-            if let Some(kept) = zones.get_mut(first) {
-                *kept = round_region(hull(*kept, other), width, height);
-            }
-        }
-        zones
     }
 
     fn extent(&self, track: &Marked, mark: &Mark) -> PixelBox {
@@ -179,131 +176,9 @@ impl Overlay {
     }
 }
 
-fn even_region(extent: PixelBox, width: u32, height: u32) -> Option<Region> {
-    let start = |value: i32| u32::try_from(value.max(0)).unwrap_or(0) & !1;
-    let end = |value: i32, limit: u32| u32::try_from(value.max(0)).unwrap_or(0).saturating_add(2).min(limit) & !1;
-    let (left, right) = rounded(start(extent.left), end(extent.right, width), width & !1)?;
-    let (top, bottom) = rounded(start(extent.top), end(extent.bottom, height), height & !1)?;
-    Some(Region {
-        left,
-        top,
-        width: right - left,
-        height: bottom - top,
-    })
-}
-
-fn round_region(region: Region, width: u32, height: u32) -> Region {
-    let across = rounded(region.left, region.left.saturating_add(region.width), width & !1);
-    let down = rounded(region.top, region.top.saturating_add(region.height), height & !1);
-    match across.zip(down) {
-        Some(((left, right), (top, bottom))) => Region {
-            left,
-            top,
-            width: right - left,
-            height: bottom - top,
-        },
-        None => region,
-    }
-}
-
-fn rounded(start: u32, end: u32, limit: u32) -> Option<(u32, u32)> {
-    let length = end.checked_sub(start).filter(|length| *length > 0)?;
-    let length = length.div_ceil(ZONE_STEP).saturating_mul(ZONE_STEP).min(limit);
-    let start = start.min(limit - length);
-    Some((start, start + length))
-}
-
-fn touching(zones: &[Region]) -> Option<(usize, usize)> {
-    let meet = |a: &Region, b: &Region| {
-        a.left <= b.left + b.width
-            && b.left <= a.left + a.width
-            && a.top <= b.top + b.height
-            && b.top <= a.top + a.height
-    };
-    zones.iter().enumerate().find_map(|(first, zone)| {
-        zones
-            .iter()
-            .enumerate()
-            .skip(first + 1)
-            .find(|(_, other)| meet(zone, other))
-            .map(|(second, _)| (first, second))
-    })
-}
-
-fn hull(a: Region, b: Region) -> Region {
-    let left = a.left.min(b.left);
-    let top = a.top.min(b.top);
-    let right = (a.left + a.width).max(b.left + b.width);
-    let bottom = (a.top + a.height).max(b.top + b.height);
-    Region {
-        left,
-        top,
-        width: right - left,
-        height: bottom - top,
-    }
-}
-
 fn center(detection: &Detection) -> Point {
     Point {
         x: (detection.x + PIXEL_CENTER) as f32,
         y: (detection.y + PIXEL_CENTER) as f32,
-    }
-}
-
-fn bounded(points: &[Detection]) -> Vec<Detection> {
-    let widest = median(points.iter().map(|point| point.width)).map(|width| BOX_SPREAD_LIMIT * width);
-    let tallest = median(points.iter().map(|point| point.height)).map(|height| BOX_SPREAD_LIMIT * height);
-    points
-        .iter()
-        .map(|point| {
-            let mut point = *point;
-            if let Some(widest) = widest.filter(|widest| point.width > *widest) {
-                (point.left, point.width) = (point.x - widest / 2.0, widest);
-            }
-            if let Some(tallest) = tallest.filter(|tallest| point.height > *tallest) {
-                (point.top, point.height) = (point.y - tallest / 2.0, tallest);
-            }
-            point
-        })
-        .collect()
-}
-
-fn median(values: impl Iterator<Item = f64>) -> Option<f64> {
-    let mut values: Vec<f64> = values.collect();
-    values.sort_by(f64::total_cmp);
-    let upper = values.get(values.len() / 2).copied()?;
-    if values.len() % 2 == 1 {
-        return Some(upper);
-    }
-    let lower = values.get(values.len() / 2 - 1).copied()?;
-    Some(f64::midpoint(lower, upper))
-}
-
-fn filled(points: &[Detection]) -> Vec<(Detection, bool)> {
-    let mut filled = Vec::with_capacity(points.len());
-    for (before, after) in points.iter().zip(points.iter().skip(1)) {
-        filled.push((*before, false));
-        let steps = after.frame.get().saturating_sub(before.frame.get());
-        filled.extend((1..steps).map(|step| (between(before, after, step, steps), true)));
-    }
-    if let Some(last) = points.last() {
-        filled.push((*last, false));
-    }
-    filled
-}
-
-fn between(before: &Detection, after: &Detection, step: usize, steps: usize) -> Detection {
-    let share = step as f64 / steps as f64;
-    let lerp = |from: f64, to: f64| from + (to - from) * share;
-    Detection {
-        frame: FrameIndex::new(before.frame.get() + step),
-        x: lerp(before.x, after.x),
-        y: lerp(before.y, after.y),
-        left: lerp(before.left, after.left),
-        top: lerp(before.top, after.top),
-        width: lerp(before.width, after.width),
-        height: lerp(before.height, after.height),
-        area: lerp(before.area, after.area),
-        amplitude: 0.0,
     }
 }

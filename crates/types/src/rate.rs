@@ -1,5 +1,7 @@
+use std::num::NonZeroU32;
+
 use crate::frame::FrameIndex;
-use crate::rational::Rational;
+use crate::rational::{DivisionError, Rational};
 
 #[cfg(test)]
 mod tests;
@@ -21,6 +23,10 @@ impl FrameRate {
 
     pub fn get(self) -> Rational {
         self.0
+    }
+
+    pub fn slowed(self, factor: NonZeroU32) -> Result<Self, DivisionError> {
+        self.0.divided_by(factor).map(Self)
     }
 
     pub fn seconds(self, frame: FrameIndex) -> f64 {

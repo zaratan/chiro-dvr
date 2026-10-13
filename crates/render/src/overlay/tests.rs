@@ -7,6 +7,7 @@ use types::track::Track;
 
 use super::Overlay;
 use crate::config::RenderConfig;
+use crate::picture::Marks;
 use crate::testing::{thirty, track};
 
 const WIDTH: u32 = 400;
