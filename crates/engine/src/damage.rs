@@ -24,11 +24,7 @@ impl Damage {
             .collect();
         let pts: Vec<Option<Pts>> = frames.iter().map(|info| info.pts()).collect();
         let jump_frames = frames_after_jumps(&pts);
-        let keys: Vec<usize> = frames
-            .iter()
-            .filter(|info| info.is_key())
-            .map(|info| info.index().get())
-            .collect();
+        let keys: Vec<usize> = reading.key_frames().into_iter().map(FrameIndex::get).collect();
         let mut starts: Vec<usize> = error_frames
             .iter()
             .chain(&jump_frames)

@@ -3,6 +3,8 @@ use std::num::NonZeroUsize;
 use engine::config::DetectConfig;
 use engine::settings::{DetectSettings, Region};
 use media::decode::ActiveThreads;
+use media::encode::Codec;
+use render::config::RenderConfig;
 use serde_json::{Value, json};
 use tracking::stability::StabilityConfig;
 use tracking::track::TrackConfig;
@@ -10,7 +12,16 @@ use tracking::track::TrackConfig;
 use super::Settings;
 
 fn written(track: TrackConfig, stability: StabilityConfig, decoding: ActiveThreads) -> Value {
-    serde_json::to_value(Settings::of(&DetectConfig::default(), track, stability, decoding, 10)).unwrap()
+    let settings = Settings::of(
+        &DetectConfig::default(),
+        track,
+        stability,
+        RenderConfig::default(),
+        &[Codec::VideoToolbox, Codec::OpenH264],
+        decoding,
+        10,
+    );
+    serde_json::to_value(settings).unwrap()
 }
 
 #[test]
@@ -21,7 +32,16 @@ fn configs_are_keyed_by_their_v0_1_1_class_name() {
         ActiveThreads::Single,
     );
     let keys: Vec<&str> = value.as_object().unwrap().keys().map(String::as_str).collect();
-    assert_eq!(keys, ["DetectConfig", "StabilityConfig", "TrackConfig", "threads"]);
+    assert_eq!(
+        keys,
+        [
+            "DetectConfig",
+            "RenderConfig",
+            "StabilityConfig",
+            "TrackConfig",
+            "threads"
+        ]
+    );
     assert_eq!(value["DetectConfig"]["threshold"], 12.0);
     assert_eq!(value["DetectConfig"]["bg_step"], 3);
     assert_eq!(value["DetectConfig"]["work_width"], 960);
@@ -81,4 +101,23 @@ fn written_by_default() -> Value {
         StabilityConfig::default(),
         ActiveThreads::Single,
     )
+}
+
+#[test]
+fn the_clip_settings_name_the_encoders_tried_in_their_fallback_order() {
+    let value = written(
+        TrackConfig::default(),
+        StabilityConfig::default(),
+        ActiveThreads::Single,
+    );
+    assert_eq!(
+        value["RenderConfig"],
+        json!({
+            "box_pad": 12,
+            "trail_s": 1.0,
+            "clip_margin_s": 1.5,
+            "max_tracks": 300,
+            "encoders": ["videotoolbox", "openh264"],
+        })
+    );
 }

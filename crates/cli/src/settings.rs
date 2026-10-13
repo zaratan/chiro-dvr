@@ -3,6 +3,8 @@ use std::num::NonZeroU32;
 use engine::config::DetectConfig;
 use engine::settings::DetectSettings;
 use media::decode::ActiveThreads;
+use media::encode::Codec;
+use render::config::RenderConfig;
 use serde::Serialize;
 use tracking::stability::StabilityConfig;
 use tracking::track::TrackConfig;
@@ -18,6 +20,8 @@ pub(crate) struct Settings {
     track: TrackSettings,
     #[serde(rename = "StabilityConfig")]
     stability: StabilitySettings,
+    #[serde(rename = "RenderConfig")]
+    render: RenderSettings,
     threads: ThreadSettings,
 }
 
@@ -35,6 +39,15 @@ struct TrackSettings {
 struct StabilitySettings {
     max_blobs: u32,
     pad_s: f64,
+}
+
+#[derive(Debug, Serialize)]
+struct RenderSettings {
+    box_pad: u32,
+    trail_s: f64,
+    clip_margin_s: f64,
+    max_tracks: usize,
+    encoders: Vec<&'static str>,
 }
 
 #[derive(Debug, Serialize)]
@@ -57,6 +70,8 @@ impl Settings {
         detect: &DetectConfig,
         track: TrackConfig,
         stability: StabilityConfig,
+        render: RenderConfig,
+        encoders: &[Codec],
         decoding: ActiveThreads,
         detection: usize,
     ) -> Self {
@@ -79,11 +94,25 @@ impl Settings {
                 max_blobs: stability.max_blobs().map_or(0, NonZeroU32::get),
                 pad_s: stability.pad_s(),
             },
+            render: RenderSettings {
+                box_pad: render.box_pad(),
+                trail_s: render.trail_s(),
+                clip_margin_s: render.clip_margin_s(),
+                max_tracks: render.max_tracks(),
+                encoders: encoders.iter().map(|codec| encoder_name(*codec)).collect(),
+            },
             threads: ThreadSettings {
                 decoding,
                 decoding_kind,
                 detection,
             },
         }
+    }
+}
+
+fn encoder_name(codec: Codec) -> &'static str {
+    match codec {
+        Codec::OpenH264 => "openh264",
+        Codec::VideoToolbox => "videotoolbox",
     }
 }

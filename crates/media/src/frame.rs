@@ -67,6 +67,14 @@ impl YuvFrame {
         Ok(())
     }
 
+    pub fn copy_from(&mut self, source: &Self) -> Result<(), Error> {
+        self.reshape(source.width(), source.height(), source.range)?;
+        self.y.copy_from_slice(&source.y);
+        self.u.copy_from_slice(&source.u);
+        self.v.copy_from_slice(&source.v);
+        Ok(())
+    }
+
     pub fn width(&self) -> u32 {
         self.width.get()
     }

@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use media::decode::{Packet, Threads};
+use media::encode::{Codec, Encoder, Settings};
+use media::frame::{ColorRange, YuvFrame};
 use types::frame::{FrameIndex, Pts};
 use types::rate::FrameRate;
 use types::rational::Rational;
@@ -245,4 +247,21 @@ fn reading_a_damaged_video_writes_no_decoder_message() {
     assert!(output.status.success(), "{stderr}");
     assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
     assert!(!stderr.contains(" @ 0x"), "{stderr}");
+}
+
+#[test]
+fn the_key_frames_are_the_frames_the_decoder_marks_as_key() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().join("keys.mp4");
+    let settings = Settings::new(WIDTH, HEIGHT, Rational::new(30, 1).unwrap(), Codec::OpenH264)
+        .unwrap()
+        .with_key_interval(NonZeroU32::new(10).unwrap());
+    let mut encoder = Encoder::create(&path, &settings).unwrap();
+    let frame = YuvFrame::new(WIDTH, HEIGHT, ColorRange::Limited).unwrap();
+    for _ in 0..25 {
+        encoder.push(&frame).unwrap();
+    }
+    encoder.finish().unwrap();
+    let reading = read(&path).unwrap();
+    assert_eq!(reading.key_frames(), [0, 10, 20].map(FrameIndex::new));
 }

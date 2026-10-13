@@ -11,7 +11,7 @@ use summary::header::{Band, HeaderLine, Labels};
 use summary::legend::{column_width, fit_text, legend_width};
 use types::language::Language;
 
-use super::{SummaryLabels, failed, processed};
+use super::{SummaryLabels, failed, processed, redone, too_many_tracks};
 
 fn job() -> Job {
     Job {
@@ -198,4 +198,41 @@ fn a_part_of_a_crowded_summary_says_which_one_it_is_in_each_language() {
     let part = [HeaderLine::Part(files::names::Part { number: 2, count: 8 })];
     assert_eq!(texts(Language::French, &part), ["partie 2 / 8"]);
     assert_eq!(texts(Language::English, &part), ["part 2 / 8"]);
+}
+
+#[test]
+fn too_many_tracks_names_the_video_the_count_and_the_limit_in_the_language_of_the_user() {
+    assert_eq!(
+        too_many_tracks(Language::French, &job(), 301, 300),
+        "nuit/video_092.mp4 : 301 pistes, au-delà de 300 : extraits non écrits"
+    );
+    assert_eq!(
+        too_many_tracks(Language::English, &job(), 301, 300),
+        "nuit/video_092.mp4: 301 tracks, above 300: clips skipped"
+    );
+}
+
+#[test]
+fn the_clips_written_again_are_named_with_the_cause_of_the_videotoolbox_failure() {
+    let cause = Layer("the encoder failed", Some(Box::new(Layer("Invalid data", None))));
+    let one = [PathBuf::from("out/video_092/extraits/piste_03_0m51s.mp4")];
+    let two = [
+        one[0].clone(),
+        PathBuf::from("out/video_092/extraits/piste_04_0m53s.mp4"),
+    ];
+    assert_eq!(
+        redone(Language::French, &job(), &one, &cause),
+        "nuit/video_092.mp4 : piste_03_0m51s.mp4 réécrit avec openh264 après une erreur de VideoToolbox : \
+         the encoder failed: Invalid data"
+    );
+    assert_eq!(
+        redone(Language::French, &job(), &two, &cause),
+        "nuit/video_092.mp4 : piste_03_0m51s.mp4, piste_04_0m53s.mp4 réécrits avec openh264 après une erreur de \
+         VideoToolbox : the encoder failed: Invalid data"
+    );
+    assert_eq!(
+        redone(Language::English, &job(), &one, &cause),
+        "nuit/video_092.mp4: piste_03_0m51s.mp4 written again with openh264 after a VideoToolbox error: \
+         the encoder failed: Invalid data"
+    );
 }

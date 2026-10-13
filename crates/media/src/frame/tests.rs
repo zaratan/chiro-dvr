@@ -52,3 +52,23 @@ fn each_plane_comes_with_its_own_row_width_for_the_stride_copy() {
     assert_eq!(frame.planes_mut().map(|(plane, row)| plane.len() / row), [3, 2, 2]);
     assert_eq!((frame.width(), frame.height()), (5, 3));
 }
+
+#[test]
+fn a_copy_takes_the_size_range_and_planes_of_its_source() {
+    let mut source = YuvFrame::new(5, 3, ColorRange::Full).unwrap();
+    source.y_mut()[14] = 7;
+    source.u_mut()[5] = 8;
+    source.v_mut()[0] = 9;
+    let mut copy = YuvFrame::new(1440, 1080, ColorRange::Limited).unwrap();
+    copy.copy_from(&source).unwrap();
+    assert_eq!(copy, source);
+}
+
+#[test]
+fn copying_a_frame_of_the_same_size_keeps_the_buffers() {
+    let source = YuvFrame::new(1440, 1080, ColorRange::Limited).unwrap();
+    let mut copy = YuvFrame::new(1440, 1080, ColorRange::Limited).unwrap();
+    let planes = [copy.y().as_ptr(), copy.u().as_ptr(), copy.v().as_ptr()];
+    copy.copy_from(&source).unwrap();
+    assert_eq!([copy.y().as_ptr(), copy.u().as_ptr(), copy.v().as_ptr()], planes);
+}

@@ -9,8 +9,11 @@ use crate::failure::LibraryError;
 use crate::frame::{self, ColorRange, YuvFrame};
 use crate::{init, planes};
 
+mod region;
 #[cfg(test)]
 mod tests;
+
+pub use region::Region;
 
 const RGBA_CHANNELS: usize = 4;
 const LIMITED: c_int = 0;
@@ -19,6 +22,11 @@ const NEUTRAL_BRIGHTNESS: c_int = 0;
 const NEUTRAL_CONTRAST: c_int = 1 << 16;
 const NEUTRAL_SATURATION: c_int = 1 << 16;
 const BLACK_LEVEL: u8 = 16;
+const LEVELS: u32 = 256;
+const GREY_ROWS: u32 = 2;
+const FULL_SPAN: i32 = 255;
+const CHROMA_SPAN: i32 = 224;
+const CHROMA_CENTER: i32 = 128;
 const WHITE_LEVEL: u32 = 255;
 
 #[derive(Debug, thiserror::Error)]
@@ -44,6 +52,10 @@ pub enum Error {
     Convert(#[source] LibraryError),
     #[error("cannot shape the converted frame")]
     Frame(#[source] frame::Error),
+    #[error("a region is written back only into a limited-range frame, not a {found:?} one")]
+    TargetRange { found: ColorRange },
+    #[error("{region:?} is not an even, non-empty part of a {width}×{height} frame")]
+    Region { region: Region, width: u32, height: u32 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,6 +72,9 @@ pub struct Converter {
     yuv: ffmpeg::frame::Video,
     rgba: ffmpeg::frame::Video,
     luma_levels: Option<[u8; 256]>,
+    display_luma: [u8; 256],
+    display_chroma: [u8; 256],
+    regions: region::Regions,
     width: NonZeroU32,
     height: NonZeroU32,
 }
@@ -81,29 +96,68 @@ impl Converter {
         let Some((nonzero_width, nonzero_height)) = size else {
             return Err(Error::Size { width, height });
         };
-        let exact = Flags::ACCURATE_RND | Flags::BITEXACT;
-        let context = |from, to, flags| {
-            Context::get(from, width, height, to, width, height, flags | exact)
-                .map_err(LibraryError::new)
-                .map_err(Error::Setup)
-        };
-        let mut to_rgba = context(Pixel::YUV420P, Pixel::RGBA, Flags::POINT | Flags::FULL_CHR_H_INT)?;
-        let mut to_yuv = context(Pixel::RGBA, Pixel::YUV420P, Flags::AREA | Flags::FULL_CHR_H_INP)?;
         let source_range = match source {
             SourceRange::Limited => LIMITED,
             SourceRange::Full | SourceRange::FullBlackAt16 => FULL,
         };
-        bt709(&mut to_rgba, source_range, FULL)?;
-        bt709(&mut to_yuv, FULL, LIMITED)?;
+        let (to_rgba, to_yuv) = contexts(width, height, source_range)?;
+        let luma_levels = (source == SourceRange::FullBlackAt16).then(black_at_16);
+        let display_luma = grey_luma(source_range, luma_levels.as_ref())?;
+        let display_chroma = chroma_squeeze(source_range);
         Ok(Self {
             to_rgba,
             to_yuv,
             yuv: ffmpeg::frame::Video::new(Pixel::YUV420P, width, height),
             rgba: ffmpeg::frame::Video::new(Pixel::RGBA, width, height),
-            luma_levels: (source == SourceRange::FullBlackAt16).then(black_at_16),
+            luma_levels,
+            display_luma,
+            display_chroma,
+            regions: region::Regions::new(source_range),
             width: nonzero_width,
             height: nonzero_height,
         })
+    }
+
+    /// Writes the frame in limited range through one table per plane, without going through RGBA.
+    pub fn display(&self, frame: &YuvFrame, out: &mut YuvFrame) -> Result<(), Error> {
+        self.check_size(frame.width(), frame.height())?;
+        out.reshape(self.width.get(), self.height.get(), ColorRange::Limited)
+            .map_err(Error::Frame)?;
+        let tables = [&self.display_luma, &self.display_chroma, &self.display_chroma];
+        for (((to, _), (from, _)), table) in out.planes_mut().into_iter().zip(frame.planes()).zip(tables) {
+            for (value, level) in to.iter_mut().zip(from) {
+                *value = table[usize::from(*level)];
+            }
+        }
+        Ok(())
+    }
+
+    pub fn yuv_to_rgba_region(&mut self, frame: &YuvFrame, rgba: &mut [u8], region: Region) -> Result<(), Error> {
+        self.check_size(frame.width(), frame.height())?;
+        self.check_buffer(rgba.len())?;
+        let row = self.rgba_row();
+        self.check_region(region)?;
+        self.regions
+            .yuv_to_rgba(frame, self.luma_levels.as_ref(), rgba, row, region)
+    }
+
+    pub fn rgba_to_yuv_region(&mut self, rgba: &[u8], frame: &mut YuvFrame, region: Region) -> Result<(), Error> {
+        self.check_buffer(rgba.len())?;
+        self.check_size(frame.width(), frame.height())?;
+        if frame.range() != ColorRange::Limited {
+            return Err(Error::TargetRange { found: frame.range() });
+        }
+        let row = self.rgba_row();
+        self.check_region(region)?;
+        self.regions.rgba_to_yuv(rgba, row, frame, region)
+    }
+
+    fn check_region(&self, region: Region) -> Result<(), Error> {
+        let (width, height) = (self.width.get(), self.height.get());
+        if region.fits(width, height) {
+            return Ok(());
+        }
+        Err(Error::Region { region, width, height })
     }
 
     pub fn yuv_to_rgba(&mut self, frame: &YuvFrame, rgba: &mut [u8]) -> Result<(), Error> {
@@ -186,6 +240,54 @@ impl Converter {
         }
         Err(Error::BufferSize { expected, found })
     }
+}
+
+fn contexts(width: u32, height: u32, source_range: c_int) -> Result<(Context, Context), Error> {
+    let exact = Flags::ACCURATE_RND | Flags::BITEXACT;
+    let context = |from, to, flags| {
+        Context::get(from, width, height, to, width, height, flags | exact)
+            .map_err(LibraryError::new)
+            .map_err(Error::Setup)
+    };
+    let mut to_rgba = context(Pixel::YUV420P, Pixel::RGBA, Flags::POINT | Flags::FULL_CHR_H_INT)?;
+    let mut to_yuv = context(Pixel::RGBA, Pixel::YUV420P, Flags::AREA | Flags::FULL_CHR_H_INP)?;
+    bt709(&mut to_rgba, source_range, FULL)?;
+    bt709(&mut to_yuv, FULL, LIMITED)?;
+    Ok((to_rgba, to_yuv))
+}
+
+fn grey_luma(source_range: c_int, luma_levels: Option<&[u8; 256]>) -> Result<[u8; 256], Error> {
+    let (mut to_rgba, mut to_yuv) = contexts(LEVELS, GREY_ROWS, source_range)?;
+    let mut grey = ffmpeg::frame::Video::new(Pixel::YUV420P, LEVELS, GREY_ROWS);
+    let stride = grey.stride(0);
+    for row in grey.data_mut(0).chunks_mut(stride) {
+        for (level, value) in row.iter_mut().take(LEVELS as usize).enumerate() {
+            *value = luma_levels.map_or(level as u8, |levels| levels[level]);
+        }
+    }
+    grey.data_mut(1).fill(CHROMA_CENTER as u8);
+    grey.data_mut(2).fill(CHROMA_CENTER as u8);
+    let mut rgba = ffmpeg::frame::Video::new(Pixel::RGBA, LEVELS, GREY_ROWS);
+    let mut back = ffmpeg::frame::Video::new(Pixel::YUV420P, LEVELS, GREY_ROWS);
+    let convert = |result: Result<(), ffmpeg::Error>| result.map_err(LibraryError::new).map_err(Error::Convert);
+    convert(to_rgba.run(&grey, &mut rgba))?;
+    convert(to_yuv.run(&rgba, &mut back))?;
+    let mut luma = [0; 256];
+    for (to, from) in luma.iter_mut().zip(back.data(0)) {
+        *to = *from;
+    }
+    Ok(luma)
+}
+
+fn chroma_squeeze(source_range: c_int) -> [u8; 256] {
+    std::array::from_fn(|level| {
+        if source_range != FULL {
+            return level as u8;
+        }
+        let offset = (level as i32 - CHROMA_CENTER) * CHROMA_SPAN;
+        let rounded = (offset + offset.signum() * FULL_SPAN / 2) / FULL_SPAN;
+        u8::try_from(CHROMA_CENTER + rounded).unwrap_or(u8::MAX)
+    })
 }
 
 fn black_at_16() -> [u8; 256] {

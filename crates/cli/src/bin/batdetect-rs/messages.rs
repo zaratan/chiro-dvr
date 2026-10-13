@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::path::PathBuf;
 
 use batdetect::jobs::Job;
 use files::names::Part;
@@ -31,6 +32,33 @@ pub(crate) fn processed(language: Language, job: &Job, tracks: usize) -> String 
         (Language::French, _) => format!("{video} : {tracks} pistes -> {dest}"),
         (Language::English, 1) => format!("{video}: 1 track -> {dest}"),
         (Language::English, _) => format!("{video}: {tracks} tracks -> {dest}"),
+    }
+}
+
+pub(crate) fn too_many_tracks(language: Language, job: &Job, count: usize, limit: usize) -> String {
+    let video = job.video.display();
+    match language {
+        Language::French => format!("{video} : {count} pistes, au-delà de {limit} : extraits non écrits"),
+        Language::English => format!("{video}: {count} tracks, above {limit}: clips skipped"),
+    }
+}
+
+pub(crate) fn redone(language: Language, job: &Job, clips: &[PathBuf], cause: &dyn Error) -> String {
+    let video = job.video.display();
+    let names: Vec<String> = clips
+        .iter()
+        .map(|clip| clip.file_name().unwrap_or_default().to_string_lossy().into_owned())
+        .collect();
+    let names = names.join(", ");
+    let cause = causes(cause);
+    match language {
+        Language::French => {
+            let written = if clips.len() > 1 { "réécrits" } else { "réécrit" };
+            format!("{video} : {names} {written} avec openh264 après une erreur de VideoToolbox : {cause}")
+        }
+        Language::English => {
+            format!("{video}: {names} written again with openh264 after a VideoToolbox error: {cause}")
+        }
     }
 }
 

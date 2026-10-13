@@ -1,3 +1,5 @@
+#[path = "support/clips.rs"]
+mod clips;
 #[path = "support/flight.rs"]
 mod flight;
 
@@ -109,6 +111,10 @@ fn params_json_records_the_settings_by_configuration_and_the_threads_really_used
         assert!(params.get(key).is_some(), "{key} missing");
     }
     assert!(params.get("mode").is_none() && params.get("ffprobe").is_none());
+    assert_eq!(params["RenderConfig"]["box_pad"], 12);
+    assert_eq!(params["RenderConfig"]["max_tracks"], 300);
+    let encoders = params["RenderConfig"]["encoders"].as_array().unwrap();
+    assert_eq!(encoders.last().unwrap(), "openh264");
     assert!(params["threads"]["decoding"].as_u64().unwrap() >= 1);
     assert!(params["threads"]["detection"].as_u64().unwrap() >= 1);
     assert_eq!(params["version"], env!("CARGO_PKG_VERSION"));
@@ -127,8 +133,9 @@ fn an_unreadable_video_fails_without_stopping_the_others_and_is_named() {
     assert!(out.join("ok").join("ok_tracks.csv").is_file());
     assert!(!out.join("broken").exists());
     let errors = text(&output.stderr);
-    assert!(errors.contains("broken.mp4: the detection failed: "), "{errors}");
-    assert_eq!(errors.lines().count(), 1, "{errors}");
+    let failures: Vec<&str> = errors.lines().filter(|line| line.contains(".mp4: ")).collect();
+    assert_eq!(failures.len(), 1, "{errors}");
+    assert!(failures[0].contains("broken.mp4: the detection failed: "), "{errors}");
 }
 
 #[test]
@@ -197,4 +204,27 @@ fn an_output_folder_whose_name_is_not_utf8_is_written_as_given() {
     let output = run(&[&videos, Path::new("-o"), &out], "C");
     assert!(output.status.success(), "{}", text(&output.stderr));
     assert!(out.join("flight").join("flight_tracks.csv").is_file());
+    assert!(out.join("flight").join("clips").join("track_01_0m00s.mp4").is_file());
+}
+
+#[test]
+fn each_track_gets_a_clip_named_after_its_start_that_holds_its_window() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let lengths = clips::lengths(&out.join("flight").join("extraits"));
+    assert_eq!(lengths, [("piste_01_0m00s.mp4".to_owned(), 20)]);
+}
+
+#[test]
+fn the_clips_of_an_earlier_run_are_removed_before_the_new_ones_are_written() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    let folder = out.join("flight").join("clips");
+    fs::create_dir_all(&folder).unwrap();
+    fs::write(folder.join("track_07_1m00s.mp4"), "").unwrap();
+    let output = run(&[&videos, Path::new("-o"), &out], "C");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    assert_eq!(clips::lengths(&folder), [("track_01_0m00s.mp4".to_owned(), 20)]);
 }

@@ -610,6 +610,86 @@ Mesuré le 11 octobre 2026 sur le M1 Max, sous le verrou de mesure (#111) :
 - **Budget** : repère de 4 Gio pour l'ensemble des encodeurs ouverts. La borne se décide
   dans #112, avec la plus grosse empreinte de la liste de repli.
 
+**Dans les extraits (#112)** :
+
+- **Un encodeur par groupe** (`media::encode::fanout::Fanout`, nuit du 12 au 13 octobre
+  2026) : chaque image dessinée d'un groupe est encodée une seule fois, sans images B, et
+  ses paquets sont écrits dans chaque extrait ouvert, avec une image-clé forcée sur la
+  première image de chaque extrait (`AVFrame.pict_type = I`, que VideoToolbox et openh264
+  honorent) et des `pts` rebasés à 0. Un extrait se ferme (en-queue, renommage) dès que le
+  paquet de sa dernière image arrive. Gardes : le premier paquet de chaque extrait doit
+  porter le drapeau clé (`NoKeyFrame` sinon), et un extrait doit avoir reçu toutes ses
+  images (`ShortClip`) ; un paquet sans `pts` est une erreur. Vérifié par `ffprobe` sur
+  les 117 extraits de la 099 : tous commencent par une image-clé (`key_frame=1`), aucune
+  image B ; chaque extrait se décode seul (tests).
+- **Sessions** : une session VideoToolbox par groupe, au plus 8 à la fois ; avec un groupe
+  par fil et la moitié des cœurs, ce plafond n'est atteint qu'au-delà de 16 cœurs. La règle des voies (0 à 7 en
+  VideoToolbox) n'existe plus : toutes les fenêtres d'un groupe ont l'encodeur du groupe.
+- **Mémoire** : un encodeur par groupe en cours (un par fil), plus les images en vol et le
+  cache de zones de chaque fil (borné à 4 millions de pixels, LRU). Mesurée sur la 099 :
+  1,04 Gio pour le processus avec le décodage à plusieurs fils, 0,81 Gio sans.
+- **Image-clé d'openh264** : une par seconde environ (`round(cadence)` images), pour
+  qu'un lecteur se place vite dans l'extrait. VideoToolbox garde son réglage.
+- **Extrait refait** : voir `render` (reprise en openh264 quand VideoToolbox casse en
+  cours d'écriture). Aucun échec réel n'a été vu sur les vidéos mesurées ; la reprise est
+  exercée par une fausse ouverture dans les tests.
+- **Droits** : chaque extrait est créé par `File::create` sous un nom temporaire, donc
+  avec les droits habituels de l'utilisateur (umask), comme le CSV et le PNG, puis
+  renommé. Avant #112, le temporaire de `tempfile` donnait 0600.
+- **Mesure** (12 octobre 2026, M1 Max, `release`, sous le verrou, commande complète :
+  détection, CSV, image résumé et extraits ; `rapports/mesure-112/run.sh` et
+  `xpc_footprint.sh`, hors dépôt). Processus : `peak memory footprint` de
+  `/usr/bin/time -l`. VideoToolbox : somme des `phys_footprint` des services
+  `VTEncoderXPCService`, relevée chaque seconde, moins les 57 Mo des services déjà
+  ouverts au repos. Valable pour ce Mac.
+
+  | Vidéo | Pistes | Réel | CPU | Processus | VideoToolbox |
+  |---|---|---|---|---|---|
+  | 092 | 14 | 18,9 et 18,8 s | 128 s | 795 Mio | non relevé |
+  | 125 | 47 | 29,3 s | 166 s | 888 Mio | ≈ 1 045 Mo |
+  | 099 | 117, jusqu'à 9 fenêtres à la fois | 64,3 s | 205 s | 883 Mio | ≈ 1 050 Mo |
+  | 097 | 149 | 74,8 s | 215 s | 791 Mio | ≈ 1 050 Mo |
+  | 103 | 10 | 37,8 s | 229 s | 1 023 Mio | ≈ 1 090 Mo |
+  | 123 | 8 | 16,4 s | 115 s | 852 Mio | ≈ 914 Mo |
+
+  - Au pire, processus et service ensemble restent sous 2,2 Go (somme des deux
+    maxima, qui ne tombent pas forcément au même instant).
+  - La 092 prend 18,8 s, contre 11,7 à 12,0 s pour la commande avant l'image résumé et
+    les extraits ; la commande complète de la v0.1.1 prenait 134 s.
+  - Pendant la sous-phase 2b, avec la plage pleine et sans l'image résumé, la 092 prenait
+    24 s ; un groupe à la fois (2a), 45 s.
+- **Après les sessions rendues en route et la conversion par zones** (13 octobre 2026,
+  même machine, trois passages par chaîne en alternance, autres processus sous 100 % de
+  CPU) :
+
+  | Vidéo | Avant (réel, extraits / CPU des extraits) | Après |
+  |---|---|---|
+  | 092 | 17,75 s, 5,53 s / 25,5 s | 17,55 s, 5,39 s / 14,9 s |
+  | 125 | 28,00 s, 14,69 s / 62,0 s | 27,98 s, 14,37 s / 37,7 s |
+  | 099 | 62,77 s, 49,71 s / 104,6 s | 58,68 s, 45,53 s / 70,1 s |
+
+  - Le CPU des extraits baisse d'un tiers à deux cinquièmes, leur temps réel de 2 à 8 %.
+  - **La limite est le débit du codeur matériel** : pendant les extraits, VideoToolbox
+    encode de 322 à 378 images 1440×1080 par seconde, toutes sessions confondues, avant
+    comme après. Le temps des extraits suit « images envoyées à VideoToolbox / environ
+    350 » (099 : 16 016 images, 45,5 s).
+  - Une image commune à plusieurs extraits d'un groupe était encodée une fois par extrait
+    (099 : 16 016 envois pour 6 616 images distinctes).
+- **Après l'encodage par groupe et le décodage à plusieurs fils** (nuit du 12 au 13 octobre
+  2026, même machine, trois passages, autres processus sous 100 % de CPU) :
+
+  | Vidéo | Avant (commit 9e68090) | Après | Mémoire au plus |
+  |---|---|---|---|
+  | 092 | 17,55 s | 16,58 s (16,93 / 16,56 / 16,25) | 0,95 Gio |
+  | 125 | 27,98 s | 23,56 s (23,23 / 23,43 / 24,03) | 1,02 Gio |
+  | 099 | 58,68 s | 26,94 s (26,85 / 27,16 / 26,80) | 1,06 Gio |
+
+  - Banc VideoToolbox seul (1440×1080, encodeur seul) : 224 images par seconde avec une
+    session, 366 à 392 avec 2, 4 ou 8 ; les options `prio_speed` et `realtime` n'aident
+    pas. Le M1 Max a deux moteurs d'encodage, saturés dès deux sessions.
+  - Sur la 099, l'encodage par groupe seul donne 29,67 s ; le décodage à plusieurs fils,
+    27,35 s (premier passage de chaque essai).
+
 ## Plage réelle des sources
 
 Mesure du 11 octobre 2026 (#101) :
@@ -649,7 +729,11 @@ Mesure du 11 octobre 2026 (#101) :
   - Fond de la 092 : plancher 0, médiane 75 (80 en plage pleine, 79 en v0.1.1),
     24,8 % de pixels à 2 ou moins (26,6 % en v0.1.1).
   - Ce réglage ne touche que l'affichage : la détection lit Y brut.
-  - Il vaut aussi pour les extraits (#112).
+  - Il vaut aussi pour les extraits depuis #112 : hors des zones dessinées, l'image
+    passe par les tables d'affichage (`Converter::display`) ; dans les zones, par
+    `FullBlackAt16`, le RGBA et le retour en plage limitée BT.709 (voir `render`).
+    Un rendu en plage pleine fait tomber le SSIM des pixels hors dessins à 0,917
+    environ, au lieu de 0,966 (`slow_clips`, essai fait une fois, avant les zones).
 
 ## Crates
 
@@ -740,7 +824,12 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       jamais dépasser l'image voulue ; FFmpeg la ramène à la base de temps du flux à
       l'arrondi le plus proche, donc au plus sur elle.
   - `encode` : `Settings::new` (taille paire, cadence positive), puis
-    `Encoder::create`, `push` et `finish`, en openh264 ou VideoToolbox.
+    `Encoder::create`, `push` et `finish`, en openh264 ou VideoToolbox, sans images B.
+    `fanout::Fanout` (#112) : un encodeur, plusieurs mp4 (`open(chemin, images)` avant la
+    première image de chaque extrait, image-clé forcée) ; voir « Dans les extraits ».
+    Erreurs de destination (`concerns_the_destination`) : chemin refusé, temporaire non
+    créé, fichier non ouvert (`OpenFile`), renommage raté ; une écriture refusée
+    (`Writing`) n'en est pas une, pour que la bascule vers openh264 joue.
     - Réglages fixes, détaillés dans [Encodage](#encodage) :
       - VideoToolbox en q65, matériel seul (`allow_sw=0`) ;
       - openh264 en profil high, `rc_mode=quality`, QP 23.
@@ -779,6 +868,21 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
     - **Plage écrite** : le retour au YUV se fait toujours en plage limitée. Une source
       pleine y est resserrée sans rien écrêter : Y 0 devient 16 et Y 255 devient 235.
     - Aucune allocation par image.
+    - Tables d'affichage (`display`, #112) : une table par plan, sans passer par le
+      RGBA. Celle de Y est tirée de swscale sur une rampe de gris (noir calé sur 16
+      compris), donc égale à l'aller-retour sur tout pixel gris ; celle de U et V
+      resserre la plage pleine en plage limitée (128 + (c − 128) × 224 / 255, arrondi).
+      Sur les 1 230 images de l'extrait, contre l'aller-retour par RGBA
+      (`slow_convert`) : 0,11 % (Y), 0,15 % (U) et 0,11 % (V) des valeurs diffèrent,
+      0,02 %, 0,06 % et 0,04 % de plus de 2 niveaux ; au plus 34 (Y), 18 (U) et
+      51 (V). Le pire écart est un pixel de V à 255 (l'icône rouge des jumelles) que
+      l'aller-retour écrête en RGB et que la table garde.
+    - Zones (`yuv_to_rgba_region`, `rgba_to_yuv_region`, `Region`, #112) : la même
+      conversion sur un rectangle aux coordonnées paires, par des contextes swscale à
+      sa taille (une taille nouvelle crée ses contextes ; cache LRU de 32 tailles et
+      4 millions de pixels au plus ; `render` arrondit la taille des zones au multiple de
+      16 pour que le cache serve). Dans le rectangle, les pixels
+      RGBA sont ceux de la conversion entière, et le Y écrit aussi (testé).
     - Filtres mesurés :
       - « point » à la montée et « area » à la descente, chrominance horizontale
         pleine ;
@@ -1320,7 +1424,7 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       125 0:15. Par (a) : 097 2:43, 098 0:05, 099 0:19, 099 0:27, 100 1:36 (deux), 126
       1:32 ; 097 2:43, 099 0:19 et 100 1:36 sont dans les deux.
     - La formule sera retentée après la 0.2.0 (issue en Backlog).
-- **`cli`** → `engine`, `tracking`, `files`, `summary`, `draw`, `media`, `types` : paquet `batdetect`, binaire
+- **`cli`** → `engine`, `tracking`, `files`, `summary`, `render`, `draw`, `media`, `types` : paquet `batdetect`, binaire
   `batdetect-rs` (#123). Tout texte vu par l'utilisateur vit dans `messages.rs`, avec la
   ligne de commande. La bibliothèque (`jobs`, `language`, `process`, `settings`) sert aux
   tests.
@@ -1338,7 +1442,24 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
     fond laisse le CSV et les réglages. Le fond passe par
     `Converter::new(…, SourceRange::FullBlackAt16)`, puis `summary::pages` ; chaque page
     prend son nom par `Names::summary_png`. Pas de fond : erreur `NoBackground`.
-  - Ni extraits, ni ménage des sorties précédentes (#115).
+  - Extraits (#112) : `render_clips`, appelée après l'image résumé.
+    - Le dossier des extraits (`extraits` ou `clips`, selon la langue) est effacé puis
+      recréé avant le rendu. Le ménage entre langues et des autres sorties reste à
+      #115.
+    - Garde `max_tracks` (300) : au-delà, le dossier est vidé, aucun extrait n'est écrit,
+      et la vidéo échoue avec sa ligne (« 301 pistes, au-delà de 300 : extraits non
+      écrits ») après le CSV, `params.json` et l'image résumé.
+    - Encodeurs : un essai d'encodage (`Fallback::trial`) à la taille et à la cadence de
+      la vidéo, avant `params.json`, donne la liste employée (VideoToolbox puis openh264
+      sur Mac, openh264 ailleurs). Il est sauté au-delà de la garde. S'il échoue,
+      `params.json` porte `encoders: []`, l'image résumé est écrite, et la vidéo échoue
+      à l'étape des extraits, après le vidage du dossier.
+    - `Source` reçoit les images-clés de la lecture du moteur (`Reading::key_frames`) et
+      ses images en erreur ; chaque extrait prend son nom par `Names::clip`, à partir de
+      `files::time::frame_seconds` de sa première image.
+    - Un extrait refait en openh264 après un échec de VideoToolbox écrit une ligne sur la
+      sortie d'erreur, avant la ligne de réussite : « {vidéo} : {extrait} réécrit avec
+      openh264 après une erreur de VideoToolbox : {causes} ».
   - Langue du système : la première variable non vide parmi `LANGUAGE`, `LC_ALL`,
     `LC_MESSAGES` et `LANG`. Dans une liste (`LANGUAGE=de:fr`), c'est la première langue
     qui a des messages qui compte : `fr*` pour le français, `en*` pour l'anglais. Sans
@@ -1359,8 +1480,12 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
     `rayon`. `version` est celle du paquet (`CARGO_PKG_VERSION`, 0.0.0 jusqu'à la
     première version publiée : elle ne distingue pas encore deux commits), `ffmpeg` celle
     de FFmpeg liée.
-    - Écarts à la v0.1.1 : `mode`, `ffprobe` et `RenderConfig` retirés ; `version`,
-      `ffmpeg` et `threads` ajoutés ; les nombres réels s'écrivent `12.0` et non `12`.
+    - `RenderConfig` (#112) : `box_pad`, `trail_s`, `clip_margin_s`, `max_tracks`, et
+      `encoders`, la liste des encodeurs retenue par l'essai (vide au-delà de la garde).
+    - Écarts à la v0.1.1 : `mode` et `ffprobe` retirés ; dans `RenderConfig`, `crf`,
+      `encoder`, `vt_quality`, `annotated` et les trois réglages du zoom (#103) ne sont
+      pas écrits, `encoders` les remplace pour l'encodage ; `version`, `ffmpeg` et
+      `threads` ajoutés ; les nombres réels s'écrivent `12.0` et non `12`.
       `DetectConfig` s'écrit par `engine::settings::DetectSettings`, `osd_regions`
       compris, en objets `{x0, y0, x1, y1}` à sa place (#151).
   - Tests : `tests/command.rs` lance le binaire sur une vidéo fabriquée (openh264,
@@ -1513,8 +1638,9 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       274 → 275. Les maxima tombent sur un demi (sur la 092, les surfaces sont des
       multiples de 2,25) : le Rust arrondit à mi-chemin vers le haut, la v0.1.1 au pair.
       Gardé (règle 5).
-- **`render`** → `media`, `types` (#110) : les images des extraits. `batdetect-rs` ne
-  s'en sert pas encore (#112).
+- **`render`** → `media`, `draw`, `types` (#110, #112) : les extraits, du choix
+  des images à l'écriture. `clips::render(source, pistes, extraits, RenderConfig,
+  encodeurs)` en est le point d'entrée ; `cli` l'appelle depuis #112.
   - `source` : `Source::new(chemin, Timeline, images-clés, images en erreur)`, puis
     `serve(plage, visite)`, qui rend chaque image de la plage une fois, dans l'ordre,
     avec son `FrameIndex`. Les images-clés et les images en erreur viennent du moteur
@@ -1531,10 +1657,13 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
     pas elle-même en erreur. La dissimulation d'une image-clé en erreur puise dans les
     images d'avant : seule une image-clé saine remet le décodeur à zéro. Sans marge
     réglée : la marge de 30 du prototype supposait des GOP de 15 (ici de 8 à 16).
-  - Un fil de décodage par appel (`Threads::Exactly(1)`) : les pixels dissimulés ne se
-    reproduisent qu'à un fil (voir « Fils et pixels dissimulés »). L'appelant sert une
+  - Fils de décodage : un seul (`Threads::Exactly(1)`) quand la plage lue, depuis l'image
+    de reprise, contient une image en erreur, car les pixels dissimulés ne se reproduisent
+    qu'à un fil (voir « Fils et pixels dissimulés ») ; sinon automatiques (nuit du 12 au
+    13 octobre 2026), car une vidéo saine donne les mêmes pixels quel que soit le nombre
+    de fils (`slow_source`, `local_clips`). L'appelant sert une
     plage par groupe de fenêtres chevauchantes, pour ne décoder qu'une fois une image
-    partagée ; le parallélisme viendra des groupes (#112). Il borne aussi les fenêtres à
+    partagée ; le parallélisme vient des groupes (#112). Il borne aussi les fenêtres à
     la dernière image : la v0.1.1 ne les bornait pas, `serve` refuse une plage qui
     sort de la vidéo.
   - Placement raté : si le placement échoue, ou si la première image rendue vient après
@@ -1572,6 +1701,114 @@ Onze crates depuis #104 (neuf au lot 6, `render` à #110), `members = ["crates/*
       une plage abîmée (pistes de la référence, marge `round(1,5 × cadence)` = 45,
       bornée à la vidéo) sont égales (140 s pour les deux). Aucune de ces 12 fenêtres
       ne saute une image-clé en erreur : seule la vidéo fabriquée exerce cette règle.
+  - `config` : `RenderConfig` (`box_pad` 12 px, `trail_s` 1 s, `clip_margin_s` 1,5 s,
+    `max_tracks` 300, 0 pour sans limite), valeurs de la v0.1.1, validées à la
+    construction (ni `NaN`, ni infini, ni négatif). Les secondes deviennent des images
+    par `round(secondes × cadence)` (`f64::round`).
+  - `windows` : la fenêtre d'une piste va de sa première image moins la marge à sa
+    dernière plus la marge, bornée à la vidéo. Les fenêtres qui se chevauchent ou se
+    touchent forment un groupe, décodé une fois sur son enveloppe et encodé une fois.
+  - `overlay` et `picture` : sur chaque image, toutes les pistes présentes sont dessinées,
+    une fois, et l'image dessinée est partagée par les extraits du groupe (comme
+    `overlay.py` de la v0.1.1). Boîte rouge de 2 px sur un point détecté, de 1 px sur un
+    point interpolé, `#N` au-dessus, trace jaune sur `trail_s`. Les couleurs et les
+    tailles viennent de `draw` ; les constantes propres aux extraits restent dans
+    `overlay`.
+  - Conversion par zones (#112, décision de l'utilisateur) : l'image entière passe par
+    les tables d'affichage de `Converter` ; seules les zones autour des dessins
+    passent en RGBA, reçoivent le dessin, et reviennent en YUV. La zone d'une marque
+    couvre sa boîte, son `#N` (deux hauteurs de chiffre au-dessus de la ligne de base)
+    et sa trace, plus 4 px ; elle est calée sur des coordonnées paires (4:2:0), sa taille
+    arrondie au multiple de 16 (pour le cache de contextes), bornée
+    à l'image, et les zones qui se touchent sont fusionnées. Un test vérifie, image par
+    image, que tout pixel dessiné tombe dans une zone. Sur la 099, les tuiles de 16 px
+    touchées par un dessin font 0,56 % de l'image en moyenne, 3,8 % au plus.
+    `ACCURATE_RND` et `BITEXACT` sont gardés (ils coûtent environ 2,1 ms par image
+    entière, presque tout dans le sens YUV → RGBA).
+  - Ordonnancement (`clips`, `schedule`, `group`, `ahead`) :
+    - les groupes partent dans l'ordre, sur la moitié des cœurs
+      (`available_parallelism / 2`) ; chaque fil garde son `Picture`, car `Converter`
+      n'est pas `Send` ;
+    - dans un groupe, un fil décode en avance (file de 4 images, cases recyclées), et
+      l'image dessinée est poussée une fois dans l'encodeur du groupe ;
+    - un groupe réserve avant de partir sa session VideoToolbox (une seule), et la garde
+      jusqu'au bout ; l'encodeur de chaque fenêtre est celui de son groupe, le même d'un
+      passage à l'autre (les sessions rendues en route, essayées le 13 octobre, n'ont plus
+      d'objet) ;
+    - une erreur ou une panique arrête les autres groupes à l'image suivante, et les
+      groupes qui attendent ne partent pas. L'erreur rendue est celle du premier groupe,
+      dans l'ordre, parmi ceux qui ont échoué avant d'être arrêtés ;
+    - les extraits déjà finis restent dans le dossier quand la vidéo échoue ; la ligne
+      d'erreur nomme la vidéo, et le lancement suivant vide le dossier.
+  - Encodeurs (`encoders`) : VideoToolbox pour chaque groupe tant qu'il n'est pas écarté,
+    sinon openh264. openh264 pose une image-clé par seconde environ
+    (`with_key_interval(round(cadence))`). Un fichier s'écrit sous `.<nom>.partial`,
+    créé par `File::create` (droits habituels de l'utilisateur, umask compris), puis
+    renommé ; il n'en reste aucun après une erreur.
+  - Reprise : quand VideoToolbox casse en cours d'écriture (hors erreur de destination),
+    le groupe entier est noté, VideoToolbox est écarté pour la suite de la vidéo, et le
+    groupe est refait en openh264 une fois les groupes finis. `Rendered.redone` nomme ses
+    extraits avec la cause ; un échec d'openh264 fait échouer la vidéo. Une erreur de destination
+    (chemin refusé, temporaire non créé, fichier non ouvert ou non renommé) arrête la
+    vidéo sans reprise ; l'erreur nomme l'extrait qu'elle concerne.
+  - Boîte bornée (`overlay`, #112, affichage seulement : la détection, le suivi et le
+    CSV ne changent pas). Chaque côté de la boîte dessinée est borné à 4 fois la
+    médiane du même côté sur les points détectés de la piste (médiane de deux valeurs
+    centrales : leur moyenne). Une boîte bornée est recentrée sur le barycentre de la
+    détection, puis élargie de `box_pad` comme les autres. Les points interpolés
+    viennent des boîtes déjà bornées.
+    - Cas qui l'a motivée : la 092, piste 13, image 6945 (3:51). La tache, étalée, a
+      une boîte de 339 × 235,5 px pour 353 px de surface, quand la piste a pour médiane
+      31,5 × 23,25 : on dessinait 363 × 259 px autour de rien. Bornée, la boîte fait
+      126 × 93 px avant `box_pad`. La v0.1.1 dessinait la même grande boîte.
+    - Mesure sur les 966 pistes de la référence des 26 vidéos (33 865 points,
+      `rapports/mesure-112/boxes.py`, hors dépôt) :
+
+      | Facteur | Boîtes bornées | Pistes | Réduites de plus de 12 px |
+      | --- | --- | --- | --- |
+      | 3 | 129 (0,38 %) | 84 | 11 |
+      | 4 (retenu) | 33 (0,10 %) | 27 | 7 |
+      | 5 | 15 (0,04 %) | 12 | 6 |
+
+      Avec 4, les 7 boîtes réduites de plus d'un `box_pad` sont : 092 piste 13 image 6945,
+      094 piste 7 image 4444, 096 piste 79 images 4817 à 4819, 096 piste 113 image 6538 et
+      100 piste 34 image 2896. Les 26 autres boîtes bornées perdent au plus 10,5 px
+      (médianes de leurs pistes : de 3 à 15 px).
+  - Tests des extraits (#112) :
+    - rapides : fenêtres et groupes ; dessin ; ordonnanceur seul (au plus 8 sessions,
+      ordre, arrêt, panique relancée) ; file d'images ; `Fanout` (extraits qui se
+      chevauchent tirés d'un encodage, images communes identiques, image-clé et `pts` 0
+      en tête, extrait vide ou inachevé refusé) ; une fausse ouverture
+      (`testing::Fake`, un vrai `Fanout` en openh264) qui compte les encodeurs et les
+      sessions et casse à la n-ième image ou au renommage. Avec elle : une session et un
+      encodeur par groupe, un groupe refait en openh264 après un échec de VideoToolbox
+      (y compris un extrait déjà renommé), pas de reprise après une erreur de
+      destination, l'erreur qui nomme l'extrait fautif, un échec d'openh264 qui arrête
+      la vidéo, sans `.partial`. Un fil et quatre donnent les mêmes fichiers à l'octet en
+      openh264 ;
+    - boîte qui suit la cible après un trou (`cli`, `process/tests.rs`) : vol fabriqué
+      de 80 images, une image-clé toutes les 8, un dixième du `mdat` écrasé (8 images
+      perdues, deux pistes de part et d'autre). Sur chaque point détecté, les quatre
+      bords rouges lus dans l'image tombent à 2 px au plus de la boîte attendue, et le
+      carré clair est dans la boîte de détection. Un dessin décalé d'une image le fait
+      échouer (essai fait une fois) ;
+    - `slow_clips` (l'extrait, pistes de la référence, extraits de 380, 108, 115 et
+      117 images) : chaque image servie est celle de la lecture séquentielle, et chaque
+      image écrite est comparée à l'image source de même `pts` passée par la même
+      conversion. SSIM sur Y par blocs 8×8 disjoints, hors blocs qui touchent un dessin
+      (boîte, `#N` et trace, avec une marge). Mesuré sur Mac : VideoToolbox 0,9659 à
+      0,9667, openh264 0,9671 à 0,9677 ; seuils 0,963 et 0,964 (le Y de #111, par le
+      filtre `ssim` de FFmpeg contre l'original, valait 0,9688 et 0,9698). Les couleurs
+      relevées sur la boîte et la trace s'écrivent dans la sortie du test, sans seuil.
+    - `local_clips` (`cli`, du moteur à `Source`, fils automatiques, 300 s) : sur la 103,
+      la 123 et la 124, les images-clés et les images en erreur viennent de la lecture du
+      moteur, et chaque groupe qui touche une plage abîmée (1, 6 et 3 groupes) est servi
+      avec les pixels d'une lecture séquentielle à un fil. Aucun n'est relu depuis le
+      début (`Origin::Start` : 0, épinglé). Fenêtres contre la v0.1.1, figées dans le
+      test : la 125 a ses 47 fenêtres égales ; la 097 en a 149 contre 148, et ses écarts
+      sont les divergences connues des pistes (0:20, fenêtre qui commence 7 images plus
+      tard ; 2:42, une fenêtre devenue deux) plus un début 4 images plus tôt à 1:39,
+      dans la tolérance de l'appariement.
 - **`compare`** → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré. `media` n'y sert qu'à choisir les fils du
   décodeur (`Threads::Automatic`).

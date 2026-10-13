@@ -3,11 +3,18 @@ use std::io;
 use std::path::PathBuf;
 
 use engine::config::DetectConfig;
-use engine::detection::{self, detect};
+use engine::detection::{self, Detected, detect};
+use engine::input::Video;
 use files::names::{Names, params_json};
 use files::params::{Params, spans_in_seconds, write_params};
 use files::table::write_tracks_csv;
+use files::time::frame_seconds;
 use media::decode::Threads;
+use media::encode::Codec;
+use media::encode::fallback::{self, Fallback};
+use render::clips::{self, Clip, Rendered};
+use render::config::RenderConfig;
+use render::source::{self, Source};
 use summary::header::Labels;
 use summary::layout::Summary;
 use tracking::exclusion::exclude;
@@ -20,6 +27,9 @@ use types::track::Track;
 use crate::jobs::Job;
 use crate::overview::{self, Overview, write_overview};
 use crate::settings::Settings;
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -39,6 +49,20 @@ pub enum Error {
     Files(#[source] files::error::Error),
     #[error("the summary image cannot be written")]
     Overview(#[source] overview::Error),
+    #[error("no encoder can write the clips")]
+    Encoders(#[source] fallback::Error),
+    #[error("cannot empty {}", path.display())]
+    Clear {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("the clips cannot read the video")]
+    Source(#[source] source::Error),
+    #[error("the clips cannot be written")]
+    Clips(#[source] clips::Error),
+    #[error("{count} tracks, above {limit}: clips skipped")]
+    TooManyTracks { count: usize, limit: usize },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -47,11 +71,12 @@ pub struct Versions<'a> {
     pub ffmpeg: &'a str,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug)]
 pub struct Processed {
     pub tracks: Vec<Track>,
     pub csv: PathBuf,
     pub summaries: Vec<PathBuf>,
+    pub rendered: Rendered,
 }
 
 pub fn process(
@@ -86,10 +111,14 @@ pub fn process(
     let names = Names::new(language);
     let csv = names.tracks_csv(&job.dest, job.video.file_stem().unwrap_or_default());
     write_tracks_csv(&csv, &tracks, &timeline).map_err(Error::Files)?;
+    let render = RenderConfig::default();
+    let trial = encoders(render, tracks.len(), reading.video());
     let settings = Settings::of(
         &config,
         track,
         stability,
+        render,
+        trial.as_deref().unwrap_or_default(),
         detected.active_threads(),
         detected.detection_threads(),
     );
@@ -120,5 +149,74 @@ pub fn process(
         damaged: &params.damaged_s,
     };
     let summaries = write_overview(overview, &detected, &summary).map_err(Error::Overview)?;
-    Ok(Processed { tracks, csv, summaries })
+    let clips = Clips {
+        job,
+        names,
+        detected: &detected,
+        timeline: &timeline,
+        render,
+    };
+    let rendered = render_clips(&clips, &tracks, trial)?;
+    Ok(Processed {
+        tracks,
+        csv,
+        summaries,
+        rendered,
+    })
+}
+
+fn encoders(render: RenderConfig, track_count: usize, video: &Video) -> Result<Vec<Codec>, Error> {
+    if !render.renders_clips_for(track_count) {
+        return Ok(Vec::new());
+    }
+    let size = video.size();
+    let fallback = Fallback::for_this_platform()
+        .trial(size.width().get(), size.height().get(), video.frame_rate().get())
+        .map_err(Error::Encoders)?;
+    Ok(fallback.codecs().collect())
+}
+
+#[derive(Debug)]
+struct Clips<'a> {
+    job: &'a Job,
+    names: Names,
+    detected: &'a Detected,
+    timeline: &'a Timeline,
+    render: RenderConfig,
+}
+
+fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, Error>) -> Result<Rendered, Error> {
+    let folder = clips.names.clips_dir(&clips.job.dest);
+    match fs::remove_dir_all(&folder) {
+        Err(source) if source.kind() != io::ErrorKind::NotFound => {
+            return Err(Error::Clear { path: folder, source });
+        }
+        _ => {}
+    }
+    fs::create_dir_all(&folder).map_err(|source| Error::Folder {
+        dest: folder.clone(),
+        source,
+    })?;
+    if !clips.render.renders_clips_for(tracks.len()) {
+        return Err(Error::TooManyTracks {
+            count: tracks.len(),
+            limit: clips.render.max_tracks(),
+        });
+    }
+    let encoders = trial?;
+    let reading = clips.detected.reading();
+    let errors = clips.detected.damage().error_frames();
+    let source = Source::new(&clips.job.video, clips.timeline, &reading.key_frames(), errors).map_err(Error::Source)?;
+    let wanted: Vec<Clip> = tracks
+        .iter()
+        .enumerate()
+        .map(|(index, track)| {
+            let start = frame_seconds(clips.timeline, track.first().frame);
+            Clip {
+                track: index,
+                path: folder.join(clips.names.clip(track, start, tracks.len())),
+            }
+        })
+        .collect();
+    clips::render(&source, tracks, &wanted, clips.render, &encoders).map_err(Error::Clips)
 }

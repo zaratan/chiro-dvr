@@ -6,7 +6,7 @@ use std::process::ExitCode;
 
 use batdetect::jobs::{Job, collect_videos, plan_jobs};
 use batdetect::language::system_language;
-use batdetect::process::{Versions, process};
+use batdetect::process::{self, Versions, process};
 use media::decode::Threads;
 use types::language::Language;
 
@@ -33,11 +33,31 @@ fn run(jobs: &[Job], language: Language) -> ExitCode {
     for job in jobs {
         let labels = messages::SummaryLabels(language);
         let line = match process(job, language, &labels, Threads::Automatic, versions) {
-            Ok(processed) => writeln!(
-                io::stdout().lock(),
-                "{}",
-                messages::processed(language, job, processed.tracks.len())
-            ),
+            Ok(processed) => {
+                let mut stderr = io::stderr().lock();
+                let redone = processed.rendered.redone.iter().try_for_each(|redone| {
+                    writeln!(
+                        stderr,
+                        "{}",
+                        messages::redone(language, job, &redone.paths, &redone.cause)
+                    )
+                });
+                redone.and_then(|()| {
+                    writeln!(
+                        io::stdout().lock(),
+                        "{}",
+                        messages::processed(language, job, processed.tracks.len())
+                    )
+                })
+            }
+            Err(process::Error::TooManyTracks { count, limit }) => {
+                failures += 1;
+                writeln!(
+                    io::stderr().lock(),
+                    "{}",
+                    messages::too_many_tracks(language, job, count, limit)
+                )
+            }
             Err(error) => {
                 failures += 1;
                 writeln!(io::stderr().lock(), "{}", messages::failed(job, &error))

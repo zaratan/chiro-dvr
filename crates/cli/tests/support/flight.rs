@@ -1,3 +1,4 @@
+use std::num::NonZeroU32;
 use std::path::Path;
 
 use media::encode::{Codec, Encoder, Settings};
@@ -15,6 +16,11 @@ const BAT: u8 = 140;
 
 #[cfg(test)]
 pub(crate) fn write_flight(path: &Path) {
+    write_flight_of(path, FRAMES, None);
+}
+
+#[cfg(test)]
+pub(crate) fn write_flight_of(path: &Path, frames: usize, key_interval: Option<NonZeroU32>) {
     let settings = Settings::new(
         WIDTH as u32,
         HEIGHT as u32,
@@ -22,11 +28,15 @@ pub(crate) fn write_flight(path: &Path) {
         Codec::OpenH264,
     )
     .unwrap();
+    let settings = match key_interval {
+        Some(frames) => settings.with_key_interval(frames),
+        None => settings,
+    };
     let mut encoder = Encoder::create(path, &settings).unwrap();
     let mut frame = YuvFrame::new(WIDTH as u32, HEIGHT as u32, ColorRange::Limited).unwrap();
     frame.u_mut().fill(128);
     frame.v_mut().fill(128);
-    for index in 0..FRAMES {
+    for index in 0..frames {
         let left = 20 + STEP * index;
         for (row, line) in frame.y_mut().as_chunks_mut::<WIDTH>().0.iter_mut().enumerate() {
             for (column, value) in line.iter_mut().enumerate() {

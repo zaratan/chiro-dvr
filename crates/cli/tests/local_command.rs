@@ -30,11 +30,11 @@ fn the_twenty_six_videos_give_the_tracks_of_the_reference_but_for_the_known_dive
             agreement::VERSIONS,
         )
         .unwrap();
-        let found = agreement::agreement(processed, &recording, rate);
+        let found = agreement::agreement(&processed, &recording, rate);
         println!(
             "{name}\treference {}\ttracked {}\tpaired {} (agreeing {})\tlost {}\tadded {}",
             found.reference,
-            found.processed.tracks.len(),
+            processed.tracks.len(),
             found.paired,
             found.agreeing,
             found.lost,
