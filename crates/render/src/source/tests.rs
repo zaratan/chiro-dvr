@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::thread;
 
+use media::decode::Threads;
 use types::frame::{FrameIndex, Pts};
 use types::span::Span;
 use types::timeline::Timeline;
@@ -233,4 +234,24 @@ fn one_source_serves_windows_from_several_threads_at_once() {
     for (window, pixels) in windows.iter().zip(served) {
         assert_eq!(pixels, read.fingerprints[window.first().get()..=window.last().get()]);
     }
+}
+
+#[test]
+fn a_reading_through_a_frame_in_error_takes_one_thread_and_a_clean_one_takes_them_all() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = testing::binoculars(folder.path());
+    let read = sequential::read(&path);
+    let errors = [FrameIndex::new(20)];
+    let source = Source::new(&path, &read.timeline, &read.keys, &errors).unwrap();
+    let one = Threads::Exactly(std::num::NonZeroUsize::MIN);
+    assert_eq!(source.threads(FrameIndex::new(16), FrameIndex::new(24)), one);
+    assert_eq!(source.threads(FrameIndex::new(20), FrameIndex::new(20)), one);
+    assert_eq!(
+        source.threads(FrameIndex::new(21), FrameIndex::new(40)),
+        Threads::Automatic
+    );
+    assert_eq!(
+        source.threads(FrameIndex::new(0), FrameIndex::new(19)),
+        Threads::Automatic
+    );
 }

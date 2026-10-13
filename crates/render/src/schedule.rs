@@ -1,4 +1,3 @@
-use std::cell::Cell;
 use std::panic;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Condvar, Mutex, MutexGuard, PoisonError};
@@ -25,7 +24,6 @@ struct Shared {
 
 pub(crate) trait Hold {
     fn stopped(&self) -> bool;
-    fn keep(&self, sessions: usize);
 }
 
 #[derive(Debug)]
@@ -35,34 +33,24 @@ impl Hold for Alone {
     fn stopped(&self) -> bool {
         false
     }
-
-    fn keep(&self, _sessions: usize) {}
 }
 
 #[derive(Debug)]
 pub(crate) struct Lease<'a> {
     shared: &'a Shared,
     index: usize,
-    held: Cell<usize>,
+    held: usize,
 }
 
 impl Hold for Lease<'_> {
     fn stopped(&self) -> bool {
         self.shared.stop.load(Ordering::Acquire)
     }
-
-    fn keep(&self, sessions: usize) {
-        let held = self.held.get();
-        if sessions < held {
-            self.held.set(sessions);
-            self.shared.give_back(held - sessions);
-        }
-    }
 }
 
 impl Drop for Lease<'_> {
     fn drop(&mut self) {
-        self.shared.give_back(self.held.get());
+        self.shared.give_back(self.held);
         if thread::panicking() {
             self.shared.halt();
         }
@@ -95,7 +83,7 @@ impl Shared {
         Some(Lease {
             shared: self,
             index,
-            held: Cell::new(wanted),
+            held: wanted,
         })
     }
 

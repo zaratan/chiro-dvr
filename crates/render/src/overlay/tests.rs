@@ -181,6 +181,8 @@ fn the_zones_of_a_frame_cover_every_drawn_pixel_and_are_even_disjoint_and_inside
                 zone.left + zone.width <= WIDTH && zone.top + zone.height <= HEIGHT,
                 "{zone:?}"
             );
+            assert!(zone.width % 16 == 0 || zone.width == WIDTH, "{zone:?}");
+            assert!(zone.height % 16 == 0 || zone.height == HEIGHT, "{zone:?}");
         }
         for (index, zone) in zones.iter().enumerate() {
             for other in &zones[index + 1..] {

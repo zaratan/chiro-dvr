@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::ffi::c_int;
 
 use ffmpeg::format::Pixel;
@@ -13,6 +14,7 @@ use crate::planes;
 mod tests;
 
 const KEPT_SIZES: usize = 32;
+const KEPT_PIXELS: u64 = 4_000_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Region {
@@ -37,7 +39,7 @@ impl Region {
     }
 }
 
-struct Sized {
+struct Scratch {
     width: u32,
     height: u32,
     to_rgba: Context,
@@ -48,40 +50,48 @@ struct Sized {
 
 pub(super) struct Regions {
     source_range: c_int,
-    sized: Vec<Sized>,
+    kept: VecDeque<Scratch>,
+    kept_pixels: u64,
 }
 
 impl Regions {
     pub(super) fn new(source_range: c_int) -> Self {
         Self {
             source_range,
-            sized: Vec::new(),
+            kept: VecDeque::new(),
+            kept_pixels: 0,
         }
     }
 
-    fn sized(&mut self, width: u32, height: u32) -> Result<&mut Sized, Error> {
+    fn scratch(&mut self, width: u32, height: u32) -> Result<&mut Scratch, Error> {
+        let pixels = u64::from(width) * u64::from(height);
         let found = self
-            .sized
+            .kept
             .iter()
-            .position(|sized| (sized.width, sized.height) == (width, height));
-        let index = if let Some(index) = found {
-            index
+            .position(|scratch| (scratch.width, scratch.height) == (width, height));
+        let scratch = if let Some(found) = found.and_then(|index| self.kept.remove(index)) {
+            self.kept_pixels -= pixels;
+            found
         } else {
-            if self.sized.len() == KEPT_SIZES {
-                self.sized.remove(0);
-            }
             let (to_rgba, to_yuv) = contexts(width, height, self.source_range)?;
-            self.sized.push(Sized {
+            Scratch {
                 width,
                 height,
                 to_rgba,
                 to_yuv,
                 yuv: ffmpeg::frame::Video::new(Pixel::YUV420P, width, height),
                 rgba: ffmpeg::frame::Video::new(Pixel::RGBA, width, height),
-            });
-            self.sized.len() - 1
+            }
         };
-        self.sized.get_mut(index).ok_or(Error::FrameLayout)
+        while self.kept.len() >= KEPT_SIZES || self.kept_pixels + pixels > KEPT_PIXELS {
+            let Some(evicted) = self.kept.pop_front() else {
+                break;
+            };
+            self.kept_pixels -= u64::from(evicted.width) * u64::from(evicted.height);
+        }
+        self.kept_pixels += pixels;
+        self.kept.push_back(scratch);
+        self.kept.back_mut().ok_or(Error::FrameLayout)
     }
 
     pub(super) fn yuv_to_rgba(
@@ -92,34 +102,34 @@ impl Regions {
         row: usize,
         region: Region,
     ) -> Result<(), Error> {
-        let sized = self.sized(region.width, region.height)?;
+        let scratch = self.scratch(region.width, region.height)?;
         for (index, (plane, plane_row)) in frame.planes().into_iter().enumerate() {
-            let (left, top, width, rows) = within(region, index);
-            let stride = sized.yuv.stride(index);
+            let InPlane { left, top, width, rows } = within(region, index);
+            let stride = scratch.yuv.stride(index);
             let start = top * plane_row + left;
-            let copied = plane
-                .get(start..)
-                .is_some_and(|from| planes::copy_rows(from, plane_row, sized.yuv.data_mut(index), stride, width, rows));
+            let copied = plane.get(start..).is_some_and(|from| {
+                planes::copy_rows(from, plane_row, scratch.yuv.data_mut(index), stride, width, rows)
+            });
             if !copied {
                 return Err(Error::FrameLayout);
             }
         }
         if let Some(levels) = levels {
-            for level in sized.yuv.data_mut(0) {
+            for level in scratch.yuv.data_mut(0) {
                 *level = levels[usize::from(*level)];
             }
         }
-        sized
+        scratch
             .to_rgba
-            .run(&sized.yuv, &mut sized.rgba)
+            .run(&scratch.yuv, &mut scratch.rgba)
             .map_err(LibraryError::new)
             .map_err(Error::Convert)?;
         let start = region.top as usize * row + region.left as usize * RGBA_CHANNELS;
         let width = region.width as usize * RGBA_CHANNELS;
-        let stride = sized.rgba.stride(0);
+        let stride = scratch.rgba.stride(0);
         let copied = rgba
             .get_mut(start..)
-            .is_some_and(|to| planes::copy_rows(sized.rgba.data(0), stride, to, row, width, region.rows()));
+            .is_some_and(|to| planes::copy_rows(scratch.rgba.data(0), stride, to, row, width, region.rows()));
         if copied { Ok(()) } else { Err(Error::FrameLayout) }
     }
 
@@ -130,28 +140,28 @@ impl Regions {
         frame: &mut YuvFrame,
         region: Region,
     ) -> Result<(), Error> {
-        let sized = self.sized(region.width, region.height)?;
+        let scratch = self.scratch(region.width, region.height)?;
         let start = region.top as usize * row + region.left as usize * RGBA_CHANNELS;
         let width = region.width as usize * RGBA_CHANNELS;
-        let stride = sized.rgba.stride(0);
+        let stride = scratch.rgba.stride(0);
         let copied = rgba
             .get(start..)
-            .is_some_and(|from| planes::copy_rows(from, row, sized.rgba.data_mut(0), stride, width, region.rows()));
+            .is_some_and(|from| planes::copy_rows(from, row, scratch.rgba.data_mut(0), stride, width, region.rows()));
         if !copied {
             return Err(Error::FrameLayout);
         }
-        sized
+        scratch
             .to_yuv
-            .run(&sized.rgba, &mut sized.yuv)
+            .run(&scratch.rgba, &mut scratch.yuv)
             .map_err(LibraryError::new)
             .map_err(Error::Convert)?;
         for (index, (plane, plane_row)) in frame.planes_mut().into_iter().enumerate() {
-            let (left, top, width, rows) = within(region, index);
-            let stride = sized.yuv.stride(index);
+            let InPlane { left, top, width, rows } = within(region, index);
+            let stride = scratch.yuv.stride(index);
             let start = top * plane_row + left;
             let copied = plane
                 .get_mut(start..)
-                .is_some_and(|to| planes::copy_rows(sized.yuv.data(index), stride, to, plane_row, width, rows));
+                .is_some_and(|to| planes::copy_rows(scratch.yuv.data(index), stride, to, plane_row, width, rows));
             if !copied {
                 return Err(Error::FrameLayout);
             }
@@ -160,12 +170,19 @@ impl Regions {
     }
 }
 
-fn within(region: Region, plane: usize) -> (usize, usize, usize, usize) {
+struct InPlane {
+    left: usize,
+    top: usize,
+    width: usize,
+    rows: usize,
+}
+
+fn within(region: Region, plane: usize) -> InPlane {
     let shift = u32::from(plane > 0);
-    (
-        (region.left >> shift) as usize,
-        (region.top >> shift) as usize,
-        (region.width >> shift) as usize,
-        (region.height >> shift) as usize,
-    )
+    InPlane {
+        left: (region.left >> shift) as usize,
+        top: (region.top >> shift) as usize,
+        width: (region.width >> shift) as usize,
+        rows: (region.height >> shift) as usize,
+    }
 }

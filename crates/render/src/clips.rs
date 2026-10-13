@@ -13,12 +13,13 @@ use crate::overlay::Overlay;
 use crate::picture::{self, Picture};
 use crate::schedule::{self, Alone};
 use crate::source::{self, Origin, Source};
-use crate::windows::{HARDWARE_LANES, Window, clip_windows, groups};
+use crate::windows::{Group, Window, clip_windows, groups};
 
 #[cfg(test)]
 mod tests;
 
 const CORES_PER_THREAD: usize = 2;
+const HARDWARE_SESSIONS: usize = 8;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -71,7 +72,7 @@ pub struct Clip {
 
 #[derive(Debug)]
 pub struct Redone {
-    pub path: PathBuf,
+    pub paths: Vec<PathBuf>,
     pub cause: encode::Error,
 }
 
@@ -135,32 +136,44 @@ pub(crate) fn render_with<O: Open>(
         encoders: &encoders,
         paths: &paths,
     };
+    let groups = groups(&windows);
     let written = schedule::run(
-        &groups(&windows),
+        &groups,
         threads,
-        HARDWARE_LANES,
-        |group| encoders.hardware_sessions(group),
+        HARDWARE_SESSIONS,
+        |_| encoders.hardware_sessions(),
         |picture: &mut Option<Picture>, group, lease| rendering.render(group, picture, lease),
     )?;
     let mut rendered = Rendered::default();
-    let mut redo = Vec::new();
-    for group in written {
-        rendered.restarts += restarts(&group);
-        redo.extend(group.redo);
-    }
     let mut picture = None;
-    for failed in redo {
-        for group in groups(&[failed.window]) {
-            rendered.restarts += restarts(&rendering.render(&group, &mut picture, &Alone)?);
+    for (group, written) in groups.iter().zip(written) {
+        rendered.restarts += restarts(&written);
+        let Some(cause) = written.failed else {
+            continue;
+        };
+        let again = rendering.render(group, &mut picture, &Alone)?;
+        if let Some(twice) = again.failed {
+            let lead = clips_of(group, &paths).into_iter().next().unwrap_or_default();
+            return Err(Error::writing(&lead, twice));
         }
+        rendered.restarts += restarts(&again);
         rendered.redone.push(Redone {
-            path: failed.path,
-            cause: failed.cause,
+            paths: clips_of(group, &paths),
+            cause,
         });
     }
     Ok(rendered)
 }
 
 fn restarts(written: &Written) -> usize {
-    usize::from(matches!(written.origin, Origin::Start(_)))
+    usize::from(matches!(written.origin, Some(Origin::Start(_))))
+}
+
+fn clips_of(group: &Group, paths: &[Option<&Path>]) -> Vec<PathBuf> {
+    group
+        .members()
+        .iter()
+        .filter_map(|member| paths.get(member.track).copied().flatten())
+        .map(Path::to_path_buf)
+        .collect()
 }

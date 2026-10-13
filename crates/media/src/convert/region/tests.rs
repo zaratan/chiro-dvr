@@ -69,6 +69,48 @@ fn a_region_written_back_gives_the_luma_of_the_whole_conversion_and_leaves_the_r
             assert_eq!(part.y()[index], expected, "({x}, {y})");
         }
     }
+    let chroma_row = WIDTH as usize / 2;
+    for y in 4..9 {
+        for x in 6..14 {
+            let index = y * chroma_row + x;
+            assert_eq!(
+                (part.u()[index], part.v()[index]),
+                (whole.u()[index], whole.v()[index]),
+                "({x}, {y})"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_region_is_written_back_only_into_a_limited_range_frame() {
+    let mut converter = Converter::new(WIDTH, HEIGHT, SourceRange::FullBlackAt16).unwrap();
+    let rgba = vec![0; (WIDTH * HEIGHT * 4) as usize];
+    let mut full = YuvFrame::new(WIDTH, HEIGHT, ColorRange::Full).unwrap();
+    assert!(matches!(
+        converter.rgba_to_yuv_region(&rgba, &mut full, INSIDE),
+        Err(Error::TargetRange {
+            found: ColorRange::Full
+        })
+    ));
+}
+
+#[test]
+fn on_grey_across_a_full_width_frame_the_display_tables_give_the_round_trip_through_rgba() {
+    let mut converter = Converter::new(1440, 2, SourceRange::FullBlackAt16).unwrap();
+    let mut frame = YuvFrame::new(1440, 2, ColorRange::Limited).unwrap();
+    for (index, value) in frame.y_mut().iter_mut().enumerate() {
+        *value = (index * 7 % 256) as u8;
+    }
+    frame.u_mut().fill(128);
+    frame.v_mut().fill(128);
+    let mut rgba = vec![0; 1440 * 2 * 4];
+    let mut round_trip = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
+    converter.yuv_to_rgba(&frame, &mut rgba).unwrap();
+    converter.rgba_to_yuv(&rgba, &mut round_trip).unwrap();
+    let mut table = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
+    converter.display(&frame, &mut table).unwrap();
+    assert_eq!(table, round_trip);
 }
 
 #[test]
@@ -120,4 +162,24 @@ fn on_grey_the_display_tables_give_the_round_trip_through_rgba() {
     let mut table = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     converter.display(&frame, &mut table).unwrap();
     assert_eq!(table, round_trip);
+}
+
+#[test]
+fn a_size_evicted_from_the_cache_converts_again_like_the_whole_frame() {
+    let mut converter = Converter::new(WIDTH, HEIGHT, SourceRange::FullBlackAt16).unwrap();
+    let frame = textured();
+    let mut whole = vec![0; (WIDTH * HEIGHT * 4) as usize];
+    converter.yuv_to_rgba(&frame, &mut whole).unwrap();
+    let mut part = vec![0; whole.len()];
+    for step in 0..40 {
+        let region = Region {
+            left: 0,
+            top: 0,
+            width: 2 + 2 * (step % 30),
+            height: 2 + 2 * (step / 30),
+        };
+        converter.yuv_to_rgba_region(&frame, &mut part, region).unwrap();
+    }
+    converter.yuv_to_rgba_region(&frame, &mut part, INSIDE).unwrap();
+    assert_eq!(pixels_of(&part, INSIDE), pixels_of(&whole, INSIDE));
 }

@@ -21,6 +21,7 @@ const PIXEL_CENTER: f64 = 0.5;
 const BOX_SPREAD_LIMIT: f64 = 4.0;
 const LABEL_HEIGHTS: f32 = 2.0;
 const ZONE_MARGIN: i32 = 4;
+const ZONE_STEP: u32 = 16;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Mark {
@@ -122,7 +123,9 @@ impl Overlay {
             .collect();
         while let Some((first, second)) = touching(&zones) {
             let other = zones.swap_remove(second);
-            zones[first] = hull(zones[first], other);
+            if let Some(kept) = zones.get_mut(first) {
+                *kept = round_region(hull(*kept, other), width, height);
+            }
         }
         zones
     }
@@ -132,24 +135,25 @@ impl Overlay {
         let grow = i32::try_from(BOX_WIDTH).unwrap_or(i32::MAX);
         let baseline = area.top.saturating_sub(LABEL_LIFT);
         let label_height = (TRACK_LABEL.digit_px() * LABEL_HEIGHTS).ceil() as i32;
+        let label_right = area.left.saturating_add(track.label.width().ceil() as i32);
         let mut extent = PixelBox {
-            left: area.left - grow,
-            top: (area.top - grow).min(baseline - label_height),
-            right: (area.right + grow).max(area.left + track.label.width().ceil() as i32),
-            bottom: area.bottom + grow,
+            left: area.left.saturating_sub(grow),
+            top: area.top.saturating_sub(grow).min(baseline.saturating_sub(label_height)),
+            right: area.right.saturating_add(grow).max(label_right),
+            bottom: area.bottom.saturating_add(grow),
         };
         let reach = TRAIL_WIDTH.ceil() as i32;
         for point in self.trail(track, mark) {
-            extent.left = extent.left.min(point.x.floor() as i32 - reach);
-            extent.top = extent.top.min(point.y.floor() as i32 - reach);
-            extent.right = extent.right.max(point.x.ceil() as i32 + reach);
-            extent.bottom = extent.bottom.max(point.y.ceil() as i32 + reach);
+            extent.left = extent.left.min((point.x.floor() as i32).saturating_sub(reach));
+            extent.top = extent.top.min((point.y.floor() as i32).saturating_sub(reach));
+            extent.right = extent.right.max((point.x.ceil() as i32).saturating_add(reach));
+            extent.bottom = extent.bottom.max((point.y.ceil() as i32).saturating_add(reach));
         }
         PixelBox {
-            left: extent.left - ZONE_MARGIN,
-            top: extent.top - ZONE_MARGIN,
-            right: extent.right + ZONE_MARGIN,
-            bottom: extent.bottom + ZONE_MARGIN,
+            left: extent.left.saturating_sub(ZONE_MARGIN),
+            top: extent.top.saturating_sub(ZONE_MARGIN),
+            right: extent.right.saturating_add(ZONE_MARGIN),
+            bottom: extent.bottom.saturating_add(ZONE_MARGIN),
         }
     }
 
@@ -176,17 +180,37 @@ impl Overlay {
 }
 
 fn even_region(extent: PixelBox, width: u32, height: u32) -> Option<Region> {
-    let even_down = |value: i32| u32::try_from(value.max(0)).unwrap_or(0) & !1;
-    let left = even_down(extent.left);
-    let top = even_down(extent.top);
-    let right = (u32::try_from(extent.right.max(0)).unwrap_or(0) + 2).min(width) & !1;
-    let bottom = (u32::try_from(extent.bottom.max(0)).unwrap_or(0) + 2).min(height) & !1;
-    (right > left && bottom > top).then(|| Region {
+    let start = |value: i32| u32::try_from(value.max(0)).unwrap_or(0) & !1;
+    let end = |value: i32, limit: u32| u32::try_from(value.max(0)).unwrap_or(0).saturating_add(2).min(limit) & !1;
+    let (left, right) = rounded(start(extent.left), end(extent.right, width), width & !1)?;
+    let (top, bottom) = rounded(start(extent.top), end(extent.bottom, height), height & !1)?;
+    Some(Region {
         left,
         top,
         width: right - left,
         height: bottom - top,
     })
+}
+
+fn round_region(region: Region, width: u32, height: u32) -> Region {
+    let across = rounded(region.left, region.left.saturating_add(region.width), width & !1);
+    let down = rounded(region.top, region.top.saturating_add(region.height), height & !1);
+    match across.zip(down) {
+        Some(((left, right), (top, bottom))) => Region {
+            left,
+            top,
+            width: right - left,
+            height: bottom - top,
+        },
+        None => region,
+    }
+}
+
+fn rounded(start: u32, end: u32, limit: u32) -> Option<(u32, u32)> {
+    let length = end.checked_sub(start).filter(|length| *length > 0)?;
+    let length = length.div_ceil(ZONE_STEP).saturating_mul(ZONE_STEP).min(limit);
+    let start = start.min(limit - length);
+    Some((start, start + length))
 }
 
 fn touching(zones: &[Region]) -> Option<(usize, usize)> {

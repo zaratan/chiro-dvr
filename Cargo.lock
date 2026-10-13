@@ -873,7 +873,6 @@ version = "0.0.0"
 dependencies = [
  "draw",
  "media",
- "rayon",
  "reference",
  "tempfile",
  "thiserror",

@@ -63,7 +63,7 @@ enum Walk {
     Overshot(FrameIndex),
 }
 
-/// Serves frames chosen by their pts, with the pixels of a single-threaded reading from the start.
+/// Serves frames chosen by their pts, with the pixels a single-threaded reading gives from the start.
 #[derive(Debug)]
 pub struct Source {
     path: PathBuf,
@@ -110,7 +110,7 @@ impl Source {
         let resume = resume::clean_key_before(span.first(), &self.keys, &self.errors, &self.numbering);
         let restart = match resume {
             None => Restart::NoCleanKey,
-            Some((key, pts)) => match self.open()?.seek_before(pts) {
+            Some((key, pts)) => match self.open(key, span.last())?.seek_before(pts) {
                 Err(error) => Restart::Unplaced(error),
                 Ok(placed) => match self.walk(placed, &mut frame, span, Some(key), &mut visit)? {
                     Walk::Served => return Ok(Origin::Key(key)),
@@ -118,7 +118,14 @@ impl Source {
                 },
             },
         };
-        self.walk(self.open()?.at_start(), &mut frame, span, None, &mut visit)?;
+        let start = FrameIndex::new(0);
+        self.walk(
+            self.open(start, span.last())?.at_start(),
+            &mut frame,
+            span,
+            None,
+            &mut visit,
+        )?;
         Ok(Origin::Start(restart))
     }
 
@@ -136,8 +143,16 @@ impl Source {
         unknown.map_or(Ok(()), |frame| Err(Error::NoPts { frame }))
     }
 
-    fn open(&self) -> Result<Decoder, Error> {
-        Decoder::open(&self.path, Threads::Exactly(NonZeroUsize::MIN)).map_err(|source| self.unreadable(source))
+    fn open(&self, from: FrameIndex, to: FrameIndex) -> Result<Decoder, Error> {
+        Decoder::open(&self.path, self.threads(from, to)).map_err(|source| self.unreadable(source))
+    }
+
+    fn threads(&self, from: FrameIndex, to: FrameIndex) -> Threads {
+        if self.errors.iter().any(|error| (from..=to).contains(error)) {
+            Threads::Exactly(NonZeroUsize::MIN)
+        } else {
+            Threads::Automatic
+        }
     }
 
     fn unreadable(&self, source: decode::Error) -> Error {

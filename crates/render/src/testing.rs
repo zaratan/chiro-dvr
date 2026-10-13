@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
+use media::encode::fanout::Fanout;
 use media::encode::{self, Codec, Encoder, Settings};
 use media::frame::{ColorRange, YuvFrame};
 use types::detection::Detection;
@@ -76,7 +77,6 @@ pub(crate) fn thirty() -> FrameRate {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Breaking {
-    Open,
     PushAt(usize),
     Persist,
 }
@@ -84,9 +84,11 @@ pub(crate) enum Breaking {
 #[derive(Debug, Default)]
 pub(crate) struct Fake {
     pub(crate) breaks: Vec<(&'static str, Codec, Breaking)>,
+    pub(crate) refused: Option<Codec>,
     live_hardware: Arc<AtomicUsize>,
     most_hardware: Arc<AtomicUsize>,
     opened: Mutex<Vec<(String, Codec)>>,
+    created: AtomicUsize,
 }
 
 #[derive(Debug)]
@@ -99,11 +101,12 @@ impl Drop for Live {
 }
 
 #[derive(Debug)]
-pub(crate) struct FakeSink {
-    encoder: Encoder,
-    path: PathBuf,
+pub(crate) struct FakeSink<'a> {
+    fanout: Fanout,
+    fake: &'a Fake,
+    codec: Codec,
+    breaking: Option<(PathBuf, Breaking, usize)>,
     pushed: usize,
-    breaking: Option<Breaking>,
     _live: Option<Live>,
 }
 
@@ -115,8 +118,19 @@ impl Fake {
         }
     }
 
+    pub(crate) fn refusing(codec: Codec) -> Self {
+        Self {
+            refused: Some(codec),
+            ..Self::default()
+        }
+    }
+
     pub(crate) fn most_hardware_at_once(&self) -> usize {
         self.most_hardware.load(Ordering::SeqCst)
+    }
+
+    pub(crate) fn encoders_created(&self) -> usize {
+        self.created.load(Ordering::SeqCst)
     }
 
     pub(crate) fn opened(&self) -> Vec<(String, Codec)> {
@@ -124,56 +138,69 @@ impl Fake {
     }
 }
 
-impl Open for Fake {
-    type Sink = FakeSink;
+impl<'a> Open for &'a Fake {
+    type Sink = FakeSink<'a>;
 
-    fn open(&self, request: &Request<'_>) -> Result<FakeSink, encode::Error> {
-        let name = request.path.file_name().unwrap().to_string_lossy().into_owned();
-        let breaking = self
-            .breaks
-            .iter()
-            .find(|(broken, codec, _)| *broken == name && *codec == request.codec)
-            .map(|(_, _, breaking)| *breaking);
-        if breaking == Some(Breaking::Open) {
+    fn open(&self, request: &Request) -> Result<FakeSink<'a>, encode::Error> {
+        if self.refused == Some(request.codec) {
             return Err(encode::Error::EncoderMissing { name: "forced" });
         }
         let software = Request {
             codec: Codec::OpenH264,
             ..*request
         };
-        let encoder = Encoder::create(request.path, &software.settings()?)?;
+        let fanout = Fanout::create(&software.settings()?)?;
+        self.created.fetch_add(1, Ordering::SeqCst);
         let live = (request.codec == Codec::VideoToolbox).then(|| {
             let now = self.live_hardware.fetch_add(1, Ordering::SeqCst) + 1;
             self.most_hardware.fetch_max(now, Ordering::SeqCst);
             Live(Arc::clone(&self.live_hardware))
         });
-        self.opened.lock().unwrap().push((name, request.codec));
         Ok(FakeSink {
-            encoder,
-            path: request.path.to_path_buf(),
+            fanout,
+            fake: self,
+            codec: request.codec,
+            breaking: None,
             pushed: 0,
-            breaking,
             _live: live,
         })
     }
 }
 
-impl Sink for FakeSink {
+impl Sink for FakeSink<'_> {
+    fn open(&mut self, path: &Path, frames: usize) -> Result<(), encode::Error> {
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        let found = self
+            .fake
+            .breaks
+            .iter()
+            .find(|(broken, codec, _)| *broken == name && *codec == self.codec);
+        if let Some((_, _, breaking)) = found {
+            self.breaking = Some((path.to_path_buf(), *breaking, frames));
+            self.pushed = 0;
+        }
+        self.fake.opened.lock().unwrap().push((name, self.codec));
+        self.fanout.open(path, frames)
+    }
+
     fn push(&mut self, frame: &YuvFrame) -> Result<(), encode::Error> {
-        if self.breaking == Some(Breaking::PushAt(self.pushed)) {
-            return Err(encode::Error::FrameLayout);
+        match &self.breaking {
+            Some((_, Breaking::PushAt(at), _)) if self.pushed == *at => {
+                return Err(encode::Error::FrameLayout);
+            }
+            Some((path, Breaking::Persist, frames)) if self.pushed + 1 == *frames => {
+                return Err(encode::Error::Persist {
+                    path: path.clone(),
+                    source: io::Error::other("forced"),
+                });
+            }
+            _ => {}
         }
         self.pushed += 1;
-        self.encoder.push(frame)
+        self.fanout.push(frame)
     }
 
     fn finish(self) -> Result<(), encode::Error> {
-        if self.breaking == Some(Breaking::Persist) {
-            return Err(encode::Error::Persist {
-                path: self.path,
-                source: io::Error::other("forced"),
-            });
-        }
-        self.encoder.finish()
+        self.fanout.finish()
     }
 }

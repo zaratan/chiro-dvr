@@ -25,8 +25,6 @@ impl Hold for Stopped {
     fn stopped(&self) -> bool {
         true
     }
-
-    fn keep(&self, _sessions: usize) {}
 }
 
 #[derive(Debug)]
@@ -83,13 +81,14 @@ fn names_in(folder: &Path) -> Vec<String> {
 }
 
 #[test]
-fn a_videotoolbox_failure_mid_clip_is_handed_back_to_be_written_again_and_sets_videotoolbox_aside() {
+fn a_videotoolbox_failure_hands_the_whole_group_back_to_be_written_again_and_sets_videotoolbox_aside() {
     let folder = tempfile::tempdir().unwrap();
     let setting = Setting::two_overlapping_clips(folder.path());
     let group = setting.group();
     let overlay = setting.overlay();
     let fake = Fake::breaking(vec![("first.mp4", Codec::VideoToolbox, Breaking::PushAt(2))]);
-    let encoders = Encoders::new(&fake, &BOTH, setting.source.rate());
+    let opener = &fake;
+    let encoders = Encoders::new(&opener, &BOTH, setting.source.rate());
     let paths = setting.paths();
     let rendering = Rendering {
         source: &setting.source,
@@ -98,12 +97,9 @@ fn a_videotoolbox_failure_mid_clip_is_handed_back_to_be_written_again_and_sets_v
         paths: &paths,
     };
     let written = rendering.render(&group, &mut None, &Alone).unwrap();
-    assert_eq!(written.redo.len(), 1);
-    assert_eq!(written.redo[0].path, setting.paths[0]);
-    assert_eq!(written.redo[0].window.track, 0);
-    assert!(matches!(written.redo[0].cause, encode::Error::FrameLayout));
-    assert_eq!(encoders.hardware_sessions(&group), 0);
-    assert_eq!(names_in(folder.path()), ["binoculars.mp4", "second.mp4"]);
+    assert!(matches!(written.failed, Some(encode::Error::FrameLayout)));
+    assert_eq!(encoders.hardware_sessions(), 0);
+    assert_eq!(names_in(folder.path()), ["binoculars.mp4"]);
 }
 
 #[test]
@@ -113,7 +109,8 @@ fn a_stop_raised_before_the_first_frame_ends_the_group_without_any_file() {
     let group = setting.group();
     let overlay = setting.overlay();
     let fake = Fake::default();
-    let encoders = Encoders::new(&fake, &BOTH, setting.source.rate());
+    let opener = &fake;
+    let encoders = Encoders::new(&opener, &BOTH, setting.source.rate());
     let paths = setting.paths();
     let rendering = Rendering {
         source: &setting.source,
@@ -125,4 +122,34 @@ fn a_stop_raised_before_the_first_frame_ends_the_group_without_any_file() {
     assert!(matches!(stopped, Err(Error::Stopped)));
     assert_eq!(fake.opened().len(), 0);
     assert_eq!(names_in(folder.path()), ["binoculars.mp4"]);
+}
+
+#[test]
+fn the_clips_of_a_group_come_from_one_encoder_session_that_opens_each_on_its_first_frame() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut setting = Setting::two_overlapping_clips(folder.path());
+    let later: Vec<(usize, f64, f64)> = (5..=9).map(|frame| (frame, 40.0, 120.0)).collect();
+    setting.tracks[1] = track(2, &later);
+    let group = setting.group();
+    let overlay = setting.overlay();
+    let fake = Fake::default();
+    let opener = &fake;
+    let encoders = Encoders::new(&opener, &BOTH, setting.source.rate());
+    let paths = setting.paths();
+    let rendering = Rendering {
+        source: &setting.source,
+        overlay: &overlay,
+        encoders: &encoders,
+        paths: &paths,
+    };
+    let written = rendering.render(&group, &mut None, &Alone).unwrap();
+    assert!(written.failed.is_none());
+    let expected = [("first.mp4", Codec::VideoToolbox), ("second.mp4", Codec::VideoToolbox)]
+        .map(|(name, codec)| (name.to_owned(), codec));
+    assert_eq!(fake.opened(), expected);
+    assert_eq!(fake.encoders_created(), 1);
+    let (early, late) = (sequential::read(&setting.paths[0]), sequential::read(&setting.paths[1]));
+    assert_eq!((early.timeline.frame_count(), late.timeline.frame_count()), (11, 11));
+    assert_eq!(late.fingerprints[0], early.fingerprints[2]);
+    assert_eq!(late.keys.first().map(|key| key.get()), Some(0));
 }

@@ -180,9 +180,9 @@ crates depuis #104, dépendances à sens unique :
   `files` → `types` (#122).
 - `draw` : dessin pur sur une toile RGBA opaque, police Roboto embarquée, palette et tailles ; ne dépend d'aucune crate du workspace.
 - `render` → `media`, `draw`, `types` (#110, #112) : images des extraits choisies par `pts`
-  (`source`), reprise sur la dernière image-clé saine, un fil de décodage par plage ;
-  fenêtres, groupes et voies (`windows`), boîtes, `#N` et traces (`overlay`, `picture`),
-  extraits écrits par groupes en parallèle, au plus 8 sessions VideoToolbox (`clips`,
+  (`source`), reprise sur la dernière image-clé saine, un seul fil de décodage sur une plage abîmée ;
+  fenêtres et groupes (`windows`), boîtes, `#N` et traces (`overlay`, `picture`),
+  un encodeur par groupe (`media::encode::fanout`), groupes en parallèle (`clips`,
   `schedule`, `group`, `ahead`, `encoders`).
 - `summary` → `draw`, `types`, `files` (#104) : l'image résumé (tranches, couleurs,
   flèches, pastilles, bandeau, frise du temps, PNG), sans FFmpeg.

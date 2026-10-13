@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use std::num::NonZeroU32;
 
@@ -213,16 +213,25 @@ fn too_many_tracks_names_the_video_the_count_and_the_limit_in_the_language_of_th
 }
 
 #[test]
-fn a_clip_written_again_is_named_with_the_cause_of_the_videotoolbox_failure() {
+fn the_clips_written_again_are_named_with_the_cause_of_the_videotoolbox_failure() {
     let cause = Layer("the encoder failed", Some(Box::new(Layer("Invalid data", None))));
-    let clip = Path::new("out/video_092/extraits/piste_03_0m51s.mp4");
+    let one = [PathBuf::from("out/video_092/extraits/piste_03_0m51s.mp4")];
+    let two = [
+        one[0].clone(),
+        PathBuf::from("out/video_092/extraits/piste_04_0m53s.mp4"),
+    ];
     assert_eq!(
-        redone(Language::French, &job(), clip, &cause),
+        redone(Language::French, &job(), &one, &cause),
         "nuit/video_092.mp4 : piste_03_0m51s.mp4 réécrit avec openh264 après une erreur de VideoToolbox : \
          the encoder failed: Invalid data"
     );
     assert_eq!(
-        redone(Language::English, &job(), clip, &cause),
+        redone(Language::French, &job(), &two, &cause),
+        "nuit/video_092.mp4 : piste_03_0m51s.mp4, piste_04_0m53s.mp4 réécrits avec openh264 après une erreur de \
+         VideoToolbox : the encoder failed: Invalid data"
+    );
+    assert_eq!(
+        redone(Language::English, &job(), &one, &cause),
         "nuit/video_092.mp4: piste_03_0m51s.mp4 written again with openh264 after a VideoToolbox error: \
          the encoder failed: Invalid data"
     );

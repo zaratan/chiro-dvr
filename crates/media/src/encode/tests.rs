@@ -403,6 +403,22 @@ fn only_errors_about_the_destination_concern_it() {
         }
         .concerns_the_destination()
     );
+    let library = || crate::failure::LibraryError::new(ffmpeg::Error::InvalidData);
+    assert!(
+        Error::OpenFile {
+            path: path.clone(),
+            source: library()
+        }
+        .concerns_the_destination()
+    );
+    assert!(
+        !Error::Writing {
+            path: path.clone(),
+            source: library()
+        }
+        .concerns_the_destination()
+    );
+    assert!(!Error::NoKeyFrame { path: path.clone() }.concerns_the_destination());
     assert!(Error::Persist { path, source: io() }.concerns_the_destination());
     assert!(!Error::FrameLayout.concerns_the_destination());
     assert!(!Error::FullRange.concerns_the_destination());

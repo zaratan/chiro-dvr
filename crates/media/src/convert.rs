@@ -52,6 +52,8 @@ pub enum Error {
     Convert(#[source] LibraryError),
     #[error("cannot shape the converted frame")]
     Frame(#[source] frame::Error),
+    #[error("a region is written back only into a limited-range frame, not a {found:?} one")]
+    TargetRange { found: ColorRange },
     #[error("{region:?} is not an even, non-empty part of a {width}×{height} frame")]
     Region { region: Region, width: u32, height: u32 },
 }
@@ -135,13 +137,16 @@ impl Converter {
         self.check_buffer(rgba.len())?;
         let row = self.rgba_row();
         self.check_region(region)?;
-        let levels = self.luma_levels;
-        self.regions.yuv_to_rgba(frame, levels.as_ref(), rgba, row, region)
+        self.regions
+            .yuv_to_rgba(frame, self.luma_levels.as_ref(), rgba, row, region)
     }
 
     pub fn rgba_to_yuv_region(&mut self, rgba: &[u8], frame: &mut YuvFrame, region: Region) -> Result<(), Error> {
         self.check_buffer(rgba.len())?;
         self.check_size(frame.width(), frame.height())?;
+        if frame.range() != ColorRange::Limited {
+            return Err(Error::TargetRange { found: frame.range() });
+        }
         let row = self.rgba_row();
         self.check_region(region)?;
         self.regions.rgba_to_yuv(rgba, row, frame, region)

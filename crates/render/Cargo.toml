@@ -9,7 +9,6 @@ publish.workspace = true
 [dependencies]
 draw.workspace = true
 media.workspace = true
-rayon.workspace = true
 thiserror.workspace = true
 types.workspace = true
 

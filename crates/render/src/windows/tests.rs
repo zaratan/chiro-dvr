@@ -23,12 +23,8 @@ fn windows(spans: &[(usize, usize)]) -> Vec<Window> {
         .collect()
 }
 
-fn lanes(group: &Group) -> Vec<(usize, usize)> {
-    group
-        .members()
-        .iter()
-        .map(|member| (member.window.track, member.lane))
-        .collect()
+fn tracks_of(group: &Group) -> Vec<usize> {
+    group.members().iter().map(|window| window.track).collect()
 }
 
 #[test]
@@ -57,55 +53,9 @@ fn windows_that_overlap_or_touch_share_a_group_and_a_gap_starts_another() {
 }
 
 #[test]
-fn a_window_takes_the_first_lane_whose_last_window_has_ended_as_v0_1_1_did() {
-    let found = groups(&windows(&[(0, 10), (5, 20), (11, 30), (21, 25), (8, 9)]));
-    assert_eq!(found.len(), 1);
-    assert_eq!(lanes(&found[0]), [(0, 0), (1, 1), (4, 2), (2, 0), (3, 1)]);
-    assert_eq!(found[0].lanes(), 3);
-}
-
-#[test]
-fn lanes_start_again_from_the_first_in_each_group() {
-    let found = groups(&windows(&[(0, 10), (5, 20), (40, 50)]));
-    assert_eq!(lanes(&found[1]), [(2, 0)]);
-    assert_eq!(found[1].lanes(), 1);
-}
-
-#[test]
-fn a_group_holds_at_most_eight_hardware_lanes() {
-    let crowded: Vec<(usize, usize)> = (0..10).map(|start| (start, 100)).collect();
-    let found = groups(&windows(&crowded));
-    assert_eq!((found[0].lanes(), found[0].hardware_lanes()), (10, 8));
-    assert_eq!(groups(&windows(&[(0, 10), (5, 20)]))[0].hardware_lanes(), 2);
-}
-
-#[test]
-fn the_hardware_sessions_a_group_still_needs_only_fall_as_its_windows_close() {
-    let found = groups(&windows(&[(0, 10), (5, 20), (11, 30), (21, 25), (8, 9)]));
-    let needed: Vec<usize> = [0, 9, 10, 21, 26, 30, 31]
-        .iter()
-        .map(|frame| found[0].hardware_lanes_from(FrameIndex::new(*frame)))
-        .collect();
-    assert_eq!(needed, [3, 3, 2, 2, 1, 1, 0]);
-    assert_eq!(found[0].hardware_lanes(), 3);
-}
-
-#[test]
-fn lanes_beyond_the_eighth_need_no_hardware_session_at_any_frame() {
-    let crowded: Vec<(usize, usize)> = (0..10).map(|start| (start, 100 - start)).collect();
-    let found = groups(&windows(&crowded));
-    let needed: Vec<usize> = (0..=101)
-        .map(|frame| found[0].hardware_lanes_from(FrameIndex::new(frame)))
-        .collect();
-    assert_eq!(needed[0], 8);
-    assert!(needed.windows(2).all(|pair| pair[0] >= pair[1]), "{needed:?}");
-    assert_eq!((needed[93], needed[94], needed[100], needed[101]), (8, 7, 1, 0));
-}
-
-#[test]
 fn windows_starting_together_keep_the_order_of_their_tracks() {
     let found = groups(&windows(&[(5, 10), (5, 10), (0, 10)]));
-    assert_eq!(lanes(&found[0]), [(2, 0), (0, 1), (1, 2)]);
+    assert_eq!(tracks_of(&found[0]), [2, 0, 1]);
 }
 
 fn reference_windows(name: &str) -> (Vec<usize>, usize) {
@@ -131,10 +81,4 @@ fn the_reference_tracks_of_the_extract_and_the_092_give_the_lengths_of_the_v0_1_
             12
         )
     );
-}
-
-#[test]
-fn a_window_starting_on_the_last_frame_of_another_cannot_share_its_lane() {
-    let found = groups(&windows(&[(0, 10), (10, 20), (11, 30)]));
-    assert_eq!(lanes(&found[0]), [(0, 0), (1, 1), (2, 0)]);
 }

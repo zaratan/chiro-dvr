@@ -12,7 +12,6 @@ use crate::encoders::Ffmpeg;
 use crate::sequential::{self, Sequential};
 use crate::source::Source;
 use crate::testing::{self, Breaking, Fake, track};
-use crate::windows::HARDWARE_LANES;
 
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
@@ -58,18 +57,19 @@ fn clips(folder: &Path, tracks: &[Track]) -> Vec<Clip> {
 }
 
 fn written_with(
-    open: &Fake,
+    fake: &Fake,
     threads: usize,
     source: &Source,
     tracks: &[Track],
     clips: &[Clip],
+    codecs: &[Codec],
 ) -> Result<Rendered, Error> {
     let video = Video {
         source,
         tracks,
         config: tenth_of_a_second(),
     };
-    render_with(open, threads, &video, clips, &BOTH)
+    render_with(&fake, threads, &video, clips, codecs)
 }
 
 fn frame_count(path: &Path) -> usize {
@@ -192,45 +192,46 @@ fn groups_written_in_parallel_give_the_same_bytes_as_a_single_thread() {
 }
 
 #[test]
-fn no_more_than_eight_videotoolbox_sessions_are_open_at_once_and_a_ninth_lane_takes_openh264() {
+fn each_group_writes_all_its_clips_through_a_single_videotoolbox_session() {
     let folder = tempfile::tempdir().unwrap();
     let (_, source) = source(folder.path());
     let tracks = tracks(&[(3..=7, 9), (19..=23, 6), (35..=39, 6)]);
     let clips = clips(folder.path(), &tracks);
     let fake = Fake::default();
-    written_with(&fake, 3, &source, &tracks, &clips).unwrap();
-    assert!(fake.most_hardware_at_once() <= HARDWARE_LANES);
+    written_with(&fake, 3, &source, &tracks, &clips, &BOTH).unwrap();
+    assert!(fake.most_hardware_at_once() <= 3);
+    assert_eq!(fake.encoders_created(), 3);
     assert!(clips.iter().all(|clip| frame_count(&clip.path) == 11));
     let opened = fake.opened();
-    let software: Vec<&str> = opened
-        .iter()
-        .filter(|(_, codec)| *codec == Codec::OpenH264)
-        .map(|(name, _)| name.as_str())
-        .collect();
-    assert_eq!(software, ["clip_8.mp4"]);
     assert_eq!(opened.len(), 21);
+    assert!(opened.iter().all(|(_, codec)| *codec == Codec::VideoToolbox));
 }
 
 #[test]
-fn a_videotoolbox_failure_mid_clip_writes_it_again_with_openh264_and_sets_videotoolbox_aside() {
+fn a_videotoolbox_failure_writes_its_whole_group_again_with_openh264_and_sets_videotoolbox_aside() {
     let folder = tempfile::tempdir().unwrap();
     let (_, source) = source(folder.path());
-    let tracks = tracks(&[(3..=7, 1), (20..=24, 1)]);
+    let tracks = tracks(&[(3..=7, 2), (20..=24, 1)]);
     let clips = clips(folder.path(), &tracks);
     let fake = Fake::breaking(vec![("clip_0.mp4", Codec::VideoToolbox, Breaking::PushAt(3))]);
-    let rendered = written_with(&fake, 1, &source, &tracks, &clips).unwrap();
+    let rendered = written_with(&fake, 1, &source, &tracks, &clips, &BOTH).unwrap();
     assert_eq!(rendered.redone.len(), 1);
-    assert_eq!(rendered.redone[0].path, clips[0].path);
+    assert_eq!(rendered.redone[0].paths, [clips[0].path.clone(), clips[1].path.clone()]);
     assert!(matches!(rendered.redone[0].cause, encode::Error::FrameLayout));
     let opened = [
         ("clip_0.mp4", Codec::VideoToolbox),
-        ("clip_1.mp4", Codec::OpenH264),
+        ("clip_1.mp4", Codec::VideoToolbox),
+        ("clip_2.mp4", Codec::OpenH264),
         ("clip_0.mp4", Codec::OpenH264),
+        ("clip_1.mp4", Codec::OpenH264),
     ]
     .map(|(name, codec)| (name.to_owned(), codec));
     assert_eq!(fake.opened(), opened);
-    assert_eq!((frame_count(&clips[0].path), frame_count(&clips[1].path)), (11, 11));
-    assert_eq!(names_in(folder.path()), ["binoculars.mp4", "clip_0.mp4", "clip_1.mp4"]);
+    assert!(clips.iter().all(|clip| frame_count(&clip.path) == 11));
+    assert_eq!(
+        names_in(folder.path()),
+        ["binoculars.mp4", "clip_0.mp4", "clip_1.mp4", "clip_2.mp4"]
+    );
 }
 
 #[test]
@@ -240,52 +241,79 @@ fn a_videotoolbox_failure_about_the_destination_is_not_written_again() {
     let tracks = tracks(&[(3..=7, 1)]);
     let clips = clips(folder.path(), &tracks);
     let fake = Fake::breaking(vec![("clip_0.mp4", Codec::VideoToolbox, Breaking::Persist)]);
-    let error = written_with(&fake, 1, &source, &tracks, &clips).unwrap_err();
+    let error = written_with(&fake, 1, &source, &tracks, &clips, &BOTH).unwrap_err();
     assert!(matches!(error, Error::Destination { path, .. } if path == clips[0].path));
     assert_eq!(names_in(folder.path()), ["binoculars.mp4"]);
 }
 
 #[test]
-fn an_openh264_failure_stops_the_video_while_another_group_waits_for_its_sessions() {
+fn an_openh264_failure_stops_the_video_and_leaves_the_later_groups_unstarted() {
     let folder = tempfile::tempdir().unwrap();
     let (_, source) = source(folder.path());
-    let tracks = tracks(&[(3..=7, 9), (30..=34, 1)]);
+    let tracks = tracks(&[(3..=7, 3), (30..=34, 1)]);
     let clips = clips(folder.path(), &tracks);
-    let fake = Fake::breaking(vec![("clip_8.mp4", Codec::OpenH264, Breaking::PushAt(2))]);
-    let error = written_with(&fake, 2, &source, &tracks, &clips).unwrap_err();
+    let fake = Fake::breaking(vec![("clip_0.mp4", Codec::OpenH264, Breaking::PushAt(2))]);
+    let error = written_with(&fake, 1, &source, &tracks, &clips, &[Codec::OpenH264]).unwrap_err();
     assert!(
-        matches!(&error, Error::Clip { path, .. } if *path == clips[8].path),
+        matches!(&error, Error::Clip { path, .. } if *path == clips[0].path),
         "{error:?}"
     );
-    assert!(fake.opened().iter().all(|(name, _)| name != "clip_9.mp4"));
+    assert!(fake.opened().iter().all(|(name, _)| name != "clip_3.mp4"));
     assert_eq!(names_in(folder.path()), ["binoculars.mp4"]);
 }
 
 #[test]
-fn giving_sessions_back_on_the_way_keeps_each_clip_on_the_same_encoder_and_the_peak_at_eight() {
+fn each_clip_is_written_by_the_same_encoder_whatever_the_number_of_threads() {
     let folder = tempfile::tempdir().unwrap();
     let (_, source) = source(folder.path());
     let tracks = tracks(&[(3..=7, 9), (20..=30, 3), (24..=26, 4), (40..=44, 6)]);
     let clips = clips(folder.path(), &tracks);
     let encoders_of = |threads: usize| {
         let fake = Fake::default();
-        written_with(&fake, threads, &source, &tracks, &clips).unwrap();
+        written_with(&fake, threads, &source, &tracks, &clips, &BOTH).unwrap();
         let mut opened = fake.opened();
         opened.sort_by(|a, b| a.0.cmp(&b.0));
-        (opened, fake.most_hardware_at_once())
+        opened
     };
-    let (alone, peak_alone) = encoders_of(1);
+    let alone = encoders_of(1);
     for threads in [3, 5, 5] {
-        let (opened, peak) = encoders_of(threads);
-        assert_eq!(opened, alone);
-        assert_eq!(peak, HARDWARE_LANES);
+        assert_eq!(encoders_of(threads), alone);
     }
-    assert_eq!(peak_alone, HARDWARE_LANES);
-    let software: Vec<&str> = alone
-        .iter()
-        .filter(|(_, codec)| *codec == Codec::OpenH264)
-        .map(|(name, _)| name.as_str())
-        .collect();
-    assert_eq!(software, ["clip_8.mp4"]);
     assert!(clips.iter().all(|clip| frame_count(&clip.path) > 0));
+}
+
+#[test]
+fn a_failure_on_the_second_clip_of_a_group_names_that_clip() {
+    let folder = tempfile::tempdir().unwrap();
+    let (_, source) = source(folder.path());
+    let tracks = [crossing(3..=7, 30.0), crossing(5..=12, 50.0)].map(|track| track.with_id(1));
+    let clips = clips(folder.path(), &tracks);
+    let fake = Fake::breaking(vec![("clip_1.mp4", Codec::VideoToolbox, Breaking::Persist)]);
+    let error = written_with(&fake, 1, &source, &tracks, &clips, &BOTH).unwrap_err();
+    assert!(
+        matches!(&error, Error::Destination { path, .. } if *path == clips[1].path),
+        "{error:?}"
+    );
+}
+
+#[test]
+fn a_videotoolbox_failure_after_a_clip_of_the_group_is_finished_writes_that_clip_again_too() {
+    let folder = tempfile::tempdir().unwrap();
+    let (_, source) = source(folder.path());
+    let tracks = [crossing(3..=7, 30.0), crossing(5..=12, 50.0)].map(|track| track.with_id(1));
+    let clips = clips(folder.path(), &tracks);
+    let fake = Fake::breaking(vec![("clip_1.mp4", Codec::VideoToolbox, Breaking::PushAt(11))]);
+    let rendered = written_with(&fake, 1, &source, &tracks, &clips, &BOTH).unwrap();
+    assert_eq!(rendered.redone.len(), 1);
+    assert_eq!(rendered.redone[0].paths, [clips[0].path.clone(), clips[1].path.clone()]);
+    let opened = [
+        ("clip_0.mp4", Codec::VideoToolbox),
+        ("clip_1.mp4", Codec::VideoToolbox),
+        ("clip_0.mp4", Codec::OpenH264),
+        ("clip_1.mp4", Codec::OpenH264),
+    ]
+    .map(|(name, codec)| (name.to_owned(), codec));
+    assert_eq!(fake.opened(), opened);
+    assert_eq!((frame_count(&clips[0].path), frame_count(&clips[1].path)), (11, 14));
+    assert_eq!(names_in(folder.path()), ["binoculars.mp4", "clip_0.mp4", "clip_1.mp4"]);
 }

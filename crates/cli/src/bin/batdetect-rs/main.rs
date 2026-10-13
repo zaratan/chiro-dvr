@@ -39,7 +39,7 @@ fn run(jobs: &[Job], language: Language) -> ExitCode {
                     writeln!(
                         stderr,
                         "{}",
-                        messages::redone(language, job, &redone.path, &redone.cause)
+                        messages::redone(language, job, &redone.paths, &redone.cause)
                     )
                 });
                 redone.and_then(|()| {

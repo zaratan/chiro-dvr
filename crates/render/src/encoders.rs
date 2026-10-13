@@ -2,36 +2,39 @@ use std::num::NonZeroU32;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use media::encode::{self, Codec, Encoder, Settings};
+use media::encode::fanout::Fanout;
+use media::encode::{self, Codec, Settings};
 use media::frame::YuvFrame;
-use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
 
 use crate::clips::Error;
-use crate::windows::{Group, HARDWARE_LANES};
 
 #[cfg(test)]
 mod tests;
 
 pub(crate) trait Sink: Send {
+    fn open(&mut self, path: &Path, frames: usize) -> Result<(), encode::Error>;
     fn push(&mut self, frame: &YuvFrame) -> Result<(), encode::Error>;
     fn finish(self) -> Result<(), encode::Error>;
 }
 
-impl Sink for Encoder {
+impl Sink for Fanout {
+    fn open(&mut self, path: &Path, frames: usize) -> Result<(), encode::Error> {
+        Fanout::open(self, path, frames)
+    }
+
     fn push(&mut self, frame: &YuvFrame) -> Result<(), encode::Error> {
-        Encoder::push(self, frame)
+        Fanout::push(self, frame)
     }
 
     fn finish(self) -> Result<(), encode::Error> {
-        Encoder::finish(self)
+        Fanout::finish(self)
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct Request<'a> {
-    pub(crate) path: &'a Path,
+pub(crate) struct Request {
     pub(crate) width: u32,
     pub(crate) height: u32,
     pub(crate) rate: Rational,
@@ -39,7 +42,7 @@ pub(crate) struct Request<'a> {
     pub(crate) key_interval: NonZeroU32,
 }
 
-impl Request<'_> {
+impl Request {
     pub(crate) fn settings(&self) -> Result<Settings, encode::Error> {
         let settings = Settings::new(self.width, self.height, self.rate, self.codec)?;
         Ok(match self.codec {
@@ -51,17 +54,17 @@ impl Request<'_> {
 
 pub(crate) trait Open: Sync {
     type Sink: Sink;
-    fn open(&self, request: &Request<'_>) -> Result<Self::Sink, encode::Error>;
+    fn open(&self, request: &Request) -> Result<Self::Sink, encode::Error>;
 }
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Ffmpeg;
 
 impl Open for Ffmpeg {
-    type Sink = Encoder;
+    type Sink = Fanout;
 
-    fn open(&self, request: &Request<'_>) -> Result<Encoder, encode::Error> {
-        Encoder::create(request.path, &request.settings()?)
+    fn open(&self, request: &Request) -> Result<Fanout, encode::Error> {
+        Fanout::create(&request.settings()?)
     }
 }
 
@@ -86,35 +89,28 @@ impl<'a, O: Open> Encoders<'a, O> {
         }
     }
 
-    pub(crate) fn for_lane(&self, lane: usize) -> impl Iterator<Item = Codec> + '_ {
-        let hardware = lane < HARDWARE_LANES && !self.hardware_failed.load(Ordering::Acquire);
-        self.codecs
-            .iter()
-            .copied()
-            .filter(move |codec| *codec != Codec::VideoToolbox || hardware)
+    pub(crate) fn hardware_allowed(&self) -> bool {
+        !self.hardware_failed.load(Ordering::Acquire) && self.codecs.contains(&Codec::VideoToolbox)
     }
 
-    pub(crate) fn hardware_sessions(&self, group: &Group) -> usize {
-        self.hardware_sessions_from(group, group.span().first())
-    }
-
-    pub(crate) fn hardware_sessions_from(&self, group: &Group, frame: FrameIndex) -> usize {
-        if self.for_lane(0).any(|codec| codec == Codec::VideoToolbox) {
-            group.hardware_lanes_from(frame)
-        } else {
-            0
-        }
+    pub(crate) fn hardware_sessions(&self) -> usize {
+        usize::from(self.hardware_allowed())
     }
 
     pub(crate) fn set_hardware_aside(&self) {
         self.hardware_failed.store(true, Ordering::Release);
     }
 
-    pub(crate) fn open(&self, path: &Path, lane: usize, width: u32, height: u32) -> Result<(O::Sink, Codec), Error> {
+    pub(crate) fn open(&self, path: &Path, width: u32, height: u32) -> Result<(O::Sink, Codec), Error> {
         let mut refused = None;
-        for codec in self.for_lane(lane) {
+        let hardware = self.hardware_allowed();
+        let usable = self
+            .codecs
+            .iter()
+            .copied()
+            .filter(|codec| *codec != Codec::VideoToolbox || hardware);
+        for codec in usable {
             let request = Request {
-                path,
                 width,
                 height,
                 rate: self.rate.get(),
@@ -123,7 +119,6 @@ impl<'a, O: Open> Encoders<'a, O> {
             };
             match self.open.open(&request) {
                 Ok(sink) => return Ok((sink, codec)),
-                Err(source) if source.concerns_the_destination() => return Err(Error::writing(path, source)),
                 Err(source) => refused = Some(source),
             }
         }
