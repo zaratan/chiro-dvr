@@ -1,12 +1,11 @@
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
-use types::detection::FrameDetections;
-use types::frame::{FrameIndex, Pts};
+use types::detection::{FrameDetections, Measures};
+use types::frame::Pts;
 
 use crate::error::Error;
 use crate::lines;
-use crate::measures::Measures;
 
 #[cfg(test)]
 mod tests;
@@ -55,7 +54,7 @@ impl Frames {
     pub fn read(path: &Path) -> Result<Self, Error> {
         let lines: Vec<FrameLine> = lines::read(path)?;
         let mut entries = Vec::with_capacity(lines.len());
-        let mut detections = Vec::with_capacity(lines.len());
+        let mut detections = FrameDetections::default();
         for (expected, line) in lines.into_iter().enumerate() {
             if line.frame != expected {
                 return Err(Error::FrameOrder {
@@ -65,18 +64,13 @@ impl Frames {
                     found: line.frame,
                 });
             }
-            let frame = FrameIndex::new(expected);
             entries.push(FrameEntry {
                 pts: line.pts.map(Pts::new),
                 key_frame: line.key_frame,
                 decode_error: line.decode_error,
             });
-            detections.push(line.detections.into_iter().map(|measures| measures.at(frame)).collect());
+            detections.push(line.detections);
         }
-        let detections = FrameDetections::new(detections).map_err(|source| Error::Detections {
-            path: path.to_path_buf(),
-            source,
-        })?;
         Ok(Self { entries, detections })
     }
 

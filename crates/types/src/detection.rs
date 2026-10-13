@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::frame::FrameIndex;
 use crate::span::Span;
 
@@ -23,7 +25,7 @@ impl Detection {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Measures {
     pub x: f64,
     pub y: f64,
@@ -36,6 +38,19 @@ pub struct Measures {
 }
 
 impl Measures {
+    pub fn of(detection: &Detection) -> Self {
+        Self {
+            x: detection.x,
+            y: detection.y,
+            left: detection.left,
+            top: detection.top,
+            width: detection.width,
+            height: detection.height,
+            area: detection.area,
+            amplitude: detection.amplitude,
+        }
+    }
+
     pub fn at(self, frame: FrameIndex) -> Detection {
         Detection {
             frame,

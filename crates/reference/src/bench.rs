@@ -3,12 +3,10 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use types::detection::FrameDetections;
-use types::frame::FrameIndex;
+use types::detection::{FrameDetections, Measures};
 
 use crate::error::Error;
 use crate::lines;
-use crate::measures::Measures;
 
 #[cfg(test)]
 mod tests;
@@ -111,7 +109,7 @@ pub fn write_targets(path: &Path, targets: &[TargetLine]) -> Result<(), Error> {
 
 pub fn read_detections(path: &Path) -> Result<FrameDetections, Error> {
     let lines: Vec<DetectionsLine> = lines::read(path)?;
-    let mut detections = Vec::with_capacity(lines.len());
+    let mut detections = FrameDetections::default();
     for (expected, line) in lines.into_iter().enumerate() {
         if line.frame != expected {
             return Err(Error::FrameOrder {
@@ -121,13 +119,9 @@ pub fn read_detections(path: &Path) -> Result<FrameDetections, Error> {
                 found: line.frame,
             });
         }
-        let frame = FrameIndex::new(expected);
-        detections.push(line.detections.into_iter().map(|measures| measures.at(frame)).collect());
+        detections.push(line.detections);
     }
-    FrameDetections::new(detections).map_err(|source| Error::Detections {
-        path: path.to_path_buf(),
-        source,
-    })
+    Ok(detections)
 }
 
 pub fn write_detections(path: &Path, detections: &FrameDetections) -> Result<(), Error> {

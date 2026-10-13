@@ -146,3 +146,22 @@ fn detections_pushed_frame_after_frame_take_the_frame_of_the_place_they_fill() {
 fn measures_placed_on_a_frame_keep_every_measure() {
     assert_eq!(measures(5.0).at(FrameIndex::new(3)), detection(3, 5.0, 10.0));
 }
+
+#[test]
+fn the_measures_of_a_detection_placed_back_on_its_frame_give_the_detection_again() {
+    let found = Detection {
+        height: 1.5,
+        ..detection(7, 1400.5, 246.25)
+    };
+
+    assert_eq!(Measures::of(&found).at(found.frame), found);
+}
+
+#[test]
+fn measures_read_from_a_line_of_the_v011_are_written_back_byte_for_byte() {
+    let line = r#"{"x":338.8792134831461,"y":39.21629213483146,"left":333.0,"top":30.0,"width":13.5,"height":21.0,"area":155.25,"amplitude":96.77308824327257}"#;
+
+    let read: Measures = serde_json::from_str(line).unwrap();
+
+    assert_eq!(serde_json::to_string(&read).unwrap(), line);
+}
