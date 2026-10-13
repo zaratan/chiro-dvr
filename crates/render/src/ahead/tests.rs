@@ -63,3 +63,15 @@ fn a_source_error_comes_back_as_a_source_error_before_any_frame() {
     assert!(matches!(error, Error::Source(source::Error::OutsideVideo { .. })));
     assert_eq!(served, 0);
 }
+
+#[test]
+#[should_panic(expected = "visitor panic")]
+fn a_panic_of_the_visitor_reaches_the_caller_without_leaving_the_reader_blocked() {
+    let folder = tempfile::tempdir().unwrap();
+    let (_, source) = video(folder.path());
+    let served = serve_ahead(&source, span(0, 40), |frame, _| {
+        assert_ne!(frame.get(), 5, "visitor panic");
+        Ok(())
+    });
+    drop(served);
+}

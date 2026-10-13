@@ -53,22 +53,6 @@ pub(crate) struct Request {
     pub(crate) settings: Judging,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("{}", messages::REGION_SHAPE)]
-pub(crate) struct RegionShape;
-
-fn region(text: &str) -> Result<Region, RegionShape> {
-    let bounds: Vec<f64> = text
-        .split(',')
-        .map(|bound| bound.trim().parse().ok())
-        .collect::<Option<_>>()
-        .ok_or(RegionShape)?;
-    match bounds[..] {
-        [x0, y0, x1, y1] => Ok(Region { x0, y0, x1, y1 }),
-        _ => Err(RegionShape),
-    }
-}
-
 fn number(id: &'static str, value: &impl ToString, help: &'static str) -> Arg {
     Arg::new(id)
         .long(id)
@@ -149,7 +133,7 @@ fn detection_arguments() -> Vec<Arg> {
             .long("osd-region")
             .value_name("X0,Y0,X1,Y1")
             .action(ArgAction::Append)
-            .value_parser(region)
+            .value_parser(value_parser!(Region))
             .help(messages::OSD_REGION_HELP),
         number("merge-radius", &detect.merge_radius, messages::MERGE_RADIUS_HELP).value_parser(value_parser!(f64)),
         number("work-width", &detect.work_width, messages::WORK_WIDTH_HELP).value_parser(value_parser!(u32)),

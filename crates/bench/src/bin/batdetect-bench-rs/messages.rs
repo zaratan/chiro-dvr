@@ -64,7 +64,6 @@ pub(crate) const BENCH_HEADING: &str = "bench";
 pub(crate) const DETECTION_HEADING: &str = "detection";
 pub(crate) const TRACKING_HEADING: &str = "tracking";
 pub(crate) const NO_VIDEO: &str = "a video is needed, unless --replay is given";
-pub(crate) const REGION_SHAPE: &str = "expected four fractions X0,Y0,X1,Y1";
 const GUARD_CONTRAST: &str = "visibility decided by the contrast the v0.1.1 recorded; \
      the table above and bench.json use the contrast the Rust measured";
 const CAUSE_SEPARATOR: &str = ": ";
@@ -124,12 +123,8 @@ pub(crate) fn detection_refused(error: &settings::Error) -> String {
             format!("--min-area {min_area} is larger than --max-area {max_area}")
         }
         settings::Error::Region { index, region } => format!(
-            "--osd-region {} does not satisfy 0 ≤ x0 < x1 ≤ 1 and 0 ≤ y0 < y1 ≤ 1: {},{},{},{}",
-            index + 1,
-            region.x0,
-            region.y0,
-            region.x1,
-            region.y1
+            "--osd-region {} does not satisfy 0 ≤ x0 < x1 ≤ 1 and 0 ≤ y0 < y1 ≤ 1: {region}",
+            index + 1
         ),
     }
 }

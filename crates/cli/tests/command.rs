@@ -117,7 +117,7 @@ fn params_json_records_the_settings_by_configuration_and_the_threads_really_used
     assert_eq!(encoders.last().unwrap(), "openh264");
     assert!(params["threads"]["decoding"].as_u64().unwrap() >= 1);
     assert!(params["threads"]["detection"].as_u64().unwrap() >= 1);
-    assert_eq!(params["version"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(params["version"], env!("BATDETECT_VERSION"));
     assert_ne!(params["ffmpeg"].as_str().unwrap(), "");
     assert!((params["fps"].as_f64().unwrap() - 10.0).abs() < 1e-9);
     assert_eq!(params["damaged_frames"], 0);
@@ -143,7 +143,7 @@ fn without_an_output_folder_the_command_refuses_to_start() {
     let (_root, videos) = videos_with_a_flight(&[]);
     let output = run(&[&videos], "C");
     assert_eq!(output.status.code(), Some(2));
-    assert!(text(&output.stderr).contains("--output <FOLDER>"));
+    assert!(text(&output.stderr).contains("--out-dir <FOLDER>"));
 }
 
 #[test]
@@ -295,4 +295,47 @@ fn an_annotated_video_of_an_earlier_run_is_removed_when_none_is_asked_for() {
     assert!(output.status.success(), "{}", text(&output.stderr));
     assert!(!folder.join("flight_annotated.mp4").exists());
     assert!(!folder.join(".flight_annotated.mp4.partial").exists());
+}
+
+#[test]
+fn the_settings_given_on_the_command_line_are_used_and_written_in_params_json() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    let arguments: Vec<&Path> = [
+        "--out-dir",
+        "--threshold",
+        "11",
+        "--max-blobs",
+        "0",
+        "--clip-margin",
+        "1",
+        "--osd-region",
+        "0,0,1,0.05",
+    ]
+    .iter()
+    .map(Path::new)
+    .collect();
+    let output = run(
+        &[
+            videos.as_path(),
+            arguments[0],
+            &out,
+            arguments[1],
+            arguments[2],
+            arguments[3],
+            arguments[4],
+            arguments[5],
+            arguments[6],
+            arguments[7],
+            arguments[8],
+        ],
+        "C",
+    );
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let params: Value =
+        serde_json::from_str(&fs::read_to_string(out.join("flight").join("params.json")).unwrap()).unwrap();
+    assert_eq!(params["DetectConfig"]["threshold"], 11.0);
+    assert_eq!(params["DetectConfig"]["osd_regions"][0]["y1"], 0.05);
+    assert_eq!(params["StabilityConfig"]["max_blobs"], 0);
+    assert_eq!(params["RenderConfig"]["clip_margin_s"], 1.0);
 }

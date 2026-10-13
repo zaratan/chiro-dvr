@@ -41,7 +41,7 @@ fn the_twenty_six_videos_give_the_tracks_of_the_reference_but_for_the_known_dive
             &agreement::DebugLabels,
             Threads::Automatic,
             agreement::VERSIONS,
-            Options::default(),
+            &Options::default(),
         )
         .unwrap();
         let found = agreement::agreement(&processed, &recording, rate);
@@ -168,6 +168,7 @@ fn the_annotated_103_keeps_the_pts_of_its_decoded_frames_through_its_lost_frames
     let options = Options {
         render: RenderConfig::default().with_zoom(ZoomConfig::choosing(Zoom::Off)),
         annotated: true,
+        ..Options::default()
     };
     process(
         &job,
@@ -175,7 +176,7 @@ fn the_annotated_103_keeps_the_pts_of_its_decoded_frames_through_its_lost_frames
         &agreement::DebugLabels,
         Threads::Automatic,
         agreement::VERSIONS,
-        options,
+        &options,
     )
     .unwrap();
     let annotated = Names::new(Language::English).annotated_video(&job.dest, OsStr::new("video_103"));

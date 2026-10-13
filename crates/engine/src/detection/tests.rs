@@ -6,7 +6,7 @@ use types::frame::FrameIndex;
 use types::rational::Rational;
 
 use super::{Error, detect, detect_injected};
-use crate::config::DetectConfig;
+use crate::config::{self, DetectConfig};
 use crate::input::Input;
 use crate::luma::LumaMut;
 use crate::settings::{DetectSettings, Region};
@@ -244,4 +244,38 @@ fn the_summary_background_is_taken_from_the_frames_read_not_from_the_injected_on
     .unwrap();
 
     assert_eq!(injected.background().unwrap().y(), plain.background().unwrap().y());
+}
+
+fn lasting(seconds: f64) -> DetectConfig {
+    DetectConfig::try_from(&DetectSettings {
+        bg_window_s: seconds,
+        ..DetectSettings::default()
+    })
+    .unwrap()
+}
+
+#[test]
+fn the_background_budget_counts_the_working_pixels_not_those_of_the_source() {
+    let folder = TempDir::new().unwrap();
+    let path = binoculars(
+        &folder.path().join("full_size.mp4"),
+        (1440, 1080),
+        Rational::new(1, 1).unwrap(),
+        (0..3).map(|_| vec![luma(120.0); 1440 * 1080]),
+    );
+
+    let within = detect(&path, Threads::Automatic, &lasting(2000.0));
+    let beyond = detect(&path, Threads::Automatic, &lasting(3200.0)).unwrap_err();
+
+    assert_eq!(within.unwrap().half_window().get(), 1000);
+    assert!(
+        matches!(
+            beyond,
+            Error::Config {
+                source: config::Error::LongWindow { pixels: 691_200, .. },
+                ..
+            }
+        ),
+        "{beyond:?}"
+    );
 }

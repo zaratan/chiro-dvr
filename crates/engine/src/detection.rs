@@ -124,7 +124,7 @@ pub fn detect_injected(
             }
         })?;
     let half_window = config
-        .half_window(video.frame_rate())
+        .half_window(video.frame_rate(), geometry.pixels())
         .map_err(|source| Error::Config { path, source })?;
     let width = geometry.source_width();
     let active_threads = input.active_threads();

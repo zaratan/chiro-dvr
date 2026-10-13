@@ -1,5 +1,6 @@
 use std::fmt;
 use std::ops::Range;
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
@@ -37,6 +38,32 @@ pub struct Region {
     pub y0: f64,
     pub x1: f64,
     pub y1: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("expected four fractions X0,Y0,X1,Y1")]
+pub struct RegionShape;
+
+impl FromStr for Region {
+    type Err = RegionShape;
+
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        let bounds: Vec<f64> = text
+            .split(',')
+            .map(|bound| bound.trim().parse().ok())
+            .collect::<Option<_>>()
+            .ok_or(RegionShape)?;
+        match bounds[..] {
+            [x0, y0, x1, y1] => Ok(Self { x0, y0, x1, y1 }),
+            _ => Err(RegionShape),
+        }
+    }
+}
+
+impl fmt::Display for Region {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{},{},{},{}", self.x0, self.y0, self.x1, self.y1)
+    }
 }
 
 impl Region {

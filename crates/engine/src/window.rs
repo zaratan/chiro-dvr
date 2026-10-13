@@ -4,9 +4,11 @@ use std::num::NonZeroUsize;
 #[cfg(test)]
 mod tests;
 
+pub(crate) type Unit = u16;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Prepared {
-    pub(crate) units: Vec<u16>,
+    pub(crate) units: Vec<Unit>,
     pub(crate) sum: u64,
 }
 
@@ -21,7 +23,7 @@ pub(crate) struct Window {
 }
 
 pub(crate) fn most_sampled(half: NonZeroUsize, step: NonZeroUsize) -> NonZeroUsize {
-    NonZeroUsize::MIN.saturating_add(2 * half.get() / step.get())
+    NonZeroUsize::MIN.saturating_add(half.get().saturating_mul(2) / step.get())
 }
 
 impl Window {

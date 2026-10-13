@@ -35,7 +35,7 @@ fn extract() -> &'static (Recording, FrameRate, Processed, tempfile::TempDir) {
             &agreement::DebugLabels,
             Threads::Automatic,
             agreement::VERSIONS,
-            Options::default(),
+            &Options::default(),
         )
         .unwrap();
         (recording, rate, processed, out)

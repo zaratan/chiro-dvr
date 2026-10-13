@@ -11,7 +11,7 @@ use summary::header::{Band, HeaderLine, Labels};
 use summary::legend::{column_width, fit_text, legend_width};
 use types::language::Language;
 
-use super::{SummaryLabels, failed, processed, redone, too_many_tracks};
+use super::{SummaryLabels, failed, internal_error, processed, redone, too_many_tracks};
 
 fn job() -> Job {
     Job {
@@ -242,5 +242,13 @@ fn the_clips_written_again_are_named_with_the_cause_of_the_videotoolbox_failure(
         redone(Language::English, &job(), &one, &cause),
         "nuit/video_092.mp4: piste_03_0m51s.mp4 written again with openh264 after a VideoToolbox error: \
          the encoder failed: Invalid data"
+    );
+}
+
+#[test]
+fn a_panic_is_told_as_an_internal_error_of_the_video_with_its_message() {
+    assert_eq!(
+        internal_error(&job(), "index out of bounds"),
+        "nuit/video_092.mp4: internal error: index out of bounds"
     );
 }
