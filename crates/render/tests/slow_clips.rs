@@ -8,6 +8,7 @@ use media::convert::{Converter, SourceRange};
 use media::decode::{Decoder, Threads};
 use media::encode::Codec;
 use media::encode::fallback::Fallback;
+use media::fingerprint;
 use media::frame::{ColorRange, YuvFrame};
 use reference::location::committed;
 use reference::recording::Recording;
@@ -149,10 +150,7 @@ fn compare_clip(comparison: &Comparison<'_>, window: &Window, clip: &Path) -> Si
     comparison
         .source
         .serve(window.span, |frame, pixels| {
-            assert_eq!(
-                sequential::fingerprint(pixels),
-                comparison.read.fingerprints[frame.get()]
-            );
+            assert_eq!(fingerprint::of(pixels), comparison.read.fingerprints[frame.get()]);
             assert!(decoder.next(&mut written).unwrap().is_some(), "{frame:?}");
             let (width, height) = (pixels.width(), pixels.height());
             let (converter, rgba) = display.get_or_insert_with(|| {

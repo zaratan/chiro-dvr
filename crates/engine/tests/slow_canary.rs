@@ -1,5 +1,4 @@
 use std::collections::BTreeSet;
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::NonZeroUsize;
 
 use engine::config::DetectConfig;
@@ -7,6 +6,7 @@ use engine::damage::Damage;
 use engine::detection::{Detected, detect_input};
 use engine::input::{Error, Input};
 use media::decode::{FrameInfo, Threads};
+use media::fingerprint;
 use rayon::ThreadPoolBuilder;
 use reference::fixture::fixture;
 use types::frame::FrameIndex;
@@ -36,9 +36,7 @@ fn canary(threads: Threads) -> (Damage, Vec<(FrameInfo, u64)>) {
     let mut frames = Vec::new();
     let reading = input
         .read(|info, frame| {
-            let mut hasher = DefaultHasher::new();
-            (frame.y(), frame.u(), frame.v()).hash(&mut hasher);
-            frames.push((info, hasher.finish()));
+            frames.push((info, fingerprint::of(frame)));
             Ok::<(), Error>(())
         })
         .unwrap();

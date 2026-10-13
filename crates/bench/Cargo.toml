@@ -9,6 +9,9 @@ publish.workspace = true
 [[bin]]
 name = "batdetect-bench-rs"
 
+[features]
+testing = []
+
 [dependencies]
 clap.workspace = true
 engine.workspace = true
@@ -21,6 +24,7 @@ tracking.workspace = true
 types.workspace = true
 
 [dev-dependencies]
+bench = { workspace = true, features = ["testing"] }
 proptest.workspace = true
 tempfile.workspace = true
 

@@ -1,10 +1,10 @@
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 
 use engine::config::DetectConfig;
 use engine::detection::detect;
 use media::decode::{Decoder, Threads};
+use media::fingerprint;
 use media::frame::{ColorRange, YuvFrame};
 use reference::location::{recorded_video, recording_directories};
 use reference::recording::Recording;
@@ -71,16 +71,9 @@ fn fingerprints(path: &Path) -> Vec<u64> {
     let mut frame = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     let mut fingerprints = Vec::new();
     while decoder.next(&mut frame).unwrap().is_some() {
-        fingerprints.push(fingerprint(&frame));
+        fingerprints.push(fingerprint::of(&frame));
     }
     fingerprints
-}
-
-#[cfg(test)]
-fn fingerprint(frame: &YuvFrame) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    (frame.y(), frame.u(), frame.v()).hash(&mut hasher);
-    hasher.finish()
 }
 
 #[cfg(test)]
@@ -112,7 +105,7 @@ fn groups_over_damaged_spans_serve_the_pixels_of_a_single_threaded_reading_from_
             let origin = engine
                 .source
                 .serve(*span, |frame, pixels| {
-                    served.push(fingerprint(pixels) == sequential[frame.get()]);
+                    served.push(fingerprint::of(pixels) == sequential[frame.get()]);
                     Ok::<(), Error>(())
                 })
                 .unwrap();

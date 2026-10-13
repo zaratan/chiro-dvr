@@ -6,6 +6,8 @@ pub mod guard;
 pub mod matching;
 pub mod median;
 pub mod metrics;
+#[cfg(any(test, feature = "testing"))]
+pub mod noisy;
 pub mod random;
 pub mod recorded;
 pub mod report;

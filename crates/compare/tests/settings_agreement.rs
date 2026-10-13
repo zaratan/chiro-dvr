@@ -59,7 +59,7 @@ fn below_the_display_band(detections: &FrameDetections, ignored: &[Span]) -> Fra
 }
 
 #[test]
-#[ignore = "slow"]
+#[ignore = "settings"]
 fn every_setting_of_the_bench_is_compared_and_none_fails() {
     let outcome = &run().outcome;
     let failed: Vec<String> = outcome
@@ -73,7 +73,7 @@ fn every_setting_of_the_bench_is_compared_and_none_fails() {
 }
 
 #[test]
-#[ignore = "slow"]
+#[ignore = "settings"]
 fn every_setting_the_engine_handles_agrees_with_the_v011_on_its_detections_and_on_every_track() {
     let found: Vec<(&str, bool, TrackCounts)> = run()
         .outcome
@@ -119,7 +119,7 @@ fn every_setting_the_engine_handles_agrees_with_the_v011_on_its_detections_and_o
 }
 
 #[test]
-#[ignore = "slow"]
+#[ignore = "settings"]
 fn sigma_0_and_window_2s_agree_below_the_coloured_display_whose_gray_the_table_does_not_follow() {
     for case in ["sigma_0", "window_2s"] {
         agrees_below_the_display_band(case);

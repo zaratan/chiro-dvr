@@ -165,7 +165,7 @@ Le détail de la méthode et des réglages est dans [docs/02-methode.md](docs/02
 ## Développement
 
 ```bash
-mise run check      # static, test:fast, test:slow, puis rust:static, rust:test et rust:slow : vert avant tout commit
+mise run check      # static, test:fast, test:slow, puis rust:static, rust:test, rust:slow et rust:settings : vert avant tout commit
 mise run static     # lint + format + types
 mise run test:fast  # tests sans aucune vraie vidéo, en parallèle, couverture ≥ 95 %
 mise run test:slow  # tests sur l'extrait réel

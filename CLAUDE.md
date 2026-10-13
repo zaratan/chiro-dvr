@@ -41,9 +41,9 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
   (`tests/fixtures/rust/`) aussi, écrites par `compare --frames` et redemandées au bit
   près sur chaque système. La 092 entière `video_092_original.mp4` est
   une copie exacte de `in/`. Son test, marqueur `reference`, est exclu de `pytest` par
-  défaut et tourne dans sa propre tâche de CI : `uv run pytest -m reference`. La tâche
-  `slow-tests` ne récupère que l'extrait ; les tâches `rust` et `rust-windows`, l'extrait et
-  sa 720×540.
+  défaut et tourne dans sa propre tâche de CI : `uv run pytest -m reference`. Les tâches
+  `slow-tests` et `rust-windows` ne récupèrent que l'extrait ; les tâches `rust` et
+  `rust-settings`, l'extrait et sa 720×540.
   Tolérances du test de référence, sur les deux vidéos : nombre de pistes exact, début ±5
   images, points ±3, qui couvrent l'écart mesuré entre Mac et Linux (4 images, 2 points).
 - **Les vidéos se copient depuis les jumelles en USB**, jamais par l'export Stream Vision 2,
@@ -158,6 +158,7 @@ lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:ffmpeg  # FFmpeg 
 mise run rust:static      # fmt, clippy, règles de la charte, cargo deny, cargo shear
 mise run rust:test        # tests rapides, couverture ≥ 95 %
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:slow       # l'extrait LFS, le test de mémoire (hors couverture)
+lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:settings   # les 16 cas de réglages, sous Linux seulement en CI
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 092 entière
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --profile ci -p compare -- local  # écarts à la référence (extract, 092, settings, local)
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --release -p bench -- VIDÉO --against DOSSIER  # garde du banc contre un banc de la v0.1.1
@@ -174,7 +175,8 @@ crates depuis #100, dépendances à sens unique :
   Ne dépend d'aucune autre crate du workspace.
 - `media` → `types` : seule frontière avec FFmpeg et seule crate avec `unsafe`
   (`frame`, `decode`, `encode`, `convert`, `library`) ; `convert` passe du YUV au RGBA, et retour, en BT.709 ;
-  `decode::placed` se place sur une image-clé par `pts` ; `payload` (feature `testing`) abîme un mp4 pour les tests.
+  `decode::placed` se place sur une image-clé par `pts` ; `payload` (feature `testing`) abîme un mp4 pour les tests ;
+  `fingerprint` (même feature) est la seule empreinte d'image des tests.
 - `reference` → `types` : chemins des fixtures et garde LFS, lecture et écriture de la
   référence v0.1.1 et de ses bancs (`bench`), appariement des détections et des pistes.
 - `engine` → `media`, `types` (#116), avec la couture du banc (`detect_injected`) ;
@@ -191,6 +193,7 @@ crates depuis #100, dépendances à sens unique :
   développement, binaire `compare`, non livré ;
   `bench` → `engine`, `tracking`, `reference`, `media`, `types` (#100) : banc de mesure,
   binaire `batdetect-bench-rs` (`--targets`, `--replay`, `--against`), non livré avant #106 ;
+  sa feature `testing` porte la vidéo bruitée et la cible lente de ses tests (`noisy`) ;
   `cli` (paquet `batdetect`, binaire `batdetect-rs`) → `engine`, `tracking`, `files`,
   `summary`, `render`, `draw`, `media`, `types` ; `options` (réglages de la commande),
   `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), version gravée par
@@ -208,7 +211,7 @@ Charte (23 règles numérotées, lints et raisons dans
 - Aucun type de `ffmpeg_next` hors de `media`. Configurations validées à la
   construction.
 - Un module, ses tests dans `src/<module>/tests.rs`. Le niveau d'un test se choisit par
-  le nom de son fichier : `tests/slow_*.rs`, `tests/reference_*.rs`.
+  le nom de son fichier : `tests/slow_*.rs`, `tests/settings_*.rs`, `tests/reference_*.rs`.
 - Une dépendance se déclare une fois dans `[workspace.dependencies]`.
 - **Commentaires** : la règle du zéro commentaire vaut aussi en Rust, avec deux
   exceptions. Chaque bloc `unsafe` contient une seule opération et porte une ligne

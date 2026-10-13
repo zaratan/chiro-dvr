@@ -35,6 +35,7 @@ lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:ffmpeg   # constr
 mise run rust:static      # fmt, clippy, règles de la charte, cargo deny, cargo shear
 mise run rust:test        # tests rapides sous cargo-llvm-cov, couverture ≥ 95 %
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:slow       # l'extrait LFS
+lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:settings   # les 16 cas de réglages du banc d'essai
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 092 entière
 ```
 
@@ -369,7 +370,8 @@ Forme et tests :
 22. Tests sans commentaire, nommés par le pourquoi ; `unwrap`, `expect` et `panic!` y
     sont permis. Flottants comparés avec une tolérance. Pas de faux FFmpeg : vraie vidéo,
     ou vidéo fabriquée par openh264. Couverture d'au moins 95 %. Tests lents dans
-    `tests/slow_*.rs`, tests de la 092 dans `tests/reference_*.rs`. proptest là où un
+    `tests/slow_*.rs`, réglages dans `tests/settings_*.rs`, tests de la 092 dans
+    `tests/reference_*.rs`. proptest là où un
     oracle simple existe.
 23. Une dépendance se déclare une fois dans `[workspace.dependencies]`, puis
     `x.workspace = true`. Une dépendance hors de la liste d'une issue se demande avant.
@@ -418,7 +420,8 @@ Forme et tests :
 | Niveau | Fichiers | Commande | Contenu |
 |---|---|---|---|
 | rapide | `src/<module>/tests.rs`, `tests/*.rs` | `cargo test --workspace --locked` | vidéos fabriquées par openh264, binaire lancé pour de vrai |
-| slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv`, et sa 720×540 ; les 16 cas de réglages (`slow_settings`) ; les tests de mémoire `slow_memory_flash`, `slow_memory_flash_wide` et `slow_memory_flash_long` (`dhat`, 960 et 1440 pixels de travail, 61 échantillons), hors de la couverture |
+| slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv` ; les tests de mémoire `slow_memory_flash`, `slow_memory_flash_wide` et `slow_memory_flash_long` (`dhat`, 960 et 1440 pixels de travail, 61 échantillons), hors de la couverture |
+| settings | `tests/settings_*.rs`, `#[ignore = "settings"]` | `mise run rust:settings` | les 16 cas du banc d'essai sur l'extrait et sa 720×540 (`settings_agreement`), sous Linux seulement en CI (#167) |
 | reference | `tests/reference_*.rs`, `#[ignore = "reference"]` | `mise run rust:reference` | la 092 : 9 011 images, cadence moyenne 90110000/3000927, aux défauts et à 1440 pixels de travail (#151) |
 | matériel | `tests/hardware_*.rs`, `#[ignore = "hardware"]` | étape d'essai de la CI macOS | VideoToolbox sans repli logiciel |
 | local | `tests/local_*.rs`, `#[ignore = "local"]` | `BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… cargo test --workspace --locked --profile ci --test 'local_*' -- --include-ignored` | les 26 vidéos de la référence, hors dépôt, jamais en CI |
@@ -435,6 +438,14 @@ Forme et tests :
   `ci` sur le M1 Max. Il ne couvrait aucune ligne de plus : 96,98 % des lignes sous
   macOS avec lui (CI de la PR #145) comme sans lui (M1 Max, même commit). Il tourne
   toujours sur les trois systèmes, par `rust:slow`.
+- Le test du détecteur à 61 et 81 échantillons de fond (#151) occupait presque seul le
+  binaire unitaire d'`engine` sous la couverture : 209 s sous Linux et 116 s sous macOS
+  pour ce binaire (CI de la PR #166), contre 0,7 s pour le test sans couverture. Mesuré
+  sur le Mac (`sample`, désassemblage) : sous l'instrumentation, chaque voie du tri de `Network::order` incrémente un compteur
+  atomique partagé par tous les fils : le tri n'est plus vectorisé et les fils se
+  disputent le compteur. Depuis #167, il tourne sur une image de 144×24 au lieu de
+  360×180 (24 blocs de 64 pixels au lieu de 450), avec les mêmes demi-fenêtres, fils et
+  lots : 7 s sous la couverture sur le M1 Max, contre 146 s.
 - Les fixtures se trouvent par `reference::fixture::fixture`, qui refuse un pointeur
   LFS non tiré avec le conseil `git lfs pull`.
 - Les tests `local_` de `bench` (#107 à #109) lisent les bancs de la v0.1.1
@@ -471,8 +482,11 @@ Forme et tests :
     vides, sont identiques au bit près.
 - **CI** : tâche `rust` sur macOS et Linux (statique, tests rapides, slow, contrôles du
   binaire) et tâche `rust-reference` sous Linux, en parallèle de `rust` depuis #146.
-  Quand l'empreinte de FFmpeg change, `rust-reference` le construit donc aussi, sans le
-  sauver : seule `rust` sauve le cache de FFmpeg. Le binaire contrôlé se construit par `--workspace --bin batdetect-rs` : avec
+  Tâche `rust-settings` sous Linux, en parallèle aussi depuis #167 : les 16 cas du banc
+  d'essai (`rust:settings`). Ils ne tournent plus sous macOS ni Windows ; `slow_extract`
+  garde l'identité au bit près sur les trois systèmes.
+  Quand l'empreinte de FFmpeg change, `rust-reference` et `rust-settings` le construisent
+  donc aussi, sans le sauver : seule `rust` sauve le cache de FFmpeg. Le binaire contrôlé se construit par `--workspace --bin batdetect-rs` : avec
   `-p batdetect`, les features de `syn` changent (`draw` en ajoute par `skrifa`), et
   `bindgen`, `ffmpeg-sys-next` et `media` se recompilaient (11 s sous Linux, 22 s sous
   macOS, 60 s sous Windows à la PR #145). Le cache de FFmpeg est
@@ -481,7 +495,7 @@ Forme et tests :
   (PR #130), sans cache de `target/` : `rust` 3 min 04 sur macOS et 3 min 46 sous Linux ;
   `rust-reference` 1 min 15.
 - **Tâche `rust-windows`**, indépendante des autres. Elle construit FFmpeg, lance les
-  tests rapides et `slow`, puis `cargo clippy --profile ci -- -D warnings`. En profil
+  tests rapides et `slow` (sans les réglages), puis `cargo clippy --profile ci -- -D warnings`. En profil
   `ci`, clippy reprend les scripts de construction et les macros des tests ; en `dev`,
   il recompilait 46 unités, dont les liaisons de FFmpeg (82 s à la PR #145).
   - `dumpbin -dependents` n'admet que des DLL de Windows : `kernel32`, `ntdll`,
@@ -512,6 +526,9 @@ Forme et tests :
     cette remise à zéro, il grossirait à chaque changement de dépendance. Tailles à la
     PR #145 : 393 Mo (`rust`, Linux), 366 Mo (macOS), 470 Mo (Windows), 101 Mo
     (`rust-reference`).
+  - `rust-settings` ne sauve rien : elle restaure l'entrée de `rust-reference` (même
+    clé), qui a déjà compilé les dépendances en profil `ci`. Le quota du cache
+    (10 Go) ne gagne aucune entrée.
 
 ## Essai VideoToolbox
 
@@ -924,6 +941,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     qui y tombent sont perdues (saut de `pts`) ou dissimulées. Une plage de parts vide,
     hors de la boîte ou qui déborde est refusée. Les tests de `media`, d'`engine` et de
     `render` y fabriquent leurs vidéos abîmées.
+  - `fingerprint`, derrière la même feature (#154) : `of(image)` hache les trois plans
+    d'une image décodée. C'est la seule empreinte d'image des tests de `media`, `engine`,
+    `render` et `cli`. `DefaultHasher` ne promet rien d'une version de Rust à l'autre :
+    une empreinte se compare dans un même passage, elle ne s'enregistre pas.
 - **`draw`** (#101) : dessin pur sur une toile RGBA, sans FFmpeg ni entrée-sortie.
   - `text` : `Typeface::roboto`, la police embarquée.
     - Graisses 400 pour le texte et 600 pour les numéros (choix de l'utilisateur sur la
@@ -2198,7 +2219,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
   - Tests : vidéo de 96 × 72 et 60 images fabriquée par openh264 (fond bruité), avec une
     cible lente rejouée (−60, σ 3), trouvée ; les cibles tirées y seraient presque
     jamais trouvées, le tirage se teste par ses propriétés. `tests/command.rs` lance le
-    binaire (cibles rejouées, tirées, rejeu, garde contre son propre passage).
+    binaire (cibles rejouées, tirées, rejeu, garde contre son propre passage). La vidéo
+    et la cible lente viennent de `bench::noisy`, derrière la feature `testing` du banc
+    (#154) : `bench` dépend de lui-même en dev-dependency avec cette feature, pour que
+    `tests/command.rs` les voie aussi.
     `local_injection`, `local_metrics` (les détections et les cibles enregistrées
     redonnent `bench.json` cible par cible : entiers exacts, flottants à 1e−12 ; résumé
     à 5e−4 pour Wilson et la complétude, 5e−3 pour les fragments, 5e−2 pour le contraste)
@@ -2228,7 +2252,8 @@ ffmpeg -i tests/fixtures/video_092_original_3m24-4m05.mp4 -map 0:v:0 -an -sn -dn
   images-clés (toutes les 15 images), sans image B, plage `tv` et BT.709 comme l'extrait.
 - Elle ne se refait pas : un autre encodeur, ou le même sur un autre système, ne donnerait
   pas les mêmes images, et la référence ne vaudrait plus. Les tâches CI `rust` et
-  `rust-windows` la tirent avec l'extrait.
+  `rust-settings` la tirent avec l'extrait ; `rust-windows` ne tire que l'extrait depuis
+  #167.
 - CRF 16 garde le bruit du capteur : 44 Mo, contre 60 Mo pour l'extrait en 1440×1080.
 
 ### Les 16 cas
@@ -2279,7 +2304,7 @@ l'intérieur du verrou (CPU = utilisateur + système).
     appariées (début ±5 images, points ±3), chaque écart listé (cas, temps) et jugé par
     l'utilisateur.
   - Un cas sous 98 % bloque tant que sa cause n'est pas isolée, par ablation comme à #118.
-  - Test lent : `crates/compare/tests/slow_settings.rs` exige les 16 cas comparés sans
+  - Test de réglages : `crates/compare/tests/settings_agreement.rs` exige les 16 cas comparés sans
     échec, 98 % dans les deux sens (sauf `sigma_0` et `window_2s`, figés à 98 % sous la
     bande d'affichage, voir #150 et #151) et toutes les pistes appariées et
     concordantes. `crates/reference/tests/committed_settings.rs` relit les 16
@@ -2359,7 +2384,7 @@ Les 76 pistes des 12 cas sont appariées et concordantes.
     pixels à 3 niveaux ou plus) ; ailleurs, l'écart est nul (U = V = 128). Sans flou,
     rien n'atténue cet écart.
   - Décision de l'utilisateur : la table `GRAY` reste (exception de #118), l'écart est
-    documenté, `slow_settings` fige 98 % sous la bande d'affichage. L'idée de le revoir
+    documenté, `settings_agreement` fige 98 % sous la bande d'affichage. L'idée de le revoir
     avec les masques de #151 ne tient pas : `sigma_0` n'a pas de zone OSD, les masques
     ne s'y appliquent pas (voir la mesure de #151).
 
