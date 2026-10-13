@@ -789,9 +789,12 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     `FrameDetections` : une liste par image, images vides comprises, ordre gardé ; une
     détection rangée sous une autre image est refusée. `without(&[Span])` vide les
     images couvertes par des plages, sans revalider : ce qui en sort reste valide.
-    `Measures` : les mesures d'une détection sans son image ; `FrameDetections::push`
-    ajoute une image dont les détections prennent le rang qu'elles remplissent (#150 :
-    le détecteur ne peut plus ranger une détection sous une autre image).
+    `Measures` : les mesures d'une détection sans son image, sérialisables (les
+    détections des fichiers de `reference`, #160) ; `Measures::of` les tire d'une
+    détection. `FrameDetections::push` ajoute une image dont les détections prennent le
+    rang qu'elles remplissent (#150 : le détecteur ne peut plus ranger une détection
+    sous une autre image ; #160 : `reference` relit ainsi les détections de ses
+    fichiers, sans erreur de rangement possible).
   - `Span` : plage d'images, bornes comprises, refusée si elle finit avant de commencer.
     Constructeurs qui ne peuvent pas échouer (#144) : `single` (une image), `hull` (de la
     première à la dernière image de deux plages), `widened` (élargie de chaque côté,

@@ -2,7 +2,7 @@ use std::io;
 use std::num::{ParseFloatError, ParseIntError};
 use std::path::PathBuf;
 
-use types::{detection, rate, timeline, track};
+use types::{rate, timeline, track};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -39,12 +39,6 @@ pub enum Error {
         line: usize,
         expected: usize,
         found: usize,
-    },
-    #[error("{} lists detections under the wrong frame", path.display())]
-    Detections {
-        path: PathBuf,
-        #[source]
-        source: detection::Error,
     },
     #[error("{}:{line} holds an invalid track", path.display())]
     Track {

@@ -1,12 +1,12 @@
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use types::detection::Measures;
 use types::frame::FrameIndex;
 use types::track::Track;
 
 use crate::error::Error;
 use crate::lines;
-use crate::measures::Measures;
 
 #[cfg(test)]
 mod tests;
