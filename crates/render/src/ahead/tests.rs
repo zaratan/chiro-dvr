@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use media::fingerprint;
 use types::frame::FrameIndex;
 use types::span::Span;
 
@@ -26,7 +27,7 @@ fn frames_read_ahead_arrive_once_in_order_with_the_pixels_of_a_sequential_readin
     let (read, source) = video(folder.path());
     let mut served = Vec::new();
     let origin = serve_ahead(&source, span(10, 40), |frame, pixels| {
-        served.push((frame.get(), sequential::fingerprint(pixels)));
+        served.push((frame.get(), fingerprint::of(pixels)));
         Ok(())
     })
     .unwrap();

@@ -3,7 +3,7 @@ use std::num::NonZeroU32;
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ColorRange {
     Limited,
     Full,

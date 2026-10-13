@@ -1,9 +1,7 @@
 use std::num::{NonZeroU32, NonZeroUsize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use engine::settings::DetectSettings;
-use media::encode::{Codec, Encoder, Settings};
-use media::frame::{ColorRange, YuvFrame};
 use types::detection::{Detection, FrameDetections};
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
@@ -11,7 +9,7 @@ use types::rational::Rational;
 use types::size::SourceSize;
 use types::span::Span;
 
-use crate::random::Xoshiro256;
+use crate::noisy;
 use crate::run::{Provenance, Run, Video};
 use crate::synthetic::injection::{Injected, Observation};
 use crate::synthetic::{Class, Motion, Point, Scene, Target};
@@ -75,42 +73,13 @@ pub(crate) fn on(target: &Target) -> Vec<Detection> {
         .collect()
 }
 
-pub(crate) const VIDEO_WIDTH: u32 = 96;
-pub(crate) const VIDEO_HEIGHT: u32 = 72;
-pub(crate) const VIDEO_FRAMES: usize = 60;
-
-pub(crate) fn noisy_video(path: &std::path::Path) -> std::path::PathBuf {
-    let settings = Settings::new(
-        VIDEO_WIDTH,
-        VIDEO_HEIGHT,
-        Rational::new(30, 1).unwrap(),
-        Codec::OpenH264,
-    )
-    .unwrap();
-    let mut encoder = Encoder::create(path, &settings).unwrap();
-    let mut frame = YuvFrame::new(VIDEO_WIDTH, VIDEO_HEIGHT, ColorRange::Limited).unwrap();
-    let mut random = Xoshiro256::seeded(7);
-    for _ in 0..VIDEO_FRAMES {
-        for pixel in frame.y_mut() {
-            *pixel = random.uniform(122.0, 130.0).round() as u8;
-        }
-        frame.u_mut().fill(128);
-        frame.v_mut().fill(128);
-        encoder.push(&frame).unwrap();
-    }
-    encoder.finish().unwrap();
+pub(crate) fn noisy_video(path: &Path) -> PathBuf {
+    noisy::write_video(path).unwrap();
     path.to_path_buf()
 }
 
 pub(crate) fn slow_target(id: usize, start: usize, frames: usize) -> Target {
-    let positions = (0..frames)
-        .map(|offset| Point {
-            x: 8.0 + 2.0 * offset as f64,
-            y: 36.0,
-        })
-        .collect();
-    let class = Class::new(-60.0, 3.0, Motion::Pass).unwrap();
-    Target::new(id, FrameIndex::new(start), positions, vec![-60.0; frames], class).unwrap()
+    noisy::slow_target(id, start, frames).unwrap()
 }
 
 pub(crate) const RUN_FRAMES: usize = 100;

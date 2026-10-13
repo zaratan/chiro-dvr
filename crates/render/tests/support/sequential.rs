@@ -1,8 +1,8 @@
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::NonZeroUsize;
 use std::path::Path;
 
 use media::decode::{Decoder, Threads};
+use media::fingerprint;
 use media::frame::{ColorRange, YuvFrame};
 use types::frame::FrameIndex;
 use types::timeline::Timeline;
@@ -13,13 +13,6 @@ pub(crate) struct Sequential {
     pub(crate) keys: Vec<FrameIndex>,
     pub(crate) errors: Vec<FrameIndex>,
     pub(crate) fingerprints: Vec<u64>,
-}
-
-#[cfg(test)]
-pub(crate) fn fingerprint(frame: &YuvFrame) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    (frame.y(), frame.u(), frame.v()).hash(&mut hasher);
-    hasher.finish()
 }
 
 #[cfg(test)]
@@ -36,7 +29,7 @@ pub(crate) fn read(path: &Path) -> Sequential {
         if !info.decode_errors().is_empty() {
             errors.push(info.index());
         }
-        fingerprints.push(fingerprint(&frame));
+        fingerprints.push(fingerprint::of(&frame));
     }
     Sequential {
         timeline: Timeline::new(pts, stream.time_base(), stream.frame_rate()).unwrap(),

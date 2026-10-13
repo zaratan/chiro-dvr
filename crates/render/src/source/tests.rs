@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::thread;
 
 use media::decode::Threads;
+use media::fingerprint;
 use types::frame::{FrameIndex, Pts};
 use types::span::Span;
 use types::timeline::Timeline;
@@ -35,7 +36,7 @@ fn losing_frames(folder: &Path) -> (PathBuf, Sequential) {
 fn serve(source: &Source, span: Span) -> Result<(Origin, Vec<(FrameIndex, u64)>), Error> {
     let mut served = Vec::new();
     let origin = source.serve(span, |frame, pixels| {
-        served.push((frame, sequential::fingerprint(pixels)));
+        served.push((frame, fingerprint::of(pixels)));
         Ok::<(), Error>(())
     })?;
     Ok((origin, served))

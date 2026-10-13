@@ -938,6 +938,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     qui y tombent sont perdues (saut de `pts`) ou dissimulées. Une plage de parts vide,
     hors de la boîte ou qui déborde est refusée. Les tests de `media`, d'`engine` et de
     `render` y fabriquent leurs vidéos abîmées.
+  - `fingerprint`, derrière la même feature (#154) : `of(image)` hache les trois plans
+    d'une image décodée. C'est la seule empreinte d'image des tests de `media`, `engine`,
+    `render` et `cli`. `DefaultHasher` ne promet rien d'une version de Rust à l'autre :
+    une empreinte se compare dans un même passage, elle ne s'enregistre pas.
 - **`draw`** (#101) : dessin pur sur une toile RGBA, sans FFmpeg ni entrée-sortie.
   - `text` : `Typeface::roboto`, la police embarquée.
     - Graisses 400 pour le texte et 600 pour les numéros (choix de l'utilisateur sur la
@@ -2124,7 +2128,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
   - Tests : vidéo de 96 × 72 et 60 images fabriquée par openh264 (fond bruité), avec une
     cible lente rejouée (−60, σ 3), trouvée ; les cibles tirées y seraient presque
     jamais trouvées, le tirage se teste par ses propriétés. `tests/command.rs` lance le
-    binaire (cibles rejouées, tirées, rejeu, garde contre son propre passage).
+    binaire (cibles rejouées, tirées, rejeu, garde contre son propre passage). La vidéo
+    et la cible lente viennent de `bench::noisy`, derrière la feature `testing` du banc
+    (#154) : `bench` dépend de lui-même en dev-dependency avec cette feature, pour que
+    `tests/command.rs` les voie aussi.
     `local_injection`, `local_metrics` (les détections et les cibles enregistrées
     redonnent `bench.json` cible par cible : entiers exacts, flottants à 1e−12 ; résumé
     à 5e−4 pour Wilson et la complétude, 5e−3 pour les fragments, 5e−2 pour le contraste)

@@ -175,7 +175,8 @@ crates depuis #100, dépendances à sens unique :
   Ne dépend d'aucune autre crate du workspace.
 - `media` → `types` : seule frontière avec FFmpeg et seule crate avec `unsafe`
   (`frame`, `decode`, `encode`, `convert`, `library`) ; `convert` passe du YUV au RGBA, et retour, en BT.709 ;
-  `decode::placed` se place sur une image-clé par `pts` ; `payload` (feature `testing`) abîme un mp4 pour les tests.
+  `decode::placed` se place sur une image-clé par `pts` ; `payload` (feature `testing`) abîme un mp4 pour les tests ;
+  `fingerprint` (même feature) est la seule empreinte d'image des tests.
 - `reference` → `types` : chemins des fixtures et garde LFS, lecture et écriture de la
   référence v0.1.1 et de ses bancs (`bench`), appariement des détections et des pistes.
 - `engine` → `media`, `types` (#116), avec la couture du banc (`detect_injected`) ;
@@ -192,6 +193,7 @@ crates depuis #100, dépendances à sens unique :
   développement, binaire `compare`, non livré ;
   `bench` → `engine`, `tracking`, `reference`, `media`, `types` (#100) : banc de mesure,
   binaire `batdetect-bench-rs` (`--targets`, `--replay`, `--against`), non livré avant #106 ;
+  sa feature `testing` porte la vidéo bruitée et la cible lente de ses tests (`noisy`) ;
   `cli` (paquet `batdetect`, binaire `batdetect-rs`) → `engine`, `tracking`, `files`,
   `summary`, `render`, `draw`, `media`, `types`.
 
