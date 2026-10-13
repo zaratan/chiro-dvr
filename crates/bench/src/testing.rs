@@ -1,0 +1,147 @@
+use std::num::{NonZeroU32, NonZeroUsize};
+use std::path::PathBuf;
+
+use engine::settings::DetectSettings;
+use media::encode::{Codec, Encoder, Settings};
+use media::frame::{ColorRange, YuvFrame};
+use types::detection::{Detection, FrameDetections};
+use types::frame::FrameIndex;
+use types::rate::FrameRate;
+use types::rational::Rational;
+use types::size::SourceSize;
+use types::span::Span;
+
+use crate::random::Xoshiro256;
+use crate::run::{Provenance, Run, Video};
+use crate::synthetic::injection::{Injected, Observation};
+use crate::synthetic::{Class, Motion, Point, Scene, Target};
+
+pub(crate) const STEP: f64 = 18.0;
+
+pub(crate) fn size() -> SourceSize {
+    SourceSize::new(NonZeroU32::new(480).unwrap(), NonZeroU32::new(360).unwrap())
+}
+
+pub(crate) fn rate() -> FrameRate {
+    FrameRate::new(Rational::new(30, 1).unwrap()).unwrap()
+}
+
+pub(crate) fn scene() -> Scene {
+    Scene::new(size(), rate())
+}
+
+pub(crate) fn detection(frame: usize, x: f64, y: f64) -> Detection {
+    Detection {
+        frame: FrameIndex::new(frame),
+        x,
+        y,
+        left: x - 2.0,
+        top: y - 2.0,
+        width: 5.0,
+        height: 5.0,
+        area: 20.0,
+        amplitude: -30.0,
+    }
+}
+
+pub(crate) fn along(id: usize, start: usize, frames: usize, y: f64) -> Target {
+    let positions = (0..frames)
+        .map(|offset| Point {
+            x: 90.0 + STEP * offset as f64,
+            y,
+        })
+        .collect();
+    let class = Class::new(-40.0, 3.0, Motion::Pass).unwrap();
+    Target::new(id, FrameIndex::new(start), positions, vec![-40.0; frames], class).unwrap()
+}
+
+pub(crate) fn observed(target: Target, effective: f64) -> Injected {
+    let observations = (target.start().get()..=target.end().get())
+        .map(|frame| Observation {
+            frame: FrameIndex::new(frame),
+            at: target.position(FrameIndex::new(frame)).unwrap(),
+            effective,
+        })
+        .collect();
+    Injected { target, observations }
+}
+
+pub(crate) fn on(target: &Target) -> Vec<Detection> {
+    (target.start().get()..=target.end().get())
+        .map(|frame| {
+            let at = target.position(FrameIndex::new(frame)).unwrap();
+            detection(frame, at.x, at.y)
+        })
+        .collect()
+}
+
+pub(crate) const VIDEO_WIDTH: u32 = 96;
+pub(crate) const VIDEO_HEIGHT: u32 = 72;
+pub(crate) const VIDEO_FRAMES: usize = 60;
+
+pub(crate) fn noisy_video(path: &std::path::Path) -> std::path::PathBuf {
+    let settings = Settings::new(
+        VIDEO_WIDTH,
+        VIDEO_HEIGHT,
+        Rational::new(30, 1).unwrap(),
+        Codec::OpenH264,
+    )
+    .unwrap();
+    let mut encoder = Encoder::create(path, &settings).unwrap();
+    let mut frame = YuvFrame::new(VIDEO_WIDTH, VIDEO_HEIGHT, ColorRange::Limited).unwrap();
+    let mut random = Xoshiro256::seeded(7);
+    for _ in 0..VIDEO_FRAMES {
+        for pixel in frame.y_mut() {
+            *pixel = random.uniform(122.0, 130.0).round() as u8;
+        }
+        frame.u_mut().fill(128);
+        frame.v_mut().fill(128);
+        encoder.push(&frame).unwrap();
+    }
+    encoder.finish().unwrap();
+    path.to_path_buf()
+}
+
+pub(crate) fn slow_target(id: usize, start: usize, frames: usize) -> Target {
+    let positions = (0..frames)
+        .map(|offset| Point {
+            x: 8.0 + 2.0 * offset as f64,
+            y: 36.0,
+        })
+        .collect();
+    let class = Class::new(-60.0, 3.0, Motion::Pass).unwrap();
+    Target::new(id, FrameIndex::new(start), positions, vec![-60.0; frames], class).unwrap()
+}
+
+pub(crate) const RUN_FRAMES: usize = 100;
+
+pub(crate) fn frames(detections: impl IntoIterator<Item = Detection>) -> FrameDetections {
+    let mut frames = vec![Vec::new(); RUN_FRAMES];
+    for detection in detections {
+        frames[detection.frame.get()].push(detection);
+    }
+    FrameDetections::new(frames).unwrap()
+}
+
+pub(crate) fn run(
+    targets: Vec<Injected>,
+    injected: Vec<Detection>,
+    reference: Vec<Detection>,
+    damaged: Vec<Span>,
+) -> Run {
+    Run {
+        video: Video {
+            path: PathBuf::from("video.mp4"),
+            size: size(),
+            rate: rate(),
+            damaged,
+            reported_frames: 0,
+            half_window: NonZeroUsize::new(15).unwrap(),
+        },
+        detect: DetectSettings::default(),
+        reference: frames(reference),
+        injected: frames(injected),
+        targets,
+        provenance: Provenance::Replayed(PathBuf::from("bats.jsonl.gz")),
+    }
+}

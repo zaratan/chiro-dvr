@@ -160,13 +160,14 @@ mise run rust:test        # tests rapides, couverture ≥ 95 %
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:slow       # l'extrait LFS, le test de mémoire (hors couverture)
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 092 entière
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --profile ci -p compare -- local  # écarts à la référence (extract, 092, settings, local)
+lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --release -p bench -- VIDÉO --against DOSSIER  # garde du banc contre un banc de la v0.1.1
 ```
 
 Windows (MSVC, `/MT`, `+crt-static`) ne se construit que dans la tâche CI `rust-windows`,
 par `packaging/ffmpeg-windows.sh` sous MSYS2 ([docs/11](docs/11-migration-rust.md#windows)).
 
-Workspace virtuel, `members = ["crates/*"]`, toolchain de `rust-toolchain.toml`. Onze
-crates depuis #104, dépendances à sens unique :
+Workspace virtuel, `members = ["crates/*"]`, toolchain de `rust-toolchain.toml`. Douze
+crates depuis #100, dépendances à sens unique :
 
 - `types` : vocabulaire commun (`Rational`, `FrameIndex`, `Pts`, `FrameRate`, `Timeline`,
   `Detection`, `Measures`, `FrameDetections`, `Span`, `Track`, `Language`, `SourceSize`, `WorkScale`).
@@ -175,9 +176,9 @@ crates depuis #104, dépendances à sens unique :
   (`frame`, `decode`, `encode`, `convert`, `library`) ; `convert` passe du YUV au RGBA, et retour, en BT.709 ;
   `decode::placed` se place sur une image-clé par `pts` ; `payload` (feature `testing`) abîme un mp4 pour les tests.
 - `reference` → `types` : chemins des fixtures et garde LFS, lecture et écriture de la
-  référence v0.1.1, appariement des détections et des pistes.
-- `engine` → `media`, `types` (#116) ; `tracking` → `types` (#120) ;
-  `files` → `types` (#122).
+  référence v0.1.1 et de ses bancs (`bench`), appariement des détections et des pistes.
+- `engine` → `media`, `types` (#116), avec la couture du banc (`detect_injected`) ;
+  `tracking` → `types` (#120) ; `files` → `types` (#122).
 - `draw` : dessin pur sur une toile RGBA opaque, police Roboto embarquée, palette et tailles ; ne dépend d'aucune crate du workspace.
 - `render` → `media`, `draw`, `types` (#110, #112) : images des extraits choisies par `pts`
   (`source`), reprise sur la dernière image-clé saine, un seul fil de décodage sur une plage abîmée ;
@@ -188,6 +189,8 @@ crates depuis #104, dépendances à sens unique :
   flèches, pastilles, bandeau, frise du temps, PNG), sans FFmpeg.
 - `compare` → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré ;
+  `bench` → `engine`, `tracking`, `reference`, `media`, `types` (#100) : banc de mesure,
+  binaire `batdetect-bench-rs` (`--targets`, `--replay`, `--against`), non livré avant #106 ;
   `cli` (paquet `batdetect`, binaire `batdetect-rs`) → `engine`, `tracking`, `files`,
   `summary`, `render`, `draw`, `media`, `types`.
 

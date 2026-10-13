@@ -130,6 +130,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "bench"
+version = "0.0.0"
+dependencies = [
+ "clap",
+ "engine",
+ "media",
+ "proptest",
+ "reference",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tracking",
+ "types",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.73.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1141,6 +1158,8 @@ version = "0.0.0"
 dependencies = [
  "proptest",
  "reference",
+ "serde",
+ "serde_json",
  "thiserror",
  "types",
 ]

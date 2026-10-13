@@ -6,8 +6,8 @@ use types::size::SourceSize;
 use super::{Prepare, reflect, to_level, to_units};
 use crate::blur::Blur;
 use crate::geometry::Geometry;
+use crate::gray::GRAY;
 use crate::mask::Mask;
-use crate::reduction::GRAY;
 use crate::settings::Region;
 use crate::synthetic::Noise;
 

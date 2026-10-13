@@ -86,10 +86,11 @@ impl Detector {
         }
     }
 
-    pub(crate) fn push(&mut self, luma: &[u8]) {
+    pub(crate) fn push(&mut self, luma: &[u8], touch: impl FnOnce(&mut [u8])) {
         let mut copy = self.spare.pop().unwrap_or_default();
         copy.clear();
         copy.extend_from_slice(luma);
+        touch(&mut copy);
         self.pending.push(copy);
         if self.pending.len() == self.batch.get() {
             self.flush(false);

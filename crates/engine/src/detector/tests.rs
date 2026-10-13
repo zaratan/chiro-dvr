@@ -51,7 +51,7 @@ fn detected_with(
         batch,
     );
     for frame in frames {
-        detector.push(&frame);
+        detector.push(&frame, |_| {});
     }
     detector.finish().iter().map(|(_, found)| found.to_vec()).collect()
 }

@@ -4,6 +4,7 @@ use std::path::Path;
 use media::decode::{ActiveThreads, Threads};
 use media::frame::YuvFrame;
 use types::detection::FrameDetections;
+use types::frame::FrameIndex;
 
 use crate::background::BackgroundFrames;
 use crate::blur::{self, Blur};
@@ -13,6 +14,7 @@ use crate::damage::Damage;
 use crate::detector::{BATCH, Detector};
 use crate::geometry::{self, Geometry};
 use crate::input::{self, Input, READ_AHEAD, Reading};
+use crate::luma::LumaMut;
 use crate::mask::{self, Mask};
 
 #[cfg(test)]
@@ -94,6 +96,14 @@ pub fn detect(path: &Path, threads: Threads, config: &DetectConfig) -> Result<De
 }
 
 pub fn detect_input(input: Input, config: &DetectConfig) -> Result<Detected, Error> {
+    detect_injected(input, config, |_, _| {})
+}
+
+pub fn detect_injected(
+    input: Input,
+    config: &DetectConfig,
+    mut inject: impl FnMut(FrameIndex, LumaMut<'_>),
+) -> Result<Detected, Error> {
     let video = input.video();
     let path = video.path().to_path_buf();
     let geometry = Geometry::new(video.size(), config.work_width()).map_err(|source| Error::Geometry {
@@ -116,13 +126,14 @@ pub fn detect_input(input: Input, config: &DetectConfig) -> Result<Detected, Err
     let half_window = config
         .half_window(video.frame_rate())
         .map_err(|source| Error::Config { path, source })?;
+    let width = geometry.source_width();
     let active_threads = input.active_threads();
     let mut detector = Detector::new(geometry, &blur, &disk, mask, half_window, config, BATCH);
     let detection_threads = detector.workers();
     let mut background = BackgroundFrames::new(video.announced_frames());
     let reading = input.read_ahead_by(BATCH.saturating_add(READ_AHEAD.get()), |info, frame| {
         background.offer(info.index(), frame);
-        detector.push(frame.y());
+        detector.push(frame.y(), |copy| inject(info.index(), LumaMut::of_frame(copy, width)));
         Ok::<(), Error>(())
     })?;
     let detections = detector.finish();

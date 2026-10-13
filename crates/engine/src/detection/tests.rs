@@ -2,10 +2,13 @@ use std::num::NonZeroUsize;
 
 use media::decode::{ActiveThreads, Threads};
 use tempfile::TempDir;
+use types::frame::FrameIndex;
 use types::rational::Rational;
 
-use super::{Error, detect};
+use super::{Error, detect, detect_injected};
 use crate::config::DetectConfig;
+use crate::input::Input;
+use crate::luma::LumaMut;
 use crate::settings::{DetectSettings, Region};
 use crate::synthetic::{luma, with_square};
 use crate::testing::{self, FRAMES, binoculars};
@@ -168,4 +171,77 @@ fn display_regions_covering_the_whole_frame_are_refused_before_any_detection() {
         refused.to_string(),
         format!("cannot mask the OSD regions of {}", path.display())
     );
+}
+
+fn flat(folder: &TempDir) -> std::path::PathBuf {
+    binoculars(
+        &folder.path().join("flat.mp4"),
+        SOURCE,
+        Rational::new(30, 1).unwrap(),
+        (0..20).map(|_| vec![luma(200.0); 360 * 270]),
+    )
+}
+
+fn darken(mut plane: LumaMut<'_>, frame: FrameIndex) {
+    let left = 60 + 6 * frame.get();
+    for row in plane.rows_mut().skip(135).take(9) {
+        for value in &mut row[left..left + 9] {
+            *value -= 70;
+        }
+    }
+}
+
+#[test]
+fn the_hook_sees_each_frame_read_once_in_order_at_the_source_size() {
+    let folder = TempDir::new().unwrap();
+    let path = flat(&folder);
+    let mut seen = Vec::new();
+
+    let detected = detect_injected(
+        Input::open(&path, Threads::Automatic).unwrap(),
+        &three_to_two(),
+        |frame, plane| seen.push((frame.get(), plane.width(), plane.height())),
+    )
+    .unwrap();
+
+    assert_eq!(seen, (0..20).map(|frame| (frame, 360, 270)).collect::<Vec<_>>());
+    assert!(detected.detections().iter().all(|(_, found)| found.is_empty()));
+}
+
+#[test]
+fn a_spot_drawn_by_the_hook_is_detected_where_it_was_drawn() {
+    let folder = TempDir::new().unwrap();
+    let path = flat(&folder);
+
+    let detected = detect_injected(
+        Input::open(&path, Threads::Automatic).unwrap(),
+        &three_to_two(),
+        |frame, plane| darken(plane, frame),
+    )
+    .unwrap();
+
+    for (frame, found) in detected.detections().iter() {
+        assert_eq!(found.len(), 1, "{frame:?}: {found:?}");
+        assert!(
+            (found[0].x - (64.0 + 6.0 * frame.get() as f64)).abs() < 2.0,
+            "{found:?}"
+        );
+        assert!((found[0].y - 139.0).abs() < 2.0, "{found:?}");
+    }
+}
+
+#[test]
+fn the_summary_background_is_taken_from_the_frames_read_not_from_the_injected_ones() {
+    let folder = TempDir::new().unwrap();
+    let path = flat(&folder);
+    let plain = detect(&path, Threads::Automatic, &three_to_two()).unwrap();
+
+    let injected = detect_injected(
+        Input::open(&path, Threads::Automatic).unwrap(),
+        &three_to_two(),
+        |_, plane| darken(plane, FrameIndex::new(0)),
+    )
+    .unwrap();
+
+    assert_eq!(injected.background().unwrap().y(), plain.background().unwrap().y());
 }

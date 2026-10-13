@@ -122,6 +122,13 @@ graine 1, `--motions hunt circle --amplitudes -60 -30 --per-class 60` (12 classe
 Le tirage (`SeedSequence.spawn`, `default_rng`) ne se reproduit pas en Rust : rejouer les cibles
 de `bats.jsonl.gz`.
 
+En Rust (#100), `reference::bench` lit et écrit `bats.jsonl.gz` (`TargetLine`), les lignes
+`{frame, detections}` d'`injected.jsonl.gz` et `bench.json` (`BenchReport`) ;
+`reference::location::recorded_bench(nom)` donne `$BATDETECT_REFERENCE_DIR/bench/<nom>/`. Les tests
+`local_injection`, `local_metrics` et `local_guard` de `bench` lisent les deux bancs, et
+`batdetect-bench-rs VIDÉO --against DOSSIER` rejoue un banc pour la garde (docs/11, « Banc de
+mesure »). `bench-run.json` n'est pas relu.
+
 ## Sorties complètes
 
 Commande `batdetect` par défaut (encodeur VideoToolbox), une fois en français

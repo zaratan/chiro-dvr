@@ -48,6 +48,10 @@ impl Region {
         span(self.y0, self.y1, height, margin)
     }
 
+    pub fn contains(self, x: f64, y: f64) -> bool {
+        (self.x0..=self.x1).contains(&x) && (self.y0..=self.y1).contains(&y)
+    }
+
     pub(crate) fn is_valid(self) -> bool {
         (0.0 <= self.x0 && self.x0 < self.x1 && self.x1 <= 1.0)
             && (0.0 <= self.y0 && self.y0 < self.y1 && self.y1 <= 1.0)

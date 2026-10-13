@@ -1,11 +1,10 @@
-use std::num::NonZeroU32;
-
 use engine::config::DetectConfig;
 use engine::settings::DetectSettings;
 use media::decode::ActiveThreads;
 use media::encode::Codec;
 use render::config::RenderConfig;
 use serde::Serialize;
+use tracking::settings::{StabilitySettings, TrackSettings};
 use tracking::stability::StabilityConfig;
 use tracking::track::TrackConfig;
 
@@ -23,22 +22,6 @@ pub(crate) struct Settings {
     #[serde(rename = "RenderConfig")]
     render: RenderSettings,
     threads: ThreadSettings,
-}
-
-#[derive(Debug, Serialize)]
-struct TrackSettings {
-    max_jump: f64,
-    max_gap: usize,
-    min_hits: usize,
-    min_travel: f64,
-    twin_distance: f64,
-    max_median_turn: f64,
-}
-
-#[derive(Debug, Serialize)]
-struct StabilitySettings {
-    max_blobs: u32,
-    pad_s: f64,
 }
 
 #[derive(Debug, Serialize)]
@@ -82,18 +65,8 @@ impl Settings {
         };
         Self {
             detect: DetectSettings::from(detect),
-            track: TrackSettings {
-                max_jump: track.max_jump(),
-                max_gap: track.max_gap().get(),
-                min_hits: track.min_hits().get(),
-                min_travel: track.min_travel(),
-                twin_distance: track.twin_distance().unwrap_or(0.0),
-                max_median_turn: track.max_median_turn(),
-            },
-            stability: StabilitySettings {
-                max_blobs: stability.max_blobs().map_or(0, NonZeroU32::get),
-                pad_s: stability.pad_s(),
-            },
+            track: TrackSettings::from(track),
+            stability: StabilitySettings::from(stability),
             render: RenderSettings {
                 box_pad: render.box_pad(),
                 trail_s: render.trail_s(),
