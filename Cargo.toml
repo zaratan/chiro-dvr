@@ -29,6 +29,7 @@ unic-langid = "0.9.6"
 unicode-normalization = "0.1.25"
 draw = { path = "crates/draw" }
 bench = { path = "crates/bench" }
+compare = { path = "crates/compare" }
 engine = { path = "crates/engine" }
 files = { path = "crates/files" }
 media = { path = "crates/media" }

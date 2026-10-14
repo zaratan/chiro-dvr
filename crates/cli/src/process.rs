@@ -95,10 +95,22 @@ pub fn process(
     versions: Versions<'_>,
     options: &Options,
 ) -> Result<Processed, Error> {
+    progress.step(Step::Detection).map_err(Error::Progress)?;
+    let detected = detect(&job.video, threads, &options.detect).map_err(Error::Detection)?;
+    process_detected(job, &detected, wording, progress, versions, options)
+}
+
+/// `detected` must come from `options.detect`: the parameters and the overview describe those settings.
+pub fn process_detected(
+    job: &Job,
+    detected: &Detected,
+    wording: &dyn Wording,
+    progress: &dyn Progress,
+    versions: Versions<'_>,
+    options: &Options,
+) -> Result<Processed, Error> {
     let render = options.render;
     let config = &options.detect;
-    progress.step(Step::Detection).map_err(Error::Progress)?;
-    let detected = detect(&job.video, threads, config).map_err(Error::Detection)?;
     let reading = detected.reading();
     let rate = reading.video().frame_rate();
     let pts = reading.frames().iter().map(|frame| frame.pts()).collect();
@@ -169,11 +181,11 @@ pub fn process(
         damaged: &params.damaged_s,
     };
     progress.step(Step::Summary).map_err(Error::Progress)?;
-    let summaries = write_overview(overview, &detected, &summary).map_err(Error::Overview)?;
+    let summaries = write_overview(overview, detected, &summary).map_err(Error::Overview)?;
     let clips = Clips {
         job,
         names,
-        detected: &detected,
+        detected,
         timeline: &timeline,
         options,
     };
