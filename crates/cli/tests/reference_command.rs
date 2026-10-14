@@ -5,6 +5,7 @@ mod clips;
 
 use batdetect::options::Options;
 use batdetect::process::process;
+use batdetect::progress::Silent;
 use media::decode::{Decoder, Threads};
 use reference::fixture::fixture;
 use reference::location::committed;
@@ -25,6 +26,7 @@ fn the_092_gives_the_fourteen_tracks_and_clips_of_the_reference_and_its_single_z
     let processed = process(
         &job,
         &agreement::DebugLabels,
+        &Silent,
         Threads::Automatic,
         agreement::VERSIONS,
         &Options::default(),

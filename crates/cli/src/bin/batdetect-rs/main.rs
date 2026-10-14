@@ -2,20 +2,22 @@ mod arguments;
 mod errors;
 mod messages;
 mod numbers;
+mod status;
 mod texts;
 
-use std::io::{self, Write};
+use std::io::{self, IsTerminal};
 use std::process::ExitCode;
 
 use batdetect::jobs::{Job, collect_videos, plan_jobs};
 use batdetect::language::system_language;
 use batdetect::options::Options;
-use batdetect::outcome::{Failure, all_succeeded, run_all};
-use batdetect::process::{self, Processed, Versions, process};
+use batdetect::outcome::{all_succeeded, run_all};
+use batdetect::process::{Versions, process};
 use batdetect::writable::unwritable_folders;
 use media::decode::Threads;
 
 use crate::errors::report;
+use crate::status::{Status, Video};
 use crate::texts::{Fixed, Message, Texts};
 
 fn main() -> ExitCode {
@@ -45,51 +47,28 @@ fn run(jobs: &[Job], texts: Texts, options: &Options) -> ExitCode {
         program: messages::version(),
         ffmpeg: &ffmpeg,
     };
+    let status = Status::new(texts, io::stderr().is_terminal());
     let outcomes = run_all(
         jobs,
-        |job| process(job, &texts, Threads::Automatic, versions, options),
-        |job, result| tell(texts, job, result),
+        |job, rank| {
+            let video = Video {
+                status: &status,
+                rank,
+                job,
+            };
+            process(job, &texts, &video, Threads::Automatic, versions, options)
+        },
+        |job, rank, result| {
+            let video = Video {
+                status: &status,
+                rank,
+                job,
+            };
+            video.tell(&mut io::stderr().lock(), &mut io::stdout().lock(), result)
+        },
     );
     match outcomes {
         Ok(outcomes) if all_succeeded(&outcomes) => ExitCode::SUCCESS,
         _ => ExitCode::FAILURE,
-    }
-}
-
-fn tell(texts: Texts, job: &Job, result: &Result<Processed, Failure>) -> io::Result<()> {
-    match result {
-        Ok(processed) => {
-            let mut stderr = io::stderr().lock();
-            for kept in &processed.kept {
-                writeln!(stderr, "{}", texts.say(&messages::table_kept(job, kept)))?;
-            }
-            for redone in &processed.rendered.redone {
-                writeln!(
-                    stderr,
-                    "{}",
-                    texts.say(&messages::redone(job, &redone.paths, &redone.cause))
-                )?;
-            }
-            writeln!(
-                io::stdout().lock(),
-                "{}",
-                texts.say(&messages::processed(job, processed.tracks.len()))
-            )
-        }
-        Err(Failure::Error(process::Error::TooManyTracks {
-            count,
-            limit,
-            annotated,
-        })) => writeln!(
-            io::stderr().lock(),
-            "{}",
-            texts.say(&messages::too_many_tracks(job, *count, *limit, *annotated))
-        ),
-        Err(Failure::Error(error)) => writeln!(io::stderr().lock(), "{}", texts.say(&messages::failed(job, error))),
-        Err(Failure::Panic(message)) => writeln!(
-            io::stderr().lock(),
-            "{}",
-            texts.say(&messages::internal_error(job, message))
-        ),
     }
 }

@@ -1,6 +1,8 @@
 use std::collections::BTreeSet;
 use std::num::NonZeroU32;
 
+use batdetect::outcome::Rank;
+use batdetect::progress::Step;
 use draw::style::style_for;
 use draw::text::Typeface;
 use engine::settings::Bound;
@@ -12,7 +14,7 @@ use types::language::Language;
 use super::{ENGLISH_SOURCE, FRENCH_SOURCE, Fixed, Message, Texts, resolved};
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 32;
+const VARIANTS: usize = 35;
 const FIXED: [Fixed; 34] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
@@ -84,6 +86,9 @@ fn rank(message: &Message) -> usize {
         Message::VideosRefused { .. } => 29,
         Message::TableKept { .. } => 30,
         Message::FoldersRefused { .. } => 31,
+        Message::VideoStep { .. } => 32,
+        Message::VideoDone { .. } => 33,
+        Message::VideoFailed { .. } => 34,
     }
 }
 
@@ -159,6 +164,20 @@ fn lines() -> Vec<Message> {
             video: text("nuit/video_092.mp4"),
             table: text("video_092_pistes.csv"),
             written: false,
+        },
+        Message::VideoStep {
+            rank: Rank { position: 3, total: 12 },
+            video: text("video_092"),
+            step: Step::Summary,
+        },
+        Message::VideoDone {
+            rank: Rank { position: 3, total: 12 },
+            video: text("video_092"),
+            tracks: 14,
+        },
+        Message::VideoFailed {
+            rank: Rank { position: 3, total: 12 },
+            video: text("video_092"),
         },
         Message::Failed {
             video: text("nuit/video_092.mp4"),

@@ -198,7 +198,9 @@ crates depuis #100, dépendances à sens unique :
   `cli` (paquet `batdetect`, binaire `batdetect-rs`) → `engine`, `tracking`, `files`,
   `summary`, `render`, `draw`, `media`, `types` ; `options` (réglages de la commande),
   `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), `writable`
-  (sonde d'écriture de chaque dossier de sortie avant tout calcul, #86), version gravée par
+  (sonde d'écriture de chaque dossier de sortie avant tout calcul, #86), `progress` (étapes
+  d'une vidéo annoncées par `process`, #63), dans le binaire `status` (vidéo et étape en
+  cours sur la sortie d'erreur, redessinée sur un terminal, #63), version gravée par
   `build.rs` ; textes en Fluent dans `locales/{fr,en}.ftl`, langue de l'aide, des erreurs,
   des lignes et du bandeau (#114).
 

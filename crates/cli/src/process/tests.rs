@@ -1,4 +1,6 @@
+use std::cell::RefCell;
 use std::fs;
+use std::io;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::path::{Path, PathBuf};
 
@@ -26,6 +28,7 @@ use super::{Clips, Error, Versions, Wording, process, render_clips};
 use crate::flight;
 use crate::jobs::Job;
 use crate::options::Options;
+use crate::progress::{Progress, Silent, Step};
 
 fn still(id: usize) -> Track {
     let points = (0..3)
@@ -195,7 +198,7 @@ fn a_box_follows_its_target_on_every_detected_frame_after_frames_lost_in_the_mid
         video: video.clone(),
         dest: folder.path().join("out"),
     };
-    let processed = process(&job, &Plain, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
+    let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
     let kept = clip_frames(&video).len();
     assert_eq!((kept, processed.tracks.len()), (KEPT_FRAMES, 2));
     let rate = FrameRate::new(Rational::new(10, 1).unwrap()).unwrap();
@@ -263,7 +266,7 @@ fn the_annotated_video_of_a_flight_that_loses_frames_keeps_the_frames_and_pts_of
         annotated: true,
         ..Options::default()
     };
-    process(&job, &Plain, Threads::Automatic, VERSIONS, &options).unwrap();
+    process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &options).unwrap();
     let annotated = Names::new(Language::English).annotated_video(&job.dest, video.file_stem().unwrap());
     let source = pts_of(&video);
     assert_eq!(source.len(), KEPT_FRAMES);
@@ -313,7 +316,7 @@ fn the_outputs_of_an_earlier_run_in_any_language_are_replaced_by_those_of_this_r
     }
     let french = Names::new(Language::French).annotated_video(&job.dest, job.video.file_stem().unwrap());
     fs::write(encode::partial_path(&french).unwrap(), "").unwrap();
-    let processed = process(&job, &Plain, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
+    let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
     assert_eq!(
         left_in(&job.dest),
         ["clips", "flight_summary.png", "flight_tracks.csv", "params.json"]
@@ -329,7 +332,7 @@ fn a_table_annotated_in_the_language_of_the_run_is_kept_as_it_is_and_no_table_is
     let table = job.dest.join("flight_tracks.csv");
     fs::create_dir_all(&job.dest).unwrap();
     fs::write(&table, ANNOTATED_HEADER).unwrap();
-    let processed = process(&job, &Plain, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
+    let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
     assert_eq!(processed.csv, None);
     assert_eq!(
         processed.kept,
@@ -349,7 +352,7 @@ fn a_table_annotated_in_the_other_language_is_kept_beside_the_new_table() {
     let table = job.dest.join("flight_pistes.csv");
     fs::create_dir_all(&job.dest).unwrap();
     fs::write(&table, ANNOTATED_HEADER).unwrap();
-    let processed = process(&job, &Plain, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
+    let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
     assert_eq!(processed.csv, Some(job.dest.join("flight_tracks.csv")));
     assert_eq!(
         processed.kept,
@@ -370,7 +373,7 @@ fn a_table_annotated_under_the_name_of_the_video_in_another_case_is_never_writte
     fs::create_dir_all(&job.dest).unwrap();
     fs::write(&other_case, ANNOTATED_HEADER).unwrap();
     let ignores_case = job.dest.join("flight_tracks.csv").exists();
-    let processed = process(&job, &Plain, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
+    let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
     assert_eq!(fs::read_to_string(&other_case).unwrap(), ANNOTATED_HEADER);
     assert_eq!(processed.csv.is_none(), ignores_case);
     assert_eq!(processed.kept.len(), usize::from(ignores_case));
@@ -386,7 +389,7 @@ fn a_detection_that_fails_leaves_the_results_of_an_earlier_run() {
     fs::write(&job.video, "not a video").unwrap();
     fs::create_dir_all(job.dest.join("clips")).unwrap();
     fs::write(job.dest.join("flight_tracks.csv"), OUR_HEADER).unwrap();
-    let failed = process(&job, &Plain, Threads::Automatic, VERSIONS, &Options::default());
+    let failed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default());
     assert!(matches!(failed, Err(Error::Detection(_))));
     assert_eq!(left_in(&job.dest), ["clips", "flight_tracks.csv"]);
 }
@@ -395,4 +398,77 @@ fn a_detection_that_fails_leaves_the_results_of_an_earlier_run() {
 fn an_encoded_video_hides_its_partial_file_under_the_name_the_cleanup_removes() {
     let video = Path::new("out/flight/flight_annotee.mp4");
     assert_eq!(encode::partial_path(video), Some(partial_path(video)));
+}
+
+#[derive(Debug, Default)]
+struct Recorded(RefCell<Vec<Step>>);
+
+impl Progress for Recorded {
+    fn step(&self, step: Step) -> io::Result<()> {
+        self.0.borrow_mut().push(step);
+        Ok(())
+    }
+}
+
+#[test]
+fn a_video_goes_through_detection_tracking_summary_and_clips_in_this_order() {
+    let folder = tempfile::tempdir().unwrap();
+    let job = flight_job(folder.path());
+    let recorded = Recorded::default();
+    process(
+        &job,
+        &Plain,
+        &recorded,
+        Threads::Automatic,
+        VERSIONS,
+        &Options::default(),
+    )
+    .unwrap();
+    assert_eq!(*recorded.0.borrow(), Step::ALL);
+}
+
+#[test]
+fn a_detection_that_fails_has_reported_only_its_first_step() {
+    let folder = tempfile::tempdir().unwrap();
+    let job = Job {
+        video: folder.path().join("flight.mp4"),
+        dest: folder.path().join("out"),
+    };
+    fs::write(&job.video, "not a video").unwrap();
+    let recorded = Recorded::default();
+    let failed = process(
+        &job,
+        &Plain,
+        &recorded,
+        Threads::Automatic,
+        VERSIONS,
+        &Options::default(),
+    );
+    assert!(matches!(failed, Err(Error::Detection(_))));
+    assert_eq!(*recorded.0.borrow(), [Step::Detection]);
+}
+
+#[derive(Debug)]
+struct Failing;
+
+impl Progress for Failing {
+    fn step(&self, _step: Step) -> io::Result<()> {
+        Err(io::Error::from(io::ErrorKind::BrokenPipe))
+    }
+}
+
+#[test]
+fn a_step_that_cannot_be_shown_fails_the_video_before_its_detection() {
+    let folder = tempfile::tempdir().unwrap();
+    let job = flight_job(folder.path());
+    let failed = process(
+        &job,
+        &Plain,
+        &Failing,
+        Threads::Automatic,
+        VERSIONS,
+        &Options::default(),
+    );
+    assert!(matches!(failed, Err(Error::Progress(_))));
+    assert!(!job.dest.exists());
 }

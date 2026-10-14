@@ -14,6 +14,17 @@ table-kept = { $video } : { $table } laissé tel quel, il n'a pas la forme d'un 
         [no] {" "}; le nouveau tableau n'est pas écrit
        *[yes] {""}
     }
+video-step = [{ $position }/{ $total }] { $video } — { $step ->
+        [detection] détection
+        [tracking] suivi
+        [summary] image résumé
+       *[clips] extraits
+    }
+video-done = [{ $position }/{ $total }] { $video } — { $tracks ->
+        [one] { $tracks } piste
+       *[other] { $tracks } pistes
+    }
+video-failed = [{ $position }/{ $total }] { $video } — échec
 failed = { $video } : échec : { $causes }
 internal-error = { $video } : erreur interne : { $message }
 summary-part = partie { $number } / { $count }

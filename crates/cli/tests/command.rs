@@ -61,7 +61,6 @@ fn text(bytes: &[u8]) -> String {
     String::from_utf8(bytes.to_vec()).unwrap()
 }
 
-#[cfg(test)]
 fn lines_naming<'a>(errors: &'a str, video: &str) -> Vec<&'a str> {
     errors.lines().filter(|line| line.contains(video)).collect()
 }
@@ -593,4 +592,59 @@ fn a_folder_where_nothing_can_be_written_stops_every_video_before_any_work_in_ei
         assert!(!errors.contains(&open.display().to_string()), "{errors}");
     }
     assert!(!open.join("batdetect").join("autre").exists());
+}
+
+fn video_lines(errors: &str, total: usize) -> Vec<&str> {
+    let ranks: Vec<String> = (1..=total).map(|position| format!("[{position}/{total}] ")).collect();
+    errors
+        .lines()
+        .filter(|line| ranks.iter().any(|rank| line.starts_with(rank.as_str())))
+        .collect()
+}
+
+#[test]
+fn redirected_each_video_shows_its_steps_in_order_then_its_track_count_or_its_failure() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    fs::write(videos.join("zz_broken.mp4"), "not a video").unwrap();
+    let output = run(&[&videos, Path::new("-o"), &root.path().join("out")], "fr_FR.UTF-8");
+    assert_eq!(output.status.code(), Some(1));
+    let errors = text(&output.stderr);
+    assert_eq!(
+        video_lines(&errors, 2),
+        [
+            "[1/2] flight — détection",
+            "[1/2] flight — suivi",
+            "[1/2] flight — image résumé",
+            "[1/2] flight — extraits",
+            "[1/2] flight — 1 piste",
+            "[2/2] zz_broken — détection",
+            "[2/2] zz_broken — échec",
+        ]
+    );
+    let lines: Vec<&str> = errors.lines().collect();
+    let cause = lines
+        .iter()
+        .position(|line| line.contains("zz_broken.mp4 : échec : "))
+        .unwrap();
+    let failed = lines
+        .iter()
+        .position(|line| *line == "[2/2] zz_broken — échec")
+        .unwrap();
+    assert!(cause < failed, "{errors}");
+}
+
+#[test]
+fn redirected_a_table_left_as_it_is_is_told_above_the_last_line_of_its_video_in_english() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    fs::create_dir_all(out.join("flight")).unwrap();
+    fs::write(out.join("flight").join("flight_pistes.csv"), "id;verdict\r\n").unwrap();
+    let output = run(&[&videos, Path::new("-o"), &out], "C");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let errors = text(&output.stderr);
+    let lines: Vec<&str> = errors.lines().collect();
+    let kept = lines.iter().position(|line| line.contains("left as it is")).unwrap();
+    let clips = lines.iter().position(|line| *line == "[1/1] flight — clips").unwrap();
+    let done = lines.iter().position(|line| *line == "[1/1] flight — 1 track").unwrap();
+    assert!(clips < kept && kept < done, "{errors}");
 }

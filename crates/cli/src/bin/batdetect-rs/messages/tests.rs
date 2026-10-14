@@ -3,11 +3,17 @@ use std::fmt;
 use std::path::PathBuf;
 
 use batdetect::jobs::Job;
+use batdetect::outcome::Rank;
+use batdetect::progress::Step;
 use files::previous::Kept;
 use types::language::Language;
 
-use super::{failed, internal_error, processed, redone, table_kept, too_many_tracks};
+use super::{
+    failed, internal_error, processed, redone, table_kept, too_many_tracks, video_done, video_failed, video_step,
+};
 use crate::texts::{Message, Texts};
+
+const THIRD: Rank = Rank { position: 3, total: 12 };
 
 fn said(language: Language, message: &Message) -> String {
     Texts::new(language).say(message)
@@ -160,5 +166,67 @@ fn a_table_left_as_it_is_is_named_and_says_when_the_new_table_was_not_written() 
         said(Language::English, &table_kept(&job(), &kept(true))),
         "nuit/video_092.mp4: video_092_pistes.csv left as it is, it does not have the form of a tracks table; \
          the new table is not written"
+    );
+}
+
+#[test]
+fn the_line_of_a_video_names_its_rank_its_name_without_extension_and_its_step() {
+    let steps: Vec<String> = Step::ALL
+        .into_iter()
+        .map(|step| said(Language::French, &video_step(THIRD, &job(), step)))
+        .collect();
+    assert_eq!(
+        steps,
+        [
+            "[3/12] video_092 — détection",
+            "[3/12] video_092 — suivi",
+            "[3/12] video_092 — image résumé",
+            "[3/12] video_092 — extraits",
+        ]
+    );
+    let steps: Vec<String> = Step::ALL
+        .into_iter()
+        .map(|step| said(Language::English, &video_step(THIRD, &job(), step)))
+        .collect();
+    assert_eq!(
+        steps,
+        [
+            "[3/12] video_092 — detection",
+            "[3/12] video_092 — tracking",
+            "[3/12] video_092 — summary image",
+            "[3/12] video_092 — clips",
+        ]
+    );
+}
+
+#[test]
+fn the_line_of_a_finished_video_keeps_its_track_count_or_says_it_failed() {
+    assert_eq!(
+        said(Language::French, &video_done(THIRD, &job(), 14)),
+        "[3/12] video_092 — 14 pistes"
+    );
+    assert_eq!(
+        said(Language::French, &video_done(THIRD, &job(), 1)),
+        "[3/12] video_092 — 1 piste"
+    );
+    assert_eq!(
+        said(Language::French, &video_done(THIRD, &job(), 0)),
+        "[3/12] video_092 — 0 piste"
+    );
+    assert_eq!(
+        said(Language::English, &video_done(THIRD, &job(), 0)),
+        "[3/12] video_092 — 0 tracks"
+    );
+    assert_eq!(
+        said(Language::English, &video_done(THIRD, &job(), 1)),
+        "[3/12] video_092 — 1 track"
+    );
+    assert_eq!(
+        said(Language::French, &video_failed(THIRD, &job())),
+        "[3/12] video_092 — échec"
+    );
+    assert_eq!(
+        said(Language::English, &video_failed(THIRD, &job())),
+        "[3/12] video_092 — failed"
     );
 }

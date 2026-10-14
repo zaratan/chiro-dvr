@@ -26,6 +26,7 @@ use types::track::Track;
 use crate::jobs::Job;
 use crate::options::Options;
 use crate::overview::{self, Overview, write_overview};
+use crate::progress::{Progress, Step};
 use crate::settings::Settings;
 
 #[cfg(test)]
@@ -33,6 +34,8 @@ mod tests;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("the progress cannot be shown")]
+    Progress(#[source] io::Error),
     #[error("the detection failed")]
     Detection(#[source] detection::Error),
     #[error("the timeline cannot be built")]
@@ -87,12 +90,14 @@ pub struct Processed {
 pub fn process(
     job: &Job,
     wording: &dyn Wording,
+    progress: &dyn Progress,
     threads: Threads,
     versions: Versions<'_>,
     options: &Options,
 ) -> Result<Processed, Error> {
     let render = options.render;
     let config = &options.detect;
+    progress.step(Step::Detection).map_err(Error::Progress)?;
     let detected = detect(&job.video, threads, config).map_err(Error::Detection)?;
     let reading = detected.reading();
     let rate = reading.video().frame_rate();
@@ -101,6 +106,7 @@ pub fn process(
     let damage = detected.damage();
     let reported = damage.reported_frames();
     let (track, stability) = (options.track, options.stability);
+    progress.step(Step::Tracking).map_err(Error::Progress)?;
     let exclusion = exclude(
         detected.detections(),
         damage.spans().to_vec(),
@@ -162,6 +168,7 @@ pub fn process(
         ignored: &params.ignored_s,
         damaged: &params.damaged_s,
     };
+    progress.step(Step::Summary).map_err(Error::Progress)?;
     let summaries = write_overview(overview, &detected, &summary).map_err(Error::Overview)?;
     let clips = Clips {
         job,
@@ -170,6 +177,7 @@ pub fn process(
         timeline: &timeline,
         options,
     };
+    progress.step(Step::Clips).map_err(Error::Progress)?;
     let rendered = render_clips(&clips, &tracks, trial)?;
     Ok(Processed {
         tracks,
