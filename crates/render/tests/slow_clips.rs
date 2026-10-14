@@ -1,8 +1,11 @@
 #[path = "support/sequential.rs"]
 mod sequential;
+#[path = "support/similarity.rs"]
+mod similarity;
 
 use std::num::NonZeroU32;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use media::convert::{Converter, SourceRange};
 use media::decode::{Decoder, Threads};
@@ -22,77 +25,20 @@ use types::span::Span;
 use types::track::Track;
 
 use crate::sequential::Sequential;
+use crate::similarity::{Area, Similarity, masked_similarity};
 
 const EXTRACT: &str = "video_092_original_3m24-4m05";
 const LENGTHS: [usize; 4] = [380, 108, 115, 117];
-const BLOCK: usize = 8;
-const C1: f64 = 6.5025;
-const C2: f64 = 58.5225;
 const LABEL_ROOM: f64 = 48.0;
 const MARGIN: f64 = 8.0;
 const ZOOM_THRESHOLD: f64 = 0.953;
 
-#[derive(Debug, Default, Clone, Copy)]
-struct Similarity {
-    sum: f64,
-    blocks: usize,
-}
-
-impl Similarity {
-    fn mean(self) -> f64 {
-        self.sum / self.blocks as f64
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct Area {
-    left: f64,
-    top: f64,
-    right: f64,
-    bottom: f64,
-}
-
-impl Area {
-    fn touches(&self, x: usize, y: usize) -> bool {
-        let (left, top) = (x as f64, y as f64);
-        let (right, bottom) = (left + BLOCK as f64, top + BLOCK as f64);
-        left < self.right && self.left < right && top < self.bottom && self.top < bottom
-    }
-}
-
 #[cfg(test)]
-fn block_similarity(first: &[u8], second: &[u8], width: usize, x: usize, y: usize) -> f64 {
-    let pixels = (BLOCK * BLOCK) as f64;
-    let rows = (y..y + BLOCK).flat_map(|row| (x..x + BLOCK).map(move |column| row * width + column));
-    let pairs: Vec<(f64, f64)> = rows
-        .map(|index| (f64::from(first[index]), f64::from(second[index])))
-        .collect();
-    let mean_a = pairs.iter().map(|pair| pair.0).sum::<f64>() / pixels;
-    let mean_b = pairs.iter().map(|pair| pair.1).sum::<f64>() / pixels;
-    let (mut var_a, mut var_b, mut covariance) = (0.0, 0.0, 0.0);
-    for (a, b) in &pairs {
-        var_a += (a - mean_a) * (a - mean_a);
-        var_b += (b - mean_b) * (b - mean_b);
-        covariance += (a - mean_a) * (b - mean_b);
-    }
-    let (var_a, var_b, covariance) = (var_a / pixels, var_b / pixels, covariance / pixels);
-    ((2.0 * mean_a * mean_b + C1) * (2.0 * covariance + C2))
-        / ((mean_a * mean_a + mean_b * mean_b + C1) * (var_a + var_b + C2))
-}
-
-#[cfg(test)]
-fn masked_similarity(first: &[u8], second: &[u8], width: usize, height: usize, masked: &[Area]) -> Similarity {
-    let mut similarity = Similarity::default();
-    for y in (0..=height - BLOCK).step_by(BLOCK) {
-        for x in (0..=width - BLOCK).step_by(BLOCK) {
-            if masked.iter().any(|area| area.touches(x, y)) {
-                continue;
-            }
-            similarity.sum += block_similarity(first, second, width, x, y);
-            similarity.blocks += 1;
-        }
-    }
-    similarity
+fn extract() -> (PathBuf, &'static Sequential) {
+    static READ: OnceLock<Sequential> = OnceLock::new();
+    let path = reference::fixture::fixture(&format!("{EXTRACT}.mp4")).unwrap();
+    let read = READ.get_or_init(|| sequential::read(&path));
+    (path, read)
 }
 
 #[cfg(test)]
@@ -141,17 +87,21 @@ struct Comparison<'a> {
 }
 
 #[cfg(test)]
-fn compare_clip(comparison: &Comparison<'_>, window: &Window, clip: &Path) -> Similarity {
+fn compare_clip(comparison: &Comparison<'_>, window: &Window, clip: &Path) -> (Similarity, Vec<Option<Pts>>) {
     let mut decoder = Decoder::open(clip, Threads::Automatic).unwrap();
     let mut written = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     let mut round_trip = YuvFrame::new(1, 1, ColorRange::Unspecified).unwrap();
     let mut display: Option<(Converter, Vec<u8>)> = None;
     let mut similarity = Similarity::default();
+    let mut pts = Vec::new();
     comparison
         .source
         .serve(window.span, |frame, pixels| {
             assert_eq!(fingerprint::of(pixels), comparison.read.fingerprints[frame.get()]);
-            assert!(decoder.next(&mut written).unwrap().is_some(), "{frame:?}");
+            let Some(info) = decoder.next(&mut written).unwrap() else {
+                panic!("{} ends before {frame:?}", clip.display());
+            };
+            pts.push(info.pts());
             let (width, height) = (pixels.width(), pixels.height());
             let (converter, rgba) = display.get_or_insert_with(|| {
                 let converter = Converter::new(width, height, SourceRange::FullBlackAt16).unwrap();
@@ -167,7 +117,7 @@ fn compare_clip(comparison: &Comparison<'_>, window: &Window, clip: &Path) -> Si
         })
         .unwrap();
     assert!(decoder.next(&mut written).unwrap().is_none(), "{}", clip.display());
-    similarity
+    (similarity, pts)
 }
 
 #[cfg(test)]
@@ -191,30 +141,8 @@ fn report_colours(track: &Track, window: &Window, clip: &Path, pad: f64) {
 
 #[test]
 #[ignore = "slow"]
-fn the_similarity_is_one_for_the_same_image_and_known_for_an_offset() {
-    let width = 16;
-    let first: Vec<u8> = (0..width * BLOCK).map(|index| (index * 7 % 200) as u8).collect();
-    let same = masked_similarity(&first, &first, width, BLOCK, &[]);
-    assert_eq!((same.mean(), same.blocks), (1.0, 2));
-    let flat = vec![100; width * BLOCK];
-    let raised = vec![110; width * BLOCK];
-    let offset = masked_similarity(&flat, &raised, width, BLOCK, &[]);
-    assert!((offset.mean() - 0.995_476_444_091_506_6).abs() < 1e-12, "{offset:?}");
-    let hidden = Area {
-        left: 9.0,
-        top: 0.0,
-        right: 10.0,
-        bottom: 1.0,
-    };
-    let masked = masked_similarity(&flat, &raised, width, BLOCK, &[hidden]);
-    assert_eq!(masked.blocks, 1);
-}
-
-#[test]
-#[ignore = "slow"]
 fn outside_the_drawings_each_clip_keeps_the_source_frames_of_the_same_pts() {
-    let path = reference::fixture::fixture(&format!("{EXTRACT}.mp4")).unwrap();
-    let read = sequential::read(&path);
+    let (path, read) = extract();
     let tracks = Recording::read(&committed(EXTRACT)).unwrap().tracks;
     let source = Source::new(&path, &read.timeline, &read.keys, &read.errors).unwrap();
     let rate = read.timeline.rate();
@@ -224,7 +152,7 @@ fn outside_the_drawings_each_clip_keeps_the_source_frames_of_the_same_pts() {
     assert_eq!(lengths, LENGTHS);
     let comparison = Comparison {
         source: &source,
-        read: &read,
+        read,
         tracks: &tracks,
         trail_frames: (config.trail_s() * rate.get().to_f64()).round() as usize,
         pad: f64::from(config.box_pad()),
@@ -249,7 +177,7 @@ fn outside_the_drawings_each_clip_keeps_the_source_frames_of_the_same_pts() {
         };
         render(&source, &tracks, &outputs, config, &[codec]).unwrap();
         for ((window, clip), track) in windows.iter().zip(&clips).zip(&tracks) {
-            let similarity = compare_clip(&comparison, window, &clip.path);
+            let (similarity, _) = compare_clip(&comparison, window, &clip.path);
             println!(
                 "{codec:?} {}: {:.4} on {} blocks",
                 clip.path.display(),
@@ -394,8 +322,7 @@ fn compare_zoom(comparison: &Comparison<'_>, window: &Window, track: &Track, zoo
 #[test]
 #[ignore = "slow"]
 fn outside_the_trail_each_zoom_is_the_nearest_magnification_of_its_frame_at_a_quarter_of_the_rate() {
-    let path = reference::fixture::fixture(&format!("{EXTRACT}.mp4")).unwrap();
-    let read = sequential::read(&path);
+    let (path, read) = extract();
     let tracks = Recording::read(&committed(EXTRACT)).unwrap().tracks;
     let source = Source::new(&path, &read.timeline, &read.keys, &read.errors).unwrap();
     let rate = read.timeline.rate();
@@ -403,7 +330,7 @@ fn outside_the_trail_each_zoom_is_the_nearest_magnification_of_its_frame_at_a_qu
     let windows = clip_windows(&tracks, read.timeline.frame_count(), config, rate);
     let comparison = Comparison {
         source: &source,
-        read: &read,
+        read,
         tracks: &tracks,
         trail_frames: (config.trail_s() * rate.get().to_f64()).round() as usize,
         pad: f64::from(config.box_pad()),
@@ -446,15 +373,14 @@ fn outside_the_trail_each_zoom_is_the_nearest_magnification_of_its_frame_at_a_qu
 #[test]
 #[ignore = "slow"]
 fn the_annotated_extract_has_every_frame_at_its_source_pts_and_keeps_the_source_outside_the_drawings() {
-    let path = reference::fixture::fixture(&format!("{EXTRACT}.mp4")).unwrap();
-    let read = sequential::read(&path);
+    let (path, read) = extract();
     let tracks = Recording::read(&committed(EXTRACT)).unwrap().tracks;
     let source = Source::new(&path, &read.timeline, &read.keys, &read.errors).unwrap();
     let rate = read.timeline.rate();
     let config = RenderConfig::default();
     let comparison = Comparison {
         source: &source,
-        read: &read,
+        read,
         tracks: &tracks,
         trail_frames: (config.trail_s() * rate.get().to_f64()).round() as usize,
         pad: f64::from(config.box_pad()),
@@ -478,20 +404,17 @@ fn the_annotated_extract_has_every_frame_at_its_source_pts_and_keeps_the_source_
             annotated: Some(annotated.clone()),
         };
         render(&source, &tracks, &outputs, config, &[codec]).unwrap();
-        let written = sequential::read(&annotated);
-        assert_eq!(written.timeline.frame_count(), 1230);
-        let pts = |read: &Sequential| -> Vec<Option<Pts>> {
-            (0..read.timeline.frame_count())
-                .map(|frame| read.timeline.pts(FrameIndex::new(frame)))
-                .collect()
-        };
-        assert_eq!(pts(&written), pts(&read));
         let duration = Decoder::open(&annotated, Threads::Automatic)
             .unwrap()
             .stream()
             .duration();
         assert_eq!(duration, source_duration);
-        let similarity = compare_clip(&comparison, &whole, &annotated);
+        let (similarity, written) = compare_clip(&comparison, &whole, &annotated);
+        assert_eq!(written.len(), 1230);
+        let source: Vec<Option<Pts>> = (0..read.timeline.frame_count())
+            .map(|frame| read.timeline.pts(FrameIndex::new(frame)))
+            .collect();
+        assert_eq!(written, source);
         println!(
             "{codec:?} annotated: {:.4} on {} blocks",
             similarity.mean(),

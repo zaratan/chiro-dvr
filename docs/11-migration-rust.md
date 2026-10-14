@@ -2236,12 +2236,22 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       échouer (essai fait une fois) ;
     - `slow_clips` (l'extrait, pistes de la référence, extraits de 380, 108, 115 et
       117 images) : chaque image servie est celle de la lecture séquentielle, et chaque
-      image écrite est comparée à l'image source de même `pts` passée par la même
-      conversion. SSIM sur Y par blocs 8×8 disjoints, hors blocs qui touchent un dessin
+      image écrite est comparée, dans l'ordre, à l'image source servie par `pts` et passée
+      par la même conversion. Seule la vidéo annotée garde les `pts` de la source, et ses
+      `pts` sont comparés à ceux de la source ; les extraits et les zooms comptent leurs
+      images à la cadence de l'encodeur (le quart pour les zooms), depuis 0. SSIM sur Y par blocs 8×8 disjoints, hors blocs qui touchent un dessin
       (boîte, `#N` et trace, avec une marge). Mesuré sur Mac : VideoToolbox 0,9659 à
       0,9667, openh264 0,9671 à 0,9677 ; seuils 0,963 et 0,964 (le Y de #111, par le
       filtre `ssim` de FFmpeg contre l'original, valait 0,9688 et 0,9698). Les couleurs
       relevées sur la boîte et la trace s'écrivent dans la sortie du test, sans seuil.
+      Depuis #180, une seule lecture séquentielle de l'extrait sert les trois tests ; les
+      `pts` et le nombre d'images de la vidéo annotée se relèvent pendant sa comparaison,
+      sans seconde lecture ; chaque bloc se compare dans un tableau fixe de 64 paires,
+      sans allocation (même similarité au bit près). Le calcul de la similarité a son
+      test rapide, `tests/similarity.rs`.
+      Binaire entier sur le M1 Max, sous le verrou : 107 s et 115 s avant, 76 s et 59 s
+      après (temps CPU : 289 s et 298 s, puis 217 s et 212 s). Vidéo annotée seule :
+      95 s, puis 58 s.
     - `local_clips` (`cli`, du moteur à `Source`, fils automatiques, 300 s) : sur la 103,
       la 123 et la 124, les images-clés et les images en erreur viennent de la lecture du
       moteur, et chaque groupe qui touche une plage abîmée (1, 6 et 3 groupes) est servi
