@@ -108,6 +108,13 @@ fn a_whole_ratio_averages_its_blocks_and_one_to_one_only_reads_the_gray() {
 }
 
 #[test]
+fn only_a_frame_already_at_the_work_size_on_both_axes_skips_the_area_weights() {
+    assert!(matches!(Reduction::between((36, 27), (36, 27)), Reduction::Same));
+    assert!(matches!(Reduction::between((36, 27), (36, 26)), Reduction::Area(_)));
+    assert!(matches!(Reduction::between((36, 27), (35, 27)), Reduction::Area(_)));
+}
+
+#[test]
 fn a_frame_reduced_after_another_owes_nothing_to_the_rows_kept_from_it() {
     let first: Vec<u8> = (0..36 * 27).map(|pixel| (pixel % 200) as u8 + 30).collect();
     let second: Vec<u8> = (0..36 * 27).map(|pixel| 230 - (pixel % 190) as u8).collect();
@@ -205,7 +212,7 @@ fn the_reciprocal_serves_every_divisor_from_two_whose_totals_fit_thirty_two_bits
 }
 
 #[test]
-fn one_to_one_keeps_every_total_through_exact_division() {
+fn a_divisor_of_one_keeps_every_total_through_exact_division() {
     let rounding = Rounding::new(1);
 
     assert!(matches!(rounding, Rounding::Exact { .. }));

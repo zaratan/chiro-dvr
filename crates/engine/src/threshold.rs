@@ -82,6 +82,9 @@ impl Threshold {
         } = frame;
         let noisy = self.noise_factor > 0.0 && samples.len() >= MIN_NOISE_SAMPLES;
         for (start, block) in (0..).step_by(LANES).zip(current.chunks(LANES)) {
+            if mask.covers_all(start..start + block.len()) {
+                continue;
+            }
             for (lane, sample) in lanes.iter_mut().zip(samples) {
                 lane[..block.len()].copy_from_slice(&sample[start..start + block.len()]);
             }

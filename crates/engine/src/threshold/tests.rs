@@ -4,7 +4,7 @@ use super::{Frame, Gains, Lit, MIN_NOISE_SAMPLES, Scratch, Threshold, median};
 use crate::config::DetectConfig;
 use crate::mask::Mask;
 use crate::network::Network;
-use crate::settings::DetectSettings;
+use crate::settings::{DetectSettings, Region};
 use crate::synthetic::Noise;
 
 const PIXELS: usize = 2000;
@@ -35,6 +35,16 @@ fn lit(samples: &[Vec<u16>], current: usize, gains: &[f32]) -> Vec<Lit> {
 }
 
 fn lit_by(threshold: Threshold, samples: &[Vec<u16>], current: usize, gains: &[f32]) -> Vec<Lit> {
+    lit_under(
+        &Mask::new(&[], PIXELS, 1, 0).unwrap(),
+        threshold,
+        samples,
+        current,
+        gains,
+    )
+}
+
+fn lit_under(mask: &Mask, threshold: Threshold, samples: &[Vec<u16>], current: usize, gains: &[f32]) -> Vec<Lit> {
     let views: Vec<&[u16]> = samples.iter().map(Vec::as_slice).collect();
     let mut scratch = Scratch::default();
     threshold.lit(
@@ -46,7 +56,7 @@ fn lit_by(threshold: Threshold, samples: &[Vec<u16>], current: usize, gains: &[f
                 current: gains[current],
                 samples: gains,
             },
-            mask: &Mask::new(&[], PIXELS, 1, 0).unwrap(),
+            mask,
         },
         &mut scratch,
     );
@@ -188,4 +198,32 @@ fn a_residual_exactly_at_the_floor_lights_nothing() {
     three[1] = vec![132 * 64; PIXELS];
 
     assert_eq!(lit(&three, 1, &[0.0; 3]), []);
+}
+
+#[test]
+fn a_spot_under_the_display_band_stays_dark_and_one_beside_it_lights_as_without_the_band() {
+    let (width, height) = (100, PIXELS / 100);
+    let band = Region {
+        x0: 0.0,
+        y0: 0.0,
+        x1: 1.0,
+        y1: 0.35,
+    };
+    let mask = Mask::new(&[band], width, height, 0).unwrap();
+    let mut samples = samples(11, 1.0, 5);
+    for spot in [250, 650, 702, 750] {
+        samples[5][spot] += 40 * 64;
+    }
+    let gains = gains_of(&samples);
+
+    let found = lit_under(&mask, Threshold::new(&DetectConfig::default()), &samples, 5, &gains);
+
+    let unmasked: Vec<Lit> = lit_one_by_one(&samples, 5, &gains, true)
+        .into_iter()
+        .filter(|lit| !mask.covers(lit.pixel as usize))
+        .collect();
+    assert_eq!(found, unmasked);
+    let pixels: Vec<u32> = found.iter().map(|lit| lit.pixel).collect();
+    assert!(pixels.contains(&702) && pixels.contains(&750), "{pixels:?}");
+    assert!(!pixels.contains(&250) && !pixels.contains(&650), "{pixels:?}");
 }

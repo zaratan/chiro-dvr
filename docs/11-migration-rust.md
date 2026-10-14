@@ -1315,6 +1315,15 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       contre l'ancienne réduction et contre un calcul brut des aires. La passe
       horizontale va par blocs de q pixels de travail, le nombre de poids par pixel fixé
       à la compilation de 1 à 4.
+      - Taille inchangée (1:1, #159) : quand la source a déjà la largeur et la hauteur
+        de travail, la réduction n'est que la table `GRAY`, sans aire, sans arrondi et
+        sans copie du gris de la source. Un fil, `release` : 0,41 ms par image à 1440
+        contre 1,84. Sur `092-1440` : 158,5 s de CPU contre 166,1 (−4,6 %, trois paires
+        A/B en alternance avec `main`), 613 Mo de mémoire résidente contre 628.
+      - Essayés et écartés par #159, mesurés à 960 contre 1,17 ms par image : les
+        champs de l'arrondi pris dans les fermetures (1,18 ms, LLVM le faisait déjà) ;
+        des poids contigus avec totaux et inverse sur 32 bits (1,39 ms) ; l'inverse
+        sur 32 bits seul (1,21 ms).
     - `blur` (#150) : noyau gaussien de σ = `target_sigma / échelle` pixels de travail,
       portée ⌈4σ⌉ (la même qu'OpenCV pour tous les σ du banc), poids
       `exp(−d²/2σ²)` (le poids central posé à 1, sans formule) partagés en 4 096 parts
@@ -1331,6 +1340,13 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       au plus ; passe verticale en `u32`, 255 × 4 096² tient puisque le noyau somme
       exactement 4 096). Le niveau d'une image est la somme de ses unités hors du masque :
       la somme de chaque ligne, moins celle de ses colonnes masquées.
+      - Noyau plié (#159) : le noyau étant symétrique, la passe verticale et la passe
+        horizontale à longueur fixée additionnent les deux pixels à même distance du
+        centre avant de multiplier par leur poids commun. Chaque somme partielle reste
+        sous le total, donc au plus 255 × 4 096² : rien ne déborde, ce que vérifie une
+        image blanche de σ = 0 à 2,75 en profil `ci`. Flou seul, un fil, `release` :
+        0,59 ms par image contre 0,77 à 960, 1,76 contre 2,50 à 1440. Sur la 092 :
+        109,5 s de CPU contre 111,1 (−1,4 %, trois paires A/B).
     - `network` : médiane par le réseau de Batcher coupé à n entrées et élagué aux
       comparaisons qui atteignent le milieu (32 pour 11 échantillons), sur des blocs de
       64 pixels ; test 0-1 exhaustif de 1 à 20 (64 motifs par appel) et proptest contre
@@ -1344,6 +1360,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       × MAD des écarts corrigés du gain), pour les seuls candidats. Avec k = 0, le seuil
       relevé vaudrait le plancher : il n'est pas calculé (#151). Un candidat sous le
       masque est écarté avant le seuil relevé, comme `residual[~mask] = 0`.
+      - Blocs masqués (#159) : un bloc de 64 pixels tout entier sous le masque est
+        sauté avant la copie des échantillons et le réseau. Un fil, `release`, à 960 avec
+        la bande `osd` : 2,19 ms par image contre 2,36. Sur l'extrait aux réglages
+        `osd` : 14,66 s de CPU contre 14,94 (−1,9 %, trois paires A/B).
       - Tampons (#151) : les lignes du réseau sont sur la pile jusqu'à 64 échantillons
         (`STACKED_SAMPLES`, 8 Ko), sur le tas de chaque fil au-delà ; écarts et gains
         dans des tampons de chaque fil, dimensionnés une fois. Les mêmes lignes sur le
@@ -1450,6 +1470,14 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       nombre de poids fixe et l'arrondi par l'inverse l'ont ramenée là. Mémoire
       résidente : 452 Mo contre 437 Mo ; le gris de la source, 1,5 Mo par fil, en
       explique environ 15 à 10 fils (attendu, non isolé).
+    - Temps de la 092 après #159 (M1 Max, `release`, `compare 092`, 13 octobre 2026, sous
+      le verrou, machine calme, en alternance) : `main` avant #159, 110,7 s de CPU
+      (moyenne de 6 passages, de 109,9 à 111,6), contre 102,6 s pour le moteur 3:2 de
+      `main` juste avant #150 (3 passages, de 102,4 à 102,8), soit +7,9 %, proche des
+      +7,5 % de #150, #151 et #100 compris. Après #159 : 109,1 s (3 passages, de 108,8
+      à 109,3), soit +6,3 % sur le 3:2. Le gain vient du noyau plié, les deux autres
+      pistes gardées ne jouant qu'en 1:1 ou sous un masque. Temps réels de 12,0 à 15,1 s,
+      trop variables pour départager.
     - Mémoire (`tests/slow_memory_flash.rs`, `dhat`, 4 fils, 64 images) : un éclair plein
       cadre dans chaque groupe de cibles, au premier lot, coûte 57,8 Mo de plus qu'une
       vidéo calme, soit 20,9 octets par pixel de travail et par fil. Les deux pics
