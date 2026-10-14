@@ -5,7 +5,6 @@ use std::path::Path;
 use types::language::Language;
 
 use super::{Kept, remove_previous_outputs};
-use crate::error::Error;
 use crate::names::Names;
 
 const OUR_TABLE: &str = "id,start,end,start_s,duration_s,hits,chord_px,path_px,speed_px_s,max_area_px,peak_amplitude,filled_frames\r\n1,0:00.00,0:00.50,0.0,0.5,3,10.0,10.0,20.0,9,80.0,0\r\n";
@@ -160,6 +159,8 @@ fn a_link_named_like_the_clips_folder_is_removed_without_touching_its_target() {
 #[test]
 fn a_table_that_cannot_be_read_stops_the_cleanup_before_anything_is_removed() {
     use std::os::unix::fs::PermissionsExt;
+
+    use crate::error::Error;
     let dest = folder_with(&["v_pistes.csv", "v_resume.png"], &["clips"]);
     let table = dest.path().join("v_pistes.csv");
     fs::set_permissions(&table, fs::Permissions::from_mode(0o000)).unwrap();

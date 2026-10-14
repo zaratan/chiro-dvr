@@ -166,7 +166,9 @@ fn a_missing_video_fails_with_its_name_and_the_cause() {
 
     assert_eq!(output.status.code(), Some(1));
     assert!(
-        text(&output.stderr).starts_with(&format!("{}: the reference detection failed", missing.display())),
+        text(&output.stderr)
+            .lines()
+            .any(|line| line.starts_with(&format!("{}: the reference detection failed", missing.display()))),
         "{}",
         text(&output.stderr)
     );

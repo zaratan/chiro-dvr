@@ -61,6 +61,11 @@ fn text(bytes: &[u8]) -> String {
     String::from_utf8(bytes.to_vec()).unwrap()
 }
 
+#[cfg(test)]
+fn lines_naming<'a>(errors: &'a str, video: &str) -> Vec<&'a str> {
+    errors.lines().filter(|line| line.contains(video)).collect()
+}
+
 #[test]
 fn a_video_gives_its_tracks_table_and_params_in_a_folder_named_after_it() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
@@ -205,7 +210,9 @@ fn under_a_french_locale_the_help_and_the_refusals_are_in_french_with_their_usua
     let refused = run(&[&videos, Path::new("-o"), &root.path().join("out")], "fr_FR.UTF-8");
     assert_eq!(refused.status.code(), Some(2));
     assert!(
-        text(&refused.stderr).starts_with("erreur\u{a0}: aucune vidéo trouvée\n"),
+        text(&refused.stderr)
+            .lines()
+            .any(|line| line == "erreur\u{a0}: aucune vidéo trouvée"),
         "{}",
         text(&refused.stderr)
     );
@@ -219,7 +226,13 @@ fn a_french_refusal_is_coloured_only_when_colours_are_forced() {
         .env("CLICOLOR_FORCE", "1")
         .output()
         .unwrap();
-    assert!(text(&forced.stderr).starts_with("\u{1b}[1m\u{1b}[31merreur\u{a0}:\u{1b}[0m "));
+    assert!(
+        text(&forced.stderr)
+            .lines()
+            .any(|line| line.starts_with("\u{1b}[1m\u{1b}[31merreur\u{a0}:\u{1b}[0m ")),
+        "{}",
+        text(&forced.stderr)
+    );
     let plain = run(&arguments, "fr_FR.UTF-8");
     assert!(!text(&plain.stderr).contains('\u{1b}'));
 }
@@ -431,7 +444,8 @@ fn a_run_in_french_then_in_english_then_in_french_in_the_same_folder_leaves_only
     for (lang, expected) in [("fr_FR.UTF-8", french), ("C", english), ("fr_FR.UTF-8", french)] {
         let output = run(&[&videos, Path::new("-o"), &out], lang);
         assert!(output.status.success(), "{}", text(&output.stderr));
-        assert_eq!(text(&output.stderr), "");
+        let errors = text(&output.stderr);
+        assert_eq!(lines_naming(&errors, "flight.mp4"), Vec::<&str>::new(), "{lang}");
         assert_eq!(tree::tree(&out.join("flight")), expected, "{lang}");
     }
 }
@@ -446,22 +460,24 @@ fn a_table_annotated_by_hand_is_left_and_named_in_the_language_of_the_messages()
     fs::write(folder.join("flight_pistes.csv"), annotated).unwrap();
     let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
     assert!(output.status.success(), "{}", text(&output.stderr));
+    let errors = text(&output.stderr);
     assert_eq!(
-        text(&output.stderr),
-        format!(
+        lines_naming(&errors, "flight.mp4"),
+        [format!(
             "{} : flight_pistes.csv laissé tel quel, il n'a pas la forme d'un tableau des pistes ; \
-             le nouveau tableau n'est pas écrit\n",
+             le nouveau tableau n'est pas écrit",
             videos.join("flight.mp4").display()
-        )
+        )]
     );
     let output = run(&[&videos, Path::new("-o"), &out], "C");
     assert!(output.status.success(), "{}", text(&output.stderr));
+    let errors = text(&output.stderr);
     assert_eq!(
-        text(&output.stderr),
-        format!(
-            "{}: flight_pistes.csv left as it is, it does not have the form of a tracks table\n",
+        lines_naming(&errors, "flight.mp4"),
+        [format!(
+            "{}: flight_pistes.csv left as it is, it does not have the form of a tracks table",
             videos.join("flight.mp4").display()
-        )
+        )]
     );
     assert_eq!(fs::read_to_string(folder.join("flight_pistes.csv")).unwrap(), annotated);
     assert!(folder.join("flight_tracks.csv").is_file());

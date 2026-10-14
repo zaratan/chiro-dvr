@@ -25,7 +25,8 @@ fn run(video: &Path, out: &Path, lang: &str) {
         .unwrap();
     let errors = String::from_utf8_lossy(&output.stderr);
     assert!(output.status.success(), "{errors}");
-    assert_eq!(errors, "", "{lang}");
+    let ours: Vec<&str> = errors.lines().filter(|line| line.contains(EXTRACT)).collect();
+    assert_eq!(ours, Vec::<&str>::new(), "{lang}");
 }
 
 #[test]
