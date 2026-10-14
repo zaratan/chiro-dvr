@@ -196,11 +196,11 @@ fn each_option_of_either_help_keeps_its_text_on_the_option_line_without_blank_li
             .lines()
             .find(|line| line.contains("--out-dir <FOLDER>"))
             .unwrap();
-        assert!(out_dir.contains("folder that receives"), "{flag:?}: {out_dir}");
+        assert!(out_dir.contains("Folder that receives"), "{flag:?}: {out_dir}");
     }
     let long = help(Level::Full);
     let threshold = long.lines().find(|line| line.contains("--threshold <LEVEL>")).unwrap();
-    assert!(threshold.contains("smallest difference"), "{threshold}");
+    assert!(threshold.contains("Smallest difference"), "{threshold}");
 }
 
 #[test]
@@ -247,7 +247,7 @@ fn the_long_help_shows_every_option_with_its_effect_its_default_and_a_telling_va
     }
     assert!(long.contains("[possible values: auto, all, none]"), "{long}");
     let version = long.lines().find(|line| line.contains("-V, --version")).unwrap();
-    assert!(version.ends_with("print the version"), "{version}");
+    assert!(version.ends_with("Print the version"), "{version}");
     let heading = long.find("Settings that change the detection").unwrap();
     assert!(long.find("--threshold").unwrap() > heading);
     assert!(long.find("--clip-margin").unwrap() < heading);
@@ -356,6 +356,6 @@ fn the_french_short_help_shows_only_the_essential_options_each_with_its_text_on_
         .lines()
         .find(|line| line.contains("-o, --out-dir <DOSSIER>"))
         .unwrap();
-    assert!(out_dir.contains("dossier qui reçoit"), "{out_dir}");
+    assert!(out_dir.contains("Dossier qui reçoit"), "{out_dir}");
     assert!(short.contains("--help toutes les options"), "{short}");
 }

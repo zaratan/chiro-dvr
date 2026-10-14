@@ -7,6 +7,10 @@ too-many-tracks = { $video }: { $count } tracks, above { $limit }: { $annotated 
        *[no] clips skipped
     }
 clips-redone = { $video }: { $names } written again with openh264 after a VideoToolbox error: { $causes }
+table-kept = { $video }: { $table } left as it is, it does not have the form of a tracks table{ $written ->
+        [no] ; the new table is not written
+       *[yes] {""}
+    }
 failed = { $video }: failed: { $causes }
 internal-error = { $video }: internal error: { $message }
 summary-part = part { $number } / { $count }
@@ -21,20 +25,20 @@ summary-more-unreadable = + { $count } more, { $duration } unreadable in all
 band-not-analysed = not analysed
 band-unreadable = unreadable
 about = Detects and tracks bats in thermal binocular videos
-inputs-help = videos, or folders whose videos are all processed
-out-dir-help = folder that receives one folder of results per video
-zoom-help = slowed, magnified clip: auto for small or faint tracks only, all, or none
-annotated-help = also write the whole video with every track drawn
-max-tracks-help = above this many tracks, the video counts as failed and gets no clips or annotated video; 0 disables
-clip-margin-help = time kept before and after each track in its clip; seconds
-osd-region-help = hides a moving on-screen display from the detection, as fractions of the frame; repeat for several
-help-help = print help: -h the essential options, --help all of them
-version-help = print the version
+inputs-help = Videos, or folders whose videos are all processed
+out-dir-help = Folder that receives one folder of results per video
+zoom-help = Slowed, magnified clip: auto for small or faint tracks only, all, or none
+annotated-help = Also write the whole video with every track drawn
+max-tracks-help = Above this many tracks, the video counts as failed and gets no clips or annotated video; 0 disables
+clip-margin-help = Time kept before and after each track in its clip; seconds
+osd-region-help = Hides a moving on-screen display from the detection, as fractions of the frame; repeat for several
+help-help = Print help: -h the essential options, --help all of them
+version-help = Print the version
 no-region = none
-threshold-help = smallest difference from the background that counts as a target; lower finds fainter targets and more noise; grey levels
-min-hits-help = tracks with fewer detections are dropped; lower keeps shorter tracks and more short flickers
-max-blobs-help = frames with at least this many spots more than six times the usual count are ignored, as when the binoculars move; 0 disables
-work-width-help = width the frames are reduced to for detection; wider sees smaller targets but takes longer; pixels
+threshold-help = Smallest difference from the background that counts as a target; lower finds fainter targets and more noise; grey levels
+min-hits-help = Tracks with fewer detections are dropped; lower keeps shorter tracks and more short flickers
+max-blobs-help = Frames with at least this many spots more than six times the usual count are ignored, as when the binoculars move; 0 disables
+work-width-help = Width the frames are reduced to for detection; wider sees smaller targets but takes longer; pixels
 value-video = VIDEO
 value-folder = FOLDER
 value-which = WHICH

@@ -10,6 +10,10 @@ clips-redone = { $video } : { $names } { $count ->
         [one] réécrit
        *[other] réécrits
     } avec openh264 après une erreur de VideoToolbox : { $causes }
+table-kept = { $video } : { $table } laissé tel quel, il n'a pas la forme d'un tableau des pistes{ $written ->
+        [no] {" "}; le nouveau tableau n'est pas écrit
+       *[yes] {""}
+    }
 failed = { $video } : échec : { $causes }
 internal-error = { $video } : erreur interne : { $message }
 summary-part = partie { $number } / { $count }
@@ -33,20 +37,20 @@ summary-more-unreadable = + { $count } { $count ->
 band-not-analysed = hors analyse
 band-unreadable = illisible
 about = Détecte et suit les chauves-souris dans des vidéos de jumelles thermiques
-inputs-help = vidéos, ou dossiers dont toutes les vidéos sont traitées
-out-dir-help = dossier qui reçoit un dossier de résultats par vidéo
-zoom-help = extrait ralenti et agrandi : auto pour les pistes petites ou faibles seulement, all pour toutes, none pour aucune
-annotated-help = écrit aussi la vidéo entière avec toutes les pistes dessinées
-max-tracks-help = au-delà de ce nombre de pistes, la vidéo est comptée en échec et n'a ni extraits ni vidéo annotée ; 0 désactive
-clip-margin-help = temps gardé avant et après chaque piste dans son extrait ; secondes
-osd-region-help = cache à la détection un affichage à l'écran qui bouge, en fractions de l'image ; à répéter pour plusieurs zones
-help-help = affiche l'aide : -h l'essentiel, --help toutes les options
-version-help = affiche la version
+inputs-help = Vidéos, ou dossiers dont toutes les vidéos sont traitées
+out-dir-help = Dossier qui reçoit un dossier de résultats par vidéo
+zoom-help = Extrait ralenti et agrandi : auto pour les pistes petites ou faibles seulement, all pour toutes, none pour aucune
+annotated-help = Écrit aussi la vidéo entière avec toutes les pistes dessinées
+max-tracks-help = Au-delà de ce nombre de pistes, la vidéo est comptée en échec et n'a ni extraits ni vidéo annotée ; 0 désactive
+clip-margin-help = Temps gardé avant et après chaque piste dans son extrait ; secondes
+osd-region-help = Cache à la détection un affichage à l'écran qui bouge, en fractions de l'image ; à répéter pour plusieurs zones
+help-help = Affiche l'aide : -h l'essentiel, --help toutes les options
+version-help = Affiche la version
 no-region = aucune
-threshold-help = plus petit écart au fond qui compte comme une cible ; plus bas, il trouve des cibles plus faibles et plus de bruit ; niveaux de gris
-min-hits-help = les pistes qui ont moins de détections sont écartées ; plus bas, on garde des pistes plus courtes et plus de brefs scintillements
-max-blobs-help = les images qui ont au moins ce nombre de taches de plus que six fois le nombre habituel sont ignorées, comme quand les jumelles bougent ; 0 désactive
-work-width-help = largeur à laquelle les images sont réduites pour la détection ; plus large, on voit des cibles plus petites mais c'est plus long ; pixels
+threshold-help = Plus petit écart au fond qui compte comme une cible ; plus bas, il trouve des cibles plus faibles et plus de bruit ; niveaux de gris
+min-hits-help = Les pistes qui ont moins de détections sont écartées ; plus bas, on garde des pistes plus courtes et plus de brefs scintillements
+max-blobs-help = Les images qui ont au moins ce nombre de taches de plus que six fois le nombre habituel sont ignorées, comme quand les jumelles bougent ; 0 désactive
+work-width-help = Largeur à laquelle les images sont réduites pour la détection ; plus large, on voit des cibles plus petites mais c'est plus long ; pixels
 value-video = VIDÉO
 value-folder = DOSSIER
 value-which = CHOIX

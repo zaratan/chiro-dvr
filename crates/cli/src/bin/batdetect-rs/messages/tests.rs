@@ -3,9 +3,10 @@ use std::fmt;
 use std::path::PathBuf;
 
 use batdetect::jobs::Job;
+use files::previous::Kept;
 use types::language::Language;
 
-use super::{failed, internal_error, processed, redone, too_many_tracks};
+use super::{failed, internal_error, processed, redone, table_kept, too_many_tracks};
 use crate::texts::{Message, Texts};
 
 fn said(language: Language, message: &Message) -> String {
@@ -133,5 +134,31 @@ fn a_panic_is_told_as_an_internal_error_of_the_video_with_its_message() {
     assert_eq!(
         said(Language::French, &internal_error(&job(), "index out of bounds")),
         "nuit/video_092.mp4 : erreur interne : index out of bounds"
+    );
+}
+
+#[test]
+fn a_table_left_as_it_is_is_named_and_says_when_the_new_table_was_not_written() {
+    let kept = |ours| Kept {
+        path: PathBuf::from("out/video_092/video_092_pistes.csv"),
+        ours,
+    };
+    assert_eq!(
+        said(Language::French, &table_kept(&job(), &kept(false))),
+        "nuit/video_092.mp4 : video_092_pistes.csv laissé tel quel, il n'a pas la forme d'un tableau des pistes"
+    );
+    assert_eq!(
+        said(Language::French, &table_kept(&job(), &kept(true))),
+        "nuit/video_092.mp4 : video_092_pistes.csv laissé tel quel, il n'a pas la forme d'un tableau des pistes ; \
+         le nouveau tableau n'est pas écrit"
+    );
+    assert_eq!(
+        said(Language::English, &table_kept(&job(), &kept(false))),
+        "nuit/video_092.mp4: video_092_pistes.csv left as it is, it does not have the form of a tracks table"
+    );
+    assert_eq!(
+        said(Language::English, &table_kept(&job(), &kept(true))),
+        "nuit/video_092.mp4: video_092_pistes.csv left as it is, it does not have the form of a tracks table; \
+         the new table is not written"
     );
 }

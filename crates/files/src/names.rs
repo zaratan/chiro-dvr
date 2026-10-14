@@ -11,6 +11,11 @@ mod tests;
 const PARAMS: &str = "params.json";
 const ZOOM_SUFFIX: &str = "_zoom";
 const VIDEO_EXTENSION: &str = ".mp4";
+const TABLE_EXTENSION: &str = ".csv";
+const IMAGE_EXTENSION: &str = ".png";
+const PARTIAL_PREFIX: &str = ".";
+const PARTIAL_SUFFIX: &str = ".partial";
+const PERIOD_DIGITS: usize = 3;
 const MIN_TRACK_DIGITS: usize = 2;
 const SECONDS_PER_MINUTE: u64 = 60;
 
@@ -48,6 +53,25 @@ const ENGLISH: Names = Names {
     annotated: "_annotated",
 };
 
+const LEGACY: Names = Names {
+    clips_dir: "split",
+    track: "",
+    tracks_csv: ".tracks",
+    summary: ".tracks",
+    part_of: "",
+    annotated: "_boxes",
+};
+
+const EVERY: [Names; 3] = [FRENCH, ENGLISH, LEGACY];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Output {
+    ClipsFolder,
+    TracksTable,
+    Rendered,
+    Partial,
+}
+
 impl Names {
     pub fn new(language: Language) -> Self {
         match language {
@@ -72,7 +96,7 @@ impl Names {
     }
 
     pub fn tracks_csv(self, dest: &Path, stem: &OsStr) -> PathBuf {
-        dest.join(suffixed(stem, &format!("{}.csv", self.tracks_csv)))
+        dest.join(suffixed(stem, &format!("{}{TABLE_EXTENSION}", self.tracks_csv)))
     }
 
     pub fn summary_png(
@@ -89,7 +113,10 @@ impl Names {
             let width = count.to_string().len();
             format!("_{number:0width$}_{}_{count}", self.part_of)
         });
-        dest.join(suffixed(stem, &format!("{}{period}{part}.png", self.summary)))
+        dest.join(suffixed(
+            stem,
+            &format!("{}{period}{part}{IMAGE_EXTENSION}", self.summary),
+        ))
     }
 
     pub fn annotated_video(self, dest: &Path, stem: &OsStr) -> PathBuf {
@@ -102,6 +129,71 @@ impl Names {
         let width = MIN_TRACK_DIGITS.max(track_count.to_string().len());
         format!("{}_{:0width$}_{minutes}m{seconds:02}s", self.track, track.id())
     }
+
+    fn output(self, name: &[u8], stem: &[u8]) -> Option<Output> {
+        if name == self.clips_dir.as_bytes() {
+            return Some(Output::ClipsFolder);
+        }
+        let rest = name.strip_prefix(stem)?;
+        if rest.strip_prefix(self.tracks_csv.as_bytes()) == Some(TABLE_EXTENSION.as_bytes()) {
+            Some(Output::TracksTable)
+        } else if rest.strip_prefix(self.annotated.as_bytes()) == Some(VIDEO_EXTENSION.as_bytes())
+            || self.is_summary(rest)
+        {
+            Some(Output::Rendered)
+        } else {
+            None
+        }
+    }
+
+    fn is_summary(self, rest: &[u8]) -> bool {
+        let Some(middle) = rest
+            .strip_prefix(self.summary.as_bytes())
+            .and_then(|middle| middle.strip_suffix(IMAGE_EXTENSION.as_bytes()))
+        else {
+            return false;
+        };
+        let after = after_period(middle).unwrap_or(middle);
+        after.is_empty() || !self.part_of.is_empty() && self.after_part(after).is_some_and(<[u8]>::is_empty)
+    }
+
+    fn after_part(self, text: &[u8]) -> Option<&[u8]> {
+        let text = after_digits(text.strip_prefix(b"_")?, 1)?;
+        let text = text.strip_prefix(b"_")?.strip_prefix(self.part_of.as_bytes())?;
+        after_digits(text.strip_prefix(b"_")?, 1)
+    }
+}
+
+pub(crate) fn previous_output(name: &[u8], stem: &[u8]) -> Option<(Names, Output)> {
+    let finished = |name: &[u8]| {
+        EVERY
+            .into_iter()
+            .find_map(|names| Some((names, names.output(name, stem)?)))
+    };
+    let partial = name
+        .strip_prefix(PARTIAL_PREFIX.as_bytes())
+        .and_then(|name| name.strip_suffix(PARTIAL_SUFFIX.as_bytes()))
+        .and_then(finished)
+        .filter(|(_, output)| *output != Output::ClipsFolder)
+        .map(|(names, _)| (names, Output::Partial));
+    partial.or_else(|| finished(name))
+}
+
+fn after_period(text: &[u8]) -> Option<&[u8]> {
+    let text = after_digits(text.strip_prefix(b"_")?, PERIOD_DIGITS)?;
+    after_digits(text.strip_prefix(b"m-")?, PERIOD_DIGITS)?.strip_prefix(b"m")
+}
+
+fn after_digits(text: &[u8], at_least: usize) -> Option<&[u8]> {
+    let count = text.iter().take_while(|byte| byte.is_ascii_digit()).count();
+    (count >= at_least).then(|| &text[count..])
+}
+
+pub fn partial_path(path: &Path) -> PathBuf {
+    let mut name = OsString::from(PARTIAL_PREFIX);
+    name.push(path.file_name().unwrap_or_default());
+    name.push(PARTIAL_SUFFIX);
+    path.with_file_name(name)
 }
 
 pub fn params_json(dest: &Path) -> PathBuf {

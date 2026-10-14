@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 
 use engine::config::DetectConfig;
 use engine::detection::detect;
-use files::names::Names;
+use files::names::{Names, partial_path};
+use files::previous::Kept;
 use media::decode::{Decoder, Threads};
 use media::encode::fallback::{self, Fallback};
 use media::encode::{self, Codec};
@@ -43,7 +44,7 @@ fn still(id: usize) -> Track {
     Track::new(id, points).unwrap()
 }
 
-fn after_an_earlier_run(
+fn rendered_into_a_fresh_folder(
     folder: &Path,
     max_tracks: usize,
     trial: Result<Vec<Codec>, Error>,
@@ -59,14 +60,6 @@ fn after_an_earlier_run(
         dest: folder.join("out"),
     };
     let names = Names::new(Language::English);
-    let clips_dir = names.clips_dir(&job.dest);
-    fs::create_dir_all(&clips_dir).unwrap();
-    fs::write(clips_dir.join("track_01_0m00s.mp4"), "").unwrap();
-    let annotated = names.annotated_video(&job.dest, job.video.file_stem().unwrap());
-    let partial = encode::partial_path(&annotated).unwrap();
-    for earlier in [&annotated, &partial] {
-        fs::write(earlier, "").unwrap();
-    }
     let clips = Clips {
         job: &job,
         names,
@@ -79,14 +72,13 @@ fn after_an_earlier_run(
         },
     };
     let rendered = render_clips(&clips, &[still(1), still(2)], trial);
-    assert!(!annotated.exists() && !partial.exists());
-    (rendered, clips_dir)
+    (rendered, names.clips_dir(&job.dest))
 }
 
 #[test]
-fn above_the_track_limit_the_clips_folder_and_the_annotated_video_are_removed_and_nothing_is_written() {
+fn above_the_track_limit_the_clips_folder_is_left_empty_and_nothing_is_written() {
     let folder = tempfile::tempdir().unwrap();
-    let (rendered, clips_dir) = after_an_earlier_run(folder.path(), 1, Ok(vec![Codec::OpenH264]));
+    let (rendered, clips_dir) = rendered_into_a_fresh_folder(folder.path(), 1, Ok(vec![Codec::OpenH264]));
     assert!(matches!(
         rendered,
         Err(Error::TooManyTracks {
@@ -99,10 +91,10 @@ fn above_the_track_limit_the_clips_folder_and_the_annotated_video_are_removed_an
 }
 
 #[test]
-fn without_a_working_encoder_the_clips_folder_and_the_annotated_video_are_removed_before_the_failure_is_returned() {
+fn without_a_working_encoder_the_clips_folder_is_left_empty_before_the_failure_is_returned() {
     let folder = tempfile::tempdir().unwrap();
     let failed = Fallback::new(Vec::new()).map(|_| Vec::new()).map_err(Error::Encoders);
-    let (rendered, clips_dir) = after_an_earlier_run(folder.path(), 300, failed);
+    let (rendered, clips_dir) = rendered_into_a_fresh_folder(folder.path(), 300, failed);
     assert!(matches!(rendered, Err(Error::Encoders(fallback::Error::Empty))));
     assert_eq!(clips_dir.read_dir().unwrap().count(), 0);
 }
@@ -276,4 +268,131 @@ fn the_annotated_video_of_a_flight_that_loses_frames_keeps_the_frames_and_pts_of
     let source = pts_of(&video);
     assert_eq!(source.len(), KEPT_FRAMES);
     assert_eq!(pts_of(&annotated), source);
+}
+
+const OUR_HEADER: &str =
+    "id,start,end,start_s,duration_s,hits,chord_px,path_px,speed_px_s,max_area_px,peak_amplitude,filled_frames\r\n";
+const ANNOTATED_HEADER: &str = "id,start,end,verdict,start_s,duration_s,hits,chord_px,path_px,speed_px_s,max_area_px,peak_amplitude,filled_frames\r\n";
+
+fn flight_job(folder: &Path) -> Job {
+    let video = folder.join("flight.mp4");
+    flight::write_flight(&video);
+    Job {
+        video,
+        dest: folder.join("out"),
+    }
+}
+
+fn left_in(dest: &Path) -> Vec<String> {
+    let mut names: Vec<String> = fs::read_dir(dest)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .collect();
+    names.sort();
+    names
+}
+
+#[test]
+fn the_outputs_of_an_earlier_run_in_any_language_are_replaced_by_those_of_this_run() {
+    let folder = tempfile::tempdir().unwrap();
+    let job = flight_job(folder.path());
+    for clips in ["extraits", "split"] {
+        fs::create_dir_all(job.dest.join(clips)).unwrap();
+        fs::write(job.dest.join(clips).join("piste_07_1m00s.mp4"), "").unwrap();
+    }
+    for earlier in [
+        "flight_pistes.csv",
+        "flight.tracks.csv",
+        "flight_resume_2_sur_3.png",
+        "flight_summary_000m-010m.png",
+        "flight_annotee.mp4",
+        ".flight_annotated.mp4.partial",
+        "flight_boxes.mp4",
+    ] {
+        fs::write(job.dest.join(earlier), OUR_HEADER).unwrap();
+    }
+    let french = Names::new(Language::French).annotated_video(&job.dest, job.video.file_stem().unwrap());
+    fs::write(encode::partial_path(&french).unwrap(), "").unwrap();
+    let processed = process(&job, &Plain, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
+    assert_eq!(
+        left_in(&job.dest),
+        ["clips", "flight_summary.png", "flight_tracks.csv", "params.json"]
+    );
+    assert_eq!(processed.csv, Some(job.dest.join("flight_tracks.csv")));
+    assert_eq!(processed.kept, []);
+}
+
+#[test]
+fn a_table_annotated_in_the_language_of_the_run_is_kept_as_it_is_and_no_table_is_written_over_it() {
+    let folder = tempfile::tempdir().unwrap();
+    let job = flight_job(folder.path());
+    let table = job.dest.join("flight_tracks.csv");
+    fs::create_dir_all(&job.dest).unwrap();
+    fs::write(&table, ANNOTATED_HEADER).unwrap();
+    let processed = process(&job, &Plain, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
+    assert_eq!(processed.csv, None);
+    assert_eq!(
+        processed.kept,
+        [Kept {
+            path: table.clone(),
+            ours: true,
+        }]
+    );
+    assert_eq!(fs::read_to_string(&table).unwrap(), ANNOTATED_HEADER);
+    assert!(job.dest.join("flight_summary.png").is_file());
+}
+
+#[test]
+fn a_table_annotated_in_the_other_language_is_kept_beside_the_new_table() {
+    let folder = tempfile::tempdir().unwrap();
+    let job = flight_job(folder.path());
+    let table = job.dest.join("flight_pistes.csv");
+    fs::create_dir_all(&job.dest).unwrap();
+    fs::write(&table, ANNOTATED_HEADER).unwrap();
+    let processed = process(&job, &Plain, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
+    assert_eq!(processed.csv, Some(job.dest.join("flight_tracks.csv")));
+    assert_eq!(
+        processed.kept,
+        [Kept {
+            path: table.clone(),
+            ours: false,
+        }]
+    );
+    assert_eq!(fs::read_to_string(&table).unwrap(), ANNOTATED_HEADER);
+    assert!(job.dest.join("flight_tracks.csv").is_file());
+}
+
+#[test]
+fn a_table_annotated_under_the_name_of_the_video_in_another_case_is_never_written_over() {
+    let folder = tempfile::tempdir().unwrap();
+    let job = flight_job(folder.path());
+    let other_case = job.dest.join("FLIGHT_tracks.csv");
+    fs::create_dir_all(&job.dest).unwrap();
+    fs::write(&other_case, ANNOTATED_HEADER).unwrap();
+    let ignores_case = job.dest.join("flight_tracks.csv").exists();
+    let processed = process(&job, &Plain, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
+    assert_eq!(fs::read_to_string(&other_case).unwrap(), ANNOTATED_HEADER);
+    assert_eq!(processed.csv.is_none(), ignores_case);
+    assert_eq!(processed.kept.len(), usize::from(ignores_case));
+}
+
+#[test]
+fn a_detection_that_fails_leaves_the_results_of_an_earlier_run() {
+    let folder = tempfile::tempdir().unwrap();
+    let job = Job {
+        video: folder.path().join("flight.mp4"),
+        dest: folder.path().join("out"),
+    };
+    fs::write(&job.video, "not a video").unwrap();
+    fs::create_dir_all(job.dest.join("clips")).unwrap();
+    fs::write(job.dest.join("flight_tracks.csv"), OUR_HEADER).unwrap();
+    let failed = process(&job, &Plain, Threads::Automatic, VERSIONS, &Options::default());
+    assert!(matches!(failed, Err(Error::Detection(_))));
+    assert_eq!(left_in(&job.dest), ["clips", "flight_tracks.csv"]);
+}
+
+#[test]
+fn an_encoded_video_hides_its_partial_file_under_the_name_the_cleanup_removes() {
+    let video = Path::new("out/flight/flight_annotee.mp4");
+    assert_eq!(encode::partial_path(video), Some(partial_path(video)));
 }

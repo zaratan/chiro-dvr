@@ -7,7 +7,7 @@ use types::rational::Rational;
 use types::timeline::Timeline;
 use types::track::Track;
 
-use super::{decimal, row, write_tracks_csv};
+use super::{decimal, is_tracks_table, row, write_tracks_csv};
 use crate::error::Error;
 
 fn thirty_per_second() -> Timeline {
@@ -79,6 +79,39 @@ fn a_table_without_tracks_is_its_header_alone() {
     let path = directory.path().join("v_tracks.csv");
     write_tracks_csv(&path, &[], &thirty_per_second()).unwrap();
     assert_eq!(fs::read_to_string(&path).unwrap().lines().count(), 1);
+}
+
+#[test]
+fn a_table_we_write_with_or_without_tracks_is_recognised_as_ours() {
+    let directory = tempfile::tempdir().unwrap();
+    for (name, tracks) in [("empty.csv", vec![]), ("three.csv", vec![three_points()])] {
+        let path = directory.path().join(name);
+        write_tracks_csv(&path, &tracks, &thirty_per_second()).unwrap();
+        assert!(is_tracks_table(&path).unwrap());
+    }
+}
+
+#[test]
+fn a_table_is_never_written_over_a_file_already_there() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("v_tracks.csv");
+    fs::write(&path, "id;verdict\r\n1;oui\r\n").unwrap();
+    let error = write_tracks_csv(&path, &[three_points()], &thirty_per_second()).unwrap_err();
+    assert!(matches!(error, Error::Taken { .. }), "{error}");
+    assert_eq!(fs::read_to_string(&path).unwrap(), "id;verdict\r\n1;oui\r\n");
+}
+
+#[test]
+fn a_table_is_named_only_once_whole_and_leaves_no_partial_file() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("v_tracks.csv");
+    write_tracks_csv(&path, &[three_points()], &thirty_per_second()).unwrap();
+    let names: Vec<_> = fs::read_dir(directory.path())
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name())
+        .collect();
+    assert_eq!(names, ["v_tracks.csv"]);
+    assert!(is_tracks_table(&path).unwrap());
 }
 
 #[test]

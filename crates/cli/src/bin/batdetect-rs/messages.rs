@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use batdetect::jobs::Job;
 use engine::settings;
+use files::previous::Kept;
 use render::config;
 
 use crate::texts::Message;
@@ -67,6 +68,14 @@ pub(crate) fn too_many_tracks(job: &Job, count: usize, limit: usize, annotated: 
         count,
         limit,
         annotated,
+    }
+}
+
+pub(crate) fn table_kept(job: &Job, kept: &Kept) -> Message {
+    Message::TableKept {
+        video: job.video.display().to_string(),
+        table: kept.path.file_name().unwrap_or_default().to_string_lossy().into_owned(),
+        written: !kept.ours,
     }
 }
 

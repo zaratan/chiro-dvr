@@ -20,7 +20,8 @@ fn jobs(count: usize) -> Vec<Job> {
 fn processed() -> Processed {
     Processed {
         tracks: Vec::new(),
-        csv: PathBuf::from("tracks.csv"),
+        csv: Some(PathBuf::from("tracks.csv")),
+        kept: Vec::new(),
         summaries: Vec::new(),
         rendered: Rendered::default(),
     }

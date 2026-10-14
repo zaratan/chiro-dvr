@@ -6,7 +6,7 @@ use types::frame::FrameIndex;
 use types::language::Language;
 use types::track::Track;
 
-use super::{Names, Part, params_json};
+use super::{Names, Output, Part, params_json, partial_path, previous_output};
 
 fn track(id: usize) -> Track {
     let point = Detection {
@@ -141,5 +141,97 @@ fn a_summary_cut_into_parts_numbers_each_part_padded_to_sort_in_order() {
     assert_eq!(
         Names::new(Language::English).summary_png(dest, stem, Some(10..16), part(12)),
         PathBuf::from("out/v/v_summary_010m-016m_12_of_12.png")
+    );
+}
+
+fn recognised(name: &str) -> Option<Output> {
+    previous_output(name.as_bytes(), b"v").map(|(_, output)| output)
+}
+
+#[test]
+fn every_name_we_write_is_recognised_as_a_previous_output_and_so_is_its_partial_file() {
+    let (dest, stem) = (Path::new("out/v"), OsStr::new("v"));
+    for language in [Language::French, Language::English] {
+        let names = Names::new(language);
+        let rendered = [
+            names.annotated_video(dest, stem),
+            names.summary_png(dest, stem, None, None),
+            names.summary_png(dest, stem, Some(0..10), None),
+            names.summary_png(dest, stem, None, Some(Part { number: 3, count: 8 })),
+            names.summary_png(dest, stem, Some(10..16), Some(Part { number: 2, count: 12 })),
+        ];
+        let table = names.tracks_csv(dest, stem);
+        let written = rendered
+            .iter()
+            .map(|path| (path, Output::Rendered))
+            .chain([(&table, Output::TracksTable)]);
+        for (path, output) in written {
+            let name = path.file_name().unwrap().to_str().unwrap();
+            assert_eq!(recognised(name), Some(output), "{name}");
+            let partial = partial_path(path);
+            let partial = partial.file_name().unwrap().to_str().unwrap();
+            assert_eq!(recognised(partial), Some(Output::Partial), "{partial}");
+        }
+        let clips = names.clips_dir(dest);
+        assert_eq!(
+            recognised(clips.file_name().unwrap().to_str().unwrap()),
+            Some(Output::ClipsFolder)
+        );
+    }
+}
+
+#[test]
+fn the_old_names_of_the_first_version_are_recognised() {
+    assert_eq!(recognised("split"), Some(Output::ClipsFolder));
+    assert_eq!(recognised("v.tracks.csv"), Some(Output::TracksTable));
+    for name in ["v.tracks.png", "v.tracks_000m-010m.png", "v_boxes.mp4"] {
+        assert_eq!(recognised(name), Some(Output::Rendered), "{name}");
+    }
+}
+
+#[test]
+fn the_summaries_of_every_period_and_every_part_are_recognised() {
+    for name in [
+        "v_resume_000m-010m.png",
+        "v_summary_010m-016m.png",
+        "v_resume_3_sur_8.png",
+        "v_summary_03_of_12.png",
+        "v_resume_000m-010m_1_sur_2.png",
+        "v_summary_1200m-1210m.png",
+    ] {
+        assert_eq!(recognised(name), Some(Output::Rendered), "{name}");
+    }
+}
+
+#[test]
+fn names_that_only_look_like_outputs_are_not_recognised() {
+    for name in [
+        "params.json",
+        "notes.txt",
+        "autres",
+        "w_pistes.csv",
+        "v_pistes.csv.bak",
+        "v_resume_1_of_2.png",
+        "v_summary_3_sur_8.png",
+        "v.tracks_1_of_2.png",
+        "v.tracks_1__2.png",
+        "v_resume_00m-10m.png",
+        "v_resume_.png",
+        "v_resume_3_sur_.png",
+        "v_resume.jpg",
+        ".v_pistes.csv.bak.partial",
+        ".extraits.partial",
+        "v_annotee.mp4.partial",
+        "piste_01_0m00s.mp4",
+    ] {
+        assert_eq!(recognised(name), None, "{name}");
+    }
+}
+
+#[test]
+fn a_partial_file_hides_beside_its_final_name() {
+    assert_eq!(
+        partial_path(Path::new("out/v/v_pistes.csv")),
+        PathBuf::from("out/v/.v_pistes.csv.partial")
     );
 }

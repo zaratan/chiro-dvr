@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 use std::fs;
 
-use super::{bench_under, committed, recording_directories_under, video_under};
+use super::{bench_under, committed, outputs_under, recording_directories_under, video_under};
 use crate::error::Error;
 
 #[test]
@@ -81,4 +81,17 @@ fn a_recorded_bench_lives_under_bench_by_its_name_and_needs_the_variable() {
 
     assert_eq!(found, root.path().join("bench").join("transit"));
     assert!(matches!(bench_under(None, "transit"), Err(Error::UnsetVariable { .. })));
+}
+
+#[test]
+fn the_recorded_outputs_live_under_outputs_by_language_then_video_and_need_the_variable() {
+    let root = tempfile::tempdir().unwrap();
+
+    let found = outputs_under(Some(root.path().into()), "fr", "video_097").unwrap();
+
+    assert_eq!(found, root.path().join("outputs").join("fr").join("video_097"));
+    assert!(matches!(
+        outputs_under(None, "fr", "video_097"),
+        Err(Error::UnsetVariable { .. })
+    ));
 }
