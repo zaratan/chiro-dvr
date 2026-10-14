@@ -2,6 +2,8 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use batdetect::jobs::Job;
+use batdetect::outcome::Rank;
+use batdetect::progress::Step;
 use batdetect::writable::Unwritable;
 use engine::settings;
 use files::previous::Kept;
@@ -63,6 +65,33 @@ pub(crate) fn version() -> &'static str {
 
 pub(crate) fn long_version(ffmpeg_version: &str, ffmpeg_license: &str) -> String {
     format!("{}\nFFmpeg {ffmpeg_version} — {ffmpeg_license}", version())
+}
+
+pub(crate) fn video_step(rank: Rank, job: &Job, step: Step) -> Message {
+    Message::VideoStep {
+        rank,
+        video: short_name(job),
+        step,
+    }
+}
+
+pub(crate) fn video_done(rank: Rank, job: &Job, tracks: usize) -> Message {
+    Message::VideoDone {
+        rank,
+        video: short_name(job),
+        tracks,
+    }
+}
+
+pub(crate) fn video_failed(rank: Rank, job: &Job) -> Message {
+    Message::VideoFailed {
+        rank,
+        video: short_name(job),
+    }
+}
+
+fn short_name(job: &Job) -> String {
+    job.video.file_stem().unwrap_or_default().to_string_lossy().into_owned()
 }
 
 pub(crate) fn processed(job: &Job, tracks: usize) -> Message {

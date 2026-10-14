@@ -1,6 +1,8 @@
 use std::sync::OnceLock;
 
+use batdetect::outcome::Rank;
 use batdetect::process::Wording;
+use batdetect::progress::Step;
 use engine::settings::Bound;
 use files::names::Part;
 use fluent_bundle::concurrent::FluentBundle;
@@ -126,6 +128,20 @@ pub(crate) enum Message {
         table: String,
         written: bool,
     },
+    VideoStep {
+        rank: Rank,
+        video: String,
+        step: Step,
+    },
+    VideoDone {
+        rank: Rank,
+        video: String,
+        tracks: usize,
+    },
+    VideoFailed {
+        rank: Rank,
+        video: String,
+    },
     Failed {
         video: String,
         causes: String,
@@ -232,6 +248,9 @@ impl Message {
             Self::TooManyTracks { .. } => "too-many-tracks",
             Self::ClipsRedone { .. } => "clips-redone",
             Self::TableKept { .. } => "table-kept",
+            Self::VideoStep { .. } => "video-step",
+            Self::VideoDone { .. } => "video-done",
+            Self::VideoFailed { .. } => "video-failed",
             Self::Failed { .. } => "failed",
             Self::InternalError { .. } => "internal-error",
             Self::SummaryPart { .. } => "summary-part",
@@ -297,6 +316,15 @@ impl Message {
                 arguments.set("table", table.as_str());
                 arguments.set("written", if *written { YES } else { NO });
             }
+            Self::VideoStep { rank, video, step } => {
+                ranked(&mut arguments, *rank, video);
+                arguments.set("step", step_name(*step));
+            }
+            Self::VideoDone { rank, video, tracks } => {
+                ranked(&mut arguments, *rank, video);
+                arguments.set("tracks", *tracks);
+            }
+            Self::VideoFailed { rank, video } => ranked(&mut arguments, *rank, video),
             Self::Failed { video, causes } => {
                 arguments.set("video", video.as_str());
                 arguments.set("causes", causes.as_str());
@@ -374,6 +402,9 @@ impl Message {
             | Self::TooManyTracks { .. }
             | Self::ClipsRedone { .. }
             | Self::TableKept { .. }
+            | Self::VideoStep { .. }
+            | Self::VideoDone { .. }
+            | Self::VideoFailed { .. }
             | Self::Failed { .. }
             | Self::InternalError { .. }
             | Self::SummaryPart { .. }
@@ -383,6 +414,21 @@ impl Message {
             | Self::SummaryUnreadable { .. }
             | Self::SummaryMoreUnreadable { .. } => {}
         }
+    }
+}
+
+fn ranked<'a>(arguments: &mut FluentArgs<'a>, rank: Rank, video: &'a str) {
+    arguments.set("position", rank.position);
+    arguments.set("total", rank.total);
+    arguments.set("video", video);
+}
+
+fn step_name(step: Step) -> &'static str {
+    match step {
+        Step::Detection => "detection",
+        Step::Tracking => "tracking",
+        Step::Summary => "summary",
+        Step::Clips => "clips",
     }
 }
 

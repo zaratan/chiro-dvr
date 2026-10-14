@@ -11,6 +11,17 @@ table-kept = { $video }: { $table } left as it is, it does not have the form of 
         [no] ; the new table is not written
        *[yes] {""}
     }
+video-step = [{ $position }/{ $total }] { $video } — { $step ->
+        [detection] detection
+        [tracking] tracking
+        [summary] summary image
+       *[clips] clips
+    }
+video-done = [{ $position }/{ $total }] { $video } — { $tracks ->
+        [one] { $tracks } track
+       *[other] { $tracks } tracks
+    }
+video-failed = [{ $position }/{ $total }] { $video } — failed
 failed = { $video }: failed: { $causes }
 internal-error = { $video }: internal error: { $message }
 summary-part = part { $number } / { $count }

@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use render::clips::Rendered;
 
-use super::{Done, Failure, Outcome, all_succeeded, run_all};
+use super::{Done, Failure, Outcome, Rank, all_succeeded, run_all};
 use crate::jobs::Job;
 use crate::process::{Error, Processed};
 
@@ -43,11 +43,11 @@ fn a_panic_on_the_second_video_leaves_the_third_one_processed_and_reported() {
     let mut reported = Vec::new();
     let outcomes = run_all(
         &jobs(3),
-        |job| {
+        |job, _| {
             assert_ne!(job.video, PathBuf::from("video_1.mp4"), "forced panic");
             Ok(processed())
         },
-        |job, result| {
+        |job, _, result| {
             reported.push((job.video.clone(), result.is_ok()));
             Ok(())
         },
@@ -69,14 +69,14 @@ fn a_panic_on_the_second_video_leaves_the_third_one_processed_and_reported() {
 #[test]
 fn the_message_of_a_panic_is_kept_whether_it_is_a_literal_or_formatted() {
     let panicking = [
-        |_: &Job| -> Result<Processed, Error> { std::panic::panic_any("literal") },
-        |job: &Job| std::panic::panic_any(format!("formatted {}", job.video.display())),
+        |_: &Job, _: Rank| -> Result<Processed, Error> { std::panic::panic_any("literal") },
+        |job: &Job, _: Rank| std::panic::panic_any(format!("formatted {}", job.video.display())),
     ];
     for (work, expected) in panicking.into_iter().zip(["literal", "formatted video_0.mp4"]) {
-        let outcomes = run_all(&jobs(1), work, |_, _| Ok(())).unwrap();
+        let outcomes = run_all(&jobs(1), work, |_, _, _| Ok(())).unwrap();
         assert!(matches!(&outcomes[0], Err(Failure::Panic(message)) if message == expected));
     }
-    let outcomes = run_all(&jobs(1), |_| std::panic::panic_any(7_u8), |_, _| Ok(())).unwrap();
+    let outcomes = run_all(&jobs(1), |_, _| std::panic::panic_any(7_u8), |_, _, _| Ok(())).unwrap();
     assert!(matches!(&outcomes[0], Err(Failure::Panic(message)) if message == "unknown panic"));
 }
 
@@ -85,11 +85,11 @@ fn a_failed_report_stops_the_loop_before_the_next_video() {
     let worked = AtomicUsize::new(0);
     let stopped = run_all(
         &jobs(3),
-        |_| {
+        |_, _| {
             worked.fetch_add(1, Ordering::SeqCst);
             Ok(processed())
         },
-        |_, _| Err(io::Error::other("closed")),
+        |_, _, _| Err(io::Error::other("closed")),
     );
     assert!(stopped.is_err());
     assert_eq!(worked.into_inner(), 1);
@@ -109,4 +109,23 @@ fn the_lot_succeeds_only_when_every_video_is_done() {
         annotated: false,
     }));
     assert!(!all_succeeded(&[failed]));
+}
+
+#[test]
+fn each_video_is_given_its_rank_in_the_lot_to_work_and_to_report() {
+    let mut reported = Vec::new();
+    run_all(
+        &jobs(3),
+        |_, rank| {
+            assert_eq!(rank.total, 3);
+            Ok(processed())
+        },
+        |_, rank, _| {
+            reported.push(rank);
+            Ok(())
+        },
+    )
+    .unwrap();
+    let positions: Vec<usize> = reported.iter().map(|rank| rank.position).collect();
+    assert_eq!(positions, [1, 2, 3]);
 }

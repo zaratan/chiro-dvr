@@ -1565,7 +1565,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
 - **`cli`** → `engine`, `tracking`, `files`, `summary`, `render`, `draw`, `media`, `types` : paquet `batdetect`, binaire
   `batdetect-rs` (#123). Tout texte vu par l'utilisateur vit dans les deux catalogues
   Fluent `locales/{fr,en}.ftl`, lus par `texts.rs` (#114) ; `messages.rs` fait les messages
-  à partir des vidéos et des erreurs, `arguments.rs` la ligne de commande. La bibliothèque (`jobs`, `language`, `options`, `process`, `settings`, `writable`)
+  à partir des vidéos et des erreurs, `arguments.rs` la ligne de commande. La bibliothèque (`jobs`, `language`, `options`, `process`, `progress`, `settings`, `writable`)
   sert aux tests.
   - `batdetect-rs VIDÉO|DOSSIER… [-o DOSSIER]`. Sans `-o`/`--out-dir`, les résultats de
     chaque vidéo vont dans `<dossier de la vidéo>/batdetect/` (#86) ; l'aide le dit
@@ -1655,6 +1655,31 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       est nommé avec sa cause : « aucune vidéo n'est traitée, les résultats ne peuvent pas
       s'écrire dans : … » (Fluent).
     - Un `-o` qui est un fichier est refusé de même, avant la détection.
+  - Vidéo et étape en cours (#63), sur la sortie d'erreur. La sortie standard garde la
+    ligne « N pistes -> dossier » de chaque vidéo réussie.
+    - `progress::Progress` est le protocole d'étapes de la bibliothèque : `process` appelle
+      `step` avant la détection (lecture comprise), le suivi (ménage, CSV, essai des
+      encodeurs et `params.json` compris), l'image résumé et les extraits (zooms et vidéo
+      annotée compris). `progress::Silent` sert aux tests. Pas d'avancement image par
+      image : c'est #68.
+    - Une écriture ratée de l'étape fait échouer la vidéo avant sa détection
+      (`Error::Progress`). Le rapport de cette vidéo échoue ensuite sur la même sortie
+      d'erreur, et le lot s'arrête là, en code 1. Avant #63, le lot ne s'arrêtait qu'à
+      la première ligne d'événement ou d'échec.
+    - Le binaire (`status.rs`) écrit « [3/12] video_092 — détection », puis « — suivi »,
+      « — image résumé », « — extraits ». La vidéo est nommée sans extension, et son rang
+      compte dans le lot.
+    - La ligne d'une vidéo finie reste : « [3/12] video_092 — 14 pistes », ou « — échec ».
+    - Les lignes d'événement (CSV laissé, extrait refait, cause d'un échec) s'écrivent
+      au-dessus de cette dernière ligne.
+    - Le mode se choisit par `std::io::IsTerminal` sur la sortie d'erreur.
+      - Redirigée : une ligne par étape, rien n'est effacé.
+      - Sur un terminal : la ligne d'étape est redessinée sur place, par `\r`, des espaces
+        jusqu'à la longueur précédente, puis `\r`, sans séquence d'échappement (console
+        Windows ancienne). La longueur compte des caractères. Une ligne plus large que le
+        terminal (nom long, fenêtre étroite) ne s'efface qu'à partir de sa dernière rangée.
+    - Le rang vient de `outcome::run_all`, qui passe `Rank { position, total }` au travail
+      et au rapport de chaque vidéo.
   - Chaîne : `engine::detection::detect` (fils automatiques), puis la `Timeline` des
     `pts` lus, puis `exclude`. Les plages abîmées viennent du moteur, et les images
     signalées sont l'union des images en erreur et après un saut. Puis

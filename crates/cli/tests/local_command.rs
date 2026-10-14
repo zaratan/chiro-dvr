@@ -7,6 +7,7 @@ use std::path::Path;
 
 use batdetect::options::Options;
 use batdetect::process::process;
+use batdetect::progress::Silent;
 use files::names::Names;
 use media::decode::{Decoder, Threads};
 use media::frame::{ColorRange, YuvFrame};
@@ -38,6 +39,7 @@ fn the_twenty_six_videos_give_the_tracks_of_the_reference_but_for_the_known_dive
         let processed = process(
             &job,
             &agreement::DebugLabels,
+            &Silent,
             Threads::Automatic,
             agreement::VERSIONS,
             &Options::default(),
@@ -172,6 +174,7 @@ fn the_annotated_103_keeps_the_pts_of_its_decoded_frames_through_its_lost_frames
     process(
         &job,
         &agreement::DebugLabels,
+        &Silent,
         Threads::Automatic,
         agreement::VERSIONS,
         &options,

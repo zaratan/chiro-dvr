@@ -8,6 +8,7 @@ use std::sync::OnceLock;
 
 use batdetect::options::Options;
 use batdetect::process::{Processed, process};
+use batdetect::progress::Silent;
 use media::decode::Threads;
 use reference::fixture::fixture;
 use reference::location::committed;
@@ -31,6 +32,7 @@ fn extract() -> &'static (Recording, FrameRate, Processed, tempfile::TempDir) {
         let processed = process(
             &job,
             &agreement::DebugLabels,
+            &Silent,
             Threads::Automatic,
             agreement::VERSIONS,
             &Options::default(),
