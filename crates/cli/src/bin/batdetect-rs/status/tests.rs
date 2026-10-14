@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
 use batdetect::jobs::Job;
-use batdetect::outcome::{Failure, Rank};
+use batdetect::options::Options;
+use batdetect::outcome::{Failure, Panic, Rank};
 use batdetect::process::Processed;
 use files::previous::Kept;
 use render::clips::Rendered;
@@ -77,7 +78,7 @@ fn told(result: &Result<Processed, Failure>) -> (String, String) {
     };
     let (mut err, mut out) = (Vec::new(), Vec::new());
     status.show(&mut err, "[1/1] flight — extraits").unwrap();
-    video.tell(&mut err, &mut out, result).unwrap();
+    video.tell(&mut err, &mut out, result, &Options::default()).unwrap();
     (String::from_utf8(err).unwrap(), String::from_utf8(out).unwrap())
 }
 
@@ -105,11 +106,16 @@ fn on_a_terminal_the_step_is_erased_before_the_events_and_the_last_line_of_the_v
 
 #[test]
 fn on_a_terminal_a_failure_erases_the_step_then_gives_its_cause_above_its_last_line() {
-    let (err, out) = told(&Err(Failure::Panic("boom".to_owned())));
+    let panic = Panic {
+        message: "boom".to_owned(),
+        location: None,
+    };
+    let (err, out) = told(&Err(Failure::Panic(panic)));
     assert_eq!(
         err,
         format!(
-            "[1/1] flight — extraits\r{}\rnuit/flight.mp4 : erreur interne : boom\n[1/1] flight — échec\n",
+            "[1/1] flight — extraits\r{}\rnuit/flight.mp4 : erreur interne\n  à faire : le signaler avec le détail \
+             ci-dessous\n  détail : boom\n[1/1] flight — échec\n",
             " ".repeat(23)
         )
     );

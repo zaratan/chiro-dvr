@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use draw::canvas::Canvas;
 use files::names::partial_path;
-use png::{BitDepth, ColorType, Encoder};
+use png::{BitDepth, ColorType, Encoder, EncodingError};
 use tempfile::TempPath;
 
 #[cfg(test)]
@@ -43,10 +43,7 @@ pub fn write_png(path: &Path, canvas: &Canvas) -> Result<(), Error> {
     };
     let partial = TempPath::try_from_path(partial).map_err(create)?;
     let file = File::create(&partial).map_err(create)?;
-    let encode = |source| Error::Encode {
-        path: path.to_path_buf(),
-        source,
-    };
+    let encode = |source| encoding_error(path, source);
     let mut encoder = Encoder::new(&file, canvas.width(), canvas.height());
     encoder.set_color(ColorType::Rgb);
     encoder.set_depth(BitDepth::Eight);
@@ -57,6 +54,19 @@ pub fn write_png(path: &Path, canvas: &Canvas) -> Result<(), Error> {
         path: path.to_path_buf(),
         source: failure.error,
     })
+}
+
+fn encoding_error(path: &Path, error: EncodingError) -> Error {
+    match error {
+        EncodingError::IoError(source) => Error::Write {
+            path: path.to_path_buf(),
+            source,
+        },
+        source => Error::Encode {
+            path: path.to_path_buf(),
+            source,
+        },
+    }
 }
 
 fn rgb(canvas: &Canvas) -> Vec<u8> {

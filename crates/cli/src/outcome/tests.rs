@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use render::clips::Rendered;
 
-use super::{Done, Failure, Outcome, Rank, all_succeeded, run_all};
+use super::{Done, Failure, Outcome, Panic, Rank, all_succeeded, run_all};
 use crate::jobs::Job;
 use crate::process::{Error, Processed};
 
@@ -62,7 +62,7 @@ fn a_panic_on_the_second_video_leaves_the_third_one_processed_and_reported() {
             (PathBuf::from("video_2.mp4"), true)
         ]
     );
-    assert!(matches!(&outcomes[1], Err(Failure::Panic(message)) if message.contains("forced panic")));
+    assert!(matches!(&outcomes[1], Err(Failure::Panic(panic)) if panic.message.contains("forced panic")));
     assert!(matches!(outcomes[0], Ok(Done { tracks: 0 })));
 }
 
@@ -74,10 +74,10 @@ fn the_message_of_a_panic_is_kept_whether_it_is_a_literal_or_formatted() {
     ];
     for (work, expected) in panicking.into_iter().zip(["literal", "formatted video_0.mp4"]) {
         let outcomes = run_all(&jobs(1), work, |_, _, _| Ok(())).unwrap();
-        assert!(matches!(&outcomes[0], Err(Failure::Panic(message)) if message == expected));
+        assert!(matches!(&outcomes[0], Err(Failure::Panic(panic)) if panic.message == expected));
     }
     let outcomes = run_all(&jobs(1), |_, _| std::panic::panic_any(7_u8), |_, _, _| Ok(())).unwrap();
-    assert!(matches!(&outcomes[0], Err(Failure::Panic(message)) if message == "unknown panic"));
+    assert!(matches!(&outcomes[0], Err(Failure::Panic(panic)) if panic.message == "unknown panic"));
 }
 
 #[test]
@@ -101,7 +101,10 @@ fn the_lot_succeeds_only_when_every_video_is_done() {
     assert!(all_succeeded(&[Ok(Done { tracks: 2 })]));
     assert!(!all_succeeded(&[
         Ok(Done { tracks: 2 }),
-        Err(Failure::Panic("boom".to_owned()))
+        Err(Failure::Panic(Panic {
+            message: "boom".to_owned(),
+            location: None
+        }))
     ]));
     let failed = Err(Failure::Error(Error::TooManyTracks {
         count: 301,

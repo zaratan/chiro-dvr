@@ -14,7 +14,7 @@ use types::language::Language;
 use super::{ENGLISH_SOURCE, FRENCH_SOURCE, Fixed, Message, Texts, resolved};
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 35;
+const VARIANTS: usize = 36;
 const FIXED: [Fixed; 34] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
@@ -58,8 +58,8 @@ fn rank(message: &Message) -> usize {
         Message::Processed { .. } => 1,
         Message::TooManyTracks { .. } => 2,
         Message::ClipsRedone { .. } => 3,
-        Message::Failed { .. } => 4,
-        Message::InternalError { .. } => 5,
+        Message::Failure { .. } => 4,
+        Message::FailureTodo { .. } => 5,
         Message::SummaryPart { .. } => 6,
         Message::SummaryTracks { .. } => 7,
         Message::SummaryNotAnalysed { .. } => 8,
@@ -89,6 +89,7 @@ fn rank(message: &Message) -> usize {
         Message::VideoStep { .. } => 32,
         Message::VideoDone { .. } => 33,
         Message::VideoFailed { .. } => 34,
+        Message::FailureDetail { .. } => 35,
     }
 }
 
@@ -179,13 +180,17 @@ fn lines() -> Vec<Message> {
             rank: Rank { position: 3, total: 12 },
             video: text("video_092"),
         },
-        Message::Failed {
+        Message::Failure {
             video: text("nuit/video_092.mp4"),
-            causes: text("the detection failed"),
+            cause: "in-use",
+            place: text("out/video_092/video_092_resume.png"),
         },
-        Message::InternalError {
-            video: text("nuit/video_092.mp4"),
-            message: text("index out of bounds"),
+        Message::FailureTodo {
+            cause: "disk-full",
+            folder: text("out/video_092"),
+        },
+        Message::FailureDetail {
+            detail: text("the detection failed"),
         },
         Message::SummaryPart { number: 2, count: 8 },
         Message::SummaryTracks { count: 2 },
@@ -523,12 +528,16 @@ fn a_part_of_a_crowded_summary_says_which_one_it_is_in_each_language() {
 
 #[test]
 fn a_message_that_misses_an_argument_still_says_what_it_can() {
-    let message = Message::Failed {
+    let message = Message::Failure {
         video: "nuit/video_092.mp4".to_owned(),
-        causes: String::new(),
+        cause: "forbidden",
+        place: String::new(),
     };
     let said = Texts::new(Language::French).say(&message);
-    assert!(said.starts_with("nuit/video_092.mp4 : échec : "), "{said}");
+    assert!(
+        said.starts_with("nuit/video_092.mp4 : écriture refusée dans "),
+        "{said}"
+    );
 }
 
 #[test]

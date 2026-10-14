@@ -1,8 +1,10 @@
 use std::error::Error;
 use std::path::PathBuf;
 
+use batdetect::failure::{self, Cause};
 use batdetect::jobs::Job;
-use batdetect::outcome::Rank;
+use batdetect::options::Options;
+use batdetect::outcome::{Failure, Panic, Rank};
 use batdetect::progress::Step;
 use batdetect::writable::Unwritable;
 use engine::settings;
@@ -15,6 +17,8 @@ use crate::texts::Message;
 mod tests;
 
 const CAUSE_SEPARATOR: &str = ": ";
+const TOO_MANY_TRACKS: &str = "too-many-tracks";
+const INTERNAL: &str = "internal";
 
 pub(crate) fn detection_refused(error: &settings::Error) -> Message {
     match *error {
@@ -132,17 +136,70 @@ pub(crate) fn redone(job: &Job, clips: &[PathBuf], cause: &dyn Error) -> Message
     }
 }
 
-pub(crate) fn failed(job: &Job, error: &dyn Error) -> Message {
-    Message::Failed {
-        video: job.video.display().to_string(),
-        causes: causes(error),
+pub(crate) fn failure_lines(job: &Job, failure: &Failure, options: &Options) -> Vec<Message> {
+    let (cause, place, detail) = match failure {
+        Failure::Error(error) => match failure::cause(error, options) {
+            Cause::TooManyTracks {
+                count,
+                limit,
+                annotated,
+            } => {
+                return vec![
+                    too_many_tracks(job, count, limit, annotated),
+                    todo(TOO_MANY_TRACKS, job),
+                ];
+            }
+            cause => (named(&cause), place_of(cause, job), causes(error)),
+        },
+        Failure::Panic(panic) => (INTERNAL, job.dest.clone(), panicked(panic)),
+    };
+    vec![
+        Message::Failure {
+            video: job.video.display().to_string(),
+            cause,
+            place: place.display().to_string(),
+        },
+        todo(cause, job),
+        Message::FailureDetail { detail },
+    ]
+}
+
+fn place_of(cause: Cause, job: &Job) -> PathBuf {
+    match cause {
+        Cause::InUse { file } => file,
+        _ => job.dest.clone(),
     }
 }
 
-pub(crate) fn internal_error(job: &Job, message: &str) -> Message {
-    Message::InternalError {
-        video: job.video.display().to_string(),
-        message: message.to_owned(),
+fn todo(cause: &'static str, job: &Job) -> Message {
+    Message::FailureTodo {
+        cause,
+        folder: job.dest.display().to_string(),
+    }
+}
+
+fn panicked(panic: &Panic) -> String {
+    match &panic.location {
+        Some(location) => format!("{} ({location})", panic.message),
+        None => panic.message.clone(),
+    }
+}
+
+fn named(cause: &Cause) -> &'static str {
+    match cause {
+        Cause::Missing => "missing",
+        Cause::ReadRefused => "read-refused",
+        Cause::NotAVideo => "not-a-video",
+        Cause::UnusableName => "unusable-name",
+        Cause::Damaged => "damaged",
+        Cause::Unsupported => "unsupported",
+        Cause::Settings => "settings",
+        Cause::DiskFull => "disk-full",
+        Cause::Forbidden => "forbidden",
+        Cause::InUse { .. } => "in-use",
+        Cause::Encoding => "encoding",
+        Cause::TooManyTracks { .. } => TOO_MANY_TRACKS,
+        Cause::Unexpected => "unexpected",
     }
 }
 

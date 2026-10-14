@@ -863,6 +863,14 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
 - **`media`** : frontière avec FFmpeg ; aucun type de `ffmpeg_next` n'en sort. Une
   erreur par module.
   - `frame` : `YuvFrame`, 4:2:0 planaire sans `stride`, avec sa plage de couleur.
+  - `failure::LibraryError::io_kind()` (#64) : le genre d'erreur système derrière une erreur
+    d'FFmpeg, lu sur l'errno d'`AVERROR(e)`. Une seule table sans `cfg` (ENOENT, EACCES,
+    EPERM, ENOSPC, EROFS), parce que FFmpeg porte sous Windows l'errno du CRT, de mêmes
+    valeurs, et non un code Win32 que `from_raw_os_error` lirait. Aucun type d'`ffmpeg_next`
+    ne sort.
+  - `decode::Error::NoDecoder` (#64) : le FFmpeg livré n'a pas de décodeur pour le flux
+    (`DecoderNotFound`), séparé de `Open` pour qu'un `.mov` en ProRes ne passe pas pour un
+    fichier illisible. Un autre échec du décodeur reste `Open`.
   - `decode` : `Decoder::open(chemin, Threads)`, `stream` (taille, cadence, base de
     temps, plage, `pts` de départ `Option<Pts>`, nombre d'images annoncé par le conteneur
     `Option<NonZeroU64>`) et `next`, qui remplit un `YuvFrame` fourni par l'appelant
@@ -1131,7 +1139,9 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       aucune pastille hors cadre. 121 pastilles s'écartent de leur piste de plus d'un
       rayon, presque toutes sur les vidéos denses ; la plus éloignée est à 304 px (096).
   - PNG écrit dans `.<nom>.partial` à côté (`files::names::partial_path`, #115), puis
-    renommé ; droits ordinaires du
+    renommé. Une erreur d'entrée-sortie de l'encodeur PNG remonte en `Error::Write` avec
+    son `io::Error` (#64) : `png` n'expose sa cause que par `cause()`, et un disque plein
+    se perdrait ; droits ordinaires du
     fichier créé (un fichier temporaire de `tempfile` resterait en `0600`).
   - Fond de la 092 mesuré une fois contre la v0.1.1 (luminance, hors traits, 81 % des
     pixels), avant le choix du noir calé sur 16 : SSIM 0,702 tel quel en plage pleine,
@@ -1593,7 +1603,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
 - **`cli`** → `engine`, `tracking`, `files`, `summary`, `render`, `draw`, `media`, `types` : paquet `batdetect`, binaire
   `batdetect-rs` (#123). Tout texte vu par l'utilisateur vit dans les deux catalogues
   Fluent `locales/{fr,en}.ftl`, lus par `texts.rs` (#114) ; `messages.rs` fait les messages
-  à partir des vidéos et des erreurs, `arguments.rs` la ligne de commande. La bibliothèque (`jobs`, `language`, `options`, `process`, `progress`, `settings`, `writable`)
+  à partir des vidéos et des erreurs, `arguments.rs` la ligne de commande. La bibliothèque (`failure`, `jobs`, `language`, `options`, `process`, `progress`, `settings`, `writable`)
   sert aux tests.
   - `batdetect-rs VIDÉO|DOSSIER… [-o DOSSIER]`. Sans `-o`/`--out-dir`, les résultats de
     chaque vidéo vont dans `<dossier de la vidéo>/batdetect/` (#86) ; l'aide le dit
@@ -1802,16 +1812,56 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     - Noms d'options : `engine::settings::Setting::flag()` (`threshold`, `work-width`, …)
       nomme l'option dans la commande comme au banc, pour `Arg::long` comme pour les refus.
       La phrase du refus reste en deux copies : anglaise au banc, Fluent dans la commande.
-  - Une vidéo en échec écrit une ligne sur la sortie d'erreur : son chemin, « échec » (« failed »)
-    et la chaîne des causes. Les autres continuent ; code de sortie 1 si une vidéo a échoué.
+  - Raisons en clair (#64). Une vidéo en échec écrit trois lignes sur la sortie d'erreur,
+    au-dessus de « [k/n] vidéo — échec » de #63. Les autres vidéos continuent ; le code de
+    sortie vaut 1 si une vidéo a échoué.
+    - Les trois lignes : « {vidéo} : {phrase} », « à faire : {conseil} », « détail :
+      {chaîne anglaise des causes} ». « Trop de pistes » garde sa phrase de #113, a un « à
+      faire » et pas de détail.
+    - `failure::cause(&process::Error, &Options) -> Cause` classe sans texte.
+      - Le `match` est exhaustif, sans `_`, sur `process::Error`, `detection::Error`,
+        `input::Error` et `decode::Error`. `detection::Error::Input` est transparent :
+        `input::Error` n'apparaît jamais dans `source()`, et seul le `match` y mène.
+      - Côté écriture (`Folder`, `Previous`, `Files`, `Overview`, `Encoders` sauf `Scratch`,
+        `Clips`), c'est la chaîne `source()` qui classe, sans `match` sur les énumérations
+        de `files`, `render` ou `fallback`.
+    - Causes :
+      - à l'ouverture, par `io_kind()` : introuvable, lecture refusée, sinon « pas une vidéo
+        lisible, ou copie incomplète ». Une copie tronquée depuis les jumelles perd le
+        `moov`, écrit en fin de fichier, et FFmpeg ne la distingue pas d'un fichier qui n'est
+        pas une vidéo ;
+      - nom illisible par FFmpeg ;
+      - vidéo abîmée (nombre d'images, lecture, décodage) ;
+      - format non géré (décodeur absent, format de pixel…) ;
+      - réglages, seulement si `--work-width` ou `--osd-region` a été donné, sinon format
+        non géré ;
+      - disque plein, écriture refusée et, sous Windows, fichier ouvert ailleurs (erreurs 32
+        et 33 au ménage, #115). Ces trois-là ne se cherchent que du côté écriture, sur toute
+        la chaîne `source()`, par `io::Error` ou `LibraryError::io_kind`. Le fichier ouvert
+        se reconnaît sur `Previous`, aux variantes `Remove` et `Read`, les seules qui portent
+        le chemin. Pour un dossier d'extraits, c'est le dossier qui est nommé, pas le fichier
+        ouvert dedans ;
+      - extraits non écrits ;
+      - trop de pistes ;
+      - erreur inattendue ;
+      - erreur interne (panique).
+    - Le doublon « failed: the detection failed: » disparaît : la phrase remplace le cadre
+      « échec : », et « failed » ne reste qu'une fois, dans le détail.
   - Tenue aux pannes (#113) : `outcome::run_all(vidéos, travail, compte rendu)` passe
     chaque vidéo dans `catch_unwind`, le seul du code livré (règle 10), sur un travail
     `Fn + RefUnwindSafe` : le compilateur vérifie qu'il ne modifie rien de ce qu'il capture,
     appelle le compte rendu au fil de l'eau (le binaire n'y fait qu'écrire) et rend un
     résultat par vidéo, `Result<Done, Failure>` (`Failure::Error` ou `Failure::Panic` avec
-    son message), que le bilan de #65 reprendra. Une panique écrit « {vidéo} : erreur
-    interne : {message} » (« internal error ») après la ligne du crochet par défaut (le crochet propre vient à
-    #64), compte comme un échec (code 1), et la vidéo suivante est traitée.
+    son message et son lieu), que le bilan de #65 reprendra. Une panique donne « erreur
+    interne », avec le message et le lieu en détail, compte comme un échec (code 1), et la
+    vidéo suivante est traitée.
+    - Crochet (#64) : `outcome::quiet_panics()`, appelé une fois par `main`, garde le
+      crochet par défaut. Pendant une vidéo (un `AtomicBool` mis par `run_all` autour de
+      `catch_unwind`), il n'écrit rien et garde la première panique dans un `static
+      Mutex`, repris même empoisonné. Il est global et non par fil : `resume_unwind`
+      n'appelle pas le crochet. Hors d'une vidéo, il passe la main au crochet par défaut.
+      Le lieu est celui que rustc connaît : `crates/…` sous macOS et Linux, `crates\…`
+      sous Windows, un chemin absolu pour une dépendance.
     - Pourquoi la vidéo suivante peut repartir : le travail ne capture que des références
       vers des données qu'il ne modifie pas (options, langue, versions) ; les fils d'une
       vidéo sont rejoints ou arrêtés avant la relance (`read_ahead`, `serve_ahead`,

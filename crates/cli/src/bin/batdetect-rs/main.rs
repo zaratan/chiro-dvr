@@ -11,7 +11,7 @@ use std::process::ExitCode;
 use batdetect::jobs::{Job, collect_videos, plan_jobs};
 use batdetect::language::system_language;
 use batdetect::options::Options;
-use batdetect::outcome::{all_succeeded, run_all};
+use batdetect::outcome::{self, all_succeeded, run_all};
 use batdetect::process::{Versions, process};
 use batdetect::writable::unwritable_folders;
 use media::decode::Threads;
@@ -21,6 +21,7 @@ use crate::status::{Status, Video};
 use crate::texts::{Fixed, Message, Texts};
 
 fn main() -> ExitCode {
+    outcome::quiet_panics();
     let texts = Texts::new(system_language());
     let request = match arguments::parse(std::env::args_os(), texts) {
         Ok(request) => request,
@@ -64,7 +65,7 @@ fn run(jobs: &[Job], texts: Texts, options: &Options) -> ExitCode {
                 rank,
                 job,
             };
-            video.tell(&mut io::stderr().lock(), &mut io::stdout().lock(), result)
+            video.tell(&mut io::stderr().lock(), &mut io::stdout().lock(), result, options)
         },
     );
     match outcomes {
