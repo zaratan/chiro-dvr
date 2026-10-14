@@ -48,7 +48,7 @@ fn the_extract_gives_the_four_tracks_of_the_reference_in_its_table() {
     assert_eq!((found.reference, found.paired, found.agreeing), (4, 4, 4));
     assert_eq!((found.lost, found.added), (0, 0));
     assert_eq!(found.discrepancies, []);
-    let table = fs::read_to_string(&processed.csv).unwrap();
+    let table = fs::read_to_string(processed.csv.as_ref().unwrap()).unwrap();
     let hits: Vec<usize> = table
         .lines()
         .skip(1)

@@ -119,6 +119,11 @@ pub(crate) enum Message {
         count: usize,
         causes: String,
     },
+    TableKept {
+        video: String,
+        table: String,
+        written: bool,
+    },
     Failed {
         video: String,
         causes: String,
@@ -221,6 +226,7 @@ impl Message {
             Self::Processed { .. } => "processed",
             Self::TooManyTracks { .. } => "too-many-tracks",
             Self::ClipsRedone { .. } => "clips-redone",
+            Self::TableKept { .. } => "table-kept",
             Self::Failed { .. } => "failed",
             Self::InternalError { .. } => "internal-error",
             Self::SummaryPart { .. } => "summary-part",
@@ -280,6 +286,11 @@ impl Message {
                 arguments.set("count", *count);
                 arguments.set("causes", causes.as_str());
             }
+            Self::TableKept { video, table, written } => {
+                arguments.set("video", video.as_str());
+                arguments.set("table", table.as_str());
+                arguments.set("written", if *written { YES } else { NO });
+            }
             Self::Failed { video, causes } => {
                 arguments.set("video", video.as_str());
                 arguments.set("causes", causes.as_str());
@@ -306,6 +317,13 @@ impl Message {
                 arguments.set("duration", duration.as_str());
                 arguments.set("seconds", *seconds);
             }
+            other => other.command_line_arguments(&mut arguments),
+        }
+        arguments
+    }
+
+    fn command_line_arguments<'a>(&'a self, arguments: &mut FluentArgs<'a>) {
+        match self {
             Self::DefaultValue { value } => arguments.set("value", value.as_str()),
             Self::PossibleValues { values } => arguments.set("values", values.as_str()),
             Self::ClipMarginRefused { value } => arguments.set("value", *value),
@@ -344,9 +362,20 @@ impl Message {
             Self::SettingsRefused { causes } | Self::VideosRefused { causes } => {
                 arguments.set("causes", causes.as_str());
             }
-            Self::Fixed(_) => {}
+            Self::Fixed(_)
+            | Self::Processed { .. }
+            | Self::TooManyTracks { .. }
+            | Self::ClipsRedone { .. }
+            | Self::TableKept { .. }
+            | Self::Failed { .. }
+            | Self::InternalError { .. }
+            | Self::SummaryPart { .. }
+            | Self::SummaryTracks { .. }
+            | Self::SummaryNotAnalysed { .. }
+            | Self::SummaryMore { .. }
+            | Self::SummaryUnreadable { .. }
+            | Self::SummaryMoreUnreadable { .. } => {}
         }
-        arguments
     }
 }
 

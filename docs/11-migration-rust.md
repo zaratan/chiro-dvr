@@ -877,7 +877,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     égal (pas d'images B, sinon `Reordered`), et dure jusqu'à l'image suivante, la
     dernière un pas de la cadence de l'encodeur (sur l'extrait, la durée égale celle de
     la source : 40,959 s). Un premier `pts` non nul est gardé. `partial_path` donne le nom temporaire d'une vidéo
-    (pour le ménage de `cli`) ; `StreamInfo::duration` la durée annoncée du flux.
+    (un test de `cli` l'exige égal à `files::names::partial_path`, que `media` ne peut pas
+    appeler) ; `StreamInfo::duration` la durée annoncée du flux.
     Erreurs de destination (`concerns_the_destination`) : chemin refusé, temporaire non
     créé, fichier non ouvert (`OpenFile`), renommage raté ; une écriture refusée
     (`Writing`) n'en est pas une, pour que la bascule vers openh264 joue.
@@ -1085,7 +1086,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       de 2 rayons : v0.1.1 266 recouvrements, portage fidèle 349, placement retenu 0 ;
       aucune pastille hors cadre. 121 pastilles s'écartent de leur piste de plus d'un
       rayon, presque toutes sur les vidéos denses ; la plus éloignée est à 304 px (096).
-  - PNG écrit dans `.<nom>.partial` à côté, puis renommé ; droits ordinaires du
+  - PNG écrit dans `.<nom>.partial` à côté (`files::names::partial_path`, #115), puis
+    renommé ; droits ordinaires du
     fichier créé (un fichier temporaire de `tempfile` resterait en `0600`).
   - Fond de la 092 mesuré une fois contre la v0.1.1 (luminance, hors traits, 81 % des
     pixels), avant le choix du noir calé sur 16 : SSIM 0,702 tel quel en plage pleine,
@@ -1141,7 +1143,9 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     restent en JSON brut, les clés que la v0.1.1 n'écrit pas (`targets`, `seconds`) sont
     gardées dans `added`, les entiers du Python se lisent en `f64`. Une ligne enregistrée
     se réécrit octet pour octet. `location::recorded_bench(nom)` donne
-    `$BATDETECT_REFERENCE_DIR/bench/<nom>/`.
+    `$BATDETECT_REFERENCE_DIR/bench/<nom>/`, et `location::recorded_outputs(langue, nom)`
+    donne `$BATDETECT_REFERENCE_DIR/outputs/<langue>/<nom>/`, les sorties de la v0.1.1
+    (#115).
 - **`engine`** → `media`, `types` : le moteur. `input` en est le seul point d'entrée.
   - `Input::open(chemin, Threads)` accepte toute taille et toute plage (#150). Il
     refuse, par une erreur typée qui nomme la vidéo, 0 image annoncée et, par `media`,
@@ -1603,15 +1607,26 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
   - Chaîne : `engine::detection::detect` (fils automatiques), puis la `Timeline` des
     `pts` lus, puis `exclude`. Les plages abîmées viennent du moteur, et les images
     signalées sont l'union des images en erreur et après un saut. Puis
-    `track_detections`, puis le CSV et `params.json` de `files`.
+    `track_detections`, puis le ménage, puis le CSV et `params.json` de `files`.
+  - Ménage (#115) : `files::previous::remove_previous_outputs`, après la détection et le
+    suivi, avant le CSV, comme la v0.1.1. Une détection ratée ne détruit donc rien.
+    - Il retire les sorties des deux langues et des anciens noms : sur l'extrait, une
+      passe en français, puis en anglais, puis en français dans le même `-o`, ne laisse
+      que les fichiers de la dernière, sous les noms de la v0.1.1.
+    - Un CSV qui n'a pas notre forme est laissé, et une ligne le dit sur la sortie
+      d'erreur, avant la ligne de réussite : « {vidéo} : {csv} laissé tel quel, il n'a
+      pas la forme d'un tableau des pistes ».
+    - Si ce CSV porte le nom de la langue courante, ou si un fichier occupe encore ce
+      nom après le ménage (`Error::Taken`, autre casse), le nouveau tableau n'est pas
+      écrit par-dessus : `Processed::csv` vaut `None`, et la ligne finit par « ; le
+      nouveau tableau n'est pas écrit ». La vidéo reste réussie.
   - Image résumé (#104) : `overview`, appelée après `params.json`, si bien qu'un échec du
     fond laisse le CSV et les réglages. Le fond passe par
     `Converter::new(…, SourceRange::FullBlackAt16)`, puis `summary::pages` ; chaque page
     prend son nom par `Names::summary_png`. Pas de fond : erreur `NoBackground`.
   - Extraits (#112) : `render_clips`, appelée après l'image résumé.
-    - Le dossier des extraits (`extraits` ou `clips`, selon la langue) est effacé puis
-      recréé avant le rendu. Le ménage entre langues et des autres sorties reste à
-      #115.
+    - Le dossier des extraits (`extraits` ou `clips`, selon la langue), vidé par le
+      ménage, est recréé avant le rendu.
     - Garde `max_tracks` (300) : au-delà, le dossier est vidé, aucun extrait n'est écrit,
       et la vidéo échoue avec sa ligne (« 301 pistes, au-delà de 300 : extraits non
       écrits ») après le CSV, `params.json` et l'image résumé.
@@ -1664,6 +1679,9 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       la même dans les deux langues. L'usage reste celui que clap génère avec nos noms de
       valeurs : « [OPTIONS] » s'y lit aussi en français, et `override_usage` n'a pas été
       pris.
+      Chaque texte d'aide d'une option ou d'un argument commence par une majuscule, dans
+      les deux langues (« Vidéos, ou dossiers… », « Print the version ») ; pas les noms de
+      valeurs, les titres ni « [par défaut : …] ». Un test le garde (#115).
     - Erreurs de clap : un `ErrorFormatter` par langue (`errors.rs`), branché par
       `clap::Error::apply`, les rend depuis `ErrorKind` et `ContextKind` ; impression,
       couleurs et codes de sortie restent ceux de clap. Nos refus portent leur phrase dans
@@ -1730,7 +1748,17 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     1440×1080) ; `slow_command.rs` passe l'extrait (4 pistes appariées, chauve-souris
     de 3:58) ; `reference_command.rs` passe la 092 (14 pistes appariées). Le test Python
     qui comptait 3:36 comme une chauve-souris n'est pas repris : c'est la piste lente de
-    3:29 ([03](03-resultats-092.md)).
+    3:29 ([03](03-resultats-092.md)). Dans `command.rs`, la vidéo fabriquée passe en
+    français, en anglais, puis en français dans le même `-o` (#115).
+  - Sorties de l'extrait (`tests/local_outputs.rs`, `#[ignore = "local"]`,
+    `BATDETECT_REFERENCE_DIR`, #115). Le binaire passe l'extrait en français, en
+    anglais, puis en français, dans le même `-o`. Entre la première et la deuxième
+    passe, le test ajoute des anciens noms et des parties en trop.
+    - Après chaque passe, la liste des fichiers égale, au nom près, celle de la v0.1.1
+      (`outputs/{fr,en}/` de la référence, hors dépôt) : CSV, image résumé,
+      `params.json` et les 4 extraits.
+    - Comme la v0.1.1, le Rust ne fait aucun zoom sur l'extrait (`--zoom auto`).
+    - Environ 20 s (18,5 et 23,7 s le 14 octobre 2026, ce test ne mesure pas de temps).
   - Comparaison sur les 26 vidéos (`tests/local_command.rs`, `#[ignore = "local"]`,
     `BATDETECT_REFERENCE_DIR` et `BATDETECT_VIDEOS_DIR`). Elle passe `process` (la
     fonction qui écrit le CSV) et apparie ses pistes à `tracks.jsonl` par
@@ -1841,7 +1869,47 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       `_3_sur_8`, `_03_sur_12` ; `_3_of_8` en anglais. Après la période s'il y en a une
       (`_000m-010m_2_sur_4`).
     - Les noms de vidéo sont des `OsStr`, gardés tels quels.
-    - Ni ménage ni anciens noms (#115).
+    - Une troisième table, celle des anciens noms (`split`, `.tracks.csv`, `.tracks.png`,
+      `_boxes.mp4`, ceux de la v0.1.0), ne sert qu'à les reconnaître (#115).
+  - `previous` (#115) : `remove_previous_outputs`, le ménage des sorties d'une passe
+    précédente dans le dossier d'une vidéo, dans les trois tables. Comme la v0.1.1
+    (`names.py`), il compare en NFC le nom de chaque entrée à celui de la vidéo.
+    - Il retire :
+      - les dossiers d'extraits ;
+      - les CSV ;
+      - les vidéos annotées ;
+      - les images résumé, avec leur période (`_000m-010m`, 3 chiffres au moins) et
+        leur partie (`_3_sur_8`, `_3_of_8`) ;
+      - les `.<nom>.partial` des vidéos annotées, des images et des CSV, que laisse un
+        arrêt brutal.
+
+      `params.json` est réécrit, pas retiré. Le reste du dossier n'est pas touché.
+    - Un CSV n'est retiré que s'il a exactement notre forme (`table::is_tracks_table`) :
+      l'en-tête de 12 colonnes, puis des lignes de 12 champs séparés par des virgules,
+      en UTF-8, fins de ligne CRLF ou LF. Sinon il est laissé et rendu (`Kept`, avec
+      `ours` vrai s'il porte le nom de la langue courante). Suffisent à le garder :
+      - un tableur qui réenregistre en point-virgule ;
+      - une colonne ajoutée ;
+      - une case remplie au-delà de la 12ᵉ ;
+      - un fichier vide ou qui n'est pas en UTF-8.
+
+      Une entrée à ce nom qui n'est pas un fichier ordinaire (dossier, lien) est gardée
+      aussi. Un tableur en locale anglaise qui garde les 12 colonnes et les virgules
+      donne un CSV à notre forme : il est retiré. La mise de côté datée reste à #83.
+    - Toutes les entrées sont classées, CSV lus, avant la première suppression : un CSV
+      illisible arrête le ménage sans rien avoir retiré (`Error::Read`).
+    - Un lien porte le nom d'un dossier d'extraits : il est retiré, sa cible non (sous
+      Windows, un lien de dossier par `remove_dir`).
+  - `names::partial_path` est la seule forme `.<nom>.partial` des fichiers écrits :
+    `table` et `summary::image_file` l'emploient ; celle de `media::path` lui est liée
+    par un test de `cli`.
+  - `table::write_tracks_csv` écrit dans `.<nom>.partial`, puis le renomme sans jamais
+    écraser un fichier présent (`TempPath::persist_noclobber`, sinon `Error::Taken`).
+    - Un arrêt brutal ne laisse donc qu'un partiel, que le ménage retire, et jamais un
+      CSV tronqué qui passerait pour étranger.
+    - Sur un disque insensible à la casse (APFS, NTFS), un `vol_pistes.csv` annoté et la
+      vidéo `VOL.mp4` ont le même chemin. Le ménage, qui compare les octets, ne
+      reconnaît pas ce fichier ; le renommage refuse de l'écraser.
   - `time` : `clock` écrit `m:ss.cc` à partir de centièmes entiers.
     - Le temps d'une image vient de son `pts` (`Timeline::seconds_by_pts`). Une image
       sans `pts` reprend celui de la dernière image qui en a un, plus un pas de cadence
@@ -2019,8 +2087,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     (13 octobre, un passage) : +19,7 s sur la 092 (18,4 → 38,1 s), +23,0 s sur la 103
     (37,7 → 60,7 s). Quand VideoToolbox casse, elle est refaite entière en openh264, sur
     un fil : tout en openh264, la 092 avec `--annotated` prend 133 s.
-    `cli` efface la vidéo annotée de la langue courante et son `.partial` au début de
-    l'étape vidéo, même sans `--annotated`, avant la garde `max_tracks` et l'essai
+    Le ménage de `cli` (#115) efface la vidéo annotée des deux langues et son
+    `.partial`, même sans `--annotated`, avant la garde `max_tracks` et l'essai
     d'encodeur ; au-delà de la garde, le message dit « clips and annotated video
     skipped » quand elle était demandée.
   - Ordonnancement (`clips`, `work`, `schedule`, `group`, `ahead`) :

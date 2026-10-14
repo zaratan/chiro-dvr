@@ -12,7 +12,7 @@ use types::language::Language;
 use super::{ENGLISH_SOURCE, FRENCH_SOURCE, Fixed, Message, Texts, resolved};
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 30;
+const VARIANTS: usize = 31;
 const FIXED: [Fixed; 33] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
@@ -81,6 +81,7 @@ fn rank(message: &Message) -> usize {
         Message::ClipMarginRefused { .. } => 27,
         Message::SettingsRefused { .. } => 28,
         Message::VideosRefused { .. } => 29,
+        Message::TableKept { .. } => 30,
     }
 }
 
@@ -150,6 +151,11 @@ fn lines() -> Vec<Message> {
             names: text("piste_03_0m51s.mp4"),
             count: 1,
             causes: text("the encoder failed"),
+        },
+        Message::TableKept {
+            video: text("nuit/video_092.mp4"),
+            table: text("video_092_pistes.csv"),
+            written: false,
         },
         Message::Failed {
             video: text("nuit/video_092.mp4"),
@@ -545,4 +551,18 @@ fn a_number_outside_fluent_takes_the_decimal_mark_of_the_language() {
     assert_eq!(Texts::new(Language::French).number(1.5), "1,5");
     assert_eq!(Texts::new(Language::English).number(1.5), "1.5");
     assert_eq!(Texts::new(Language::French).number(300.0), "300");
+}
+
+#[test]
+fn every_help_text_starts_with_a_capital_letter_in_both_languages() {
+    for language in LANGUAGES {
+        for fixed in FIXED.into_iter().filter(|fixed| fixed.id().ends_with("-help")) {
+            let help = Texts::new(language).text(fixed);
+            assert!(
+                help.starts_with(char::is_uppercase),
+                "{language:?} {}: {help}",
+                fixed.id()
+            );
+        }
+    }
 }

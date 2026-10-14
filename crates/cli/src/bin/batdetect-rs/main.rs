@@ -54,6 +54,9 @@ fn tell(texts: Texts, job: &Job, result: &Result<Processed, Failure>) -> io::Res
     match result {
         Ok(processed) => {
             let mut stderr = io::stderr().lock();
+            for kept in &processed.kept {
+                writeln!(stderr, "{}", texts.say(&messages::table_kept(job, kept)))?;
+            }
             for redone in &processed.rendered.redone {
                 writeln!(
                     stderr,

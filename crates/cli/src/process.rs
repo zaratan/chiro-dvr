@@ -6,11 +6,12 @@ use engine::detection::{self, Detected, detect};
 use engine::input::Video;
 use files::names::{Names, params_json};
 use files::params::{Params, spans_in_seconds, write_params};
+use files::previous::{Kept, remove_previous_outputs};
 use files::table::write_tracks_csv;
 use files::time::frame_seconds;
 use media::decode::Threads;
+use media::encode::Codec;
 use media::encode::fallback::{self, Fallback};
-use media::encode::{self, Codec};
 use render::clips::{self, Clip, Outputs, Rendered};
 use render::config::RenderConfig;
 use render::source::{self, Source};
@@ -44,18 +45,14 @@ pub enum Error {
         #[source]
         source: io::Error,
     },
+    #[error("the results of an earlier run cannot be removed")]
+    Previous(#[source] files::error::Error),
     #[error("the results cannot be written")]
     Files(#[source] files::error::Error),
     #[error("the summary image cannot be written")]
     Overview(#[source] overview::Error),
     #[error("no encoder can write the clips")]
     Encoders(#[source] fallback::Error),
-    #[error("cannot empty {}", path.display())]
-    Clear {
-        path: PathBuf,
-        #[source]
-        source: io::Error,
-    },
     #[error("the clips cannot read the video")]
     Source(#[source] source::Error),
     #[error("the clips cannot be written")]
@@ -81,7 +78,8 @@ pub struct Versions<'a> {
 #[derive(Debug)]
 pub struct Processed {
     pub tracks: Vec<Track>,
-    pub csv: PathBuf,
+    pub csv: Option<PathBuf>,
+    pub kept: Vec<Kept>,
     pub summaries: Vec<PathBuf>,
     pub rendered: Rendered,
 }
@@ -116,8 +114,21 @@ pub fn process(
         source,
     })?;
     let names = Names::new(wording.language());
-    let csv = names.tracks_csv(&job.dest, job.video.file_stem().unwrap_or_default());
-    write_tracks_csv(&csv, &tracks, &timeline).map_err(Error::Files)?;
+    let stem = job.video.file_stem().unwrap_or_default();
+    let mut kept = remove_previous_outputs(&job.dest, stem, names).map_err(Error::Previous)?;
+    let csv = names.tracks_csv(&job.dest, stem);
+    let csv = if kept.iter().any(|table| table.ours) {
+        None
+    } else {
+        match write_tracks_csv(&csv, &tracks, &timeline) {
+            Ok(()) => Some(csv),
+            Err(files::error::Error::Taken { path }) => {
+                kept.push(Kept { path, ours: true });
+                None
+            }
+            Err(error) => return Err(Error::Files(error)),
+        }
+    };
     let trial = encoders(render, tracks.len(), reading.video());
     let settings = Settings::of(
         options,
@@ -143,7 +154,7 @@ pub fn process(
         labels: wording,
         regions: config.osd_regions(),
     };
-    let name = job.video.file_stem().unwrap_or_default().to_string_lossy();
+    let name = stem.to_string_lossy();
     let summary = Summary {
         name: &name,
         tracks: &tracks,
@@ -163,6 +174,7 @@ pub fn process(
     Ok(Processed {
         tracks,
         csv,
+        kept,
         summaries,
         rendered,
     })
@@ -191,25 +203,8 @@ struct Clips<'a> {
 fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, Error>) -> Result<Rendered, Error> {
     let stem = clips.job.video.file_stem().unwrap_or_default();
     let annotated = clips.names.annotated_video(&clips.job.dest, stem);
-    for path in [Some(annotated.clone()), encode::partial_path(&annotated)]
-        .into_iter()
-        .flatten()
-    {
-        match fs::remove_file(&path) {
-            Err(source) if source.kind() != io::ErrorKind::NotFound => {
-                return Err(Error::Clear { path, source });
-            }
-            _ => {}
-        }
-    }
     let render = clips.options.render;
     let folder = clips.names.clips_dir(&clips.job.dest);
-    match fs::remove_dir_all(&folder) {
-        Err(source) if source.kind() != io::ErrorKind::NotFound => {
-            return Err(Error::Clear { path: folder, source });
-        }
-        _ => {}
-    }
     fs::create_dir_all(&folder).map_err(|source| Error::Folder {
         dest: folder.clone(),
         source,

@@ -1,9 +1,9 @@
-use std::ffi::OsString;
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
 
 use draw::canvas::Canvas;
+use files::names::partial_path;
 use png::{BitDepth, ColorType, Encoder};
 use tempfile::TempPath;
 
@@ -57,13 +57,6 @@ pub fn write_png(path: &Path, canvas: &Canvas) -> Result<(), Error> {
         path: path.to_path_buf(),
         source: failure.error,
     })
-}
-
-fn partial_path(path: &Path) -> PathBuf {
-    let mut name = OsString::from(".");
-    name.push(path.file_name().unwrap_or_default());
-    name.push(".partial");
-    path.with_file_name(name)
 }
 
 fn rgb(canvas: &Canvas) -> Vec<u8> {

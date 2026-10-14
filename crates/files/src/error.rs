@@ -9,6 +9,26 @@ pub enum Error {
         #[source]
         source: io::Error,
     },
+    #[error("{} is already there", path.display())]
+    Taken { path: PathBuf },
+    #[error("cannot read {}", path.display())]
+    Read {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("cannot list {}", path.display())]
+    List {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("cannot remove {}", path.display())]
+    Remove {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
     #[error("cannot encode {}", path.display())]
     Encode {
         path: PathBuf,
