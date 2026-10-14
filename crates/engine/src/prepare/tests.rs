@@ -57,6 +57,19 @@ fn the_brightest_luma_fits_in_sixteen_bits_and_the_darkest_stays_at_zero() {
 }
 
 #[test]
+fn a_white_frame_stays_white_at_every_sigma_without_overflowing_the_folded_sums() {
+    let geometry = geometry();
+    for sigma in [0.0, 0.3, 1.0, 2.0, 2.75] {
+        let blur = Blur::new(sigma, geometry).unwrap();
+        let mut out = vec![0; geometry.pixels()];
+
+        Prepare::new(geometry, &blur).run(&[255; WIDTH * HEIGHT], &unmasked(geometry), &mut out);
+
+        assert!(out.iter().all(|&unit| unit == 255 * 64), "{sigma}");
+    }
+}
+
+#[test]
 fn a_checkerboard_of_extremes_averages_to_mid_gray_without_wrapping() {
     let luma: Vec<u8> = (0..WIDTH * HEIGHT)
         .map(|pixel| {

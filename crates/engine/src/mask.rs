@@ -48,6 +48,18 @@ impl Mask {
             .is_some_and(|row| row.iter().any(|columns| columns.contains(&(pixel % self.width))))
     }
 
+    pub(crate) fn covers_all(&self, pixels: Range<usize>) -> bool {
+        (pixels.start / self.width..pixels.end.div_ceil(self.width)).all(|row| {
+            let line = row * self.width;
+            let wanted = pixels.start.max(line) - line..pixels.end.min(line + self.width) - line;
+            self.rows.get(row).is_some_and(|spans| {
+                spans
+                    .iter()
+                    .any(|columns| columns.start <= wanted.start && wanted.end <= columns.end)
+            })
+        })
+    }
+
     pub(crate) fn masked_sum(&self, row: usize, line: &[u16]) -> u64 {
         self.rows.get(row).map_or(0, |spans| {
             spans

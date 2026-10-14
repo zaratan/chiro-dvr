@@ -114,3 +114,21 @@ fn covered_by_regions(regions: &[Region], width: usize, height: usize, margin: u
         })
     })
 }
+
+proptest! {
+    #[test]
+    fn a_run_of_pixels_is_wholly_covered_exactly_when_each_of_its_pixels_is(
+        regions in regions(),
+        (width, height) in (1_usize..40, 1_usize..40),
+        margin in 0_usize..3,
+        (start, length) in (0.0_f64..1.0, 1_usize..130),
+    ) {
+        let Ok(mask) = Mask::new(&regions, width, height, margin) else {
+            return Ok(());
+        };
+        let start = (start * (width * height) as f64) as usize;
+        let end = (start + length).min(width * height);
+
+        prop_assert_eq!(mask.covers_all(start..end), (start..end).all(|pixel| mask.covers(pixel)));
+    }
+}

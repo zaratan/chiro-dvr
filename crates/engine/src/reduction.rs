@@ -5,7 +5,13 @@ use crate::gray::GRAY;
 mod tests;
 
 #[derive(Debug)]
-pub(crate) struct Reduction {
+pub(crate) enum Reduction {
+    Same,
+    Area(Box<Area>),
+}
+
+#[derive(Debug)]
+pub(crate) struct Area {
     source_width: usize,
     width: usize,
     columns: Axis,
@@ -37,6 +43,23 @@ impl Reduction {
         )
     }
 
+    fn between(source: (usize, usize), work: (usize, usize)) -> Self {
+        if source == work {
+            Self::Same
+        } else {
+            Self::Area(Box::new(Area::between(source, work)))
+        }
+    }
+
+    pub(crate) fn run(&mut self, luma: &[u8], gray: &mut [u8]) {
+        match self {
+            Self::Same => to_gray(luma, gray),
+            Self::Area(area) => area.run(luma, gray),
+        }
+    }
+}
+
+impl Area {
     fn between((source_width, source_height): (usize, usize), (width, height): (usize, usize)) -> Self {
         let (columns, rows) = (Axis::new(source_width, width), Axis::new(source_height, height));
         Self {
@@ -50,10 +73,8 @@ impl Reduction {
         }
     }
 
-    pub(crate) fn run(&mut self, luma: &[u8], gray: &mut [u8]) {
-        for (converted, &value) in self.source_gray.iter_mut().zip(luma) {
-            *converted = GRAY[usize::from(value)];
-        }
+    fn run(&mut self, luma: &[u8], gray: &mut [u8]) {
+        to_gray(luma, &mut self.source_gray);
         match self.rounding {
             reciprocal @ Rounding::Reciprocal { .. } => self.reduce(gray, move |total| reciprocal.rounded(total)),
             exact @ Rounding::Exact { .. } => self.reduce(gray, move |total| exact.rounded(total)),
@@ -78,6 +99,12 @@ impl Reduction {
                 widest => across_any(&self.line, out, columns, widest, &rounded),
             }
         }
+    }
+}
+
+fn to_gray(luma: &[u8], gray: &mut [u8]) {
+    for (converted, &value) in gray.iter_mut().zip(luma) {
+        *converted = GRAY[usize::from(value)];
     }
 }
 

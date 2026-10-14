@@ -40,12 +40,15 @@ impl Prepare {
         }
         let mut sum = 0;
         for (y, line) in out.chunks_exact_mut(width).enumerate() {
-            self.column.fill(0);
-            for (tap, &weight) in weights.iter().enumerate() {
-                let source = reflect(y + tap, reach, self.geometry.height());
-                let row = &self.rows[source * width..][..width];
-                for (total, &value) in self.column.iter_mut().zip(row) {
-                    *total += weight * value;
+            let centre = &self.rows[y * width..][..width];
+            for (total, &value) in self.column.iter_mut().zip(centre) {
+                *total = weights[reach] * value;
+            }
+            for (tap, &weight) in weights[..reach].iter().enumerate() {
+                let above = &self.rows[reflect(y + tap, reach, self.geometry.height()) * width..][..width];
+                let below = &self.rows[reflect(y + 2 * reach - tap, reach, self.geometry.height()) * width..][..width];
+                for ((total, &up), &down) in self.column.iter_mut().zip(above).zip(below) {
+                    *total += weight * (up + down);
                 }
             }
             for (unit, &total) in line.iter_mut().zip(&self.column) {
@@ -85,11 +88,10 @@ fn blur_row(weights: &[u32], source: &[u8], row: &mut [u32]) {
 fn blur_row_by<const TAPS: usize>(kernel: &[u32; TAPS], source: &[u8], row: &mut [u32]) {
     let (width, reach) = (source.len(), TAPS / 2);
     for (out, window) in row[reach..width - reach].iter_mut().zip(source.windows(TAPS)) {
-        *out = kernel
-            .iter()
-            .zip(window)
-            .map(|(&weight, &value)| weight * u32::from(value))
-            .sum();
+        *out = kernel[reach] * u32::from(window[reach])
+            + (0..reach)
+                .map(|tap| kernel[tap] * (u32::from(window[tap]) + u32::from(window[TAPS - 1 - tap])))
+                .sum::<u32>();
     }
     blur_edges(kernel, source, row);
 }
