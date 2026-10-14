@@ -156,16 +156,19 @@ fn an_unreadable_video_fails_without_stopping_the_others_and_is_named() {
     assert!(out.join("ok").join("ok_tracks.csv").is_file());
     assert!(!out.join("broken").exists());
     let errors = text(&output.stderr);
-    let failures: Vec<&str> = errors.lines().filter(|line| line.contains(".mp4: ")).collect();
+    let failures: Vec<&str> = errors
+        .lines()
+        .filter(|line| !line.starts_with(' ') && line.contains(".mp4: "))
+        .collect();
     assert_eq!(failures.len(), 1, "{errors}");
     assert!(
-        failures[0].contains("broken.mp4: failed: the detection failed: "),
+        failures[0].ends_with("broken.mp4: this file is not a readable video, or its copy is incomplete"),
         "{errors}"
     );
 }
 
 #[test]
-fn under_a_french_locale_a_failure_says_so_in_french_before_the_cause_left_in_english() {
+fn under_a_french_locale_a_failure_gives_its_cause_and_what_to_do_in_french_and_the_detail_in_english() {
     let (root, videos) = videos_with_a_flight(&[]);
     fs::write(videos.join("broken.mp4"), "not a video").unwrap();
     let output = run(
@@ -173,10 +176,36 @@ fn under_a_french_locale_a_failure_says_so_in_french_before_the_cause_left_in_en
         "fr_FR.UTF-8",
     );
     assert_eq!(output.status.code(), Some(1));
+    let errors = text(&output.stderr);
+    let lines: Vec<&str> = errors.lines().collect();
+    let cause = lines
+        .iter()
+        .position(|line| {
+            line.ends_with("broken.mp4 : ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète")
+        })
+        .unwrap_or_else(|| panic!("{errors}"));
     assert!(
-        text(&output.stderr).contains("broken.mp4 : échec : the detection failed: "),
-        "{}",
-        text(&output.stderr)
+        lines[cause + 1].starts_with("  à faire : s'il vient des jumelles, le recopier"),
+        "{errors}"
+    );
+    assert!(
+        lines[cause + 2].starts_with("  détail : the detection failed: cannot decode "),
+        "{errors}"
+    );
+}
+
+#[test]
+fn a_video_that_does_not_exist_is_said_to_be_missing() {
+    let (root, videos) = videos_with_a_flight(&[]);
+    let missing = videos.join("absente.mp4");
+    let output = run(&[&missing, Path::new("-o"), &root.path().join("out")], "fr_FR.UTF-8");
+    assert_eq!(output.status.code(), Some(1));
+    let errors = text(&output.stderr);
+    assert!(
+        errors
+            .lines()
+            .any(|line| line.ends_with("absente.mp4 : fichier introuvable")),
+        "{errors}"
     );
 }
 
@@ -624,7 +653,7 @@ fn redirected_each_video_shows_its_steps_in_order_then_its_track_count_or_its_fa
     let lines: Vec<&str> = errors.lines().collect();
     let cause = lines
         .iter()
-        .position(|line| line.contains("zz_broken.mp4 : échec : "))
+        .position(|line| line.contains("zz_broken.mp4 : ce fichier n'est pas une vidéo lisible"))
         .unwrap();
     let failed = lines
         .iter()

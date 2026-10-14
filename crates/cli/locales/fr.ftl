@@ -25,8 +25,37 @@ video-done = [{ $position }/{ $total }] { $video } — { $tracks ->
        *[other] { $tracks } pistes
     }
 video-failed = [{ $position }/{ $total }] { $video } — échec
-failed = { $video } : échec : { $causes }
-internal-error = { $video } : erreur interne : { $message }
+failure = { $video } : { $cause ->
+        [missing] fichier introuvable
+        [read-refused] le système refuse la lecture de ce fichier
+        [not-a-video] ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète
+        [unusable-name] le nom de ce fichier ne peut pas être lu par FFmpeg
+        [damaged] la vidéo est abîmée ou incomplète
+        [unsupported] le format de cette vidéo n'est pas géré
+        [settings] les réglages ne conviennent pas à cette vidéo
+        [disk-full] le disque est plein
+        [forbidden] écriture refusée dans { $place }
+        [in-use] { $place } est ouvert dans un autre programme
+        [encoding] les extraits n'ont pas pu être écrits
+        [internal] erreur interne
+       *[unexpected] erreur inattendue
+    }
+failure-todo = {"  "}à faire : { $cause ->
+        [missing] vérifier le chemin ; la vidéo a peut-être été déplacée ou renommée
+        [read-refused] vérifier ses droits ; sur Mac, autoriser le Terminal dans Réglages Système, Confidentialité et sécurité, Fichiers et dossiers
+        [not-a-video] s'il vient des jumelles, le recopier par le câble USB, sans passer par Stream Vision 2 ; sinon, le retirer du dossier
+        [unusable-name] renommer la vidéo avec des lettres, des chiffres et des tirets
+        [damaged] la recopier depuis les jumelles par le câble USB, sans passer par Stream Vision 2, puis relancer ; si elle reste abîmée, le signaler
+        [unsupported] le signaler, avec le détail ci-dessous
+        [settings] relancer sans --work-width ni --osd-region
+        [disk-full] libérer de la place sur le disque de { $folder }, puis relancer
+        [forbidden] vérifier les droits de ce dossier, ou en choisir un autre avec -o
+        [in-use] le fermer, puis relancer
+        [encoding] relancer ; si cela recommence, le signaler avec le détail ci-dessous
+        [too-many-tracks] regarder l'image résumé ; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
+       *[unexpected] le signaler avec le détail ci-dessous
+    }
+failure-detail = {"  "}détail : { $detail }
 summary-part = partie { $number } / { $count }
 summary-tracks = { $count ->
         [one] { $count } piste

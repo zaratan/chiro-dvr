@@ -2,8 +2,9 @@ use std::io::{self, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use batdetect::jobs::Job;
+use batdetect::options::Options;
 use batdetect::outcome::{Failure, Rank};
-use batdetect::process::{self, Processed};
+use batdetect::process::Processed;
 use batdetect::progress::{Progress, Step};
 
 use crate::messages;
@@ -70,6 +71,7 @@ impl Video<'_> {
         err: &mut impl Write,
         out: &mut impl Write,
         result: &Result<Processed, Failure>,
+        options: &Options,
     ) -> io::Result<()> {
         let (job, rank, texts) = (self.job, self.rank, self.status.texts);
         self.status.clear(err)?;
@@ -86,16 +88,9 @@ impl Video<'_> {
                 writeln!(out, "{}", texts.say(&messages::processed(job, processed.tracks.len())))
             }
             Err(failure) => {
-                let cause = match failure {
-                    Failure::Error(process::Error::TooManyTracks {
-                        count,
-                        limit,
-                        annotated,
-                    }) => messages::too_many_tracks(job, *count, *limit, *annotated),
-                    Failure::Error(error) => messages::failed(job, error),
-                    Failure::Panic(message) => messages::internal_error(job, message),
-                };
-                say(&cause)?;
+                for message in messages::failure_lines(job, failure, options) {
+                    say(&message)?;
+                }
                 say(&messages::video_failed(rank, job))
             }
         }

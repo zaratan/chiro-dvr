@@ -22,8 +22,37 @@ video-done = [{ $position }/{ $total }] { $video } — { $tracks ->
        *[other] { $tracks } tracks
     }
 video-failed = [{ $position }/{ $total }] { $video } — failed
-failed = { $video }: failed: { $causes }
-internal-error = { $video }: internal error: { $message }
+failure = { $video }: { $cause ->
+        [missing] file not found
+        [read-refused] the system refuses to read this file
+        [not-a-video] this file is not a readable video, or its copy is incomplete
+        [unusable-name] FFmpeg cannot read the name of this file
+        [damaged] the video is damaged or incomplete
+        [unsupported] this video format is not handled
+        [settings] the settings do not suit this video
+        [disk-full] the disk is full
+        [forbidden] writing is refused in { $place }
+        [in-use] { $place } is open in another program
+        [encoding] the clips could not be written
+        [internal] internal error
+       *[unexpected] unexpected error
+    }
+failure-todo = {"  "}what to do: { $cause ->
+        [missing] check the path; the video may have been moved or renamed
+        [read-refused] check its rights; on a Mac, allow the Terminal in System Settings, Privacy & Security, Files and Folders
+        [not-a-video] if it comes from the binoculars, copy it again over the USB cable, not through Stream Vision 2; otherwise, move it out of the folder
+        [unusable-name] rename the video with letters, digits and dashes
+        [damaged] copy it again from the binoculars over the USB cable, not through Stream Vision 2, then run again; if it stays damaged, report it
+        [unsupported] report it, with the detail below
+        [settings] run again without --work-width or --osd-region
+        [disk-full] free some space on the disk of { $folder }, then run again
+        [forbidden] check the rights of this folder, or choose another one with -o
+        [in-use] close it, then run again
+        [encoding] run again; if it happens again, report it with the detail below
+        [too-many-tracks] look at the summary image; if these are real passes, run again with a larger --max-tracks
+       *[unexpected] report it with the detail below
+    }
+failure-detail = {"  "}detail: { $detail }
 summary-part = part { $number } / { $count }
 summary-tracks = { $count ->
         [one] { $count } track

@@ -142,13 +142,17 @@ pub(crate) enum Message {
         rank: Rank,
         video: String,
     },
-    Failed {
+    Failure {
         video: String,
-        causes: String,
+        cause: &'static str,
+        place: String,
     },
-    InternalError {
-        video: String,
-        message: String,
+    FailureTodo {
+        cause: &'static str,
+        folder: String,
+    },
+    FailureDetail {
+        detail: String,
     },
     SummaryPart {
         number: usize,
@@ -251,8 +255,9 @@ impl Message {
             Self::VideoStep { .. } => "video-step",
             Self::VideoDone { .. } => "video-done",
             Self::VideoFailed { .. } => "video-failed",
-            Self::Failed { .. } => "failed",
-            Self::InternalError { .. } => "internal-error",
+            Self::Failure { .. } => "failure",
+            Self::FailureTodo { .. } => "failure-todo",
+            Self::FailureDetail { .. } => "failure-detail",
             Self::SummaryPart { .. } => "summary-part",
             Self::SummaryTracks { .. } => "summary-tracks",
             Self::SummaryNotAnalysed { .. } => "summary-not-analysed",
@@ -325,14 +330,16 @@ impl Message {
                 arguments.set("tracks", *tracks);
             }
             Self::VideoFailed { rank, video } => ranked(&mut arguments, *rank, video),
-            Self::Failed { video, causes } => {
+            Self::Failure { video, cause, place } => {
                 arguments.set("video", video.as_str());
-                arguments.set("causes", causes.as_str());
+                arguments.set("cause", *cause);
+                arguments.set("place", place.as_str());
             }
-            Self::InternalError { video, message } => {
-                arguments.set("video", video.as_str());
-                arguments.set("message", message.as_str());
+            Self::FailureTodo { cause, folder } => {
+                arguments.set("cause", *cause);
+                arguments.set("folder", folder.as_str());
             }
+            Self::FailureDetail { detail } => arguments.set("detail", detail.as_str()),
             Self::SummaryPart { number, count } => {
                 arguments.set("number", *number);
                 arguments.set("count", *count);
@@ -405,8 +412,9 @@ impl Message {
             | Self::VideoStep { .. }
             | Self::VideoDone { .. }
             | Self::VideoFailed { .. }
-            | Self::Failed { .. }
-            | Self::InternalError { .. }
+            | Self::Failure { .. }
+            | Self::FailureTodo { .. }
+            | Self::FailureDetail { .. }
             | Self::SummaryPart { .. }
             | Self::SummaryTracks { .. }
             | Self::SummaryNotAnalysed { .. }

@@ -58,11 +58,48 @@ fn damaged(folder: &Path, from_quarter: usize, to_quarter: usize) -> std::path::
 }
 
 #[test]
-fn a_missing_file_is_an_open_error_not_a_panic() {
-    assert!(matches!(
-        Decoder::open(Path::new("absent.mp4"), Threads::Automatic),
-        Err(Error::Open { .. })
-    ));
+fn a_missing_file_is_an_open_error_that_says_not_found() {
+    let opened = Decoder::open(Path::new("absent.mp4"), Threads::Automatic);
+    assert!(
+        matches!(&opened, Err(Error::Open { source, .. }) if source.io_kind() == Some(std::io::ErrorKind::NotFound)),
+        "{opened:?}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_file_that_cannot_be_read_is_an_open_error_that_says_permission_denied() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let folder = tempfile::tempdir().unwrap();
+    let path = testing::encode(folder.path(), Codec::OpenH264, 2);
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o000)).unwrap();
+    let opened = Decoder::open(&path, Threads::Automatic);
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+    assert!(
+        matches!(&opened, Err(Error::Open { source, .. }) if source.io_kind() == Some(std::io::ErrorKind::PermissionDenied)),
+        "{opened:?}"
+    );
+}
+
+#[test]
+fn a_video_stream_that_no_decoder_of_this_ffmpeg_reads_is_told_apart_from_an_unreadable_file() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = testing::encode(folder.path(), Codec::OpenH264, 2);
+    let mut bytes = fs::read(&path).unwrap();
+    let sample_entries: Vec<usize> = bytes
+        .windows(4)
+        .enumerate()
+        .filter(|(_, window)| *window == b"avc1")
+        .map(|(at, _)| at)
+        .collect();
+    assert_ne!(sample_entries, Vec::<usize>::new());
+    for at in sample_entries {
+        bytes[at..at + 4].copy_from_slice(b"mp4v");
+    }
+    fs::write(&path, bytes).unwrap();
+    let opened = Decoder::open(&path, Threads::Automatic);
+    assert!(matches!(&opened, Err(Error::NoDecoder { .. })), "{opened:?}");
 }
 
 #[test]

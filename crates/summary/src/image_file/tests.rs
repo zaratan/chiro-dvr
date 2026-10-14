@@ -4,10 +4,10 @@ use std::path::Path;
 
 use draw::canvas::{Canvas, PixelBox};
 use draw::color::{PALETTE, Rgb};
-use png::{BitDepth, ColorType, Decoder};
+use png::{BitDepth, ColorType, Decoder, EncodingError};
 use tempfile::TempDir;
 
-use super::{Error, write_png};
+use super::{Error, encoding_error, write_png};
 
 fn painted() -> Canvas {
     let mut canvas = Canvas::new(7, 5, Rgb::new(1, 2, 3)).unwrap();
@@ -94,4 +94,14 @@ fn a_summary_gets_the_same_permissions_as_any_file_the_user_creates() {
 
     let mode = |path: &Path| std::fs::metadata(path).unwrap().permissions().mode();
     assert_eq!(mode(&path), mode(&ordinary));
+}
+
+#[test]
+fn a_disk_error_while_encoding_comes_out_as_a_write_error_with_its_cause() {
+    let full = EncodingError::IoError(std::io::Error::from(std::io::ErrorKind::StorageFull));
+    let error = encoding_error(Path::new("out/v_resume.png"), full);
+    assert!(
+        matches!(&error, Error::Write { source, .. } if source.kind() == std::io::ErrorKind::StorageFull),
+        "{error:?}"
+    );
 }

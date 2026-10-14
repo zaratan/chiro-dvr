@@ -33,6 +33,12 @@ pub enum Error {
         #[source]
         source: LibraryError,
     },
+    #[error("no decoder of this FFmpeg reads the video stream of {}", path.display())]
+    NoDecoder {
+        path: PathBuf,
+        #[source]
+        source: LibraryError,
+    },
     #[error("{} has no video stream", .0.display())]
     NoVideoStream(PathBuf),
     #[error("the video stream has no usable frame rate")]
@@ -269,11 +275,18 @@ impl Decoder {
         let announced_frames = u64::try_from(stream.frames()).ok().and_then(NonZeroU64::new);
         let duration = Some(stream.duration()).filter(|duration| *duration > 0);
         let start = known_pts(stream.start_time());
-        let mut context = ffmpeg::codec::context::Context::from_parameters(stream.parameters()).map_err(failed)?;
+        let no_decoder = |source| match source {
+            ffmpeg::Error::DecoderNotFound => Error::NoDecoder {
+                path: path.to_path_buf(),
+                source: LibraryError::new(source),
+            },
+            other => failed(other),
+        };
+        let mut context = ffmpeg::codec::context::Context::from_parameters(stream.parameters()).map_err(no_decoder)?;
         let mut threading = threading::Config::kind(threading::Type::Frame);
         threading.count = threads.count();
         context.set_threading(threading);
-        let codec = context.decoder().video().map_err(failed)?;
+        let codec = context.decoder().video().map_err(no_decoder)?;
         let (width, height) = (codec.width(), codec.height());
         let (Some(nonzero_width), Some(nonzero_height)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {
             return Err(Error::Size(frame::Error::EmptySize { width, height }));
