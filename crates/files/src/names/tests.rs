@@ -6,7 +6,7 @@ use types::frame::FrameIndex;
 use types::language::Language;
 use types::track::Track;
 
-use super::{Names, Output, Part, params_json, partial_path, previous_output};
+use super::{Names, Output, Part, composed, params_json, partial_path, previous_output};
 
 fn track(id: usize) -> Track {
     let point = Detection {
@@ -234,4 +234,9 @@ fn a_partial_file_hides_beside_its_final_name() {
         partial_path(Path::new("out/v/v_pistes.csv")),
         PathBuf::from("out/v/.v_pistes.csv.partial")
     );
+}
+
+#[test]
+fn a_name_decomposed_by_the_file_system_is_composed_again() {
+    assert_eq!(composed("nuit_e\u{301}te\u{301}"), "nuit_\u{e9}t\u{e9}");
 }

@@ -3,10 +3,8 @@ use std::fs::{self, FileType};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use unicode_normalization::UnicodeNormalization;
-
 use crate::error::Error;
-use crate::names::{Names, Output, previous_output};
+use crate::names::{Names, Output, composed, previous_output};
 use crate::table::is_tracks_table;
 
 #[cfg(test)]
@@ -90,10 +88,8 @@ fn remove(found: &Found) -> Result<(), Error> {
 }
 
 fn normalized(name: &OsStr) -> Vec<u8> {
-    name.to_str().map_or_else(
-        || name.as_encoded_bytes().to_vec(),
-        |text| text.nfc().collect::<String>().into_bytes(),
-    )
+    name.to_str()
+        .map_or_else(|| name.as_encoded_bytes().to_vec(), |text| composed(text).into_bytes())
 }
 
 #[cfg(windows)]

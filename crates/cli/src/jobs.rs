@@ -4,10 +4,13 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use files::names::composed;
+
 #[cfg(test)]
 mod tests;
 
 const VIDEO_EXTENSIONS: [&str; 5] = ["mp4", "mov", "avi", "mkv", "m4v"];
+const RESULTS_FOLDER: &str = "batdetect";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Job {
@@ -63,25 +66,34 @@ fn is_video(path: &Path) -> bool {
     })
 }
 
-pub fn plan_jobs(videos: &[PathBuf], out: &Path) -> Result<Vec<Job>, Error> {
-    let mut stems: BTreeMap<&OsStr, usize> = BTreeMap::new();
-    for video in videos {
-        *stems.entry(video.file_stem().unwrap_or_default()).or_default() += 1;
+pub fn plan_jobs(videos: &[PathBuf], out: Option<&Path>) -> Result<Vec<Job>, Error> {
+    let roots: Vec<PathBuf> = videos.iter().map(|video| root(video, out)).collect();
+    let keys: Vec<Homonym> = videos
+        .iter()
+        .zip(&roots)
+        .map(|(video, root)| Homonym {
+            root: folded(root.as_os_str()),
+            stem: folded(video.file_stem().unwrap_or_default()),
+        })
+        .collect();
+    let mut counts: BTreeMap<&Homonym, usize> = BTreeMap::new();
+    for key in &keys {
+        *counts.entry(key).or_default() += 1;
     }
     let jobs: Vec<Job> = videos
         .iter()
-        .map(|video| {
-            let ambiguous = stems
-                .get(video.file_stem().unwrap_or_default())
-                .is_some_and(|&count| count > 1);
+        .zip(roots)
+        .zip(&keys)
+        .map(|((video, root), key)| {
+            let ambiguous = counts.get(key).is_some_and(|&count| count > 1);
             Job {
                 video: video.clone(),
-                dest: out.join(output_name(video, ambiguous)),
+                dest: root.join(output_name(video, ambiguous, out.is_some())),
             }
         })
         .collect();
     let mut seen = BTreeSet::new();
-    if let Some(shared) = jobs.iter().find(|job| !seen.insert(&job.dest)) {
+    if let Some(shared) = jobs.iter().find(|job| !seen.insert(folded(job.dest.as_os_str()))) {
         return Err(Error::SharedFolder {
             dest: shared.dest.clone(),
         });
@@ -89,17 +101,33 @@ pub fn plan_jobs(videos: &[PathBuf], out: &Path) -> Result<Vec<Job>, Error> {
     Ok(jobs)
 }
 
-fn output_name(video: &Path, ambiguous: bool) -> OsString {
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct Homonym {
+    root: Vec<u8>,
+    stem: Vec<u8>,
+}
+
+fn root(video: &Path, out: Option<&Path>) -> PathBuf {
+    out.map_or_else(|| video.with_file_name(RESULTS_FOLDER), Path::to_path_buf)
+}
+
+fn folded(name: &OsStr) -> Vec<u8> {
+    name.to_str().map_or_else(
+        || name.as_encoded_bytes().to_vec(),
+        |text| composed(text).to_lowercase().into_bytes(),
+    )
+}
+
+fn output_name(video: &Path, ambiguous: bool, with_parent: bool) -> OsString {
     let stem = video.file_stem().unwrap_or_default();
     if !ambiguous {
         return stem.to_os_string();
     }
-    let mut name = video
-        .parent()
-        .and_then(Path::file_name)
-        .unwrap_or_default()
-        .to_os_string();
-    name.push("_");
+    let mut name = OsString::new();
+    if with_parent {
+        name.push(video.parent().and_then(Path::file_name).unwrap_or_default());
+        name.push("_");
+    }
     name.push(stem);
     name.push("_");
     name.push(video.extension().unwrap_or_default().to_ascii_lowercase());

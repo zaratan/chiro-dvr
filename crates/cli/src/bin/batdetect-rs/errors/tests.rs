@@ -26,7 +26,6 @@ fn every_kind_of_mistake() -> Vec<Vec<&'static str>> {
         &["a.mp4", "-o", "out", "--annotated=oui"],
         &["a.mp4", "-o", "out", "-o", "other"],
         &["-o", "out"],
-        &["a.mp4"],
     ]
     .map(<[&str]>::to_vec)
     .to_vec()
@@ -131,7 +130,7 @@ fn a_refusal_of_a_setting_gives_its_bound_in_each_language_with_the_usage_and_th
     assert_eq!(
         french(&["a.mp4", "-o", "out", "--work-width", "8"]),
         "erreur\u{a0}: --work-width doit être un entier ≥ 16, pas 8\n\nUtilisation\u{a0}: batdetect-rs [OPTIONS] \
-         --out-dir <DOSSIER> <VIDÉO>...\n\nPour en savoir plus, essayez '--help'.\n"
+         <VIDÉO>...\n\nPour en savoir plus, essayez '--help'.\n"
     );
     assert_eq!(
         rendered(
@@ -139,8 +138,8 @@ fn a_refusal_of_a_setting_gives_its_bound_in_each_language_with_the_usage_and_th
             &refused(&["a.mp4", "-o", "out", "--threshold", "-0.5"], ENGLISH)
         )
         .to_string(),
-        "error: --threshold must be a finite number > 0, not -0.5\n\nUsage: batdetect-rs [OPTIONS] --out-dir \
-         <FOLDER> <VIDEO>...\n\nFor more information, try '--help'.\n"
+        "error: --threshold must be a finite number > 0, not -0.5\n\nUsage: batdetect-rs [OPTIONS] <VIDEO>...\n\nFor \
+         more information, try '--help'.\n"
     );
     assert!(french(&["a.mp4", "-o", "out", "--threshold", "-0.5"]).contains("pas -0,5\n"));
 }

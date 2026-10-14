@@ -182,11 +182,79 @@ fn under_a_french_locale_a_failure_says_so_in_french_before_the_cause_left_in_en
 }
 
 #[test]
-fn without_an_output_folder_the_command_refuses_to_start() {
-    let (_root, videos) = videos_with_a_flight(&[]);
-    let output = run(&[&videos], "C");
-    assert_eq!(output.status.code(), Some(2));
-    assert!(text(&output.stderr).contains("--out-dir <FOLDER>"));
+fn without_an_output_folder_the_results_go_to_a_batdetect_folder_beside_the_videos() {
+    let (_root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let output = run(&[&videos], "fr_FR.UTF-8");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    assert_eq!(
+        tree::tree(&videos.join("batdetect")),
+        [
+            "flight/",
+            "flight/extraits/",
+            "flight/extraits/piste_01_0m00s.mp4",
+            "flight/flight_pistes.csv",
+            "flight/flight_resume.png",
+            "flight/params.json",
+        ]
+    );
+}
+
+#[test]
+fn a_video_that_does_not_exist_without_an_output_folder_creates_no_folder() {
+    let (root, videos) = videos_with_a_flight(&[]);
+    let missing = root.path().join("faute").join("v.mp4");
+    let output = run(&[&missing, &videos.join("absent.mp4")], "C");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(!root.path().join("faute").exists());
+    assert!(!videos.join("batdetect").exists());
+}
+
+#[test]
+fn without_an_output_folder_two_videos_of_the_same_name_in_two_folders_keep_their_name() {
+    let root = tempfile::tempdir().unwrap();
+    let nights = [root.path().join("nuit1"), root.path().join("nuit2")];
+    for night in &nights {
+        fs::create_dir(night).unwrap();
+        fs::copy(flight(), night.join("v.mp4")).unwrap();
+    }
+    let output = run(&[&nights[0], &nights[1]], "C");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    for night in &nights {
+        assert!(night.join("batdetect").join("v").join("v_tracks.csv").is_file());
+    }
+}
+
+#[test]
+fn two_videos_whose_names_differ_only_by_case_keep_their_own_clips_in_one_output_folder() {
+    let root = tempfile::tempdir().unwrap();
+    let videos = [
+        root.path().join("a").join("Vol.mp4"),
+        root.path().join("b").join("vol.mp4"),
+    ];
+    for video in &videos {
+        fs::create_dir_all(video.parent().unwrap()).unwrap();
+        fs::copy(flight(), video).unwrap();
+    }
+    let out = root.path().join("out");
+    let output = run(&[&videos[0], &videos[1], Path::new("-o"), &out], "C");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    assert_eq!(
+        tree::tree(&out),
+        [
+            "a_Vol_mp4/",
+            "a_Vol_mp4/Vol_summary.png",
+            "a_Vol_mp4/Vol_tracks.csv",
+            "a_Vol_mp4/clips/",
+            "a_Vol_mp4/clips/track_01_0m00s.mp4",
+            "a_Vol_mp4/params.json",
+            "b_vol_mp4/",
+            "b_vol_mp4/clips/",
+            "b_vol_mp4/clips/track_01_0m00s.mp4",
+            "b_vol_mp4/params.json",
+            "b_vol_mp4/vol_summary.png",
+            "b_vol_mp4/vol_tracks.csv",
+        ]
+    );
 }
 
 #[test]
@@ -267,13 +335,19 @@ fn a_video_that_does_not_exist_fails_alone_and_is_named() {
 }
 
 #[test]
-fn an_output_that_is_a_file_makes_each_video_fail_after_its_detection() {
+fn an_output_that_is_a_file_is_refused_by_name_before_any_work() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let file = root.path().join("out");
     fs::write(&file, "").unwrap();
     let output = run(&[&videos, Path::new("-o"), &file], "C");
-    assert_eq!(output.status.code(), Some(1));
-    assert!(text(&output.stderr).contains("cannot create"));
+    assert_eq!(output.status.code(), Some(2));
+    let errors = text(&output.stderr);
+    let refusal = format!(
+        "error: no video is processed, the results cannot be written in: {} (",
+        file.display()
+    );
+    assert!(errors.lines().any(|line| line.starts_with(&refusal)), "{errors}");
+    assert!(!errors.contains("flight.mp4"), "{errors}");
 }
 
 #[cfg(target_os = "linux")]
@@ -481,4 +555,42 @@ fn a_table_annotated_by_hand_is_left_and_named_in_the_language_of_the_messages()
     );
     assert_eq!(fs::read_to_string(folder.join("flight_pistes.csv")).unwrap(), annotated);
     assert!(folder.join("flight_tracks.csv").is_file());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_folder_where_nothing_can_be_written_stops_every_video_before_any_work_in_either_language() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let open = root.path().join("ouverte");
+    fs::create_dir(&open).unwrap();
+    fs::copy(flight(), open.join("autre.mp4")).unwrap();
+    fs::set_permissions(&videos, fs::Permissions::from_mode(0o555)).unwrap();
+    let french = run(&[&videos, &open], "fr_FR.UTF-8");
+    let english = run(&[&videos, &open], "C");
+    fs::set_permissions(&videos, fs::Permissions::from_mode(0o755)).unwrap();
+    let refused = videos.join("batdetect");
+    for (output, refusal) in [
+        (
+            french,
+            format!(
+                "erreur\u{a0}: aucune vidéo n'est traitée, les résultats ne peuvent pas s'écrire dans\u{a0}: {} (",
+                refused.display()
+            ),
+        ),
+        (
+            english,
+            format!(
+                "error: no video is processed, the results cannot be written in: {} (",
+                refused.display()
+            ),
+        ),
+    ] {
+        assert_eq!(output.status.code(), Some(2));
+        let errors = text(&output.stderr);
+        assert!(errors.lines().any(|line| line.starts_with(&refusal)), "{errors}");
+        assert!(!errors.contains(&open.display().to_string()), "{errors}");
+    }
+    assert!(!open.join("batdetect").join("autre").exists());
 }

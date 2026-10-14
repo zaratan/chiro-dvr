@@ -10,6 +10,7 @@ in/
 out/
 *.mp4
 !tests/fixtures/*.mp4
+tests/fixtures/**/batdetect/
 
 .claude/tower-control/lot-*.sh
 

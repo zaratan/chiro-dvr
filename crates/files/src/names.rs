@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use types::language::Language;
 use types::track::Track;
+use unicode_normalization::UnicodeNormalization;
 
 #[cfg(test)]
 mod tests;
@@ -187,6 +188,10 @@ fn after_period(text: &[u8]) -> Option<&[u8]> {
 fn after_digits(text: &[u8], at_least: usize) -> Option<&[u8]> {
     let count = text.iter().take_while(|byte| byte.is_ascii_digit()).count();
     (count >= at_least).then(|| &text[count..])
+}
+
+pub fn composed(name: &str) -> String {
+    name.nfc().collect()
 }
 
 pub fn partial_path(path: &Path) -> PathBuf {

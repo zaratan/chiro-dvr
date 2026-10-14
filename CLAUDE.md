@@ -197,7 +197,8 @@ crates depuis #100, dépendances à sens unique :
   sa feature `testing` porte la vidéo bruitée et la cible lente de ses tests (`noisy`) ;
   `cli` (paquet `batdetect`, binaire `batdetect-rs`) → `engine`, `tracking`, `files`,
   `summary`, `render`, `draw`, `media`, `types` ; `options` (réglages de la commande),
-  `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), version gravée par
+  `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), `writable`
+  (sonde d'écriture de chaque dossier de sortie avant tout calcul, #86), version gravée par
   `build.rs` ; textes en Fluent dans `locales/{fr,en}.ftl`, langue de l'aide, des erreurs,
   des lignes et du bandeau (#114).
 
