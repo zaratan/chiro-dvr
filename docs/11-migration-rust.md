@@ -431,7 +431,7 @@ Forme et tests :
 | rapide | `src/<module>/tests.rs`, `tests/*.rs` | `cargo test --workspace --locked` | vidéos fabriquées par openh264, binaire lancé pour de vrai |
 | slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv` ; les tests de mémoire `slow_memory_flash`, `slow_memory_flash_wide` et `slow_memory_flash_long` (`dhat`, 960 et 1440 pixels de travail, 61 échantillons), hors de la couverture |
 | settings | `tests/settings_*.rs`, `#[ignore = "settings"]` | `mise run rust:settings` | les 16 cas du banc d'essai sur l'extrait et sa 720×540 (`settings_agreement`), sous Linux seulement en CI (#167) |
-| reference | `tests/reference_*.rs`, `#[ignore = "reference"]` | `mise run rust:reference` | la 092 : 9 011 images, cadence moyenne 90110000/3000927, aux défauts et à 1440 pixels de travail (#151) |
+| reference | `tests/reference_*.rs`, `#[ignore = "reference"]` | `mise run rust:reference` | la 092 : 9 011 images, cadence moyenne 90110000/3000927, aux défauts et à 1440 pixels de travail (#151), en un seul binaire depuis #184 (`cli/tests/reference_092.rs`) |
 | matériel | `tests/hardware_*.rs`, `#[ignore = "hardware"]` | étape d'essai de la CI macOS | VideoToolbox sans repli logiciel |
 | local | `tests/local_*.rs`, `#[ignore = "local"]` | `BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… cargo test --workspace --locked --profile ci --test 'local_*' -- --include-ignored` | les 26 vidéos de la référence, hors dépôt, jamais en CI |
 
@@ -455,6 +455,33 @@ Forme et tests :
   disputent le compteur. Depuis #167, il tourne sur une image de 144×24 au lieu de
   360×180 (24 blocs de 64 pixels au lieu de 450), avec les mêmes demi-fenêtres, fils et
   lots : 7 s sous la couverture sur le M1 Max, contre 146 s.
+- Le niveau `reference` passe la 092 deux fois, en parallèle, depuis #184 : une fois
+  aux défauts (détection par `engine::detection::detect`, puis
+  `batdetect::process::process_detected` : suivi, extraits, zoom) et une fois à 1440
+  pixels de travail (`compare`).
+  - L'initialisation du binaire `cli/tests/reference_092.rs` les lance sur deux fils
+    et range leurs résultats dans un `OnceLock`. Les cinq tests les relisent : la
+    commande, la concordance aux défauts, la lecture (horodatages, images-clés, aucune
+    plage abîmée, d'après ffprobe), le décodage (cadence, taille, plage, aucun paquet
+    illisible) et la concordance à 1440.
+  - Le parallèle se fait dans l'initialisation, pas par libtest : libtest lance les
+    tests dans l'ordre de leur nom, 4 à la fois sur le runner, et celui de la 1440
+    vient en dernier.
+  - Une erreur est rangée avec ses causes, une panique avec son message : un `OnceLock`
+    dont l'initialisation panique la relancerait pour chaque test en attente. La
+    détection aux défauts, la commande qui la suit et la 1440 ont chacune leur
+    résultat : un rendu qui échoue ne fait tomber que le test de la commande.
+  - Un test lancé seul par filtre fait les deux passages (66 s sur le M1 Max, contre 8 s
+    pour l'ancien test du décodage).
+  - La concordance aux défauts vérifie d'abord que les réglages de l'enregistrement sont
+    ceux de `DetectConfig::default()` : c'est la même détection que celle de la commande.
+  - La 1440 ne touche pas `cli` : elle est dans ce binaire pour partager le processus,
+    d'où la dépendance de test `cli` → `compare`.
+  - Le décodage par le `Decoder` seul de `media` et la lecture du moteur ne se recoupent
+    plus sur la 092, seulement sur l'extrait (`slow_decode`, `slow_input`).
+  - Avant #184, quatre binaires passaient la 092 cinq fois : M1 Max, sous le verrou, 116 s
+    de tests (32,7 + 65,8 + 9,3 + 8,1) et 759 s de CPU ; CI 413 s (119 + 243 + 26 + 25).
+    Après : 66,0 s et 429 s de CPU, 70,6 s avec 4 fils de test ; pic de 1,65 Go.
 - Les fixtures se trouvent par `reference::fixture::fixture`, qui refuse un pointeur
   LFS non tiré avec le conseil `git lfs pull`.
 - Les tests `local_` de `bench` (#107 à #109) lisent les bancs de la v0.1.1
@@ -1479,6 +1506,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       hors plages abîmées ; dans les plages, les pixels dissimulés varient d'une lecture
       à l'autre.
     - Mesures (outil `compare` et ses tests `slow_extract.rs`, `reference_agreement.rs`,
+      devenu `cli/tests/reference_092.rs` à #184,
       `local_agreement.rs` depuis #119 ; appariement à 3 pixels, hors plages abîmées et
       instables de `video.json`) : extrait 100 % / 99,75 %, 092 100 % / 99,87 %, 26 vidéos toutes au
       moins à 98 % (la plus basse, 089 : 98,19 % / 98,46 %). Au niveau des pistes, 963
@@ -1822,7 +1850,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       compris, en objets `{x0, y0, x1, y1}` à sa place (#151).
   - Tests : `tests/command.rs` lance le binaire sur une vidéo fabriquée (openh264,
     1440×1080) ; `slow_command.rs` passe l'extrait (4 pistes appariées, chauve-souris
-    de 3:58) ; `reference_command.rs` passe la 092 (14 pistes appariées). Le test Python
+    de 3:58) ; `reference_092.rs` passe la 092 (14 pistes appariées ; `reference_command.rs`
+    avant #184). Le test Python
     qui comptait 3:36 comme une chauve-souris n'est pas repris : c'est la piste lente de
     3:29 ([03](03-resultats-092.md)). Dans `command.rs`, la vidéo fabriquée passe en
     français, en anglais, puis en français dans le même `-o` (#115).
@@ -2664,7 +2693,7 @@ version, aux lignes du réseau sur le tas, coûtait 117 s (voir `threshold`).
 
 Référence `tests/fixtures/reference/video_092_original_width_1440/` (`--detect
 '{"work_width": 1440}'`), `compare 092-1440`, test `reference` dans
-`reference_agreement.rs`.
+`cli/tests/reference_092.rs` (`reference_agreement.rs` avant #184).
 
 | | Détections | Pistes | Temps réel | CPU | Mémoire |
 | --- | --- | --- | ---: | ---: | ---: |
