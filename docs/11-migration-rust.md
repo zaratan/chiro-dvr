@@ -139,7 +139,8 @@ lancent sans lui.
 
 ### Windows
 
-Cible `x86_64-pc-windows-msvc`, construite seulement par la CI (tâche `rust-windows`) :
+Cible `x86_64-pc-windows-msvc`, construite seulement par la CI (tâches `rust-windows` et
+`rust-windows-slow`) :
 `mise` n'y tourne pas, et la construction pour un poste Windows viendra avec #93.
 
 - **Script** : `packaging/ffmpeg-windows.sh`, en bash sous MSYS2, avec MSVC dans le
@@ -488,13 +489,19 @@ Forme et tests :
     `tests/full_range.rs` vérifie que chaque image de l'un est lue en `Limited` ou
     `Unspecified` et chaque image de l'autre en `Full`, puis que leurs détections, non
     vides, sont identiques au bit près.
-- **CI** : tâche `rust` sur macOS et Linux (statique, tests rapides, slow, contrôles du
-  binaire) et tâche `rust-reference` sous Linux, en parallèle de `rust` depuis #146.
+- **CI** : sur macOS et Linux, deux tâches parallèles depuis #179 : `rust` (statique,
+  tests rapides sous couverture) et `rust-slow` (tests `slow`, contrôles du binaire, essai
+  matériel sous macOS). Avant #179, une seule tâche `rust` les enchaînait : 916 s sous
+  macOS, dont 302 s de couverture et 461 s de `rust:slow`, et 816 s sous Linux (CI de
+  `main` après #175). La couverture compile dans `target/llvm-cov-target`, les tests lents
+  et le binaire dans `target/ci` : les deux étapes ne partageaient aucune compilation.
+  `rust` ne tire aucune vidéo LFS : aucun test rapide n'en lit. Tâche `rust-reference`
+  sous Linux, en parallèle depuis #146.
   Tâche `rust-settings` sous Linux, en parallèle aussi depuis #167 : les 16 cas du banc
   d'essai (`rust:settings`). Ils ne tournent plus sous macOS ni Windows ; `slow_extract`
   garde l'identité au bit près sur les trois systèmes.
-  Quand l'empreinte de FFmpeg change, `rust-reference` et `rust-settings` le construisent
-  donc aussi, sans le sauver : seule `rust` sauve le cache de FFmpeg. Le binaire contrôlé se construit par `--workspace --bin batdetect-rs` : avec
+  Quand l'empreinte de FFmpeg change, `rust-slow`, `rust-reference` et `rust-settings` le
+  construisent donc aussi, sans le sauver : seule `rust` sauve le cache de FFmpeg. Le binaire contrôlé se construit par `--workspace --bin batdetect-rs` : avec
   `-p batdetect`, les features de `syn` changent (`draw` en ajoute par `skrifa`), et
   `bindgen`, `ffmpeg-sys-next` et `media` se recompilaient (11 s sous Linux, 22 s sous
   macOS, 60 s sous Windows à la PR #145). Le cache de FFmpeg est
@@ -502,8 +509,12 @@ Forme et tests :
   n'installe les outils cargo et la toolchain qu'avec `rust: true`. Premier passage
   (PR #130), sans cache de `target/` : `rust` 3 min 04 sur macOS et 3 min 46 sous Linux ;
   `rust-reference` 1 min 15.
-- **Tâche `rust-windows`**, indépendante des autres. Elle construit FFmpeg, lance les
-  tests rapides et `slow` (sans les réglages), puis `cargo clippy --profile ci -- -D warnings`. En profil
+- **Tâches `rust-windows` et `rust-windows-slow`**, indépendantes des autres et
+  parallèles depuis #179 (812 s pour la tâche unique, dont 347 s de tests rapides et 332 s
+  de `slow`). Quand l'empreinte de FFmpeg change, chacune le construit ; seule
+  `rust-windows` le sauve. `rust-windows`
+  lance les tests rapides, contrôle le binaire, puis `cargo clippy --profile ci -- -D
+  warnings` ; `rust-windows-slow` lance les tests `slow` (sans les réglages). En profil
   `ci`, clippy reprend les scripts de construction et les macros des tests ; en `dev`,
   il recompilait 46 unités, dont les liaisons de FFmpeg (82 s à la PR #145).
   - `dumpbin -dependents` n'admet que des DLL de Windows : `kernel32`, `ntdll`,
@@ -512,13 +523,19 @@ Forme et tests :
   - Ni couverture, ni `cargo deny`, ni `mise` : ils tournent déjà sous Unix.
   - clippy vient en dernier, pour qu'un échec propre à Windows laisse lisibles les
     résultats des tests.
-  - Le cache LFS de l'extrait se reprend depuis Linux (`enableCrossOsArchive`).
-  - En cas d'échec, `config.log` de FFmpeg est téléversé en artefact.
+  - Seule `rust-windows-slow` tire l'extrait ; son cache LFS se reprend depuis Linux
+    (`enableCrossOsArchive`).
+  - En cas d'échec, `config.log` de FFmpeg est téléversé en artefact
+    (`ffmpeg-windows-logs` ou `ffmpeg-windows-slow-logs`).
 - **Cache de `target/`** (`actions/cache`, une entrée par tâche) :
-  - Il contient tout `target/` : les dépendances compilées dans chaque profil (`debug`
-    pour clippy sous Unix, `ci` pour les tests, le binaire et clippy sous Windows),
-    `target/llvm-cov-target` pour la couverture, et la rlib de ffmpeg-sys-next avec ses
-    liaisons.
+  - Il contient tout `target/` de sa tâche : sous Unix, `debug` (clippy) et
+    `target/llvm-cov-target` (couverture) pour `rust`, `ci` (tests lents, binaire) pour
+    `rust-slow` ; sous Windows, `ci` dans les deux tâches. Chacune garde la rlib de
+    ffmpeg-sys-next avec ses liaisons. La clé commence par le nom de la tâche : `rust` et
+    `rust-slow`, `rust-windows` et `rust-windows-slow` ont des entrées distinctes, et le
+    repli de l'une ne prend jamais l'entrée de l'autre.
+    L'entrée de `rust` sur `main` garde `target/ci` jusqu'au prochain `Cargo.lock` : une
+    clé trouvée telle quelle ne se resauve pas.
   - Il se sauve en fin de tâche réussie.
   - Sa clé porte, dans cet ordre, la tâche, l'OS, l'architecture, l'image du runner
     (`ImageOS`), **l'empreinte de FFmpeg**, `rust-toolchain.toml`, puis `Cargo.lock`.
@@ -2404,9 +2421,9 @@ ffmpeg -i tests/fixtures/video_092_original_3m24-4m05.mp4 -map 0:v:0 -an -sn -dn
 - Mêmes 1 230 images, même cadence (10000/333), même base de temps (1/10 000), mêmes
   images-clés (toutes les 15 images), sans image B, plage `tv` et BT.709 comme l'extrait.
 - Elle ne se refait pas : un autre encodeur, ou le même sur un autre système, ne donnerait
-  pas les mêmes images, et la référence ne vaudrait plus. Les tâches CI `rust` et
-  `rust-settings` la tirent avec l'extrait ; `rust-windows` ne tire que l'extrait depuis
-  #167.
+  pas les mêmes images, et la référence ne vaudrait plus. Les tâches CI `rust-slow` et
+  `rust-settings` la tirent avec l'extrait ; `rust-windows-slow` ne tire que l'extrait
+  (depuis #167 pour Windows, #179 pour la séparation).
 - CRF 16 garde le bruit du capteur : 44 Mo, contre 60 Mo pour l'extrait en 1440×1080.
 
 ### Les 16 cas

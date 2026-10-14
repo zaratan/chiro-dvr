@@ -67,8 +67,9 @@ l'utilisateur veut un seul langage et un binaire sans Python. La réécriture a 
 - **CI en quatre tâches parallèles pour le Python** : `static` (lint, format, types, sans
   ffmpeg ni LFS), `fast-tests` (tests rapides et couverture), `slow-tests` (l'extrait LFS)
   et `reference` (la 092 entière). Chacune a sa tâche mise (`static`, `test:fast`,
-  `test:slow`). Le Rust en ajoute cinq : `rust` sur macOS et sur Linux, `rust-windows`,
-  puis `rust-reference` et `rust-settings` sous Linux ([11](11-migration-rust.md)). `mise run check` enchaîne
+  `test:slow`). Le Rust en ajoute huit : `rust` et `rust-slow` sur macOS et sur Linux,
+  `rust-windows` et `rust-windows-slow`, puis `rust-reference` et `rust-settings` sous
+  Linux ([11](11-migration-rust.md)). `mise run check` enchaîne
   en local `static`, `test:fast`, `test:slow`, puis `rust:static`, `rust:test`,
   `rust:slow` et `rust:settings`.
 - **En PR, les quatre tâches Python ne tournent que si du Python change.** Le code
