@@ -42,8 +42,8 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
   près sur chaque système. La 092 entière `video_092_original.mp4` est
   une copie exacte de `in/`. Son test, marqueur `reference`, est exclu de `pytest` par
   défaut et tourne dans sa propre tâche de CI : `uv run pytest -m reference`. Les tâches
-  `slow-tests` et `rust-windows` ne récupèrent que l'extrait ; les tâches `rust` et
-  `rust-settings`, l'extrait et sa 720×540.
+  `slow-tests` et `rust-windows-slow` ne récupèrent que l'extrait ; les tâches
+  `rust-slow` et `rust-settings`, l'extrait et sa 720×540.
   Tolérances du test de référence, sur les deux vidéos : nombre de pistes exact, début ±5
   images, points ±3, qui couvrent l'écart mesuré entre Mac et Linux (4 images, 2 points).
 - **Les vidéos se copient depuis les jumelles en USB**, jamais par l'export Stream Vision 2,
@@ -164,8 +164,9 @@ lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --profile ci -p compa
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --release -p bench -- VIDÉO --against DOSSIER  # garde du banc contre un banc de la v0.1.1
 ```
 
-Windows (MSVC, `/MT`, `+crt-static`) ne se construit que dans la tâche CI `rust-windows`,
-par `packaging/ffmpeg-windows.sh` sous MSYS2 ([docs/11](docs/11-migration-rust.md#windows)).
+Windows (MSVC, `/MT`, `+crt-static`) ne se construit que dans les tâches CI
+`rust-windows` et `rust-windows-slow`, par `packaging/ffmpeg-windows.sh` sous MSYS2
+([docs/11](docs/11-migration-rust.md#windows)).
 
 Workspace virtuel, `members = ["crates/*"]`, toolchain de `rust-toolchain.toml`. Douze
 crates depuis #100, dépendances à sens unique :
