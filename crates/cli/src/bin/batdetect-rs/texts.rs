@@ -37,6 +37,7 @@ pub(crate) enum Fixed {
     HelpHelp,
     VersionHelp,
     NoRegion,
+    BesideTheVideos,
     ThresholdHelp,
     MinHitsHelp,
     MaxBlobsHelp,
@@ -75,6 +76,7 @@ impl Fixed {
             Self::HelpHelp => "help-help",
             Self::VersionHelp => "version-help",
             Self::NoRegion => "no-region",
+            Self::BesideTheVideos => "beside-the-videos",
             Self::ThresholdHelp => "threshold-help",
             Self::MinHitsHelp => "min-hits-help",
             Self::MaxBlobsHelp => "max-blobs-help",
@@ -217,6 +219,9 @@ pub(crate) enum Message {
     VideosRefused {
         causes: String,
     },
+    FoldersRefused {
+        folders: String,
+    },
 }
 
 impl Message {
@@ -253,6 +258,7 @@ impl Message {
             Self::ClipMarginRefused { .. } => "clip-margin-refused",
             Self::SettingsRefused { .. } => "settings-refused",
             Self::VideosRefused { .. } => "videos-refused",
+            Self::FoldersRefused { .. } => "folders-refused",
         }
     }
 
@@ -362,6 +368,7 @@ impl Message {
             Self::SettingsRefused { causes } | Self::VideosRefused { causes } => {
                 arguments.set("causes", causes.as_str());
             }
+            Self::FoldersRefused { folders } => arguments.set("folders", folders.as_str()),
             Self::Fixed(_)
             | Self::Processed { .. }
             | Self::TooManyTracks { .. }

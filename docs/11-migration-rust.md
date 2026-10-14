@@ -1565,10 +1565,13 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
 - **`cli`** → `engine`, `tracking`, `files`, `summary`, `render`, `draw`, `media`, `types` : paquet `batdetect`, binaire
   `batdetect-rs` (#123). Tout texte vu par l'utilisateur vit dans les deux catalogues
   Fluent `locales/{fr,en}.ftl`, lus par `texts.rs` (#114) ; `messages.rs` fait les messages
-  à partir des vidéos et des erreurs, `arguments.rs` la ligne de commande. La bibliothèque (`jobs`, `language`, `options`, `process`, `settings`)
+  à partir des vidéos et des erreurs, `arguments.rs` la ligne de commande. La bibliothèque (`jobs`, `language`, `options`, `process`, `settings`, `writable`)
   sert aux tests.
-  - `batdetect-rs VIDÉO|DOSSIER… -o DOSSIER`. `-o`/`--out-dir` est obligatoire jusqu'à #86 :
-    sans lui, la commande refuse de démarrer (code 2). `--output` n'existe plus.
+  - `batdetect-rs VIDÉO|DOSSIER… [-o DOSSIER]`. Sans `-o`/`--out-dir`, les résultats de
+    chaque vidéo vont dans `<dossier de la vidéo>/batdetect/` (#86) ; l'aide le dit
+    (« [par défaut : batdetect/ à côté de chaque vidéo] »). `--output` n'existe plus.
+    Les anciennes sorties de la v0.1.1 (`out/`, relatif au dossier de lancement) restent où
+    elles sont, sans migration.
   - Options décidées le 10 octobre (#113), en builder `clap`, deux niveaux d'aide :
     - `-h` : l'essentiel, `VIDÉO…`, `-o/--out-dir`, `--zoom`, `-h`, `--version` ;
     - `--help` : tout, avec l'utile (`--annotated`, `--max-tracks`, `--clip-margin`,
@@ -1617,10 +1620,41 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       même lecture que le banc ; `Display` l'écrit de la même façon.
     - Le rappel des réglages avancés modifiés ira dans le bilan (#65) ; `params.json` les
       enregistre déjà. `--force` part à #70.
-  - Un dossier donne ses vidéos (`mp4`, `mov`, `avi`, `mkv`, `m4v`), par ordre de nom.
-    Chaque vidéo a son dossier, à son nom ; deux vidéos de même nom prennent
-    `<dossier parent>_<nom>_<extension>`, et deux vidéos qui écriraient au même endroit
-    sont refusées avant tout calcul (code 2).
+  - Un dossier donne ses vidéos (`mp4`, `mov`, `avi`, `mkv`, `m4v`), par ordre de nom, au
+    premier niveau seulement : un `batdetect/` voisin n'est pas repris.
+  - Dossiers de sortie (`jobs::plan_jobs`, #86, #91). La racine d'une vidéo est `-o`, ou
+    à défaut `<dossier de la vidéo>/batdetect/`. Chaque vidéo a son dossier, à son nom,
+    dans sa racine.
+    - Les homonymes se comptent par racine : sans `-o`, `nuit1/v.mp4` et `nuit2/v.mp4`
+      donnent `nuit1/batdetect/v` et `nuit2/batdetect/v`.
+    - Deux homonymes dans une même racine prennent `<dossier parent>_<nom>_<extension>`
+      avec `-o`, et `<nom>_<extension>` sans `-o`, puisque le dossier est déjà celui de la
+      vidéo.
+    - Homonymes à la casse près (#91), sur tous les systèmes. La clé est le nom en NFC
+      (`files::names::composed`, celle du ménage), puis `to_lowercase`. Un nom non UTF-8
+      garde ses octets pour la clé, comme dans le ménage : par `to_string_lossy`, `\xff` et
+      `\xfe` auraient la même clé et seraient refusés comme un seul dossier.
+      - Avec `-o`, `a/Vol.mp4` et `b/vol.mp4` donnent `a_Vol_mp4` et `b_vol_mp4`. Sans
+        cette clé, ils partageaient un dossier sur APFS ou NTFS, et le ménage de la seconde
+        effaçait les extraits de la première.
+      - Sous Linux, la règle va plus loin que le système de fichiers. Deux homonymes à la
+        casse près reçoivent deux noms qui n'étaient pas nécessaires. Deux dossiers
+        `Nuit/x.mp4` et `nuit/x.mp4` sont refusés comme un seul (code 2), avec ou sans `-o`.
+    - Deux vidéos qui écriraient au même endroit, à la même clé près, sont refusées avant
+      tout calcul (code 2).
+  - Contrôle d'écriture (`writable::unwritable_folders`, #86), avant tout calcul, pour
+    chaque racine, celle de `-o` comprise. `create_dir_all` ne suffit pas : il réussit sur
+    un dossier existant en lecture seule.
+    - Une sonde est créée de façon exclusive (`.batdetect-probe-…`, par `tempfile`), puis
+      retirée, dans le plus proche dossier existant de la racine (`.` pour une racine
+      relative qui n'existe pas encore). Rien n'est créé avant la détection : une vidéo
+      au chemin mal tapé ne laisse pas de `batdetect/` vide.
+    - Un `batdetect/<vidéo>/` existant mais en lecture seule passe la sonde de sa racine,
+      et sa vidéo échoue seule, après la détection.
+    - Si une racine refuse, aucune vidéo n'est traitée (code 2), et chaque dossier refusé
+      est nommé avec sa cause : « aucune vidéo n'est traitée, les résultats ne peuvent pas
+      s'écrire dans : … » (Fluent).
+    - Un `-o` qui est un fichier est refusé de même, avant la détection.
   - Chaîne : `engine::detection::detect` (fils automatiques), puis la `Timeline` des
     `pts` lus, puis `exclude`. Les plages abîmées viennent du moteur, et les images
     signalées sont l'union des images en erreur et après un saut. Puis

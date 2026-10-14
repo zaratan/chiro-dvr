@@ -47,7 +47,7 @@ fn several_videos_and_the_long_out_dir_option_are_read_with_the_v0_1_1_settings(
         request,
         Request {
             inputs: vec![PathBuf::from("a.mp4"), PathBuf::from("nuit")],
-            out_dir: PathBuf::from("out"),
+            out_dir: Some(PathBuf::from("out")),
             options: Options::default(),
         }
     );
@@ -56,16 +56,16 @@ fn several_videos_and_the_long_out_dir_option_are_read_with_the_v0_1_1_settings(
 #[test]
 fn the_short_out_dir_option_may_come_first_and_the_old_long_name_is_refused() {
     let request = parse(["batdetect-rs", "-o", "out", "a.mp4"], ENGLISH).unwrap();
-    assert_eq!(request.out_dir, PathBuf::from("out"));
+    assert_eq!(request.out_dir, Some(PathBuf::from("out")));
     let error = parse(["batdetect-rs", "a.mp4", "--output", "out"], ENGLISH).unwrap_err();
     assert_eq!(error.kind(), ErrorKind::UnknownArgument);
 }
 
 #[test]
-fn a_missing_out_dir_is_a_usage_error() {
-    let error = parse(["batdetect-rs", "a.mp4"], ENGLISH).unwrap_err();
-    assert_eq!(error.kind(), ErrorKind::MissingRequiredArgument);
-    assert_eq!(error.exit_code(), 2);
+fn without_an_out_dir_the_videos_are_read_with_no_output_folder() {
+    let request = parse(["batdetect-rs", "a.mp4"], ENGLISH).unwrap();
+    assert_eq!(request.out_dir, None);
+    assert_eq!(request.inputs, [PathBuf::from("a.mp4")]);
 }
 
 #[test]
@@ -270,7 +270,7 @@ fn the_long_help_is_chosen_by_a_help_flag_before_the_end_of_options_and_both_fla
 fn every_default_stands_whole_at_the_start_of_its_own_line() {
     let long = help(Level::Full);
     let defaults: Vec<&str> = long.lines().filter(|line| line.contains("[default:")).collect();
-    assert_eq!(defaults.len(), 8, "{long}");
+    assert_eq!(defaults.len(), 9, "{long}");
     for line in defaults {
         let tag = line.trim_start();
         assert!(tag.starts_with("[default:\u{a0}") && tag.ends_with(']'), "{line}");
@@ -300,7 +300,7 @@ fn the_french_help_of_either_level_keeps_no_english_word_of_clap() {
 fn the_french_help_names_its_values_in_french_and_writes_the_defaults_with_a_decimal_comma() {
     let long = help_in(Level::Full, FRENCH);
     for shown in [
-        "Utilisation\u{a0}: batdetect-rs [OPTIONS] --out-dir <DOSSIER> <VIDÉO>...",
+        "Utilisation\u{a0}: batdetect-rs [OPTIONS] <VIDÉO>...",
         "Arguments\u{a0}:\n  <VIDÉO>...",
         "Options\u{a0}:\n  -o, --out-dir <DOSSIER>",
         "[par défaut\u{a0}:\u{a0}aucune]",
@@ -321,7 +321,7 @@ fn the_french_help_names_its_values_in_french_and_writes_the_defaults_with_a_dec
 fn every_french_default_stands_whole_at_the_start_of_its_own_line() {
     let long = help_in(Level::Full, FRENCH);
     let defaults: Vec<&str> = long.lines().filter(|line| line.contains("[par défaut")).collect();
-    assert_eq!(defaults.len(), 8, "{long}");
+    assert_eq!(defaults.len(), 9, "{long}");
     for line in defaults {
         let tag = line.trim_start();
         assert!(

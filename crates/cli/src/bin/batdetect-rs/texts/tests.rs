@@ -12,8 +12,8 @@ use types::language::Language;
 use super::{ENGLISH_SOURCE, FRENCH_SOURCE, Fixed, Message, Texts, resolved};
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 31;
-const FIXED: [Fixed; 33] = [
+const VARIANTS: usize = 32;
+const FIXED: [Fixed; 34] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -27,6 +27,7 @@ const FIXED: [Fixed; 33] = [
     Fixed::HelpHelp,
     Fixed::VersionHelp,
     Fixed::NoRegion,
+    Fixed::BesideTheVideos,
     Fixed::ThresholdHelp,
     Fixed::MinHitsHelp,
     Fixed::MaxBlobsHelp,
@@ -82,6 +83,7 @@ fn rank(message: &Message) -> usize {
         Message::SettingsRefused { .. } => 28,
         Message::VideosRefused { .. } => 29,
         Message::TableKept { .. } => 30,
+        Message::FoldersRefused { .. } => 31,
     }
 }
 
@@ -120,6 +122,7 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::MissingArguments => 30,
         Fixed::InvalidUtf8 => 31,
         Fixed::NoVideo => 32,
+        Fixed::BesideTheVideos => 33,
     }
 }
 
@@ -242,6 +245,9 @@ fn command_line() -> Vec<Message> {
         },
         Message::VideosRefused {
             causes: text("several videos would write to out/night"),
+        },
+        Message::FoldersRefused {
+            folders: text("nuit/batdetect (Permission denied (os error 13))"),
         },
     ]
 }

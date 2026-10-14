@@ -8,3 +8,4 @@ pub mod outcome;
 pub mod overview;
 pub mod process;
 mod settings;
+pub mod writable;

@@ -23,7 +23,7 @@ mod tests;
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Request {
     pub(crate) inputs: Vec<PathBuf>,
-    pub(crate) out_dir: PathBuf,
+    pub(crate) out_dir: Option<PathBuf>,
     pub(crate) options: Options,
 }
 
@@ -73,9 +73,12 @@ fn essential_arguments(texts: Texts) -> Vec<Arg> {
             .short('o')
             .long("out-dir")
             .value_name(texts.text(Fixed::ValueFolder))
-            .required(true)
             .value_parser(value_parser!(PathBuf))
-            .help(texts.text(Fixed::OutDirHelp)),
+            .help(with_default(
+                &texts.text(Fixed::OutDirHelp),
+                &texts.text(Fixed::BesideTheVideos),
+                texts,
+            )),
         Arg::new("zoom")
             .long("zoom")
             .value_name(texts.text(Fixed::ValueWhich))
@@ -252,7 +255,7 @@ pub(crate) fn parse(
     let arguments: Vec<OsString> = arguments.into_iter().map(Into::into).collect();
     let mut matches = command(level(&arguments), texts).try_get_matches_from(arguments)?;
     let inputs = many(&mut matches, "inputs");
-    let out_dir = one(&mut matches, "out-dir", texts)?;
+    let out_dir = matches.remove_one::<PathBuf>("out-dir");
     let options = options(&mut matches, texts)?;
     Ok(Request {
         inputs,

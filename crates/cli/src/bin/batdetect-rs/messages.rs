@@ -2,6 +2,7 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use batdetect::jobs::Job;
+use batdetect::writable::Unwritable;
 use engine::settings;
 use files::previous::Kept;
 use render::config;
@@ -44,6 +45,16 @@ pub(crate) fn settings_refused(error: &dyn Error) -> Message {
 
 pub(crate) fn videos_refused(error: &dyn Error) -> Message {
     Message::VideosRefused { causes: causes(error) }
+}
+
+pub(crate) fn folders_refused(refused: &[Unwritable]) -> Message {
+    let folders: Vec<String> = refused
+        .iter()
+        .map(|refusal| format!("{} ({})", refusal.folder.display(), refusal.source))
+        .collect();
+    Message::FoldersRefused {
+        folders: folders.join(", "),
+    }
 }
 
 pub(crate) fn version() -> &'static str {
