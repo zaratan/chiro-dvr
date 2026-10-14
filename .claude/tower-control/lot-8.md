@@ -179,6 +179,33 @@ garder un gain que s'il dépasse le bruit.
   intact et signalé. Les tests longs que le diff peut changer tournent une seule fois, à la fin, sous le verrou ; dis
   lesquels et pourquoi.
 
+### #86 et #91 — Sortie à côté des vidéos, homonymes à la casse près (worktree `extraits`, branche `rust/86-sortie`)
+
+4 points (3 + 1), une seule PR qui ferme les deux. Pas de plan relu. Relecture : `lot8-relectures/gardes.md` § #86 et
+§ #91 ; commentaire de #115 sur #91. Décision 5 de ce fichier.
+- Décidé : sans `-o`, les résultats vont dans `<dossier de la vidéo>/batdetect/` ; `-o/--out-dir` reste possible et
+  devient facultatif. Le contrôle d'écriture se fait avant tout calcul, pour toutes les racines, celle de `-o`
+  comprise (#82 sera réduite à ce qui reste). Sans `-o`, un homonyme se nomme `<nom>_<ext>` dans `batdetect/` ; rien
+  ne change avec `-o`. Les homonymes se comptent à la casse près (#91). Pas de cas particulier pour des vidéos lues
+  sur le volume des jumelles.
+- Recommandations de la relecture, à appliquer sauf prémisse fausse, et à lister dans « Décisions prises seul » :
+  - le contrôle d'écriture est une sonde par racine (création exclusive d'un fichier, puis retrait), parce que
+    `create_dir_all` réussit sur un dossier existant en lecture seule ; en cas d'échec, tout le lot s'arrête avant
+    calcul, avec le code 2, et chaque dossier refusé est nommé (texte par Fluent, #114) ;
+  - les homonymes se comptent par racine : sans `-o`, `nuit1/v.mp4` et `nuit2/v.mp4` ne se gênent plus ;
+  - la clé des homonymes et du refus `SharedFolder` : nom en NFC (la normalisation de `files::names` faite par #115,
+    si elle convient), puis `to_lowercase`, sur tous les systèmes ; un nom non UTF-8 passe par `to_string_lossy`
+    pour la clé et reste un `OsStr` pour le chemin ;
+  - les anciennes sorties `~/out/` de la v0.1.1 restent, sans migration (une phrase dans le README à #106).
+- Le cas du commentaire sur #91 doit être couvert : sur APFS, `a/Vol.mp4` et `b/vol.mp4` avec `-o` partagent un dossier,
+  et le ménage de la seconde effacerait les extraits de la première. Un test le prouve.
+- `.gitignore` : un `batdetect/` sous `tests/fixtures/` (CSV, PNG, JSON) ne doit pas finir dans un commit.
+- Docs : docs/11 (section `cli` et la ligne du défaut de `-o`).
+- Planche dans `rapports/planche-86/` : où vont les résultats sans `-o`, avec `-o`, avec deux homonymes et deux noms
+  qui ne diffèrent que par la casse, et le refus d'un dossier non inscriptible, dans les deux langues.
+- Attendu : les tests inversés (`-o` absent n'est plus une erreur) et les nouveaux verts ; les tests longs que le diff
+  peut changer tournent une seule fois, à la fin, sous le verrou ; dis lesquels et pourquoi.
+
 ## Décisions prises pendant le lot
 
 - **#167 (13 octobre)** : acceptés, le cache `target/` de `rust-reference` lu sans sauvegarde par `rust-settings`, le cache
@@ -263,3 +290,33 @@ garder un gain que s'il dépasse le bruit.
   dans la v0.1.1. La faille du test des clés est acceptée (un message ajouté sans échantillon n'est pas vu ; l'erreur de
   compilation mène au fichier) : pas de `strum`. Le nom de champ `clip_margin_s` écrit en dur est commenté sur #55 ;
   l'ordre de `[workspace.dependencies]` reste tel quel.
+- **#159, compte rendu (13 octobre, 19 h 45)** : trois pistes gardées (chemin identité en 1:1, −4,6 % sur `092-1440` ;
+  noyau plié, −1,4 % sur la 092 ; blocs masqués, −1,9 % sur `osd`), deux écartées (champs de `Rounding`, taps contigus
+  et inverse sur 32 bits). Le moteur générique passe de +7,9 % à +6,3 % de CPU par rapport au 3:2 : on s'arrête là
+  (la qualité prime sur le temps). Choix de l'agent acceptés, dont le refus d'une retouche de revue qui changeait le
+  code machine produit. `mise run check` classé lourd dans `MESURES.md`, et les deux agents prévenus. Issue #176 créée
+  (comparaison hors plages abîmées ; Backlog, 2 points, P3).
+- **#159, vérification de la tour (14 octobre, 7 h)** : `compare local` sur la branche identique à main (966 pistes, 963
+  appariées dont 958 concordantes, 3 perdues, 9 ajoutées, aucune vidéo sous 98 %). En Review.
+- **Nuit du 13 au 14 octobre** : `extraits` s'est arrêté sur deux erreurs réseau (21 h 22 et 22 h 57) au milieu de
+  #115 ; relancé le 14 à 6 h 55. CI de main après #175 verte, en 15 min 26 s.
+- **Aide, majuscule (14 octobre, 7 h 30)** : chaque texte d'aide d'option ou d'argument commence par une majuscule, en
+  français comme en anglais (« Vidéos, ou dossiers… », « Print the version »). Fait dans la branche de #115, en
+  reliquat de #114. Planche dans `rapports/planche-115/`.
+- **#159 fusionnée (PR #177, 14 octobre, 7 h 14)** : la file `qualite` est terminée.
+- **#115, compte rendu (14 octobre, 8 h)** : décisions de l'agent acceptées (forme du CSV et sa limite, notée pour #83 ;
+  pas de nouveau tableau sur un CSV étranger au nom courant ; le banc garde ses minuscules ; ménage en deux temps,
+  `create_new`). Retouches : le CSV s'écrit par un fichier partiel renommé sans écraser, et le ménage retire aussi les CSV
+  partiels ; `summary` prend la convention `.partial` de `files::names`, et un test la lie à celle de `media`.
+  Commentaires : casse sur APFS et NTFS → #91 ; fichier ouvert sous Windows → #64 ; empreinte du CSV → #83. La tour a
+  relancé `local_outputs` : vert, 18,5 s.
+- **Worktree `qualite` fermé (14 octobre, 8 h 15)** : sous-espace herdr fermé, `git worktree remove` sans `--force`
+  (worktree propre, PR #177 fusionnée), lien de mémoire retiré. La branche `rust/159-moteur` reste, à supprimer par
+  l'utilisateur s'il le souhaite. `GRAPPES` ne garde que `extraits`.
+- **#115, retouches (14 octobre, 8 h 45)** : le CSV s'écrit par `.<nom>.partial` renommé par `persist_noclobber`
+  (`tempfile` passe en dépendance de `files`), et le ménage retire les CSV partiels ; une seule convention `.partial`
+  dans `files::names`, un test la lie à celle de `media`. `local_outputs` vert, 17,8 s. En Review.
+- **#178, CI rouge (14 octobre, 9 h 15)** : sous Windows, un import inutilisé (le seul test qui s'en sert est réservé à
+  Unix) fait échouer clippy `-D warnings`. Sous macOS, deux tests de `command.rs` exigent une sortie d'erreur exacte,
+  alors que le runner virtualisé de GitHub y écrit « IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver ».
+  Invisible sur le Mac de l'utilisateur. Correctif demandé à l'agent, dans la même branche.
