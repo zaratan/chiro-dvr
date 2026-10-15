@@ -703,3 +703,23 @@ fn the_summary_alone_goes_to_the_standard_output_with_a_row_per_video_and_the_fa
     assert!(errors.lines().any(|line| line == "[1/2] flight — 1 piste"), "{errors}");
     assert!(errors.lines().any(|line| line.starts_with("  détail : ")), "{errors}");
 }
+
+#[test]
+fn a_video_given_by_its_folder_and_again_under_another_writing_is_processed_once_under_one_title() {
+    let (_root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let again = videos.join(".").join("flight.mp4");
+    let output = run(&[&videos, &videos.join("flight.mp4"), &again], "fr_FR.UTF-8");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let summary = text(&output.stdout);
+    let lines: Vec<&str> = summary.lines().collect();
+    assert_eq!(lines[0], "Bilan : 1 vidéo, 1 réussie", "{summary}");
+    let titles = lines.iter().filter(|line| line.ends_with("batdetect")).count();
+    assert_eq!(titles, 1, "{summary}");
+    assert!(
+        videos
+            .join("batdetect")
+            .join("flight")
+            .join("flight_pistes.csv")
+            .is_file()
+    );
+}

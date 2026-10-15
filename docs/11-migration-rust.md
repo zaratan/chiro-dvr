@@ -1691,7 +1691,13 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       enregistre déjà. `--force` part à #70.
   - Un dossier donne ses vidéos (`mp4`, `mov`, `avi`, `mkv`, `m4v`), par ordre de nom, au
     premier niveau seulement : un `batdetect/` voisin n'est pas repris.
-  - Dossiers de sortie (`jobs::plan_jobs`, #86, #91). La racine d'une vidéo est `-o`, ou
+  - Une vidéo donnée deux fois, sous n'importe quelle écriture (son dossier et son nom,
+    `./`, un lien), n'est traitée qu'une fois, sous sa première écriture (#194). La clé est
+    son chemin réel (`fs::canonicalize`), ou, pour un fichier absent, le dossier réel suivi
+    du nom, si bien qu'un chemin introuvable garde sa phrase de #64.
+  - Dossiers de sortie (`jobs::plan_jobs`, #86, #91). Les racines et les homonymes se
+    comparent sur le dossier réel (#194). Une racine écrite de deux façons reprend sa
+    première écriture, si bien que le bilan n'a qu'un titre par dossier. La racine d'une vidéo est `-o`, ou
     à défaut `<dossier de la vidéo>/batdetect/`. Chaque vidéo a son dossier, à son nom,
     dans sa racine.
     - Les homonymes se comptent par racine : sans `-o`, `nuit1/v.mp4` et `nuit2/v.mp4`

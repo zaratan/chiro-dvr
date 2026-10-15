@@ -171,3 +171,62 @@ fn a_folder_that_cannot_be_listed_is_reported_by_name() {
     assert!(error.to_string().starts_with("cannot list the videos of"));
     assert!(error.to_string().contains("verrouillé"));
 }
+
+fn a_night_with(names: &[&str]) -> tempfile::TempDir {
+    let root = tempfile::tempdir().unwrap();
+    for name in names {
+        fs::write(root.path().join(name), "").unwrap();
+    }
+    root
+}
+
+#[test]
+fn a_video_given_both_by_its_folder_and_by_its_name_is_kept_once() {
+    let night = a_night_with(&["video.mp4"]);
+    let videos = collect_videos(&[night.path().to_path_buf(), night.path().join("video.mp4")]).unwrap();
+    assert_eq!(videos, [night.path().join("video.mp4")]);
+}
+
+#[test]
+fn a_video_written_two_ways_is_kept_once_under_its_first_writing() {
+    let night = a_night_with(&["video.mp4"]);
+    let written = night.path().join(".").join("video.mp4");
+    let videos = collect_videos(&[night.path().to_path_buf(), written]).unwrap();
+    assert_eq!(videos, [night.path().join("video.mp4")]);
+}
+
+#[test]
+fn two_videos_of_one_folder_written_two_ways_share_one_results_folder() {
+    let night = a_night_with(&["a.mp4", "b.mp4"]);
+    let videos = [night.path().join("a.mp4"), night.path().join(".").join("b.mp4")];
+    let jobs = plan_jobs(&videos, None).unwrap();
+    let roots: Vec<&Path> = jobs.iter().map(|job| job.dest.parent().unwrap()).collect();
+    assert_eq!(roots, [night.path().join("batdetect"), night.path().join("batdetect")]);
+}
+
+#[test]
+fn two_videos_of_one_name_in_one_folder_written_two_ways_are_still_told_apart() {
+    let night = a_night_with(&["x.mp4", "x.mov"]);
+    let videos = [night.path().join("x.mp4"), night.path().join(".").join("x.mov")];
+    let jobs = plan_jobs(&videos, None).unwrap();
+    let names: Vec<&std::ffi::OsStr> = jobs.iter().map(|job| job.dest.file_name().unwrap()).collect();
+    assert_eq!(names, ["x_mp4", "x_mov"]);
+}
+
+#[test]
+fn a_missing_video_written_two_ways_is_kept_once_as_first_written_so_that_its_failure_names_it() {
+    let night = a_night_with(&[]);
+    let missing = night.path().join("absente.mp4");
+    let again = night.path().join(".").join("absente.mp4");
+    let videos = collect_videos(&[missing.clone(), again, missing.clone()]).unwrap();
+    assert_eq!(videos, [missing]);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_link_to_a_video_given_with_the_video_itself_is_kept_once() {
+    let night = a_night_with(&["video.mp4"]);
+    std::os::unix::fs::symlink(night.path().join("video.mp4"), night.path().join("lien.mp4")).unwrap();
+    let videos = collect_videos(&[night.path().join("video.mp4"), night.path().join("lien.mp4")]).unwrap();
+    assert_eq!(videos, [night.path().join("video.mp4")]);
+}
