@@ -1,10 +1,171 @@
 # Profilage : où part le temps de calcul
 
+Le Rust (`batdetect-rs`) d'abord, mesuré le 16 octobre 2026 (#201) ; puis l'historique
+des optimisations du Python jusqu'à la v0.1.1, qui a guidé les choix repris par le Rust.
+
+## Rust (16 octobre 2026)
+
+### Protocole
+
+- **Machine** : Apple M1 Max (10 cœurs, 64 Go), macOS 27.0 (26A428), Rust 1.99.0,
+  FFmpeg 7.1.1 et openh264 de `mise run rust:ffmpeg`.
+- **Code** : commit b38748a, branche `rust/201-profil`. Aucun fichier de `crates/*/src`
+  ni de `Cargo.*` ne diffère de f364698, le commit mesuré par #198.
+- **Binaire** : `cargo build --release --locked -p batdetect` (LTO `fat`), lancé comme
+  `target/release/batdetect-rs VIDÉO -o out/mN` avec `LANG=fr_FR.UTF-8`. Vidéos : une
+  copie de la 092 entière (9 011 images, 1440×1080, 5 min) et l'extrait du dépôt
+  (`tests/fixtures/video_092_original_3m24-4m05.mp4`, 1 230 images).
+- **Temps et pic** (passages 1 à 5, de 3 h 21 à 3 h 28) : sous
+  `verrou chrono /usr/bin/time -l …` (`/Users/zaratan/Projects/dvr-wt/MESURES.md`). Avant
+  chaque passage, le critère de calme de `MESURES.md` : aucun outil lourd, somme des
+  `%CPU` des autres processus sous 100 % (relevés de 78,6 à 99,9 %). Aucune mise en veille
+  (la dernière date de 2 h 28). CPU = utilisateur + système.
+- **Étapes** : hors terminal, la commande écrit une ligne sur la sortie d'erreur au début
+  de chaque étape de #63, puis une ligne de fin. Un filtre en Python lance la commande et
+  écrit l'heure (`time.time()`, à la milliseconde) devant chaque ligne à son arrivée ; une
+  étape dure l'écart entre deux lignes. D'après `crates/cli/src/process.rs` :
+  - **détection** : lecture, réduction et flou, fond, seuil, taches, et le fond médian de
+    l'image résumé ;
+  - **suivi** : exclusion des plages abîmées et instables, pistes, ménage des sorties
+    précédentes, CSV, essai de l'encodeur (une image encodée par VideoToolbox), `params.json` ;
+  - **image résumé** : dessin et PNG ;
+  - **extraits** : extraits et zoom, rendus ensemble ; le profil ne sépare que l'encodage
+    openh264 du zoom.
+- **Profil** (passage 8, de 3 h 28 à 3 h 29) : `/usr/bin/sample <pid> 150 1 -mayDie -file …`,
+  l'échantillonneur livré avec macOS (tous les fils, arbre d'appels en texte), sous
+  `verrou lourd` et sans contrôle de calme, sur la 092 entière. Demandé toutes les
+  millisecondes, il a pris 16 551 passages en 54,7 s, un toutes les 3,3 ms en moyenne
+  (3,2 ms pendant la détection, 4,6 ms pendant les extraits). Le binaire `release` garde
+  ses symboles ; avec la LTO `fat`, une fonction inlinée compte pour celle qui l'appelle.
+  Un premier profil (passage 6, `sample … 60`) s'est arrêté avant les extraits : il n'est
+  pas repris, sinon pour vérifier les parts de la détection (23,6 % et 20,3 % au lieu de
+  22,7 % et 20,3 %).
+- **Rangement des échantillons** : sont écartés ceux dont le sommet de pile est une
+  attente (`__psynch_cvwait`, `__psynch_mutexwait`, `__psynch_rw*`, `semaphore_wait_trap`,
+  `semaphore_timedwait_trap`, `__semwait_signal`, `__ulock_wait`, `__workq_kernreturn`,
+  `kevent`, `mach_msg2_trap`, `_pthread_cond_wait*`). Les autres vont, dans cet ordre, au
+  premier poste qui convient : encodage openh264 (`Wels*` au sommet), copie vers
+  VideoToolbox (bibliothèque VideoToolbox au sommet), fond et seuil (`Threshold::light`
+  dans la pile), réduction et flou (`prepare_pending` dans la pile), piles réduites à
+  `thread_start`, rendu (`media::convert` ou `media::encode` dans la pile), rayon qui cède
+  la main (`swtch_pri`), décodage (fonction de FFmpeg au sommet, rangée par son nom),
+  rendu (`render::*` dans la pile), image résumé, suivi, puis le reste.
+- **Fils** (passage 7, à 3 h 01) : `ps -M -p <pid>` toutes les 250 ms, sous `verrou lourd`,
+  pendant qu'un autre calcul chargeait la machine (détection en 26,0 s au lieu de 14,7).
+
+### Temps de bout en bout et par étape
+
+| Vidéo | Passage | Réel | CPU | Pic (résident) | Détection | Suivi | Image résumé | Extraits |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 092 entière | 1 | 19,81 s | 143,2 s | 1,04 Go | 14,69 s | 0,26 s | 0,24 s | 4,60 s |
+| 092 entière | 2 | 20,66 s | 143,7 s | 1,05 Go | 15,50 s | 0,25 s | 0,24 s | 4,67 s |
+| 092 entière | 3 | 19,73 s | 143,6 s | 1,06 Go | 14,54 s | 0,24 s | 0,24 s | 4,69 s |
+| extrait | 4 | 4,51 s | 23,6 s | 0,70 Go | 2,29 s | 0,24 s | 0,23 s | 1,75 s |
+| extrait | 5 | 4,45 s | 23,7 s | 0,70 Go | 2,21 s | 0,24 s | 0,23 s | 1,77 s |
+
+- **092, médianes** : 19,81 s réels, 143,6 s de CPU (7,2 cœurs en moyenne sur tout le
+  passage), 1,05 Go. La détection prend 74 % du temps réel (613 images par seconde), les
+  extraits 24 %, le suivi et l'image résumé 2,4 % à eux deux. 14 pistes, un zoom, 15
+  fichiers vidéo.
+- **Extrait** : 4,48 s réels, 23,6 s de CPU, 0,70 Go. La détection n'y fait plus que la
+  moitié du temps (2,25 s, 547 images par seconde) : les extraits (1,76 s pour 4 pistes),
+  le suivi et l'image résumé (0,47 s) pèsent plus sur une vidéo courte.
+- **Suivi et image résumé** : de 0,23 à 0,25 s chacun sur la 092 comme sur l'extrait,
+  qui a 7 fois moins d'images et 3,5 fois moins de pistes. Dans le profil, l'essai de
+  l'encodeur (`batdetect::process::encoders`) a 520 échantillons sur le fil principal ;
+  l'exclusion, les pistes et les fichiers n'en ont aucun. Sous
+  l'échantillonneur, une partie de cet essai attend dans `dlopen` : le profil désigne
+  l'essai, le chronomètre seul donne sa durée.
+- **Bruit** : 5 % sur le temps réel de la 092 (19,73 à 20,66 s, tout dans la détection),
+  0,3 % sur le CPU.
+- **Contre #198** (f364698, 15 octobre 2026, même machine, au calme : 19,0 s réels, 128,5 s
+  de CPU, 1,09 Go) : +4 % de temps réel, +12 % de CPU, −3 % de pic, pour le même code
+  livré. L'écart de CPU dépasse le bruit mesuré ici ; sa cause n'est pas isolée.
+- **Contre la v0.1.1** (mesurée par #198 le 15 octobre 2026 sur la même machine : 135,4 s
+  réels, 436,6 s de CPU, 0,70 Go) : 6,8 fois moins de temps réel, 3,0 fois moins de CPU,
+  1,5 fois plus de mémoire.
+
+### Où passe le CPU
+
+092 entière sous `sample` (passage 8), 163 650 échantillons hors attente. Sous
+l'échantillonneur, la détection s'étale 2,9 fois et les extraits 2,3 fois, et le pas
+d'échantillonnage varie d'une étape à l'autre : les parts à l'intérieur de la détection
+tiennent (le passage 6 les redonne), les parts entre étapes sont faussées d'environ 1,4 fois.
+
+| Poste | Fonctions | Part des échantillons hors attente |
+| --- | --- | ---: |
+| Décodage H.264 : CABAC | `decode_cabac_residual_*`, `ff_h264_decode_mb_cabac` (FFmpeg) | 34,3 % |
+| Fond et seuil | `engine::threshold::Threshold::light` : réseau de tri sur la fenêtre, seuil par pixel | 22,7 % |
+| Réduction et flou | `engine::detector::Detector::prepare_pending` → `engine::prepare` : largeur de travail, filtre à la taille de la cible | 20,3 % |
+| Décodage H.264 : filtre de boucle | `ff_h264_filter_mb`, `loop_filter`, `*_loop_filter_*` | 6,2 % |
+| Décodage H.264 : reste | compensation de mouvement, caches, synchronisation des fils | 4,8 % |
+| Rayon cède la main | `swtch_pri` : fils de rayon en attente de travail | 3,7 % |
+| Décodage H.264 : IDCT | `ff_h264_idct*_neon` | 2,7 % |
+| Système, mémoire | `memmove` (dont la copie après décodage), lecture du fichier | 2,1 % |
+| Rendu | `render::*`, `media::convert` (swscale), `media::encode` | 1,3 % |
+| Piles réduites à `thread_start` | rien ne dit si c'est du calcul | 1,0 % |
+| Encodage du zoom | openh264 (`WelsEnc::*`) | 0,5 % |
+| Copie vers VideoToolbox | `vt_Copy_y420_420v` | 0,3 % |
+| Image résumé | `summary::*`, `draw::*`, `batdetect::overview` | 0,1 % |
+
+- **Le décodage fait presque la moitié** (48,0 %), CABAC en tête : la 092 est un H.264 à
+  12 Mb/s en 1440×1080.
+- **Un tiers du décodage est un second décodage, autour des extraits.** Les fils créés
+  pendant les extraits (décodeurs `av:h264:df*`, rendu, encodeurs) portent 18,8 % des
+  échantillons, dont 15,6 % de décodage : 25 474 échantillons sur les 78 871 du décodage,
+  32 %. La détection a déjà décodé ces images une fois.
+- **La détection en Rust fait l'autre grosse part** (43,0 %) : fond et seuil, puis
+  réduction et flou, à parts presque égales. Les taches, la fermeture et l'exclusion
+  n'ont que 3 échantillons.
+- **Le rendu hors décodage pèse peu** (2,1 % avec openh264 et la copie vers VideoToolbox).
+  L'encodage des extraits se fait dans le service de VideoToolbox, hors du processus, que
+  ce profil ne voit pas.
+- **Suivi** : aucun échantillon dans `tracking::*`.
+
+### Fils
+
+D'après le profil (passage 8), la détection tourne sur 23 fils : le fil principal, 10 fils
+de rayon (préparation, fond et seuil), 11 fils du décodeur (`av:h264:df0` à `df10`) et le
+fil de lecture anticipée. À chaque passage de l'échantillonneur, 9,9 fils en moyenne ne
+sont pas en attente pendant la détection (132 909 échantillons pour 13 443 passages), pour
+10 cœurs. Pendant les extraits, les fils créés pour eux en ajoutent 13 en moyenne (30 741
+pour 2 372 passages).
+
+`ps -M` (passage 7, machine chargée) compte les fils au fil des étapes :
+
+| Étape | Relevés | Fils (médiane) | Fils (max) |
+| --- | ---: | ---: | ---: |
+| Détection | 94 | 23 | 23 |
+| Suivi | 2 | 13 | 15 |
+| Extraits | 18 | 76 | 89 |
+
+La charge par fil de `ps` (`%CPU`, une moyenne lissée sur une minute selon `man ps`) ne
+sert pas à juger une étape de quelques secondes : elle n'est pas reprise ici.
+
+### Ce que disent les chiffres
+
+- La détection occupe déjà presque les 10 cœurs : la gagner ne peut venir que d'un calcul plus
+  court par image, pas de plus de parallélisme.
+- Dans le code du dépôt, deux postes comptent : le fond et le seuil (22,7 %), la réduction
+  avec le flou (20,3 %). Tout le reste du Rust tient sous 2 %.
+- Le décodage (48,0 %) est le premier poste. Un tiers en est le second décodage autour des
+  extraits, que la détection a déjà fait : l'éviter ne change aucun pixel. Le reste ne
+  baisserait que par un réglage du décodeur qui change les pixels (sauter le filtre de
+  boucle, 6,2 %), et changerait alors la détection.
+- Le suivi et l'image résumé coûtent 0,5 s fixes, presque tout dans l'essai de l'encodeur.
+- Le CPU par étape n'est pas mesuré : les parts du profil entre étapes sont faussées par
+  l'échantillonneur, et `ps` ne donne qu'une charge lissée.
+
+## v0.1.1 (Python)
+
+Historique des optimisations du Python jusqu'à la v0.1.1, mesuré du 4 au 6 octobre 2026
+sans commit noté pour chaque chiffre ; gardé tel quel (son sort se décide dans #200).
+
 Mesures du 4 octobre 2026 sur l'original de la 092 (5 min, 1440×1080, 30,03 i/s,
 9 011 images, 12 Mb/s), Apple M1 Max (10 cœurs, GPU 32 cœurs, 64 Go). Scripts de
 mesure hors dépôt ; les chiffres suffisent à refaire les choix.
 
-## Étapes du traitement complet
+### Étapes du traitement complet
 
 Réglages par défaut, détection sur 10 processus, avant toute optimisation.
 
@@ -17,7 +178,7 @@ Réglages par défaut, détection sur 10 processus, avant toute optimisation.
 | Suivi et CSV | < 0,1 s | 0 % | |
 | **Total** | **213 s** | | |
 
-## Détection
+### Détection
 
 Un seul processus, 900 images, par image :
 
@@ -34,7 +195,7 @@ vient de `np.partition`, qui lance une sélection par pixel, soit 172 800 petite
 sélections de 11 valeurs. Un **tri par comparaisons vectorisé** (des `minimum` et
 `maximum` sur des images entières) donne le même résultat au bit près en 1,4 ms.
 
-## Médiane : CPU contre GPU
+### Médiane : CPU contre GPU
 
 Médiane de 11 images, temps par médiane, transferts vers le GPU et retour compris, sauf
 la dernière ligne. Les 22 mesures donnent un résultat identique au bit près à
@@ -63,7 +224,7 @@ la dernière ligne. Les 22 mesures donnent un résultat identique au bit près �
   échelles (B2 dans [07](07-ameliorer-la-detection.md)), avec MLX en dépendance réservée
   aux Mac.
 
-## Encodage de la vidéo annotée
+### Encodage de la vidéo annotée
 
 Lire et convertir une image côté Python coûte 1,2 ms, soit environ 11 s pour toute la
 vidéo ; le reste du rendu est l'encodage. Sur 60 s de la 092 (SSIM : fidélité à
@@ -80,7 +241,7 @@ l'original, 1 = identique) :
 distinct du GPU. La vidéo annotée complète pèse 722 Mo en CRF 20, plus que l'original
 (454 Mo) : le bruit thermique se compresse mal.
 
-## Après la médiane par tri par comparaisons
+### Après la médiane par tri par comparaisons
 
 Détection de la 092 avec 10 processus : 66,6 s → 49,6 s, 534 s → 406 s de CPU, pistes
 identiques au bit près (une seconde exécution, dans le tableau plus bas, donne 47,3 s et
@@ -105,7 +266,7 @@ donc environ 85 % du CPU de la détection, et plus de processus coûte plus cher
 Pistes : moins de processus par défaut ; décoder une seule fois et distribuer les
 images réduites aux processus ; décodage matériel (VideoToolbox).
 
-## Après le moteur multimédia et la fenêtre en uint8
+### Après le moteur multimédia et la fenêtre en uint8
 
 Fenêtre de la médiane gardée en uint8 au lieu de int16 : médiane seule 1,22 → 0,73 ms
 par image à 480×360, pistes identiques au bit près,
@@ -125,7 +286,7 @@ q 65 :
 La vidéo annotée pèse 760 Mo au lieu de 722. Avec 10 processus (un par
 cœur, l'ancien défaut de `--workers`), la détection reste à environ 48 s.
 
-## Décodage : pistes éliminées
+### Décodage : pistes éliminées
 
 - **Décodage matériel par OpenCV** : la roue `opencv-python-headless` 5.0 accepte
   `CAP_PROP_HW_ACCELERATION` sans erreur, mais ne connaît que VAAPI (Linux) ;
@@ -140,7 +301,7 @@ cœur, l'ancien défaut de `--workers`), la détection reste à environ 48 s.
   prototype sur l'extrait, 3,46 s → 2,16 s, détections identiques. C'est le lecteur
   (décodage puis réduction) qui limite.
 
-## Après le fil lecteur
+### Après le fil lecteur
 
 Dans chaque tranche, un fil lecteur décode, applique le crochet du banc et réduit les
 images pendant que le fil principal détecte (`prefetch.py`, file de 4 images). Un
@@ -164,7 +325,7 @@ identiques.
 092 (`uv run batdetect in/video_092_original.mp4`) : **44,8 s**, contre 213 s au début
 de l'optimisation ; 14 pistes, encodeur `videotoolbox`.
 
-## Après le rendu en une lecture
+### Après le rendu en une lecture
 
 La vidéo annotée complète devient optionnelle (`--annotated`) ; les extraits sont encodés
 directement depuis l'original pendant une seule lecture, au lieu d'être recoupés dans la
@@ -184,7 +345,7 @@ SSIM de l'extrait 5 contre l'original 0,955 → 0,974, pour 159 Mo d'extraits au
 La lecture saute les images hors des extraits sans les convertir et s'arrête après le
 dernier (3:58 sur 5:00). Total de la commande par défaut à remesurer sur machine calme.
 
-## Passe ffprobe des images illisibles (issue #1)
+### Passe ffprobe des images illisibles (issue #1)
 
 Les images que le décodeur répare sont repérées par `ffprobe -threads 1 -show_log 16`
 ([10](10-logique-de-detection.md)). Mesures sous verrou, une commande à la fois, second
@@ -211,7 +372,7 @@ commande varient jusqu'à 30 % d'un lancement à l'autre ; le temps CPU, lui, es
 - **L'ordre des messages sur la sortie d'erreur d'`ffmpeg`** : décalé d'une à deux images
   avec ffmpeg 9, donc inutilisable.
 
-### Avec les réglages du 6 octobre (issue #36)
+#### Avec les réglages du 6 octobre (issue #36)
 
 Les 55 s de surcoût ci-dessus dataient d'une détection à 480 px, qui durait 33,8 s sur la
 092 : la passe était alors l'étape la plus longue. Avec les réglages par défaut actuels
@@ -246,7 +407,7 @@ réel, déjà masqué, et pas de CPU.
 Si la détection redevient plus courte qu'environ 60 s (plusieurs `--workers`, réglage plus
 léger), la passe redevient l'étape la plus longue, et ces deux pistes reprennent leur intérêt.
 
-## Mesure des taches en une passe (5 octobre 2026)
+### Mesure des taches en une passe (5 octobre 2026)
 
 `find_blobs` construisait un masque de toute l'image pour chaque tache, afin d'en compter
 les pixels au-dessus du seuil et d'en prendre le pic : un coût proportionnel au nombre de
@@ -267,7 +428,7 @@ l'extrait compte 280 taches par image : c'est probablement ce coût qui avait fa
 arrêter le banc en pleine résolution après 25 minutes ([08](08-banc-de-mesure.md)),
 non vérifié en le relançant.
 
-## Carte de bruit du seuil par pixel (5 octobre 2026)
+### Carte de bruit du seuil par pixel (5 octobre 2026)
 
 `--noise-factor` ajoute deux médianes par image, sur des écarts en float32 (le centre
 des écarts, puis leur MAD). Détection seule sur l'extrait de test, seuil 18, un
@@ -307,7 +468,7 @@ pistes. Une médiane par `np.sort` sur la pile des pixels candidats, à la place
 comparaisons, ne gagne rien (3,0 s contre 2,8 s à 480 px, 23,5 s contre 22,1 s à
 1440 px) : écartée.
 
-## Filtre à la taille de la cible (5 octobre 2026)
+### Filtre à la taille de la cible (5 octobre 2026)
 
 `--target-sigma` floute chaque image réduite et garde les images en float32 : la médiane
 du fond travaille sur 4 fois plus d'octets qu'en uint8. Détection seule sur l'extrait de
@@ -323,7 +484,7 @@ Sur la 092 entière, sous le verrou de mesure : 30 s par défaut, 135 s à 960 p
 filtre (378 s de CPU, 702 Mo), 283 s à 1440 px (518 s, 838 Mo). Non essayé : garder les
 images filtrées en entiers 16 bits pour accélérer la médiane.
 
-## Réglages par défaut du 6 octobre 2026
+### Réglages par défaut du 6 octobre 2026
 
 960 px, filtre de 1,5 px, seuil par pixel. Commande complète sur la 092 (extraits
 compris, sous le verrou de mesure) : 135 à 151 s au lieu de 30 à 34 s, 373 à 386 s de
@@ -335,7 +496,7 @@ aux pixels au-dessus du plancher, ne coûte presque rien. Un banc de transit pre
 260 s au lieu de 32. `--work-width 480 --target-sigma 0 --threshold 25 --noise-factor 0`
 retrouve l'ancien réglage et son temps.
 
-## Extraits zoomés (issue #37)
+### Extraits zoomés (issue #37)
 
 Rendu seul (lecture de l'original, dessin, encodage `h264_videotoolbox`) à partir des
 pistes de `main`, sous le verrou de mesure, deux tours. D'autres agents tournaient hors
