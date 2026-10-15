@@ -126,7 +126,7 @@ En Rust (#100), `reference::bench` lit et écrit `bats.jsonl.gz` (`TargetLine`),
 `{frame, detections}` d'`injected.jsonl.gz` et `bench.json` (`BenchReport`) ;
 `reference::location::recorded_bench(nom)` donne `$BATDETECT_REFERENCE_DIR/bench/<nom>/`. Les tests
 `local_injection`, `local_metrics` et `local_guard` de `bench` lisent les deux bancs, et
-`batdetect-bench-rs VIDÉO --against DOSSIER` rejoue un banc pour la garde (docs/11, « Banc de
+`batdetect-bench VIDÉO --against DOSSIER` rejoue un banc pour la garde (docs/11, « Banc de
 mesure »). `bench-run.json` n'est pas relu.
 
 ## Sorties complètes
@@ -139,6 +139,9 @@ n'est pas déterministe), et `params.json` garde le chemin de la vidéo tel qu'i
 la commande.
 
 ## Relancer
+
+Depuis un checkout du tag `python-final` : le script et le Python ont quitté `main` à #199 (le
+script exige `src/` identique à `v0.1.1`, ce qui est le cas à `python-final`).
 
 ```bash
 uv run python tools/reference_v011.py data <vidéo> <dossier> [--gzip] [--detect JSON]

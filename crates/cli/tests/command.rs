@@ -12,7 +12,7 @@ use std::sync::OnceLock;
 
 use serde_json::Value;
 
-const BINARY: &str = env!("CARGO_BIN_EXE_batdetect-rs");
+const BINARY: &str = env!("CARGO_BIN_EXE_batdetect");
 
 #[cfg(test)]
 fn command(arguments: &[&Path], lang: &str) -> Command {
@@ -307,7 +307,7 @@ fn under_a_french_locale_the_help_and_the_refusals_are_in_french_with_their_usua
     let help = run(&[Path::new("-h")], "fr_FR.UTF-8");
     assert_eq!(help.status.code(), Some(0));
     assert!(
-        text(&help.stdout).contains("Utilisation\u{a0}: batdetect-rs"),
+        text(&help.stdout).contains("Utilisation\u{a0}: batdetect"),
         "{}",
         text(&help.stdout)
     );

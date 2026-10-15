@@ -8,7 +8,7 @@ use std::process::Command;
 use reference::fixture::fixture;
 use reference::location::recorded_outputs;
 
-const BINARY: &str = env!("CARGO_BIN_EXE_batdetect-rs");
+const BINARY: &str = env!("CARGO_BIN_EXE_batdetect");
 const EXTRACT: &str = "video_092_original_3m24-4m05";
 
 #[cfg(test)]

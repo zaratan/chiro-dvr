@@ -8,7 +8,7 @@ use bench::synthetic::injection::Injected;
 use reference::bench::{BenchReport, read_report, write_targets};
 use tempfile::TempDir;
 
-const BINARY: &str = env!("CARGO_BIN_EXE_batdetect-bench-rs");
+const BINARY: &str = env!("CARGO_BIN_EXE_batdetect-bench");
 
 #[cfg(test)]
 fn run(arguments: &[&str]) -> Output {

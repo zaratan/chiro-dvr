@@ -9,113 +9,6 @@ permissions:
   contents: read
 
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      python: ${{ steps.diff.outputs.python }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 2
-      - id: diff
-        env:
-          EVENT: ${{ github.event_name }}
-        run: |
-          python=true
-          if [ "$EVENT" = pull_request ]; then
-            changed=$(git diff --name-only --no-renames HEAD^1 HEAD)
-            outside_rust_fixtures=$(grep -vE '^tests/fixtures/(rust|reference)/' <<< "$changed" || true)
-            pattern='^(src/|tests/|tools/|\.github/|pyproject\.toml$|uv\.lock$|mise\.toml$)'
-            grep -qE "$pattern" <<< "$outside_rust_fixtures" || python=false
-          fi
-          echo "python=$python" >> "$GITHUB_OUTPUT"
-
-  static:
-    needs: changes
-    if: needs.changes.outputs.python == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup
-      - run: mise run static
-      - run: uv cache prune --ci
-
-  fast-tests:
-    needs: changes
-    if: needs.changes.outputs.python == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup
-        with:
-          ffmpeg: true
-      - run: mise run test:fast -- --cov-report="markdown-append:$GITHUB_STEP_SUMMARY"
-      - run: uv cache prune --ci
-
-  slow-tests:
-    needs: changes
-    if: needs.changes.outputs.python == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      EXTRACT: tests/fixtures/video_092_original_3m24-4m05.mp4
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - run: git lfs ls-files --long --include="$EXTRACT" | cut -d ' ' -f 1 > .lfs-assets-id
-      - id: lfs-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .git/lfs
-          key: lfs-extract-${{ hashFiles('.lfs-assets-id') }}
-      - run: git lfs pull --include="$EXTRACT"
-      - if: steps.lfs-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .git/lfs
-          key: lfs-extract-${{ hashFiles('.lfs-assets-id') }}
-      - uses: ./.github/actions/setup
-        with:
-          ffmpeg: true
-      - run: mise run test:slow
-      - run: uv cache prune --ci
-
-  reference:
-    needs: changes
-    if: needs.changes.outputs.python == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - run: git lfs ls-files --long | cut -d ' ' -f 1 | sort > .lfs-assets-id
-      - id: lfs-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .git/lfs
-          key: lfs-all-${{ hashFiles('.lfs-assets-id') }}
-      - run: git lfs pull
-      - if: steps.lfs-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .git/lfs
-          key: lfs-all-${{ hashFiles('.lfs-assets-id') }}
-      - uses: ./.github/actions/setup
-        with:
-          ffmpeg: true
-      - run: uv run pytest -m reference
-      - run: uv cache prune --ci
-
   rust:
     strategy:
       fail-fast: false
@@ -128,8 +21,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-        with:
-          rust: true
       - id: ffmpeg-key
         uses: ./.github/actions/ffmpeg-key
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -178,8 +69,6 @@ jobs:
           path: .git/lfs
           key: lfs-extract-${{ hashFiles('.lfs-assets-id') }}
       - uses: ./.github/actions/setup
-        with:
-          rust: true
       - id: ffmpeg-key
         uses: ./.github/actions/ffmpeg-key
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -193,17 +82,17 @@ jobs:
           key: ${{ steps.ffmpeg-key.outputs.key }}
       - run: mise run rust:ffmpeg
       - run: mise run rust:slow
-      - run: cargo build --locked --profile ci --workspace --bin batdetect-rs
+      - run: cargo build --locked --profile ci --workspace --bin batdetect
       - if: runner.os == 'macOS'
         run: |
-          otool -L target/ci/batdetect-rs
-          if otool -L target/ci/batdetect-rs | grep -E 'libav|libsw|openh264'; then exit 1; fi
-          minos=$(vtool -show-build target/ci/batdetect-rs | awk '$1 == "minos" { print $2 }')
+          otool -L target/ci/batdetect
+          if otool -L target/ci/batdetect | grep -E 'libav|libsw|openh264'; then exit 1; fi
+          minos=$(vtool -show-build target/ci/batdetect | awk '$1 == "minos" { print $2 }')
           [ -n "$minos" ] && [ "$(printf '%s\n' "$minos" 14.0 | sort -V | tail -1)" = 14.0 ] || { echo "binary needs macOS $minos" >&2; exit 1; }
       - if: runner.os == 'Linux'
         run: |
-          ldd target/ci/batdetect-rs
-          if ldd target/ci/batdetect-rs | grep -E 'libav|libsw|openh264'; then exit 1; fi
+          ldd target/ci/batdetect
+          if ldd target/ci/batdetect | grep -E 'libav|libsw|openh264'; then exit 1; fi
       - if: runner.os == 'macOS'
         run: cargo test --workspace --locked --profile ci --test 'hardware_*' -- --include-ignored
 
@@ -227,8 +116,6 @@ jobs:
           path: .git/lfs
           key: lfs-all-${{ hashFiles('.lfs-assets-id') }}
       - uses: ./.github/actions/setup
-        with:
-          rust: true
       - id: ffmpeg-key
         uses: ./.github/actions/ffmpeg-key
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -260,8 +147,6 @@ jobs:
           key: lfs-extract-${{ hashFiles('.lfs-assets-id') }}
       - run: git lfs pull --include="$EXTRACT,$SMALL"
       - uses: ./.github/actions/setup
-        with:
-          rust: true
       - id: ffmpeg-key
         uses: ./.github/actions/ffmpeg-key
         with:
@@ -321,13 +206,13 @@ jobs:
         run: cargo test --workspace --locked --profile ci --no-fail-fast
       - shell: msys2 {0}
         run: |
-          cargo build --locked --profile ci --workspace --bin batdetect-rs
-          dumpbin -nologo -dependents target/ci/batdetect-rs.exe | tee target/dependents.txt
+          cargo build --locked --profile ci --workspace --bin batdetect
+          dumpbin -nologo -dependents target/ci/batdetect.exe | tee target/dependents.txt
           dlls=$(grep -Eio '[^[:space:]]+\.dll' target/dependents.txt | tr '[:upper:]' '[:lower:]' | sort -u)
           grep -qx 'kernel32\.dll' <<< "$dlls"
           unexpected=$(grep -Evx 'kernel32\.dll|ntdll\.dll|bcrypt\.dll|bcryptprimitives\.dll|api-ms-win-core-[a-z0-9-]+\.dll' <<< "$dlls" || true)
           if [ -n "$unexpected" ]; then
-            echo "batdetect-rs.exe needs DLLs outside Windows itself: $unexpected" >&2
+            echo "batdetect.exe needs DLLs outside Windows itself: $unexpected" >&2
             exit 1
           fi
       - shell: msys2 {0}

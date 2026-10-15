@@ -2,7 +2,7 @@ use std::fs;
 use std::io;
 use std::process::Command;
 
-const BINARY: &str = env!("CARGO_BIN_EXE_batdetect-rs");
+const BINARY: &str = env!("CARGO_BIN_EXE_batdetect");
 
 fn english() -> Command {
     let mut command = Command::new(BINARY);
@@ -25,7 +25,7 @@ fn version_names_the_lgpl_ffmpeg_it_links() {
     let text = String::from_utf8(output.stdout).unwrap();
     assert!(output.status.success());
     assert!(
-        text.starts_with(concat!("batdetect-rs ", env!("BATDETECT_VERSION"), "\n")),
+        text.starts_with(concat!("batdetect ", env!("BATDETECT_VERSION"), "\n")),
         "{text}"
     );
     assert!(text.contains(&format!("FFmpeg {pinned}-")), "{text}");
@@ -40,12 +40,12 @@ fn without_arguments_the_common_uses_go_to_the_standard_output_with_a_success_co
     assert!(uses.starts_with("Detects and tracks bats"), "{uses}");
     assert!(uses.lines().any(|line| line == "Common uses:"), "{uses}");
     assert!(
-        uses.lines().any(|line| line == "      batdetect-rs night-oct-12"),
+        uses.lines().any(|line| line == "      batdetect night-oct-12"),
         "{uses}"
     );
     assert!(
         uses.trim_end()
-            .ends_with("All the options and the files produced: batdetect-rs --help"),
+            .ends_with("All the options and the files produced: batdetect --help"),
         "{uses}"
     );
     assert!(!uses.contains("Usage: "), "{uses}");
