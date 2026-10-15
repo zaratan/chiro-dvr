@@ -39,7 +39,7 @@ commencer.
 ```bash
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:ffmpeg   # construit FFmpeg une fois par poste
 mise run rust:static      # fmt, clippy, règles de la charte, cargo deny, cargo shear
-mise run rust:test        # tests rapides sous cargo-llvm-cov, couverture ≥ 95 %
+mise run rust:coverage    # tests rapides sous cargo-llvm-cov, couverture ≥ 95 %
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:slow       # l'extrait LFS
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:settings   # les 16 cas de réglages du banc d'essai
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 092 entière
@@ -434,7 +434,7 @@ Forme et tests :
 
 | Niveau | Fichiers | Commande | Contenu |
 |---|---|---|---|
-| rapide | `src/<module>/tests.rs`, `tests/*.rs` | `cargo test --workspace --locked` | vidéos fabriquées par openh264, binaire lancé pour de vrai |
+| rapide | `src/<module>/tests.rs`, `tests/*.rs` | `mise run rust:test` (sans couverture), `mise run rust:coverage` (couverture) | vidéos fabriquées par openh264, binaire lancé pour de vrai |
 | slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv` ; les tests de mémoire `slow_memory_flash`, `slow_memory_flash_wide` et `slow_memory_flash_long` (`dhat`, 960 et 1440 pixels de travail, 61 échantillons), hors de la couverture |
 | settings | `tests/settings_*.rs`, `#[ignore = "settings"]` | `mise run rust:settings` | les 16 cas du banc d'essai sur l'extrait et sa 720×540 (`settings_agreement`), sous Linux seulement en CI (#167) |
 | reference | `tests/reference_*.rs`, `#[ignore = "reference"]` | `mise run rust:reference` | la 092 : 9 011 images, cadence moyenne 90110000/3000927, aux défauts et à 1440 pixels de travail (#151), en un seul binaire depuis #184 (`cli/tests/reference_092.rs`) |
@@ -443,6 +443,17 @@ Forme et tests :
 
 - Le niveau d'un test se choisit par le nom de son fichier. Ajouter un test ne demande
   de toucher ni la CI ni `mise.toml`.
+- Depuis #205, `mise run check` = `rust:static` + `rust:test`, joué avant de rendre ;
+  `mise run check:ci` = `rust:coverage` (couverture, l'ancien `rust:test`) + `rust:slow` + `rust:settings`, que la CI
+  joue par ses tâches inchangées. Durées mesurées le 16 octobre 2026 sur bb3a668 (M1 Max,
+  au calme, `verrou chrono`) : `rust:static` 3,1 s ; `rust:test` 52,1 s, dont 22 s de
+  compilation des 12 crates du workspace ; `rust:coverage` 519 s, dont 28 s de compilation
+  instrumentée des mêmes crates et 253 s
+  pour les tests unitaires de `batdetect` sous instrumentation. Le nouveau `check`, sans
+  recompilation : 19,5 s réels, 57 s de CPU ; le hook pre-push de `lefthook.yml`, qui le
+  lance, 19,8 s. L'ancien `check` (statique,
+  couverture, `slow`, `settings`) prenait 12 à 21 min selon la charge dans la nuit du 15
+  au 16 octobre (727 s au calme pour #202).
 - Un test rapide peut relancer son propre binaire sur un test `#[ignore = "run by …"]`
   pour lire ce qu'il écrit sur stderr (aucun message du décodeur pendant la lecture).
 - Couverture mesurée sur les tests rapides, en profil `ci` (seuil 95 %). CI de la PR

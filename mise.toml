@@ -9,6 +9,11 @@ cargo-deny = "0.20.2"
 run = [
   { task = "rust:static" },
   { task = "rust:test" },
+]
+
+[tasks."check:ci"]
+run = [
+  { task = "rust:coverage" },
   { task = "rust:slow" },
   { task = "rust:settings" },
 ]
@@ -95,9 +100,13 @@ sys.exit(1 if failures else 0)
 EOF
 '''
 
-[tasks."rust:test"]
+[tasks."rust:coverage"]
 depends = ["rust:link"]
 run = "cargo llvm-cov --profile ci --workspace --locked --fail-under-lines 95"
+
+[tasks."rust:test"]
+depends = ["rust:link"]
+run = "cargo test --workspace --locked --profile ci"
 
 [tasks."rust:slow"]
 depends = ["rust:link"]
