@@ -69,7 +69,11 @@ pub(crate) enum Fixed {
     TipLabel,
     MissingArguments,
     InvalidUtf8,
-    NoVideo,
+    ArgumentsRefused,
+    SettingsRefused,
+    SkipRefusedHelp,
+    SkipRefusedDeclined,
+    InputsRefused,
     TallyVideo,
     TallyLength,
     TallyTracks,
@@ -133,7 +137,11 @@ impl Fixed {
             Self::TipLabel => "tip-label",
             Self::MissingArguments => "missing-arguments",
             Self::InvalidUtf8 => "invalid-utf8",
-            Self::NoVideo => "no-video",
+            Self::ArgumentsRefused => "arguments-refused",
+            Self::SettingsRefused => "settings-refused",
+            Self::SkipRefusedHelp => "skip-refused-help",
+            Self::SkipRefusedDeclined => "skip-refused-declined",
+            Self::InputsRefused => "inputs-refused",
             Self::TallyVideo => "tally-video",
             Self::TallyLength => "tally-length",
             Self::TallyTracks => "tally-tracks",
@@ -191,6 +199,7 @@ pub(crate) enum Message {
     VideoFailed {
         rank: Rank,
         video: String,
+        too_many: bool,
     },
     Failure {
         video: String,
@@ -301,10 +310,8 @@ pub(crate) enum Message {
         value: String,
         argument: String,
     },
-    InvalidValueBecause {
+    RegionShape {
         value: String,
-        argument: String,
-        cause: String,
     },
     ValueRequired {
         argument: String,
@@ -316,8 +323,8 @@ pub(crate) enum Message {
         value: String,
         argument: String,
     },
-    ArgumentsRefused {
-        cause: String,
+    DecimalPoint {
+        written: String,
     },
     MoreInformation {
         flag: String,
@@ -325,23 +332,58 @@ pub(crate) enum Message {
     SettingRefused {
         option: String,
         bound: Bound,
-        value: f64,
+        value: Shown,
     },
     RegionRefused {
         index: usize,
         region: String,
     },
     ClipMarginRefused {
-        value: f64,
+        value: Shown,
     },
-    SettingsRefused {
-        causes: String,
+    OptionRefused {
+        option: String,
     },
-    VideosRefused {
-        causes: String,
+    InputRefused {
+        path: String,
+        reason: &'static str,
+    },
+    InputWithoutVideo {
+        path: String,
+        folder: bool,
+        listed: String,
+        last: String,
+    },
+    SharedFolder {
+        path: String,
+        videos: String,
+    },
+    NoVideo {
+        count: usize,
+        listed: String,
+        last: String,
     },
     FoldersRefused {
-        folders: String,
+        count: usize,
+    },
+    FolderRefused {
+        path: String,
+        access: &'static str,
+    },
+    InputsSkipped {
+        count: usize,
+    },
+    SkipRefusedQuestion {
+        count: usize,
+    },
+    TallyRefusedCount {
+        count: usize,
+    },
+    TallyRefusedHeading {
+        count: usize,
+    },
+    Interrupted {
+        rank: Rank,
     },
 }
 
@@ -385,18 +427,27 @@ impl Message {
             Self::SimilarValue { .. } => "similar-value",
             Self::ArgumentAsValue { .. } => "argument-as-value",
             Self::InvalidValue { .. } => "invalid-value",
-            Self::InvalidValueBecause { .. } => "invalid-value-because",
+            Self::RegionShape { .. } => "region-shape",
             Self::ValueRequired { .. } => "value-required",
             Self::UsedTwice { .. } => "used-twice",
             Self::UnexpectedValue { .. } => "unexpected-value",
-            Self::ArgumentsRefused { .. } => "arguments-refused",
+            Self::DecimalPoint { .. } => "decimal-point",
             Self::MoreInformation { .. } => "more-information",
             Self::SettingRefused { .. } => "setting-refused",
             Self::RegionRefused { .. } => "region-refused",
             Self::ClipMarginRefused { .. } => "clip-margin-refused",
-            Self::SettingsRefused { .. } => "settings-refused",
-            Self::VideosRefused { .. } => "videos-refused",
+            Self::OptionRefused { .. } => "option-refused",
+            Self::InputRefused { .. } => "input-refused",
+            Self::InputWithoutVideo { .. } => "input-without-video",
+            Self::SharedFolder { .. } => "shared-folder",
+            Self::NoVideo { .. } => "no-video",
             Self::FoldersRefused { .. } => "folders-refused",
+            Self::FolderRefused { .. } => "folder-refused",
+            Self::InputsSkipped { .. } => "inputs-skipped",
+            Self::SkipRefusedQuestion { .. } => "skip-refused-question",
+            Self::TallyRefusedCount { .. } => "tally-refused-count",
+            Self::TallyRefusedHeading { .. } => "tally-refused-heading",
+            Self::Interrupted { .. } => "interrupted",
         }
     }
 
@@ -433,7 +484,14 @@ impl Message {
                 ranked(&mut arguments, *rank, video);
                 arguments.set("tracks", *tracks);
             }
-            Self::VideoFailed { rank, video } => ranked(&mut arguments, *rank, video),
+            Self::Interrupted { rank } => {
+                arguments.set("position", rank.position);
+                arguments.set("total", rank.total);
+            }
+            Self::VideoFailed { rank, video, too_many } => {
+                ranked(&mut arguments, *rank, video);
+                arguments.set("too-many", if *too_many { YES } else { NO });
+            }
             Self::Failure { video, cause, place } => {
                 arguments.set("video", video.as_str());
                 arguments.set("cause", *cause);
@@ -503,9 +561,9 @@ impl Message {
 
     fn command_line_arguments<'a>(&'a self, arguments: &mut FluentArgs<'a>) {
         match self {
-            Self::DefaultValue { value } => arguments.set("value", value.as_str()),
+            Self::DefaultValue { value } | Self::RegionShape { value } => arguments.set("value", value.as_str()),
             Self::PossibleValues { values } => arguments.set("values", values.as_str()),
-            Self::ClipMarginRefused { value } => arguments.set("value", *value),
+            Self::ClipMarginRefused { value } => value.set(arguments),
             Self::UnexpectedArgument { argument } | Self::ValueRequired { argument } | Self::UsedTwice { argument } => {
                 arguments.set("argument", argument.as_str());
             }
@@ -520,34 +578,60 @@ impl Message {
                 arguments.set("value", value.as_str());
                 arguments.set("argument", argument.as_str());
             }
-            Self::InvalidValueBecause { value, argument, cause } => {
-                arguments.set("value", value.as_str());
-                arguments.set("argument", argument.as_str());
-                arguments.set("cause", cause.as_str());
-            }
-            Self::ArgumentsRefused { cause } => arguments.set("cause", cause.as_str()),
+            Self::DecimalPoint { written } => arguments.set("written", written.as_str()),
             Self::MoreInformation { flag } => arguments.set("flag", flag.as_str()),
             Self::SettingRefused { option, bound, value } => {
                 arguments.set("option", option.as_str());
                 let (name, limit) = selected(*bound);
                 arguments.set("bound", name);
                 arguments.set("limit", limit);
-                arguments.set("value", *value);
+                value.set(arguments);
             }
             Self::RegionRefused { index, region } => {
                 arguments.set("index", *index);
                 arguments.set("region", region.as_str());
             }
-            Self::SettingsRefused { causes } | Self::VideosRefused { causes } => {
-                arguments.set("causes", causes.as_str());
+            Self::OptionRefused { option } => arguments.set("option", option.as_str()),
+            Self::InputRefused { path, reason } => {
+                arguments.set("path", path.as_str());
+                arguments.set("reason", *reason);
             }
-            Self::FoldersRefused { folders } => arguments.set("folders", folders.as_str()),
+            Self::InputWithoutVideo {
+                path,
+                folder,
+                listed,
+                last,
+            } => {
+                arguments.set("path", path.as_str());
+                arguments.set("folder", if *folder { YES } else { NO });
+                arguments.set("listed", listed.as_str());
+                arguments.set("last", last.as_str());
+            }
+            Self::SharedFolder { path, videos } => {
+                arguments.set("path", path.as_str());
+                arguments.set("videos", videos.as_str());
+            }
+            Self::NoVideo { count, listed, last } => {
+                arguments.set("count", *count);
+                arguments.set("listed", listed.as_str());
+                arguments.set("last", last.as_str());
+            }
+            Self::FoldersRefused { count }
+            | Self::InputsSkipped { count }
+            | Self::SkipRefusedQuestion { count }
+            | Self::TallyRefusedCount { count }
+            | Self::TallyRefusedHeading { count } => arguments.set("count", *count),
+            Self::FolderRefused { path, access } => {
+                arguments.set("path", path.as_str());
+                arguments.set("access", *access);
+            }
             Self::Fixed(_)
             | Self::TooManyTracks { .. }
             | Self::ClipsRedone { .. }
             | Self::VideoStep { .. }
             | Self::VideoDone { .. }
             | Self::VideoFailed { .. }
+            | Self::Interrupted { .. }
             | Self::Failure { .. }
             | Self::FailureTodo { .. }
             | Self::FailureDetail { .. }
@@ -572,6 +656,21 @@ impl Message {
             | Self::SummaryMore { .. }
             | Self::SummaryUnreadable { .. }
             | Self::SummaryMoreUnreadable { .. } => {}
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Shown {
+    Number(f64),
+    Written(String),
+}
+
+impl Shown {
+    fn set<'a>(&'a self, arguments: &mut FluentArgs<'a>) {
+        match self {
+            Self::Number(number) => arguments.set("value", *number),
+            Self::Written(written) => arguments.set("value", written.as_str()),
         }
     }
 }

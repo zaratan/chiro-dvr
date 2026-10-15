@@ -1,3 +1,5 @@
+use std::fmt;
+
 use types::rate::FrameRate;
 use types::track::Track;
 
@@ -6,10 +8,25 @@ mod tests;
 
 #[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
 pub enum Error {
-    #[error("{name} must be a finite number of seconds, at least 0, not {value}")]
-    Seconds { name: &'static str, value: f64 },
+    #[error("{setting} must be a finite number of seconds, at least 0, not {value}")]
+    Seconds { setting: Seconds, value: f64 },
     #[error("{name} must be a finite number above 0, not {value}")]
     Threshold { name: &'static str, value: f64 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Seconds {
+    Trail,
+    ClipMargin,
+}
+
+impl fmt::Display for Seconds {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::Trail => "trail_s",
+            Self::ClipMargin => "clip_margin_s",
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -116,9 +133,9 @@ impl Default for RenderConfig {
 
 impl RenderConfig {
     pub fn new(box_pad: u32, trail_s: f64, clip_margin_s: f64, max_tracks: usize) -> Result<Self, Error> {
-        for (name, value) in [("trail_s", trail_s), ("clip_margin_s", clip_margin_s)] {
+        for (setting, value) in [(Seconds::Trail, trail_s), (Seconds::ClipMargin, clip_margin_s)] {
             if !(value.is_finite() && value >= 0.0) {
-                return Err(Error::Seconds { name, value });
+                return Err(Error::Seconds { setting, value });
             }
         }
         Ok(Self {

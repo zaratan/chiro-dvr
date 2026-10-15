@@ -14,14 +14,63 @@ toujours les mêmes pixels d'une lecture à l'autre.
   (`video_092_original_3m24-4m05/`) et de la 092 entière (`video_092_original/`), la 092 à 1440
   pixels de travail (`video_092_original_width_1440/`, voir [Réglages](#réglages)), et dans
   `settings/` les 16 cas enregistrés à d'autres réglages de détection (voir
-  [Réglages](#réglages)). Fichiers git ordinaires, sans vidéo ni image.
+  [Réglages](#réglages)). Dans `zooms/`, la liste triée des noms des `*_zoom.mp4` que la
+  v0.1.1 a écrits pour la 097 et la 125 (`video_097.txt`, 74 noms ; `video_125.txt`, 39), tirée
+  une fois de `outputs/fr/<vidéo>/extraits/` ; `local_command` la lit à la place de ces dossiers.
+  `SHA256SUMS` : voir [Récupération](#récupération-sur-une-autre-machine). Fichiers git
+  ordinaires, sans vidéo ni image.
 - **Hors dépôt**, dans le dossier nommé par la variable `BATDETECT_REFERENCE_DIR` (sur le Mac de
   l'enregistrement : `~/Projects/dvr-wt/reference-v0.1.1`) :
   - `data/<vidéo>/` : les données des 26 vidéos de `~/dossier sans titre/img_0000/` ;
   - `bench/transit/`, `bench/hunt/` : les deux bancs de la 092 ;
+  - `summary/<vidéo>.json` : les attendus de l'image résumé ;
   - `outputs/fr/<vidéo>/`, `outputs/en/<vidéo>/` : les sorties complètes de la commande ;
   - `videos/video_089-091.mp4` : la 089, la 090 et la 091 concaténées sans réencodage ;
   - `logs/` : journal de chaque lancement, avec son temps de calcul.
+- **Les 26 vidéos**, dans le dossier nommé par la variable `BATDETECT_VIDEOS_DIR` (sur le Mac
+  de l'enregistrement : `~/dossier sans titre/img_0000`).
+
+### Récupération sur une autre machine
+
+Le seau Scaleway `chiro-dvr-videos` (projet `chiro-dvr`), lu par rclone sous le remote
+`chiro-dvr` (clé de l'utilisateur dans sa configuration rclone), porte deux préfixes :
+
+- `reference-v0.1.1/` : `data/`, `bench/`, `summary/`, `logs/`, les sorties de l'extrait
+  (`outputs/{fr,en}/video_092_original_3m24-4m05/`, lues par `local_outputs`) et un `README.md`
+  (provenance, recette pour réenregistrer). Les autres sorties et `videos/` n'y sont pas : aucun
+  test ne les lit, et s'ils sont refaits depuis le tag, c'est hors de `BATDETECT_REFERENCE_DIR`,
+  que la tâche refuserait ensuite ;
+- `img_0000/` : les 26 vidéos.
+
+`SHA256SUMS`, à côté de ce fichier, donne la somme (`shasum -a 256`) de chacun des 199
+fichiers de la référence et des 26 vidéos, sous ces deux préfixes ; le `README.md` du seau n'y
+est pas, et n'est pas récupéré.
+
+Contrôles du seau après envoi, depuis le Mac de l'enregistrement, par `rclone check` du dossier
+local contre le préfixe :
+
+| Préfixe | Source | Date | Résultat |
+| --- | --- | --- | --- |
+| `img_0000/` (`--include "*.mp4"`) | `~/dossier sans titre/img_0000` | 15 octobre 2026, 20 h 41 | `0 differences found`, `26 matching files` |
+| `reference-v0.1.1/` | `~/Projects/dvr-wt/seau/reference-v0.1.1` | 16 octobre 2026, 0 h 26 | `0 differences found`, `200 matching files` |
+
+```bash
+BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… mise run rust:data
+```
+
+Les deux variables sont obligatoires et leurs chemins absolus, comme les lisent les tests.
+Avant tout téléchargement, la tâche refuse un dossier qui recouvre `in/` ou
+`~/dossier sans titre/img_0000` (comparés comme fichiers, quelle que soit la casse écrite), les
+deux variables sur le même dossier, un dossier de référence qui contient un fichier absent de
+`SHA256SUMS` et un dossier de vidéos qui contient un mp4 absent de `SHA256SUMS` (`.DS_Store` et
+`._*` ignorés), ou un mp4 au nom d'une des 26 vidéos mais à la somme différente : ce peut être
+une vidéo d'une autre soirée, les jumelles reprenant leur numérotation, et la tâche n'écrit
+jamais par-dessus. Un `.partial` laissé par rclone n'est pas concerné. Elle copie ensuite par
+`rclone copy` les seuls fichiers nommés dans `SHA256SUMS` ; rclone ne télécharge que ce qui
+manque ou diffère. Puis elle vérifie chaque somme et s'arrête sur la
+première différence, avec le nom des fichiers. Un fichier abîmé se supprime à la main, puis la
+tâche se relance. Elle finit par une ligne de bilan par emplacement. Relancée
+aussitôt, elle ne télécharge rien.
 
 ## Conventions
 

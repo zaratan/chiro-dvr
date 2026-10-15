@@ -110,3 +110,90 @@ run = "cargo test --workspace --locked --profile ci --test 'settings_*' -- --inc
 [tasks."rust:reference"]
 depends = ["rust:link"]
 run = "cargo test --workspace --locked --profile ci --test 'reference_*' -- --include-ignored"
+
+[tasks."rust:data"]
+shell = "bash -c"
+env = { REMOTE = "chiro-dvr:chiro-dvr-videos", SUMS = "tests/fixtures/reference/SHA256SUMS" }
+run = '''
+set -euo pipefail
+fail() { echo "rust:data: $*" >&2; exit 1; }
+for tool in rclone shasum python3; do
+  command -v "$tool" > /dev/null || fail "$tool is not installed"
+done
+[ -n "${BATDETECT_REFERENCE_DIR:-}" ] || fail "BATDETECT_REFERENCE_DIR is not set"
+[ -n "${BATDETECT_VIDEOS_DIR:-}" ] || fail "BATDETECT_VIDEOS_DIR is not set"
+checkout=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+python3 -I - "$BATDETECT_REFERENCE_DIR" "$BATDETECT_VIDEOS_DIR" "$MISE_PROJECT_ROOT/in" "$checkout/in" "$HOME/dossier sans titre/img_0000" <<'EOF'
+import os
+import sys
+
+def lineage(path):
+    path = os.path.realpath(path)
+    while True:
+        yield path
+        if os.path.dirname(path) == path:
+            return
+        path = os.path.dirname(path)
+
+def same(a, b):
+    return a == b or (os.path.exists(a) and os.path.exists(b) and os.path.samefile(a, b))
+
+def overlap(a, b):
+    return any(same(up, os.path.realpath(b)) for up in lineage(a)) or any(same(up, os.path.realpath(a)) for up in lineage(b))
+
+reference, videos, *protected = sys.argv[1:]
+for target in (reference, videos):
+    if not os.path.isabs(target):
+        sys.exit(f"rust:data: {target} is not an absolute path")
+    for kept in protected:
+        if overlap(target, kept):
+            sys.exit(f"rust:data: {target} overlaps {kept}, which holds the user's videos")
+if overlap(reference, videos):
+    sys.exit("rust:data: BATDETECT_REFERENCE_DIR and BATDETECT_VIDEOS_DIR overlap")
+EOF
+
+sums="$MISE_PROJECT_ROOT/$SUMS"
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+sums_under() { grep -F "  $1/" "$sums" | sed "s|  $1/|  |" > "$work/$1.sums"; cut -c67- "$work/$1.sums" | LC_ALL=C sort > "$work/$1.known"; }
+refuse_strangers() {
+  local prefix=$1 dir=$2 depth=$3 pattern=$4 strangers
+  [ -d "$dir" ] || return 0
+  strangers=$( (cd "$dir" && find . -mindepth 1 -maxdepth "$depth" -type f -name "$pattern" -not -name .DS_Store -not -name '._*') \
+    | sed 's|^\./||' | LC_ALL=C sort | LC_ALL=C comm -23 - "$work/$prefix.known" | tr '\n' ' ')
+  [ -z "$strangers" ] || fail "$dir holds files that are not in $SUMS: $strangers"
+}
+failed_in() { sed -n 's/: FAILED.*$//p' "$1" | paste -sd ' ' -; }
+refuse_altered() {
+  local prefix=$1 dir=$2 altered
+  [ -d "$dir" ] || return 0
+  (cd "$dir" && while read -r sum name; do
+    if [ -f "$name" ]; then printf '%s  %s\n' "$sum" "$name"; fi
+  done < "$work/$prefix.sums") > "$work/present.sums"
+  [ -s "$work/present.sums" ] || return 0
+  (cd "$dir" && shasum -a 256 -c --quiet "$work/present.sums" > "$work/check" 2>&1) && return 0
+  altered=$(failed_in "$work/check")
+  [ -n "$altered" ] || { command cat "$work/check" >&2; fail "$dir: shasum failed"; }
+  fail "$dir holds videos whose SHA-256 differ from $SUMS: $altered; delete them by hand if they are damaged copies, and run again"
+}
+fetch() {
+  local prefix=$1 dir=$2 downloaded
+  mkdir -p "$dir"
+  rclone copy "$REMOTE/$prefix" "$dir" --files-from "$work/$prefix.known" --log-level INFO --log-file "$work/log" \
+    || { command cat "$work/log" >&2; fail "rclone copy $REMOTE/$prefix failed"; }
+  downloaded=$(grep -cE ': (Multi-thread )?Copied \(' "$work/log" || true)
+  if ! (cd "$dir" && shasum -a 256 -c --quiet "$work/$prefix.sums" > "$work/check" 2>&1); then
+    command cat "$work/check" >&2
+    fail "$dir: SHA-256 differ from $SUMS for $(failed_in "$work/check"); delete them by hand and run again"
+  fi
+  echo "$prefix in $dir: $(wc -l < "$work/$prefix.known" | tr -d ' ') files, $downloaded downloaded, SHA-256 all equal"
+  rm -f "$work/log"
+}
+sums_under reference-v0.1.1
+sums_under img_0000
+refuse_strangers reference-v0.1.1 "$BATDETECT_REFERENCE_DIR" 64 "*"
+refuse_strangers img_0000 "$BATDETECT_VIDEOS_DIR" 1 "*.mp4"
+refuse_altered img_0000 "$BATDETECT_VIDEOS_DIR"
+fetch reference-v0.1.1 "$BATDETECT_REFERENCE_DIR"
+fetch img_0000 "$BATDETECT_VIDEOS_DIR"
+'''

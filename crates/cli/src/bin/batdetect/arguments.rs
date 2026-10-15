@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use batdetect::options::Options;
 use clap::builder::{PossibleValuesParser, StyledStr, TypedValueParser};
 use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
-use engine::config::DetectConfig;
-use engine::settings::{DetectSettings, Region, Setting};
+use engine::config::{DetectConfig, MIN_WORK_WIDTH};
+use engine::settings::{Bound, DetectSettings, Region, Setting};
 use render::config::{RenderConfig, Zoom, ZoomConfig};
 use tracking::settings::StabilitySettings;
 use tracking::stability::StabilityConfig;
@@ -15,6 +15,7 @@ use tracking::track::TrackConfig;
 
 use crate::errors;
 use crate::messages;
+use crate::parsing::{Expected, Reader};
 use crate::style::{HELP, STYLES};
 use crate::texts::{Fixed, Message, Texts};
 
@@ -22,6 +23,7 @@ pub(crate) const PROGRAM: &str = env!("CARGO_BIN_NAME");
 pub(crate) const MIN_HITS: &str = "min-hits";
 pub(crate) const MAX_BLOBS: &str = "max-blobs";
 pub(crate) const OSD_REGION: &str = "osd-region";
+const SKIP_REFUSED: &str = "skip-refused";
 
 #[cfg(test)]
 mod tests;
@@ -31,6 +33,7 @@ pub(crate) struct Request {
     pub(crate) inputs: Vec<PathBuf>,
     pub(crate) out_dir: Option<PathBuf>,
     pub(crate) options: Options,
+    pub(crate) skip_refused: bool,
 }
 
 fn number(id: &'static str, value: &impl ToString, name: Fixed, help: Fixed, texts: Texts) -> Arg {
@@ -117,7 +120,7 @@ fn useful_arguments(level: Level, texts: Texts) -> Vec<Arg> {
             Fixed::MaxTracksHelp,
             texts,
         )
-        .value_parser(value_parser!(usize)),
+        .value_parser(Reader::<usize>::exact(Expected::Setting(Bound::AtLeast(0)))),
         number(
             "clip-margin",
             &render.clip_margin_s(),
@@ -125,17 +128,22 @@ fn useful_arguments(level: Level, texts: Texts) -> Vec<Arg> {
             Fixed::ClipMarginHelp,
             texts,
         )
-        .value_parser(value_parser!(f64)),
+        .value_parser(Reader::<f64>::decimal(Expected::Seconds)),
         Arg::new(OSD_REGION)
             .long(OSD_REGION)
             .value_name("X0,Y0,X1,Y1")
             .action(ArgAction::Append)
-            .value_parser(value_parser!(Region))
+            .allow_hyphen_values(true)
+            .value_parser(Reader::<Region>::exact(Expected::Region))
             .help(with_default(
                 &texts.text(Fixed::OsdRegionHelp),
                 &texts.text(Fixed::NoRegion),
                 texts,
             )),
+        Arg::new(SKIP_REFUSED)
+            .long(SKIP_REFUSED)
+            .action(ArgAction::SetTrue)
+            .help(texts.text(Fixed::SkipRefusedHelp)),
     ]
     .into_iter()
     .map(|argument| argument.hide(level == Level::Essential))
@@ -154,7 +162,7 @@ fn advanced_arguments(level: Level, texts: Texts) -> Vec<Arg> {
             Fixed::ThresholdHelp,
             texts,
         )
-        .value_parser(value_parser!(f64)),
+        .value_parser(Reader::<f64>::decimal(Expected::Setting(Bound::Positive))),
         number(
             MIN_HITS,
             &track.min_hits(),
@@ -162,7 +170,7 @@ fn advanced_arguments(level: Level, texts: Texts) -> Vec<Arg> {
             Fixed::MinHitsHelp,
             texts,
         )
-        .value_parser(value_parser!(NonZeroUsize)),
+        .value_parser(Reader::<NonZeroUsize>::exact(Expected::Setting(Bound::AtLeast(1)))),
         number(
             MAX_BLOBS,
             &stability.max_blobs,
@@ -170,7 +178,7 @@ fn advanced_arguments(level: Level, texts: Texts) -> Vec<Arg> {
             Fixed::MaxBlobsHelp,
             texts,
         )
-        .value_parser(value_parser!(u32)),
+        .value_parser(Reader::<u32>::exact(Expected::Setting(Bound::AtLeast(0)))),
         number(
             Setting::WorkWidth.flag(),
             &detect.work_width,
@@ -178,7 +186,7 @@ fn advanced_arguments(level: Level, texts: Texts) -> Vec<Arg> {
             Fixed::WorkWidthHelp,
             texts,
         )
-        .value_parser(value_parser!(u32)),
+        .value_parser(Reader::<u32>::exact(Expected::Setting(Bound::AtLeast(MIN_WORK_WIDTH)))),
     ]
     .into_iter()
     .map(|argument| argument.hide(level == Level::Essential))
@@ -222,8 +230,7 @@ fn command(level: Level, texts: Texts) -> Command {
         Level::Full => texts.files_produced(),
     };
     Command::new(PROGRAM)
-        .version(messages::version())
-        .long_version(messages::long_version(
+        .version(messages::long_version(
             &media::library::version(),
             media::library::license(),
         ))
@@ -268,6 +275,7 @@ pub(crate) fn parse(
         inputs,
         out_dir,
         options,
+        skip_refused: matches.get_flag(SKIP_REFUSED),
     })
 }
 
@@ -290,12 +298,12 @@ fn options(matches: &mut ArgMatches, texts: Texts) -> Result<Options, clap::Erro
         default_track.twin_distance(),
         default_track.max_median_turn(),
     )
-    .map_err(|error| refusal(texts, &messages::settings_refused(&error)))?;
+    .map_err(|error| refusal(texts, &messages::tracking_refused(MIN_HITS, &error)))?;
     let stability = StabilityConfig::new(
         NonZeroU32::new(one(matches, MAX_BLOBS, texts)?),
         StabilityConfig::default().pad_s(),
     )
-    .map_err(|error| refusal(texts, &messages::settings_refused(&error)))?;
+    .map_err(|error| refusal(texts, &messages::tracking_refused(MAX_BLOBS, &error)))?;
     let default_render = RenderConfig::default();
     let choice = one::<Zoom>(matches, "zoom", texts)?;
     let render = RenderConfig::new(
@@ -316,18 +324,17 @@ fn options(matches: &mut ArgMatches, texts: Texts) -> Result<Options, clap::Erro
 }
 
 fn one<T: Clone + Send + Sync + 'static>(matches: &mut ArgMatches, id: &str, texts: Texts) -> Result<T, clap::Error> {
-    matches.remove_one::<T>(id).ok_or_else(|| {
-        refusal(
-            texts,
-            &Message::SettingsRefused {
-                causes: format!("--{id}"),
-            },
-        )
-    })
+    matches
+        .remove_one::<T>(id)
+        .ok_or_else(|| refusal(texts, &messages::option_refused(id)))
 }
 
 fn many<T: Clone + Send + Sync + 'static>(matches: &mut ArgMatches, id: &str) -> Vec<T> {
     matches.remove_many::<T>(id).map(Iterator::collect).unwrap_or_default()
+}
+
+pub(crate) fn rejection(texts: Texts, heading: &Message, lines: &[String]) -> clap::Error {
+    errors::rejection(texts, heading, lines, &mut command(Level::Essential, texts))
 }
 
 pub(crate) fn refusal(texts: Texts, message: &Message) -> clap::Error {

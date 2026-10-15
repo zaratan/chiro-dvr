@@ -33,6 +33,17 @@ fn version_names_the_lgpl_ffmpeg_it_links() {
 }
 
 #[test]
+fn the_short_and_the_long_version_flags_print_the_same_two_lines() {
+    let short = english().arg("-V").output().unwrap();
+    let long = english().arg("--version").output().unwrap();
+    assert!(short.status.success());
+    assert_eq!(short.stdout, long.stdout);
+    let text = String::from_utf8(short.stdout).unwrap();
+    assert_eq!(text.lines().count(), 2, "{text}");
+    assert!(text.lines().nth(1).unwrap().starts_with("FFmpeg "), "{text}");
+}
+
+#[test]
 fn without_arguments_the_common_uses_go_to_the_standard_output_with_a_success_code() {
     let output = english().output().unwrap();
     assert_eq!(output.status.code(), Some(0));

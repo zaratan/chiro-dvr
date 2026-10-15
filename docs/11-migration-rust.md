@@ -439,7 +439,7 @@ Forme et tests :
 | settings | `tests/settings_*.rs`, `#[ignore = "settings"]` | `mise run rust:settings` | les 16 cas du banc d'essai sur l'extrait et sa 720×540 (`settings_agreement`), sous Linux seulement en CI (#167) |
 | reference | `tests/reference_*.rs`, `#[ignore = "reference"]` | `mise run rust:reference` | la 092 : 9 011 images, cadence moyenne 90110000/3000927, aux défauts et à 1440 pixels de travail (#151), en un seul binaire depuis #184 (`cli/tests/reference_092.rs`) |
 | matériel | `tests/hardware_*.rs`, `#[ignore = "hardware"]` | étape d'essai de la CI macOS | VideoToolbox sans repli logiciel |
-| local | `tests/local_*.rs`, `#[ignore = "local"]` | `BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… cargo test --workspace --locked --profile ci --test 'local_*' -- --include-ignored` | les 26 vidéos de la référence, hors dépôt, jamais en CI |
+| local | `tests/local_*.rs`, `#[ignore = "local"]` | `BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… cargo test --workspace --locked --profile ci --test 'local_*' -- --include-ignored` | les 26 vidéos de la référence, hors dépôt, jamais en CI ; récupérées du seau sur une autre machine par `mise run rust:data` ([emplacements](../tests/fixtures/reference/README.md#récupération-sur-une-autre-machine)) |
 
 - Le niveau d'un test se choisit par le nom de son fichier. Ajouter un test ne demande
   de toucher ni la CI ni `mise.toml`.
@@ -1685,7 +1685,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       la ligne suivante dès qu'une seule ne tient plus (règle des 40 % de `help_template`).
       Les tests rendent l'aide à 100 colonnes fixes.
     - `-V/--version` est une option de la commande, au ton des autres (« print the
-      version »), comme `-h/--help`.
+      version »), comme `-h/--help`. Les deux écrivent les mêmes deux lignes, version
+      puis FFmpeg et sa licence (#196) : la commande n'a qu'une `version`, la longue.
     - Le gabarit de la commande (`help_template`, #114) reprend celui de clap avec notre
       titre d'usage, et garde `{before-help}` et `{after-help}` : les exemples de #56 s'y
       logeront sans changer la forme des options.
@@ -1696,17 +1697,67 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       `StabilityConfig`, `RenderConfig`) et `annotated` ; `process` et `Settings::of` le
       reçoivent par référence.
     - Une valeur refusée (type, borne d'un constructeur, zone mal formée) est une erreur
-      d'usage, code 2, qui nomme l'option (`--threshold must be a finite number > 0, not -1`).
+      d'usage, code 2, qui nomme l'option et sa plage, sans ligne d'usage
+      (`--threshold must be a finite number > 0, not -1`). Une valeur illisible
+      (`--max-tracks many`) dit la même phrase avec la valeur telle qu'écrite (#55) :
+      `parsing::Reader` lit chaque option et porte l'option, la plage et la valeur dans
+      `parsing::Unreadable`, que `errors.rs` traduit. Les entiers ne disent que leur borne
+      basse (`un entier ≥ 0`), pas le maximum du type. Une virgule décimale, sur
+      `--threshold` et `--clip-margin` seulement, reçoit le conseil « écrire 11.5, avec un
+      point ». Une valeur vide dit « une valeur est attendue ». `--osd-region` accepte une
+      valeur qui commence par un tiret (`allow_hyphen_values`), refusée ensuite par la
+      phrase de la zone.
+    - Les refus que la ligne de commande ne peut pas atteindre (`TrackConfig`,
+      `StabilityConfig`, une option sans valeur par défaut) nomment l'option et demandent
+      de le signaler ; ceux d'un réglage interne (`min_area` contre `max_area`, `trail_s`)
+      disent « les réglages par défaut sont refusés ». `render::config::Error::Seconds`
+      porte le réglage refusé (`Seconds::ClipMargin`), et non son nom en texte.
     - `--osd-region` se lit par `FromStr for engine::settings::Region` (`x0,y0,x1,y1`), la
       même lecture que le banc ; `Display` l'écrit de la même façon.
     - Le rappel des réglages avancés modifiés ira dans le bilan (#65) ; `params.json` les
       enregistre déjà. `--force` part à #70.
   - Un dossier donne ses vidéos (`mp4`, `mov`, `avi`, `mkv`, `m4v`), par ordre de nom, au
     premier niveau seulement : un `batdetect/` voisin n'est pas repris.
+  - Refus en bloc avant tout calcul (`jobs::plan`, #55). Toutes les entrées sont relevées
+    avant la première détection, et une seule fautive arrête tout le lot (code 2, aucun
+    dossier créé). Chaque refus est une ligne « chemin : raison », sous « aucune vidéo
+    n'est traitée : », sans ligne d'usage ni renvoi à l'aide. Les raisons, typées par
+    `jobs::Reason` :
+    - chemin absent ;
+    - fichier nommé dont l'extension n'est pas une des cinq ;
+    - dossier sans vidéo, parmi d'autres entrées ;
+    - chemin ou dossier illisible, la raison étant prise dans la table fermée
+      `access::Access` (refusé, pas un dossier, introuvable, lecture seule, disque plein,
+      sinon inaccessible) ;
+    - plusieurs vidéos vers le même dossier de résultats : une ligne par dossier, qui
+      nomme toutes ses vidéos, après les refus d'entrées puisque ce sont des sorties.
+
+    Si toutes les entrées sont des dossiers sans vidéo, le refus devient « aucune vidéo
+    (mp4, mov, avi, mkv ou m4v) trouvée dans ce dossier : », suivi des dossiers.
+
+    Quand des vidéos valides restent à côté des refus, la commande peut les traiter
+    (`consent::Asking`, décision de l'utilisateur du 16 octobre) :
+    - Si l'entrée standard est un terminal, la liste des refus passe sous « 2 entrées sont
+      refusées : », puis la sortie d'erreur pose la question « Traiter quand même les 3
+      vidéos valides ? (O/n) » (« (Y/n) » en anglais).
+      - Entrée, o, O, y ou Y valent oui, dans les deux langues ; n ou N valent non.
+      - Toute autre réponse fait reposer la question.
+      - La fin de l'entrée ou une erreur de lecture vaut non.
+      - Oui : les vidéos valides sont traitées et le code de sortie vaut 1. Non : « aucune
+        vidéo n'est traitée », code 2.
+    - `--skip-refused` vaut un oui sans question, avec ou sans terminal.
+    - Sans terminal et sans l'option (script, redirection), le refus en bloc reste.
+    - Si aucune entrée n'est valide, le refus en bloc reste, avec ou sans l'option.
+    - Le bilan, toujours sur la sortie standard, compte « 2 entrées refusées » dans son
+      titre et les liste sous « Entrées refusées, non traitées : ».
+    - Le chemin avec question se teste dans `consent`, sur une entrée fabriquée. Un test
+      de commande ne peut pas fabriquer de terminal sans pseudo-terminal.
+    `failure::Missing` et `NotAVideo` restent pour un fichier qui disparaît ou change
+    entre le départ et son tour.
   - Une vidéo donnée deux fois, sous n'importe quelle écriture (son dossier et son nom,
     `./`, un lien), n'est traitée qu'une fois, sous sa première écriture (#194). La clé est
     son chemin réel (`fs::canonicalize`), ou, pour un fichier absent, le dossier réel suivi
-    du nom, si bien qu'un chemin introuvable garde sa phrase de #64.
+    du nom, si bien qu'un chemin introuvable donné deux fois n'est refusé qu'une fois.
   - Dossiers de sortie (`jobs::plan_jobs`, #86, #91). Les racines et les homonymes se
     comparent sur le dossier réel (#194). Une racine écrite de deux façons reprend sa
     première écriture, si bien que le bilan n'a qu'un titre par dossier. La racine d'une vidéo est `-o`, ou
@@ -1728,7 +1779,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
         casse près reçoivent deux noms qui n'étaient pas nécessaires. Deux dossiers
         `Nuit/x.mp4` et `nuit/x.mp4` sont refusés comme un seul (code 2), avec ou sans `-o`.
     - Deux vidéos qui écriraient au même endroit, à la même clé près, sont refusées avant
-      tout calcul (code 2).
+      tout calcul (code 2), avec les autres entrées fautives (#55).
   - Contrôle d'écriture (`writable::unwritable_folders`, #86), avant tout calcul, pour
     chaque racine, celle de `-o` comprise. `create_dir_all` ne suffit pas : il réussit sur
     un dossier existant en lecture seule.
@@ -1738,13 +1789,18 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       au chemin mal tapé ne laisse pas de `batdetect/` vide.
     - Un `batdetect/<vidéo>/` existant mais en lecture seule passe la sonde de sa racine,
       et sa vidéo échoue seule, après la détection.
-    - Si une racine refuse, aucune vidéo n'est traitée (code 2), et chaque dossier refusé
-      est nommé avec sa cause : « aucune vidéo n'est traitée, les résultats ne peuvent pas
-      s'écrire dans : … » (Fluent).
+    - Si une racine refuse, aucune vidéo n'est traitée (code 2) : « aucune vidéo n'est
+      traitée, les résultats ne peuvent pas s'écrire dans ce dossier : », puis une ligne
+      « dossier : raison » par dossier, sans ligne d'usage ni renvoi à l'aide (#55). La
+      raison vient de la table fermée `access::Access` : écriture refusée, pas un dossier,
+      introuvable, disque en lecture seule, disque plein, sinon inaccessible.
     - Un `-o` qui est un fichier est refusé de même, avant la détection.
   - Bilan de fin de soirée (#65), écrit une fois après `run_all`, sur la sortie standard.
     - Modèle sans texte dans la bibliothèque : `tally::Tally` (les `Row` de `run_all`),
-      avec `roots()` (les dossiers de résultats dans l'ordre où ils apparaissent),
+      avec `roots()` (les dossiers de résultats dans l'ordre où ils apparaissent, et
+      seulement ceux qui existent, #196 : une racine qui n'a que des vidéos en échec n'a
+      de titre que si son dossier est sur le disque ; ses vidéos restent sous « vidéos en
+      échec »),
       `rows_in`, `done`, `too_many`, `failed`, `kept` et `all_done`. Il servira à #69 et
       #71. Mise en forme dans le binaire : `board::write`.
     - Titre : « Bilan : 12 vidéos, 10 réussies, 1 avec trop de pistes, 1 en échec » (les
@@ -1794,7 +1850,15 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     - Le binaire (`status.rs`) écrit « [3/12] video_092 — détection », puis « — suivi »,
       « — image résumé », « — extraits ». La vidéo est nommée sans extension, et son rang
       compte dans le lot.
-    - La ligne d'une vidéo finie reste : « [3/12] video_092 — 14 pistes », ou « — échec ».
+    - La ligne d'une vidéo finie reste : « [3/12] video_092 — 14 pistes », « — trop de
+      pistes » (le mot du bilan, #196) ou « — échec ».
+    - Ctrl-C (#196) : un gestionnaire `ctrlc`, posé par `main` une fois le lot admis,
+      efface la ligne d'étape sur un terminal, écrit « lot interrompu à la vidéo 3/12 ;
+      relancer la même commande refait le lot » sur la sortie d'erreur et sort en 130,
+      même si la ligne ne s'écrit pas, en gardant la sortie d'erreur jusqu'à la sortie.
+      `Status` retient la vidéo en cours. Rien
+      d'autre ne se fait : un `.partial` laissé par l'interruption est retiré par le
+      ménage de la relance (#115). La reprise d'un lot interrompu est #70.
     - Les lignes d'événement (extrait refait, cause d'un échec) s'écrivent
       au-dessus de cette dernière ligne.
     - Le mode se choisit par `std::io::IsTerminal` sur la sortie d'erreur.
@@ -1825,9 +1889,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     `Converter::new(…, SourceRange::FullBlackAt16)`, puis `summary::pages` ; chaque page
     prend son nom par `Names::summary_png`. Pas de fond : erreur `NoBackground`.
   - Extraits (#112) : `render_clips`, appelée après l'image résumé.
-    - Le dossier des extraits (`extraits` ou `clips`, selon la langue), vidé par le
-      ménage, est recréé avant le rendu.
-    - Garde `max_tracks` (300) : au-delà, le dossier est vidé, aucun extrait n'est écrit,
+    - Le dossier des extraits (`extraits` ou `clips`, selon la langue), retiré par le
+      ménage, n'est recréé qu'avec au moins un extrait à écrire, après l'essai d'encodeur
+      réussi (#195) : 0 piste, trop de pistes ou aucun encodeur ne laissent aucun dossier.
+    - Garde `max_tracks` (300) : au-delà, aucun extrait n'est écrit,
       et la vidéo échoue avec sa ligne (« 301 pistes, au-delà de 300 : extraits non
       écrits ») après le CSV, `params.json` et l'image résumé.
     - Encodeurs : un essai d'encodage (`Fallback::trial`) à la taille et à la cadence de
@@ -1886,15 +1951,19 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       `clap::Error::apply`, les rend depuis `ErrorKind` et `ContextKind` ; impression,
       couleurs et codes de sortie restent ceux de clap. Nos refus portent leur phrase dans
       `ContextKind::Custom`, et non par `Command::error`, dont le message tout fait ne passe
-      pas par le formateur. En anglais, les erreurs essayées par le test (option inconnue,
-      avec option ou valeur proche et conseil `--`, valeur invalide ou vide, nombre
-      illisible, valeur donnée à un interrupteur, option répétée, argument manquant) sont
-      rendues à l'identique de clap, couleurs comprises ; un genre non
-      prévu donne « the arguments are refused: » (« les arguments sont refusés : ») suivi
-      du texte anglais du genre.
-    - Causes : les `Display` des erreurs des bibliothèques restent en anglais, après une
-      phrase traduite : « {vidéo} : échec : {causes} », « vidéos refusées : {causes} ». #64
-      traduira les causes connues.
+      pas par le formateur. En anglais, les erreurs de syntaxe essayées par le test (option
+      inconnue, avec option ou valeur proche et conseil `--`, valeur hors choix ou vide,
+      valeur donnée à un interrupteur, option répétée, argument manquant) sont rendues
+      comme clap les écrit, couleurs comprises, au pied près. Un genre non prévu donne
+      « les arguments sont refusés », sans le texte anglais du genre (#55).
+    - Ligne d'usage et pied (#55). La ligne d'usage ne suit que les erreurs de syntaxe de
+      clap. Les refus de valeurs ne l'ont pas et gardent le pied, « Pour en savoir plus,
+      essayez 'batdetect --help'. », dont le nom vient de `CARGO_BIN_NAME`. Les refus
+      d'entrées et de dossiers n'ont ni l'une ni l'autre (`errors::rejection`, marqués par
+      `ErrorKind::Io`).
+    - Causes : les `Display` des erreurs des bibliothèques restent en anglais dans le seul
+      détail d'un échec (`failure-detail`, #64) et dans `clips-redone`. Aucun refus avant
+      calcul n'interpole plus de texte anglais (#55).
     - Noms d'options : `engine::settings::Setting::flag()` (`threshold`, `work-width`, …)
       nomme l'option dans la commande comme au banc, pour `Arg::long` comme pour les refus.
       La phrase du refus reste en deux copies : anglaise au banc, Fluent dans la commande.
