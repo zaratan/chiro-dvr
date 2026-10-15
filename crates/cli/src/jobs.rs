@@ -35,12 +35,18 @@ pub struct Refused {
     pub reason: Reason,
 }
 
+impl Refused {
+    fn names(&self, video: &Path) -> bool {
+        matches!(&self.reason, Reason::SharedFolder { videos } if videos.iter().any(|shared| shared == video))
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("no video found")]
     NoVideo { folders: Vec<PathBuf> },
     #[error("{} inputs are refused", refused.len())]
-    Refused { refused: Vec<Refused> },
+    Refused { refused: Vec<Refused>, valid: Vec<Job> },
 }
 
 pub const fn video_extensions() -> &'static [&'static str] {
@@ -50,6 +56,10 @@ pub const fn video_extensions() -> &'static [&'static str] {
 pub fn plan(inputs: &[PathBuf], out: Option<&Path>) -> Result<Vec<Job>, Error> {
     let Collected { videos, mut refused } = collect_videos(inputs);
     let (jobs, shared) = plan_jobs(&videos, out);
+    let jobs: Vec<Job> = jobs
+        .into_iter()
+        .filter(|job| !shared.iter().any(|refusal| refusal.names(&job.video)))
+        .collect();
     refused.extend(shared);
     if jobs.is_empty() && refused.iter().all(|refusal| refusal.reason == Reason::NoVideo) {
         return Err(Error::NoVideo {
@@ -59,7 +69,7 @@ pub fn plan(inputs: &[PathBuf], out: Option<&Path>) -> Result<Vec<Job>, Error> {
     if refused.is_empty() {
         Ok(jobs)
     } else {
-        Err(Error::Refused { refused })
+        Err(Error::Refused { refused, valid: jobs })
     }
 }
 

@@ -200,3 +200,21 @@ files-long =
     A long or crowded video has several summary images, per 10 min slice ({ $period })
     or per part ({ $part }).
 guide = Full guide:
+inputs-skipped = { $count ->
+        [one] one input is refused
+       *[other] { $count } inputs are refused
+    }:
+skip-refused-question = Process { $count ->
+        [one] the valid video
+       *[other] the { $count } valid videos
+    } anyway? (Y/n)
+skip-refused-declined = no video is processed
+skip-refused-help = Processes the valid videos without asking when some inputs are refused
+tally-refused-count = { $count ->
+        [one] { $count } input refused
+       *[other] { $count } inputs refused
+    }
+tally-refused-heading = { $count ->
+        [one] Refused input, not processed
+       *[other] Refused inputs, not processed
+    }:

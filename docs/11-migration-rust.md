@@ -1721,6 +1721,24 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
 
     Si toutes les entrées sont des dossiers sans vidéo, le refus devient « aucune vidéo
     (mp4, mov, avi, mkv ou m4v) trouvée dans ce dossier : », suivi des dossiers.
+
+    Quand des vidéos valides restent à côté des refus, la commande peut les traiter
+    (`consent::Asking`, décision de l'utilisateur du 16 octobre) :
+    - Si l'entrée standard est un terminal, la liste des refus passe sous « 2 entrées sont
+      refusées : », puis la sortie d'erreur pose la question « Traiter quand même les 3
+      vidéos valides ? (O/n) » (« (Y/n) » en anglais).
+      - Entrée, o, O, y ou Y valent oui, dans les deux langues ; n ou N valent non.
+      - Toute autre réponse fait reposer la question.
+      - La fin de l'entrée ou une erreur de lecture vaut non.
+      - Oui : les vidéos valides sont traitées et le code de sortie vaut 1. Non : « aucune
+        vidéo n'est traitée », code 2.
+    - `--skip-refused` vaut un oui sans question, avec ou sans terminal.
+    - Sans terminal et sans l'option (script, redirection), le refus en bloc reste.
+    - Si aucune entrée n'est valide, le refus en bloc reste, avec ou sans l'option.
+    - Le bilan, toujours sur la sortie standard, compte « 2 entrées refusées » dans son
+      titre et les liste sous « Entrées refusées, non traitées : ».
+    - Le chemin avec question se teste dans `consent`, sur une entrée fabriquée. Un test
+      de commande ne peut pas fabriquer de terminal sans pseudo-terminal.
     `failure::Missing` et `NotAVideo` restent pour un fichier qui disparaît ou change
     entre le départ et son tour.
   - Une vidéo donnée deux fois, sous n'importe quelle écriture (son dossier et son nom,

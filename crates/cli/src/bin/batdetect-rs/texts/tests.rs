@@ -15,8 +15,8 @@ use super::{ENGLISH_SOURCE, FRENCH_SOURCE, Fixed, Message, Shown, Texts, resolve
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 53;
-const FIXED: [Fixed; 61] = [
+const VARIANTS: usize = 57;
+const FIXED: [Fixed; 63] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -52,6 +52,8 @@ const FIXED: [Fixed; 61] = [
     Fixed::InvalidUtf8,
     Fixed::ArgumentsRefused,
     Fixed::SettingsRefused,
+    Fixed::SkipRefusedHelp,
+    Fixed::SkipRefusedDeclined,
     Fixed::InputsRefused,
     Fixed::TallyVideo,
     Fixed::TallyLength,
@@ -135,6 +137,10 @@ fn rank(message: &Message) -> usize {
         Message::InputWithoutVideo { .. } => 50,
         Message::SharedFolder { .. } => 51,
         Message::FolderRefused { .. } => 52,
+        Message::InputsSkipped { .. } => 53,
+        Message::SkipRefusedQuestion { .. } => 54,
+        Message::TallyRefusedCount { .. } => 55,
+        Message::TallyRefusedHeading { .. } => 56,
     }
 }
 
@@ -201,6 +207,8 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::Guide => 58,
         Fixed::ArgumentsRefused => 59,
         Fixed::SettingsRefused => 60,
+        Fixed::SkipRefusedHelp => 61,
+        Fixed::SkipRefusedDeclined => 62,
     }
 }
 
@@ -381,6 +389,10 @@ fn command_line() -> Vec<Message> {
             path: text("nuit/batdetect"),
             access: "read-only",
         },
+        Message::InputsSkipped { count: 2 },
+        Message::SkipRefusedQuestion { count: 3 },
+        Message::TallyRefusedCount { count: 2 },
+        Message::TallyRefusedHeading { count: 2 },
     ]
 }
 

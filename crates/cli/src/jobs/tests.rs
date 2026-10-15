@@ -31,7 +31,7 @@ fn a_folder_gives_its_video_files_in_name_order() {
 }
 
 #[test]
-fn every_faulty_input_is_refused_together_in_the_order_given_so_that_nothing_is_processed() {
+fn every_faulty_input_is_refused_together_in_the_order_given_with_the_valid_videos_kept_aside() {
     let night = a_night_with(&["video.mp4", "README.md"]);
     let empty = night.path().join("vide");
     fs::create_dir(&empty).unwrap();
@@ -41,7 +41,7 @@ fn every_faulty_input_is_refused_together_in_the_order_given_so_that_nothing_is_
         empty.clone(),
         night.path().join("video.mp4"),
     ];
-    let Err(Error::Refused { refused: found }) = plan(&inputs, None) else {
+    let Err(Error::Refused { refused: found, valid }) = plan(&inputs, None) else {
         panic!("the faulty inputs are not refused");
     };
     assert_eq!(
@@ -52,6 +52,30 @@ fn every_faulty_input_is_refused_together_in_the_order_given_so_that_nothing_is_
             refused(empty, Reason::NoVideo),
         ]
     );
+    let videos: Vec<&Path> = valid.iter().map(|job| job.video.as_path()).collect();
+    assert_eq!(videos, [night.path().join("video.mp4")]);
+}
+
+#[test]
+fn the_videos_of_a_shared_results_folder_are_not_among_the_valid_ones() {
+    let root = tempfile::tempdir().unwrap();
+    for folder in ["a/night", "b/night", "c"] {
+        fs::create_dir_all(root.path().join(folder)).unwrap();
+    }
+    let inputs = [
+        root.path().join("a/night/x.mp4"),
+        root.path().join("b/night/x.mp4"),
+        root.path().join("c/y.mp4"),
+    ];
+    for input in &inputs {
+        fs::write(input, "").unwrap();
+    }
+    let Err(Error::Refused { refused: found, valid }) = plan(&inputs, Some(Path::new("out"))) else {
+        panic!("the shared folder is not refused");
+    };
+    assert_eq!(found.len(), 1);
+    let videos: Vec<&Path> = valid.iter().map(|job| job.video.as_path()).collect();
+    assert_eq!(videos, [inputs[2].as_path()]);
 }
 
 #[test]

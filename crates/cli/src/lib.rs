@@ -1,4 +1,5 @@
 pub mod access;
+pub mod consent;
 pub mod failure;
 #[cfg(test)]
 #[path = "../tests/support/flight.rs"]

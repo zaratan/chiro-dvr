@@ -6,8 +6,9 @@ mod flight;
 mod tree;
 
 use std::fs;
+use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 use std::sync::OnceLock;
 
 use serde_json::Value;
@@ -802,4 +803,82 @@ fn a_video_given_by_its_folder_and_again_under_another_writing_is_processed_once
             .join("flight_pistes.csv")
             .is_file()
     );
+}
+
+fn run_answering(arguments: &[&Path], answer: &str) -> io::Result<Output> {
+    let mut child = command(arguments, "fr_FR.UTF-8")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    if let Some(mut input) = child.stdin.take() {
+        input.write_all(answer.as_bytes())?;
+    }
+    child.wait_with_output()
+}
+
+#[test]
+fn without_a_terminal_valid_videos_among_refused_inputs_are_not_processed_and_nothing_is_asked() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let (missing, out) = (videos.join("absente.mp4"), root.path().join("out"));
+    let output = run_answering(&[&missing, &videos.join("flight.mp4"), Path::new("-o"), &out], "o\n").unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(
+        text(&output.stderr),
+        format!(
+            "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:\n  {}\u{a0}: introuvable\n",
+            missing.display()
+        )
+    );
+    assert!(!out.exists());
+}
+
+#[test]
+fn skip_refused_processes_the_valid_videos_without_asking_and_lists_the_refused_inputs_in_the_summary() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let (missing, out) = (videos.join("absente.mp4"), root.path().join("out"));
+    let output = run_answering(
+        &[
+            &missing,
+            &videos.join("flight.mp4"),
+            Path::new("--skip-refused"),
+            Path::new("-o"),
+            &out,
+        ],
+        "n\n",
+    )
+    .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    let errors = text(&output.stderr);
+    assert!(
+        errors.starts_with(&format!(
+            "erreur\u{a0}: une entrée est refusée\u{a0}:\n  {}\u{a0}: introuvable\n",
+            missing.display()
+        )),
+        "{errors}"
+    );
+    assert!(!errors.contains("(O/n)"), "{errors}");
+    assert!(out.join("flight").join("flight_pistes.csv").is_file());
+    let summary = text(&output.stdout);
+    let lines: Vec<&str> = summary.lines().collect();
+    assert_eq!(lines[0], "Bilan : 1 vidéo, 1 réussie, 1 entrée refusée", "{summary}");
+    let refusal = format!("  {}\u{a0}: introuvable", missing.display());
+    assert_eq!(
+        lines[lines.len() - 2..],
+        ["Entrée refusée, non traitée\u{a0}:", refusal.as_str()],
+        "{summary}"
+    );
+}
+
+#[test]
+fn skip_refused_does_not_turn_inputs_that_are_all_faulty_into_an_empty_run() {
+    let (root, videos) = videos_with_a_flight(&[]);
+    let (missing, out) = (videos.join("absente.mp4"), root.path().join("out"));
+    let output = run(&[&missing, Path::new("--skip-refused"), Path::new("-o"), &out], "C");
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(
+        text(&output.stderr),
+        format!("error: no video is processed:\n  {}: not found\n", missing.display())
+    );
+    assert!(!out.exists());
 }

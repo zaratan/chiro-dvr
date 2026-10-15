@@ -49,6 +49,7 @@ fn several_videos_and_the_long_out_dir_option_are_read_with_the_v0_1_1_settings(
             inputs: vec![PathBuf::from("a.mp4"), PathBuf::from("nuit")],
             out_dir: Some(PathBuf::from("out")),
             options: Options::default(),
+            skip_refused: false,
         }
     );
 }

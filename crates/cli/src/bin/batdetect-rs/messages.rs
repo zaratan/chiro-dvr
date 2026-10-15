@@ -94,14 +94,23 @@ pub(crate) fn inputs_refused(texts: Texts, error: &jobs::Error) -> (Message, Vec
             },
             folders.iter().map(|folder| folder.display().to_string()).collect(),
         ),
-        jobs::Error::Refused { refused } => (
-            Message::Fixed(Fixed::InputsRefused),
-            refused
-                .iter()
-                .map(|refusal| texts.say(&input_refused(refusal, &listed, &last)))
-                .collect(),
-        ),
+        jobs::Error::Refused { refused, .. } => (Message::Fixed(Fixed::InputsRefused), refused_lines(texts, refused)),
     }
+}
+
+pub(crate) fn inputs_skipped(texts: Texts, refused: &[Refused]) -> (Message, Vec<String>) {
+    (
+        Message::InputsSkipped { count: refused.len() },
+        refused_lines(texts, refused),
+    )
+}
+
+pub(crate) fn refused_lines(texts: Texts, refused: &[Refused]) -> Vec<String> {
+    let (listed, last) = extensions();
+    refused
+        .iter()
+        .map(|refusal| texts.say(&input_refused(refusal, &listed, &last)))
+        .collect()
 }
 
 fn extensions() -> (String, String) {

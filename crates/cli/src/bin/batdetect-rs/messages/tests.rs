@@ -18,10 +18,10 @@ use engine::lost::Losses;
 use types::language::Language;
 
 use super::{
-    detection_refused, failure_lines, folders_refused, inputs_refused, named, option_refused, redone, render_refused,
-    tracking_refused, video_done, video_failed, video_step,
+    detection_refused, failure_lines, folders_refused, inputs_refused, inputs_skipped, named, option_refused, redone,
+    render_refused, tracking_refused, video_done, video_failed, video_step,
 };
-use crate::texts::{Message, Texts};
+use crate::texts::{Fixed, Message, Texts};
 
 const THIRD: Rank = Rank { position: 3, total: 12 };
 
@@ -344,6 +344,7 @@ fn every_reason_to_refuse_an_input_has_its_own_words_in_both_languages() {
                 },
             ),
         ],
+        valid: Vec::new(),
     };
     assert_eq!(
         refusal(Language::French, &error),
@@ -512,5 +513,64 @@ fn every_folder_where_nothing_can_be_written_has_its_own_line_and_reason_in_both
     assert_eq!(
         said(Language::English, &heading),
         "no video is processed, the results cannot be written in this folder:"
+    );
+}
+
+#[test]
+fn the_refusals_before_the_question_are_counted_and_the_question_counts_the_valid_videos_in_both_languages() {
+    let refused = |path: &str| Refused {
+        path: PathBuf::from(path),
+        reason: Reason::Missing,
+    };
+    let headings = |refusals: &[Refused]| {
+        [Language::French, Language::English].map(|language| {
+            let texts = Texts::new(language);
+            let (heading, lines) = inputs_skipped(texts, refusals);
+            [texts.say(&heading)].into_iter().chain(lines).collect::<Vec<String>>()
+        })
+    };
+    assert_eq!(
+        headings(&[refused("absente.mp4"), refused("autre.mp4")]),
+        [
+            vec![
+                "2 entrées sont refusées\u{a0}:".to_owned(),
+                "absente.mp4\u{a0}: introuvable".to_owned(),
+                "autre.mp4\u{a0}: introuvable".to_owned()
+            ],
+            vec![
+                "2 inputs are refused:".to_owned(),
+                "absente.mp4: not found".to_owned(),
+                "autre.mp4: not found".to_owned()
+            ],
+        ]
+    );
+    assert_eq!(
+        headings(&[refused("absente.mp4")]).map(|lines| lines[0].clone()),
+        ["une entrée est refusée\u{a0}:", "one input is refused:"]
+    );
+    assert_eq!(
+        both(&Message::SkipRefusedQuestion { count: 1 }),
+        [
+            "Traiter quand même la vidéo valide\u{a0}? (O/n)",
+            "Process the valid video anyway? (Y/n)"
+        ]
+    );
+    assert_eq!(
+        both(&Message::SkipRefusedQuestion { count: 3 }),
+        [
+            "Traiter quand même les 3 vidéos valides\u{a0}? (O/n)",
+            "Process the 3 valid videos anyway? (Y/n)"
+        ]
+    );
+    assert_eq!(
+        both(&Message::Fixed(Fixed::SkipRefusedDeclined)),
+        ["aucune vidéo n'est traitée", "no video is processed"]
+    );
+    assert_eq!(
+        both(&Message::Fixed(Fixed::SkipRefusedHelp)),
+        [
+            "Traite les vidéos valides sans poser la question quand des entrées sont refusées",
+            "Processes the valid videos without asking when some inputs are refused"
+        ]
     );
 }

@@ -1,4 +1,5 @@
 use std::error::Error as _;
+use std::io;
 use std::process::ExitCode;
 
 use batdetect::process::Wording;
@@ -41,13 +42,16 @@ impl ErrorFormatter for English {
 
 pub(crate) fn report(texts: Texts, error: Error) -> ExitCode {
     let code = u8::try_from(error.exit_code());
-    let printed = match Wording::language(&texts) {
-        Language::French => error.apply::<French>().print(),
-        Language::English => error.apply::<English>().print(),
-    };
-    match (printed, code) {
+    match (show(texts, error), code) {
         (Ok(()), Ok(code)) => ExitCode::from(code),
         _ => ExitCode::FAILURE,
+    }
+}
+
+pub(crate) fn show(texts: Texts, error: Error) -> io::Result<()> {
+    match Wording::language(&texts) {
+        Language::French => error.apply::<French>().print(),
+        Language::English => error.apply::<English>().print(),
     }
 }
 

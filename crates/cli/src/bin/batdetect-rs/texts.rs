@@ -71,6 +71,8 @@ pub(crate) enum Fixed {
     InvalidUtf8,
     ArgumentsRefused,
     SettingsRefused,
+    SkipRefusedHelp,
+    SkipRefusedDeclined,
     InputsRefused,
     TallyVideo,
     TallyLength,
@@ -137,6 +139,8 @@ impl Fixed {
             Self::InvalidUtf8 => "invalid-utf8",
             Self::ArgumentsRefused => "arguments-refused",
             Self::SettingsRefused => "settings-refused",
+            Self::SkipRefusedHelp => "skip-refused-help",
+            Self::SkipRefusedDeclined => "skip-refused-declined",
             Self::InputsRefused => "inputs-refused",
             Self::TallyVideo => "tally-video",
             Self::TallyLength => "tally-length",
@@ -365,6 +369,18 @@ pub(crate) enum Message {
         path: String,
         access: &'static str,
     },
+    InputsSkipped {
+        count: usize,
+    },
+    SkipRefusedQuestion {
+        count: usize,
+    },
+    TallyRefusedCount {
+        count: usize,
+    },
+    TallyRefusedHeading {
+        count: usize,
+    },
 }
 
 impl Message {
@@ -423,6 +439,10 @@ impl Message {
             Self::NoVideo { .. } => "no-video",
             Self::FoldersRefused { .. } => "folders-refused",
             Self::FolderRefused { .. } => "folder-refused",
+            Self::InputsSkipped { .. } => "inputs-skipped",
+            Self::SkipRefusedQuestion { .. } => "skip-refused-question",
+            Self::TallyRefusedCount { .. } => "tally-refused-count",
+            Self::TallyRefusedHeading { .. } => "tally-refused-heading",
         }
     }
 
@@ -584,7 +604,11 @@ impl Message {
                 arguments.set("listed", listed.as_str());
                 arguments.set("last", last.as_str());
             }
-            Self::FoldersRefused { count } => arguments.set("count", *count),
+            Self::FoldersRefused { count }
+            | Self::InputsSkipped { count }
+            | Self::SkipRefusedQuestion { count }
+            | Self::TallyRefusedCount { count }
+            | Self::TallyRefusedHeading { count } => arguments.set("count", *count),
             Self::FolderRefused { path, access } => {
                 arguments.set("path", path.as_str());
                 arguments.set("access", *access);

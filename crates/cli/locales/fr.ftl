@@ -215,3 +215,21 @@ files-long =
     Une vidéo longue ou chargée a plusieurs images résumé, par tranche de 10 min ({ $period })
     ou par partie ({ $part }).
 guide = Mode d'emploi complet :
+inputs-skipped = { $count ->
+        [one] une entrée est refusée
+       *[other] { $count } entrées sont refusées
+    } :
+skip-refused-question = Traiter quand même { $count ->
+        [one] la vidéo valide
+       *[other] les { $count } vidéos valides
+    } ? (O/n)
+skip-refused-declined = aucune vidéo n'est traitée
+skip-refused-help = Traite les vidéos valides sans poser la question quand des entrées sont refusées
+tally-refused-count = { $count ->
+        [one] { $count } entrée refusée
+       *[other] { $count } entrées refusées
+    }
+tally-refused-heading = { $count ->
+        [one] Entrée refusée, non traitée
+       *[other] Entrées refusées, non traitées
+    } :
