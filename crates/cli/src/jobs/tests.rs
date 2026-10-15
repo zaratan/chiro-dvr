@@ -2,7 +2,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::{Error, Reason, Refused, collect_videos, plan, plan_jobs};
-use crate::access::Access;
 
 fn dests(videos: &[&str], out: Option<&Path>) -> Vec<PathBuf> {
     let videos: Vec<PathBuf> = videos.iter().map(PathBuf::from).collect();
@@ -240,6 +239,8 @@ fn folders_that_differ_only_by_case_are_refused_as_one_shared_folder() {
 #[test]
 fn a_folder_that_cannot_be_listed_is_refused_by_name_as_refused_to_read() {
     use std::os::unix::fs::PermissionsExt;
+
+    use crate::access::Access;
 
     let root = tempfile::tempdir().unwrap();
     let locked = root.path().join("verrouillé");

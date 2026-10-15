@@ -9,7 +9,8 @@ mod style;
 mod texts;
 
 use std::io::{self, IsTerminal};
-use std::process::ExitCode;
+use std::process::{self, ExitCode};
+use std::sync::Arc;
 
 use batdetect::consent::{Asking, Choice};
 use batdetect::jobs::{self, Job, Refused, plan};
@@ -25,6 +26,8 @@ use crate::arguments::Request;
 use crate::errors::report;
 use crate::status::{Status, Video};
 use crate::texts::{Fixed, Message, Texts};
+
+const INTERRUPTED: i32 = 130;
 
 fn main() -> ExitCode {
     outcome::quiet_panics();
@@ -49,7 +52,18 @@ fn main() -> ExitCode {
         let (heading, lines) = messages::folders_refused(texts, &refused);
         return report(texts, arguments::rejection(texts, &heading, &lines));
     }
-    run(&jobs, skipped, texts, &request.options)
+    let status = Arc::new(Status::new(texts, io::stderr().is_terminal(), jobs.len()));
+    let watched = Arc::clone(&status);
+    let watching = ctrlc::set_handler(move || {
+        let mut err = io::stderr().lock();
+        match watched.interrupted(&mut err) {
+            Ok(()) | Err(_) => process::exit(INTERRUPTED),
+        }
+    });
+    if watching.is_err() {
+        return ExitCode::FAILURE;
+    }
+    run(&jobs, skipped, &status, &request.options)
 }
 
 fn admitted(request: &Request, texts: Texts) -> Result<(Vec<Job>, Vec<Refused>), ExitCode> {
@@ -84,29 +98,22 @@ fn admitted(request: &Request, texts: Texts) -> Result<(Vec<Job>, Vec<Refused>),
     }
 }
 
-fn run(jobs: &[Job], skipped: Vec<Refused>, texts: Texts, options: &Options) -> ExitCode {
+fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, options: &Options) -> ExitCode {
+    let texts = status.texts();
     let ffmpeg = media::library::version();
     let versions = Versions {
         program: messages::version(),
         ffmpeg: &ffmpeg,
     };
-    let status = Status::new(texts, io::stderr().is_terminal());
     let rows = run_all(
         jobs,
         |job, rank| {
-            let video = Video {
-                status: &status,
-                rank,
-                job,
-            };
+            status.enter(rank);
+            let video = Video { status, rank, job };
             process(job, &texts, &video, Threads::Automatic, versions, options)
         },
         |job, rank, result| {
-            let video = Video {
-                status: &status,
-                rank,
-                job,
-            };
+            let video = Video { status, rank, job };
             video.tell(&mut io::stderr().lock(), result, options)
         },
     );

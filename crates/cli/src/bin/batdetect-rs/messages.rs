@@ -6,6 +6,7 @@ use batdetect::failure::{self, Cause};
 use batdetect::jobs::{self, Job, Reason, Refused};
 use batdetect::options::Options;
 use batdetect::outcome::{Failure, Panic, Rank};
+use batdetect::process;
 use batdetect::progress::Step;
 use batdetect::writable::Unwritable;
 use engine::settings;
@@ -201,10 +202,11 @@ pub(crate) fn video_done(rank: Rank, job: &Job, tracks: usize) -> Message {
     }
 }
 
-pub(crate) fn video_failed(rank: Rank, job: &Job) -> Message {
+pub(crate) fn video_failed(rank: Rank, job: &Job, failure: &Failure) -> Message {
     Message::VideoFailed {
         rank,
         video: short_name(job),
+        too_many: matches!(failure, Failure::Error(process::Error::TooManyTracks { .. })),
     }
 }
 

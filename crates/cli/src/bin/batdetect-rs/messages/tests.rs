@@ -99,10 +99,10 @@ fn a_known_failure_says_its_cause_what_to_do_and_the_english_detail_once() {
     );
     assert_eq!(english.concat().matches("failed").count(), 1, "{english:?}");
     let french = lines(Language::French, &damaged());
-    assert_eq!(french[0], "nuit/video_092.mp4 : la vidéo est abîmée ou incomplète");
-    assert!(french[1].starts_with("  à faire : la recopier depuis les jumelles par le câble USB"));
+    assert_eq!(french[0], "nuit/video_092.mp4\u{a0}: la vidéo est abîmée ou incomplète");
+    assert!(french[1].starts_with("  à faire\u{a0}: la recopier depuis les jumelles par le câble USB"));
     assert!(
-        french[2].starts_with("  détail : the detection failed: nuit/video_092.mp4: decoded 20 frames"),
+        french[2].starts_with("  détail\u{a0}: the detection failed: nuit/video_092.mp4: decoded 20 frames"),
         "{}",
         french[2]
     );
@@ -115,10 +115,10 @@ fn a_full_disk_names_the_folder_of_the_results() {
         source: io::Error::from(io::ErrorKind::StorageFull),
     }));
     let french = lines(Language::French, &full);
-    assert_eq!(french[0], "nuit/video_092.mp4 : le disque est plein");
+    assert_eq!(french[0], "nuit/video_092.mp4\u{a0}: le disque est plein");
     assert_eq!(
         french[1],
-        "  à faire : libérer de la place sur le disque de out/video_092, puis relancer"
+        "  à faire\u{a0}: libérer de la place sur le disque de out/video_092, puis relancer"
     );
 }
 
@@ -128,8 +128,8 @@ fn too_many_tracks_says_what_to_look_at_without_judging_the_tracks_and_without_d
     assert_eq!(
         lines(Language::French, &too_many),
         [
-            "nuit/video_092.mp4 : 301 pistes, au-delà de 300 : extraits non écrits",
-            "  à faire : regarder l'image résumé ; si ce sont de vrais passages, relancer avec un --max-tracks plus grand",
+            "nuit/video_092.mp4\u{a0}: 301 pistes, au-delà de 300\u{a0}: extraits non écrits",
+            "  à faire\u{a0}: regarder l'image résumé\u{a0}; si ce sont de vrais passages, relancer avec un --max-tracks plus grand",
         ]
     );
     assert_eq!(
@@ -147,9 +147,9 @@ fn a_panic_is_an_internal_error_whose_detail_gives_its_message_and_its_place() {
     assert_eq!(
         lines(Language::French, &panic),
         [
-            "nuit/video_092.mp4 : erreur interne",
-            "  à faire : le signaler avec le détail ci-dessous",
-            "  détail : index out of bounds (crates/render/src/clips.rs:12:5)",
+            "nuit/video_092.mp4\u{a0}: erreur interne",
+            "  à faire\u{a0}: le signaler avec le détail ci-dessous",
+            "  détail\u{a0}: index out of bounds (crates/render/src/clips.rs:12:5)",
         ]
     );
     assert_eq!(
@@ -213,7 +213,7 @@ fn every_cause_has_its_own_sentence_and_its_own_advice_in_both_languages() {
 fn too_many_tracks_names_the_video_the_count_and_the_limit_in_the_language_of_the_user() {
     assert_eq!(
         lines(Language::French, &too_many(false))[0],
-        "nuit/video_092.mp4 : 301 pistes, au-delà de 300 : extraits non écrits"
+        "nuit/video_092.mp4\u{a0}: 301 pistes, au-delà de 300\u{a0}: extraits non écrits"
     );
     assert_eq!(
         lines(Language::English, &too_many(false))[0],
@@ -221,7 +221,7 @@ fn too_many_tracks_names_the_video_the_count_and_the_limit_in_the_language_of_th
     );
     assert_eq!(
         lines(Language::French, &too_many(true))[0],
-        "nuit/video_092.mp4 : 301 pistes, au-delà de 300 : extraits et vidéo annotée non écrits"
+        "nuit/video_092.mp4\u{a0}: 301 pistes, au-delà de 300\u{a0}: extraits et vidéo annotée non écrits"
     );
     assert_eq!(
         lines(Language::English, &too_many(true))[0],
@@ -239,13 +239,13 @@ fn the_clips_written_again_are_named_with_the_cause_of_the_videotoolbox_failure(
     ];
     assert_eq!(
         said(Language::French, &redone(&job(), &one, &cause)),
-        "nuit/video_092.mp4 : piste_03_0m51s.mp4 réécrit avec openh264 après une erreur de VideoToolbox : \
+        "nuit/video_092.mp4\u{a0}: piste_03_0m51s.mp4 réécrit avec openh264 après une erreur de VideoToolbox\u{a0}: \
          the encoder failed: Invalid data"
     );
     assert_eq!(
         said(Language::French, &redone(&job(), &two, &cause)),
-        "nuit/video_092.mp4 : piste_03_0m51s.mp4, piste_04_0m53s.mp4 réécrits avec openh264 après une erreur de \
-         VideoToolbox : the encoder failed: Invalid data"
+        "nuit/video_092.mp4\u{a0}: piste_03_0m51s.mp4, piste_04_0m53s.mp4 réécrits avec openh264 après une erreur de \
+         VideoToolbox\u{a0}: the encoder failed: Invalid data"
     );
     assert_eq!(
         said(Language::English, &redone(&job(), &one, &cause)),
@@ -307,12 +307,24 @@ fn the_line_of_a_finished_video_keeps_its_track_count_or_says_it_failed() {
         "[3/12] video_092 — 1 track"
     );
     assert_eq!(
-        said(Language::French, &video_failed(THIRD, &job())),
+        said(Language::French, &video_failed(THIRD, &job(), &damaged())),
         "[3/12] video_092 — échec"
     );
     assert_eq!(
-        said(Language::English, &video_failed(THIRD, &job())),
+        said(Language::English, &video_failed(THIRD, &job(), &damaged())),
         "[3/12] video_092 — failed"
+    );
+}
+
+#[test]
+fn the_line_of_a_video_with_too_many_tracks_ends_with_the_word_of_the_summary_and_not_with_failed() {
+    assert_eq!(
+        said(Language::French, &video_failed(THIRD, &job(), &too_many(false))),
+        "[3/12] video_092 — trop de pistes"
+    );
+    assert_eq!(
+        said(Language::English, &video_failed(THIRD, &job(), &too_many(true))),
+        "[3/12] video_092 — too many tracks"
     );
 }
 

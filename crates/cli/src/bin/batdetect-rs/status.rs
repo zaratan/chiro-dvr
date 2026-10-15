@@ -20,15 +20,36 @@ pub(crate) struct Status {
     texts: Texts,
     terminal: bool,
     drawn: AtomicUsize,
+    position: AtomicUsize,
+    total: usize,
 }
 
 impl Status {
-    pub(crate) const fn new(texts: Texts, terminal: bool) -> Self {
+    pub(crate) const fn new(texts: Texts, terminal: bool, total: usize) -> Self {
         Self {
             texts,
             terminal,
             drawn: AtomicUsize::new(0),
+            position: AtomicUsize::new(1),
+            total,
         }
+    }
+
+    pub(crate) const fn texts(&self) -> Texts {
+        self.texts
+    }
+
+    pub(crate) fn enter(&self, rank: Rank) {
+        self.position.store(rank.position, Ordering::Relaxed);
+    }
+
+    pub(crate) fn interrupted(&self, out: &mut impl Write) -> io::Result<()> {
+        self.clear(out)?;
+        let rank = Rank {
+            position: self.position.load(Ordering::Relaxed),
+            total: self.total,
+        };
+        writeln!(out, "{}", self.texts.say(&Message::Interrupted { rank }))
     }
 
     pub(crate) fn show(&self, out: &mut impl Write, line: &str) -> io::Result<()> {
@@ -86,7 +107,7 @@ impl Video<'_> {
                 for message in messages::failure_lines(job, failure, options) {
                     say(&message)?;
                 }
-                say(&messages::video_failed(rank, job))
+                say(&messages::video_failed(rank, job, failure))
             }
         }
     }

@@ -20,7 +20,7 @@ enum Action<'a> {
 }
 
 fn written(terminal: bool, actions: &[Action<'_>]) -> String {
-    let status = Status::new(TEXTS, terminal);
+    let status = Status::new(TEXTS, terminal, 1);
     let mut out = Vec::new();
     for action in actions {
         match action {
@@ -66,7 +66,7 @@ fn on_a_terminal_the_erased_width_counts_characters_and_not_bytes() {
 }
 
 fn told(result: &Result<Processed, Failure>) -> String {
-    let status = Status::new(TEXTS, true);
+    let status = Status::new(TEXTS, true, 1);
     let job = Job {
         video: PathBuf::from("nuit/flight.mp4"),
         dest: PathBuf::from("out/flight"),
@@ -113,9 +113,40 @@ fn on_a_terminal_a_failure_erases_the_step_then_gives_its_cause_above_its_last_l
     assert_eq!(
         told(&Err(Failure::Panic(panic))),
         format!(
-            "[1/1] flight — extraits\r{}\rnuit/flight.mp4 : erreur interne\n  à faire : le signaler avec le détail \
-             ci-dessous\n  détail : boom\n[1/1] flight — échec\n",
+            "[1/1] flight — extraits\r{}\rnuit/flight.mp4\u{a0}: erreur interne\n  à faire\u{a0}: le signaler avec le détail \
+             ci-dessous\n  détail\u{a0}: boom\n[1/1] flight — échec\n",
             " ".repeat(23)
         )
+    );
+}
+
+#[test]
+fn an_interruption_erases_the_step_on_a_terminal_then_names_the_video_reached_and_how_to_redo_the_lot() {
+    let step = "[3/12] flight — détection";
+    let width = step.chars().count();
+    for (terminal, erased) in [(true, format!("\r{}\r", " ".repeat(width))), (false, "\n".to_owned())] {
+        let status = Status::new(TEXTS, terminal, 12);
+        status.enter(Rank { position: 3, total: 12 });
+        let mut err = Vec::new();
+        status.show(&mut err, step).unwrap();
+        status.interrupted(&mut err).unwrap();
+        assert_eq!(
+            String::from_utf8(err).unwrap(),
+            format!(
+                "{step}{erased}lot interrompu à la vidéo 3/12\u{a0}; relancer la même commande refait le \
+                 lot\n"
+            )
+        );
+    }
+}
+
+#[test]
+fn an_interruption_in_english_says_the_same() {
+    let status = Status::new(Texts::new(Language::English), false, 2);
+    let mut err = Vec::new();
+    status.interrupted(&mut err).unwrap();
+    assert_eq!(
+        String::from_utf8(err).unwrap(),
+        "batch interrupted at video 1/2; running the same command again redoes the batch\n"
     );
 }

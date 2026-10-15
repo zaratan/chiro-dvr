@@ -13,7 +13,10 @@ video-done = [{ $position }/{ $total }] { $video } — { $tracks ->
         [one] { $tracks } track
        *[other] { $tracks } tracks
     }
-video-failed = [{ $position }/{ $total }] { $video } — failed
+video-failed = [{ $position }/{ $total }] { $video } — { $too-many ->
+        [yes] too many tracks
+       *[no] failed
+    }
 failure = { $video }: { $cause ->
         [missing] file not found
         [read-refused] the system refuses to read this file
@@ -190,12 +193,12 @@ example-results = results
 all-options = All the options and the files produced:
 files-heading = Files produced, in { $folder }/<video>/ beside the videos, or in <folder of -o>/<video>/:
 file-video = <video>
-file-summary = the summary image: every track of the video on one image
-file-table = one row per track (start, end, length, speed, size), for a spreadsheet
-file-clip = the clip of every track, named by its number and its start
-file-zoom = the same, slowed and magnified, for small or faint tracks
-file-annotated = the whole video with the tracks drawn, with --annotated
-file-params = the settings used, to run the same computation again
+file-summary = The summary image: every track of the video on one image
+file-table = One row per track (start, end, length, speed, size), for a spreadsheet
+file-clip = The clip of every track, named by its number and its start
+file-zoom = The same, slowed and magnified, for small or faint tracks
+file-annotated = The whole video with the tracks drawn, with --annotated
+file-params = The settings used, to run the same computation again
 files-long =
     A long or crowded video has several summary images, per 10 min slice ({ $period })
     or per part ({ $part }).
@@ -218,3 +221,4 @@ tally-refused-heading = { $count ->
         [one] Refused input, not processed
        *[other] Refused inputs, not processed
     }:
+interrupted = batch interrupted at video { $position }/{ $total }; running the same command again redoes the batch

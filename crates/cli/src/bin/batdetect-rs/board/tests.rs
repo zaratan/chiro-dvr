@@ -113,7 +113,7 @@ fn tuned() -> Options {
 #[test]
 fn the_french_summary_groups_the_videos_by_folder_then_lists_what_went_wrong_and_what_was_changed() {
     let expected = "\
-Bilan : 5 vidéos, 3 réussies, 1 avec trop de pistes, 1 en échec
+Bilan\u{a0}: 5 vidéos, 3 réussies, 1 avec trop de pistes, 1 en échec
 
 nuit/batdetect
   vidéo            durée      pistes   non analysé       calcul
@@ -126,19 +126,19 @@ autre/batdetect
   vidéo            durée   pistes   non analysé       calcul
   video_121   9 min 58 s    1\u{202f}234          12 s   1 min 40 s
 
-Trop de pistes (tableau et image résumé écrits, pas d'extraits) :
-  video_099 : 412 pistes, au-delà de 300
-    à faire : regarder l'image résumé ; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
+Trop de pistes (tableau et image résumé écrits, pas d'extraits)\u{a0}:
+  video_099\u{a0}: 412 pistes, au-delà de 300
+    à faire\u{a0}: regarder l'image résumé\u{a0}; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
 
-1 vidéo sur 5 en échec :
-  video_094 : la vidéo est abîmée ou incomplète
-    à faire : la recopier depuis les jumelles par le câble USB, sans passer par Stream Vision 2, puis relancer ; si \
+1 vidéo sur 5 en échec\u{a0}:
+  video_094\u{a0}: la vidéo est abîmée ou incomplète
+    à faire\u{a0}: la recopier depuis les jumelles par le câble USB, sans passer par Stream Vision 2, puis relancer\u{a0}; si \
 elle reste abîmée, le signaler
 
-Tableau laissé tel quel :
-  video_092 : video_092_pistes.csv n'a pas la forme d'un tableau des pistes ; le nouveau tableau n'est pas écrit
+Tableau laissé tel quel\u{a0}:
+  video_092\u{a0}: video_092_pistes.csv n'a pas la forme d'un tableau des pistes\u{a0}; le nouveau tableau n'est pas écrit
 
-Réglages changés : --threshold 11
+Réglages changés\u{a0}: --threshold 11
 ";
     assert_eq!(written(&evening(), &tuned(), Language::French), expected);
 }
@@ -169,7 +169,7 @@ fn a_summary_of_videos_all_done_with_default_settings_has_only_its_title_and_its
     };
     assert_eq!(
         written(&tally, &Options::default(), Language::French),
-        "Bilan : 1 vidéo, 1 réussie\n\nnuit/batdetect\n  vidéo           durée   pistes   non analysé   calcul\n  \
+        "Bilan\u{a0}: 1 vidéo, 1 réussie\n\nnuit/batdetect\n  vidéo           durée   pistes   non analysé   calcul\n  \
          video_092   5 min 1 s        1           0 s     17 s\n"
     );
 }
@@ -228,10 +228,10 @@ fn several_failures_and_several_tables_left_as_they_are_are_counted_in_the_plura
     };
     let french = written(&tally, &Options::default(), Language::French);
     let lines: Vec<&str> = french.lines().collect();
-    assert!(lines.contains(&"2 vidéos sur 4 en échec :"), "{french}");
-    assert!(lines.contains(&"Tableaux laissés tels quels :"), "{french}");
+    assert!(lines.contains(&"2 vidéos sur 4 en échec\u{a0}:"), "{french}");
+    assert!(lines.contains(&"Tableaux laissés tels quels\u{a0}:"), "{french}");
     assert!(
-        lines.contains(&"    à faire : le signaler avec le détail écrit pendant le traitement"),
+        lines.contains(&"    à faire\u{a0}: le signaler avec le détail écrit pendant le traitement"),
         "{french}"
     );
     assert!(!french.contains("ci-dessous"), "{french}");
@@ -272,7 +272,7 @@ fn the_changed_settings_are_written_as_they_are_typed() {
     let summary = written(&tally, &options, Language::French);
     assert!(
         summary.ends_with(
-            "Réglages changés : --threshold 6.5, --min-hits 3, --max-blobs 0, --work-width 480, --osd-region (2 zones)\n"
+            "Réglages changés\u{a0}: --threshold 6.5, --min-hits 3, --max-blobs 0, --work-width 480, --osd-region (2 zones)\n"
         ),
         "{summary}"
     );
@@ -303,7 +303,7 @@ fn the_inputs_refused_before_the_valid_videos_were_processed_are_counted_and_lis
     ]);
     assert_eq!(
         written(&two, &Options::default(), Language::French),
-        "Bilan : 1 vidéo, 1 réussie, 2 entrées refusées\n\nnuit/batdetect\n  vidéo           durée   pistes   non \
+        "Bilan\u{a0}: 1 vidéo, 1 réussie, 2 entrées refusées\n\nnuit/batdetect\n  vidéo           durée   pistes   non \
          analysé   calcul\n  video_092   5 min 1 s        1           0 s     17 s\n\nEntrées refusées, non \
          traitées\u{a0}:\n  absente.mp4\u{a0}: introuvable\n  README.md\u{a0}: pas une vidéo (mp4, mov, avi, mkv ou \
          m4v)\n"
@@ -328,7 +328,7 @@ fn a_single_refused_input_is_counted_and_titled_in_the_singular() {
     for (language, title, heading) in [
         (
             Language::French,
-            "Bilan : 1 vidéo, 1 réussie, 1 entrée refusée",
+            "Bilan\u{a0}: 1 vidéo, 1 réussie, 1 entrée refusée",
             "Entrée refusée, non traitée\u{a0}:",
         ),
         (
