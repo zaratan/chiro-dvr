@@ -102,7 +102,9 @@ l'utilisateur veut un seul langage et un binaire sans Python. La réécriture a 
   `master`, non épinglé. La release (`macos-latest`) garde `brew install ffmpeg`.
 - **CI** : `jdx/mise-action` installe les versions de `mise.toml`, actions épinglées
   par SHA. L'installation commune est dans `.github/actions/setup` ; zizmor la signale à
-  chaque appel local (`self-repository`, niveau le plus bas), rien d'autre.
+  chaque appel local (`self-repository`, niveau le plus bas), rien d'autre. Le Rust a
+  aussi `.github/actions/ffmpeg-key` et `.github/actions/windows` depuis #181
+  ([11](11-migration-rust.md)).
 
 ## Langue des messages
 

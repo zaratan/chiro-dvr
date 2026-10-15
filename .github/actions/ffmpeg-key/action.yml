@@ -1,0 +1,40 @@
+name: FFmpeg key
+description: Cache keys of the FFmpeg build and of target/, from the FFmpeg fingerprint; sets XDG_CACHE_HOME.
+
+inputs:
+  job:
+    description: Job whose target/ cache entry the keys name, the calling job by default.
+    default: ""
+
+outputs:
+  key:
+    description: Cache key of the FFmpeg build.
+    value: ${{ steps.unix.outputs.key || steps.windows.outputs.key }}
+  target-key:
+    description: Cache key of target/.
+    value: ${{ steps.unix.outputs.target-key || steps.windows.outputs.target-key }}
+  target-restore-key:
+    description: Fallback prefix of the target/ key, on pull requests only.
+    value: ${{ steps.unix.outputs.target-restore-key || steps.windows.outputs.target-restore-key }}
+
+runs:
+  using: composite
+  steps:
+    - id: unix
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        JOB: ${{ inputs.job || github.job }}
+        EVENT: ${{ github.event_name }}
+        TOOLCHAIN: ${{ hashFiles('rust-toolchain.toml') }}
+        LOCK: ${{ hashFiles('Cargo.lock') }}
+      run: bash "$GITHUB_ACTION_PATH/key.sh" packaging/ffmpeg-unix.sh "$HOME/.cache"
+    - id: windows
+      if: runner.os == 'Windows'
+      shell: msys2 {0}
+      env:
+        JOB: ${{ inputs.job || github.job }}
+        EVENT: ${{ github.event_name }}
+        TOOLCHAIN: ${{ hashFiles('rust-toolchain.toml') }}
+        LOCK: ${{ hashFiles('Cargo.lock') }}
+      run: bash "$(cygpath -u "$GITHUB_ACTION_PATH")/key.sh" packaging/ffmpeg-windows.sh "$(cygpath -m "$RUNNER_TEMP")/cache"

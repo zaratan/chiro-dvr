@@ -1,0 +1,25 @@
+name: Windows
+description: MSYS2 with the tools of packaging/ffmpeg-windows.sh, MSVC, the MSVC linker ahead of coreutils, and the Rust toolchain of rust-toolchain.toml.
+
+runs:
+  using: composite
+  steps:
+    - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
+      with:
+        msystem: UCRT64
+        path-type: inherit
+        update: false
+        install: >-
+          make
+          diffutils
+          unzip
+          mingw-w64-ucrt-x86_64-pkgconf
+    - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+      with:
+        arch: x64
+    - shell: msys2 {0}
+      run: |
+        mv /usr/bin/link.exe /usr/bin/link-coreutils.exe
+        which -a link cl lib dumpbin pkg-config cargo || true
+    - shell: bash
+      run: rustup toolchain install && cargo --version
