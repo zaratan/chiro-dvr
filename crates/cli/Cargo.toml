@@ -29,7 +29,9 @@ unic-langid.workspace = true
 [dev-dependencies]
 compare.workspace = true
 media = { workspace = true, features = ["testing"] }
+png.workspace = true
 reference.workspace = true
+render = { workspace = true, features = ["testing"] }
 serde_json.workspace = true
 
 [lints]

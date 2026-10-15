@@ -1,6 +1,8 @@
 mod ahead;
 pub mod clips;
 pub mod config;
+#[cfg(feature = "testing")]
+pub mod drawn;
 mod encoders;
 mod group;
 mod overlay;

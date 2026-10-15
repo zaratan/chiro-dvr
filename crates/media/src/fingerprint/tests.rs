@@ -1,5 +1,7 @@
-use super::of;
+use super::{of, of_pixels, of_sequence};
 use crate::frame::{ColorRange, YuvFrame};
+
+const STORED_GRAY: u64 = 5_997_605_158_854_829_352;
 
 fn gray() -> YuvFrame {
     uniform(4, 2, ColorRange::Limited)
@@ -55,4 +57,47 @@ fn the_same_samples_in_another_size_or_range_are_another_frame() {
         assert_eq!((other.y(), other.u(), other.v()), (gray().y(), gray().u(), gray().v()));
         assert_ne!(of(&other), reference, "{other:?}");
     }
+}
+
+#[test]
+fn a_stored_fingerprint_stays_valid_across_builds_and_systems() {
+    assert_eq!(of(&gray()), STORED_GRAY);
+}
+
+#[test]
+fn pixels_of_another_size_or_one_changed_byte_are_another_image() {
+    let pixels = [9; 4 * 2 * 4];
+    let mut changed = pixels;
+    changed[31] = 10;
+
+    let reference = of_pixels(4, 2, &pixels);
+
+    assert_eq!(of_pixels(4, 2, &pixels), reference);
+    for other in [
+        of_pixels(2, 4, &pixels),
+        of_pixels(4, 2, &changed),
+        of_pixels(4, 2, &pixels[..28]),
+    ] {
+        assert_ne!(other, reference);
+    }
+}
+
+#[test]
+fn a_sequence_of_fingerprints_depends_on_their_order_and_number() {
+    let reference = of_sequence([1, 2, 3]);
+
+    assert_eq!(of_sequence([1, 2, 3]), reference);
+    for other in [of_sequence([2, 1, 3]), of_sequence([1, 2]), of_sequence([1, 2, 3, 0])] {
+        assert_ne!(other, reference);
+    }
+}
+
+#[test]
+fn two_words_changed_only_in_their_high_byte_do_not_cancel() {
+    let pixels = [0_u8; 16];
+    let mut changed = pixels;
+    changed[7] ^= 0x80;
+    changed[15] ^= 0x80;
+
+    assert_ne!(of_pixels(2, 2, &changed), of_pixels(2, 2, &pixels));
 }

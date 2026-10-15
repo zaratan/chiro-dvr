@@ -2,7 +2,10 @@ use std::path::{Path, PathBuf};
 
 use engine::config::DetectConfig;
 use media::decode::Threads;
-use reference::bench::{REPORT_FILE, TARGETS_FILE, read_report, read_targets, write_report, write_targets};
+use reference::bench::{
+    INJECTED_FILE, REPORT_FILE, TARGETS_FILE, read_detections, read_report, read_targets, write_detections,
+    write_report, write_targets,
+};
 use serde_json::json;
 use tempfile::TempDir;
 
@@ -162,4 +165,86 @@ fn the_contrast_recorded_with_the_targets_decides_their_visibility_in_the_guard(
     assert_eq!(guard.v011_only.iter().map(|change| change.id).collect::<Vec<_>>(), [0]);
     assert_eq!(guard.classes, []);
     assert_eq!(checked.evaluation.targets.len(), 1);
+}
+
+#[test]
+fn a_recorded_bench_of_another_video_is_refused_by_its_name_before_any_detection() {
+    let root = TempDir::new().unwrap();
+    let (_, bench) = recorded(root.path());
+    let other = root.path().join("missing").join("other.mp4");
+
+    let refused = against(
+        &other,
+        Threads::Automatic,
+        &DetectConfig::default(),
+        Judging::default(),
+        &bench,
+    )
+    .unwrap_err();
+
+    assert!(
+        matches!(&refused, Error::Video { replayed, .. } if *replayed == other),
+        "{refused:?}"
+    );
+    assert_eq!(
+        refused.to_string(),
+        format!(
+            "the recorded bench was made on {}, not on {}",
+            root.path().join("noisy.mp4").display(),
+            other.display()
+        )
+    );
+}
+
+#[test]
+fn a_recorded_bench_that_names_the_video_without_its_folder_as_the_v011_does_is_replayed() {
+    let root = TempDir::new().unwrap();
+    let (video, bench) = recorded(root.path());
+    let path = bench.join(REPORT_FILE);
+    let mut report = read_report(&path).unwrap();
+    report.video = "noisy.mp4".to_owned();
+    write_report(&path, &report).unwrap();
+
+    let checked = against(
+        &video,
+        Threads::Automatic,
+        &DetectConfig::default(),
+        Judging::default(),
+        &bench,
+    )
+    .unwrap();
+
+    assert!(!checked.guard.failed());
+}
+
+#[test]
+fn a_recorded_bench_of_a_video_with_the_same_name_but_another_frame_count_is_refused() {
+    let root = TempDir::new().unwrap();
+    let (video, bench) = recorded(root.path());
+    let path = bench.join(INJECTED_FILE);
+    let mut injected = read_detections(&path).unwrap();
+    let frames = injected.frame_count();
+    injected.push(Vec::new());
+    write_detections(&path, &injected).unwrap();
+
+    let refused = against(
+        &video,
+        Threads::Automatic,
+        &DetectConfig::default(),
+        Judging::default(),
+        &bench,
+    )
+    .unwrap_err();
+
+    assert!(
+        matches!(refused, Error::Frames { recorded, replayed } if recorded == frames + 1 && replayed == frames),
+        "{refused:?}"
+    );
+    assert_eq!(
+        refused.to_string(),
+        format!(
+            "the recorded bench has {} frames, the replayed video {frames}",
+            frames + 1
+        )
+    );
 }
