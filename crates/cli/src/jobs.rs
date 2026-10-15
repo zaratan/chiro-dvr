@@ -9,6 +9,7 @@ use files::names::{RESULTS_FOLDER, composed};
 #[cfg(test)]
 mod tests;
 
+const CURRENT_FOLDER: &str = ".";
 const VIDEO_EXTENSIONS: [&str; 5] = ["mp4", "mov", "avi", "mkv", "m4v"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,6 +39,8 @@ pub fn collect_videos(inputs: &[PathBuf]) -> Result<Vec<PathBuf>, Error> {
             videos.push(input.clone());
         }
     }
+    let mut seen = BTreeSet::new();
+    videos.retain(|video| seen.insert(identity(video)));
     Ok(videos)
 }
 
@@ -66,12 +69,23 @@ fn is_video(path: &Path) -> bool {
 }
 
 pub fn plan_jobs(videos: &[PathBuf], out: Option<&Path>) -> Result<Vec<Job>, Error> {
-    let roots: Vec<PathBuf> = videos.iter().map(|video| root(video, out)).collect();
+    let real_roots: Vec<PathBuf> = videos.iter().map(|video| real_root(video, out)).collect();
+    let mut written: BTreeMap<Vec<u8>, PathBuf> = BTreeMap::new();
+    let roots: Vec<PathBuf> = videos
+        .iter()
+        .zip(&real_roots)
+        .map(|(video, real)| {
+            written
+                .entry(folded(real.as_os_str()))
+                .or_insert_with(|| root(video, out))
+                .clone()
+        })
+        .collect();
     let keys: Vec<Homonym> = videos
         .iter()
-        .zip(&roots)
-        .map(|(video, root)| Homonym {
-            root: folded(root.as_os_str()),
+        .zip(&real_roots)
+        .map(|(video, real)| Homonym {
+            root: folded(real.as_os_str()),
             stem: folded(video.file_stem().unwrap_or_default()),
         })
         .collect();
@@ -79,22 +93,18 @@ pub fn plan_jobs(videos: &[PathBuf], out: Option<&Path>) -> Result<Vec<Job>, Err
     for key in &keys {
         *counts.entry(key).or_default() += 1;
     }
-    let jobs: Vec<Job> = videos
-        .iter()
-        .zip(roots)
-        .zip(&keys)
-        .map(|((video, root), key)| {
-            let ambiguous = counts.get(key).is_some_and(|&count| count > 1);
-            Job {
-                video: video.clone(),
-                dest: root.join(output_name(video, ambiguous, out.is_some())),
-            }
-        })
-        .collect();
     let mut seen = BTreeSet::new();
-    if let Some(shared) = jobs.iter().find(|job| !seen.insert(folded(job.dest.as_os_str()))) {
-        return Err(Error::SharedFolder {
-            dest: shared.dest.clone(),
+    let mut jobs = Vec::with_capacity(videos.len());
+    for ((video, (root, real)), key) in videos.iter().zip(roots.iter().zip(&real_roots)).zip(&keys) {
+        let ambiguous = counts.get(key).is_some_and(|&count| count > 1);
+        let name = output_name(video, ambiguous, out.is_some());
+        let dest = root.join(&name);
+        if !seen.insert(folded(real.join(&name).as_os_str())) {
+            return Err(Error::SharedFolder { dest });
+        }
+        jobs.push(Job {
+            video: video.clone(),
+            dest,
         });
     }
     Ok(jobs)
@@ -104,6 +114,29 @@ pub fn plan_jobs(videos: &[PathBuf], out: Option<&Path>) -> Result<Vec<Job>, Err
 struct Homonym {
     root: Vec<u8>,
     stem: Vec<u8>,
+}
+
+fn real_root(video: &Path, out: Option<&Path>) -> PathBuf {
+    out.map_or_else(
+        || real(video.parent().unwrap_or(Path::new(""))).join(RESULTS_FOLDER),
+        real,
+    )
+}
+
+fn identity(video: &Path) -> PathBuf {
+    fs::canonicalize(video).unwrap_or_else(|_| match video.file_name() {
+        Some(name) => real(video.parent().unwrap_or(Path::new(""))).join(name),
+        None => video.to_path_buf(),
+    })
+}
+
+fn real(path: &Path) -> PathBuf {
+    let path = if path.as_os_str().is_empty() {
+        Path::new(CURRENT_FOLDER)
+    } else {
+        path
+    };
+    fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
 
 fn root(video: &Path, out: Option<&Path>) -> PathBuf {
