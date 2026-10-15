@@ -7,7 +7,7 @@ license.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "batdetect-bench-rs"
+name = "batdetect-bench"
 
 [features]
 testing = []

@@ -13,7 +13,7 @@ fn ctrl_c_during_the_detection_names_the_video_reached_and_exits_with_130_then_t
     let video = fixture("video_092_original_3m24-4m05.mp4").unwrap();
     let out = tempfile::tempdir().unwrap();
     let batdetect = |out: &Path| {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_batdetect-rs"));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_batdetect"));
         command
             .arg(&video)
             .arg("-o")

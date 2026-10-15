@@ -37,7 +37,7 @@ cette configuration : propre.
 
 ## Commande Rust (12 octobre 2026) : 14 pistes
 
-`batdetect-rs` (#123), réglages par défaut, sur l'original. Mêmes 14 pistes que la
+La commande Rust (#123), réglages par défaut, sur l'original. Mêmes 14 pistes que la
 v0.1.1, avec le même nombre de détections chacune. Elles s'apparient toutes à la
 référence (début à ±5 images, points à ±3).
 

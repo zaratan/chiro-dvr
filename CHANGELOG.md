@@ -3,6 +3,20 @@
 Les versions suivent [SemVer](https://semver.org/lang/fr/). Chaque version publiée a sa section
 ici : la release GitHub en reprend le texte, et le workflow de release échoue sans elle.
 
+## [Non publiée]
+
+### Modifié
+
+- `batdetect` et `batdetect-bench` sont réécrits en Rust, FFmpeg lié en statique (#106). Sur la
+  092, la commande prend 19 s au lieu de 135 s. Sur 26 vidéos, 963 des 966 pistes de la 0.1.1 se
+  retrouvent, 3 sont perdues et 9 apparaissent ; les écarts sont listés dans docs/11.
+- Sans `-o`/`--out-dir`, les résultats vont dans `batdetect/` à côté de chaque vidéo, et non plus
+  dans `out/` du dossier de lancement (#86).
+
+### Retiré
+
+- Le code Python. Son dernier état est au tag `python-final` (#199).
+
 ## [0.1.1] - 2026-10-10
 
 ### Ajouté

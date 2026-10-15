@@ -1,9 +1,3 @@
-.venv/
-__pycache__/
-.pytest_cache/
-.ruff_cache/
-.coverage
-htmlcov/
 .DS_Store
 
 in/
@@ -13,10 +7,6 @@ out/
 tests/fixtures/**/batdetect/
 
 .claude/tower-control/lot-*.sh
-
-build/
-dist/
-*.mo
 
 /target/
 /.ffmpeg

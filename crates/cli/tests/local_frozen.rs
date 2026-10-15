@@ -15,7 +15,7 @@ use tempfile::TempDir;
 
 use crate::frozen::{Frozen, clip, tracked};
 
-const BINARY: &str = env!("CARGO_BIN_EXE_batdetect-rs");
+const BINARY: &str = env!("CARGO_BIN_EXE_batdetect");
 const FAST_PASS_OF_3_48_S: f64 = 228.27;
 const SLOW_TRACK_OF_3_29_S: f64 = 209.59;
 const ALONG_THE_EDGE_OF_0_28_S: f64 = 28.40;

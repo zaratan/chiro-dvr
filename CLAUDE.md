@@ -1,13 +1,13 @@
 # batdetect — guide pour Claude
 
-Détection et suivi de chauves-souris dans des vidéos de jumelles thermiques. Python 3.14,
-uv, OpenCV, numpy, ffmpeg. Installation et commandes : [README.md](README.md). Base de
+Détection et suivi de chauves-souris dans des vidéos de jumelles thermiques. Rust, FFmpeg
+lié en statique. Installation et commandes : [README.md](README.md). Base de
 connaissances : [docs/](docs/README.md), à lire avant de toucher à un réglage
 ([docs/02-methode.md](docs/02-methode.md)).
 
 ```bash
-mise run check                    # lint, format, types, tests : vert avant de rendre la main
-uv run batdetect in/video_092_original.mp4 # référence : 5 min, 14 pistes, ~2 min 30 de calcul (docs/09)
+mise run check                    # rust:static, rust:test, rust:slow, rust:settings : vert avant de rendre la main
+cargo run --release -p batdetect -- in/video_092_original.mp4 -o out # référence : 5 min, 14 pistes, ~20 s de calcul (docs/11)
 ```
 
 ## Rôles
@@ -33,16 +33,16 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
   les deux de la 092 et `video_092_original_3m24-4m05_720x540.mp4`, l'extrait réduit une
   fois par la commande de [docs/11](docs/11-migration-rust.md#réglages), jamais refait.
   `git lfs pull` après un clone, sinon les tests `slow` et `reference` échouent sur un
-  pointeur (garde dans `tests/conftest.py`). Les cinq petites
+  pointeur (garde dans la crate `reference`). Les cinq petites
   fixtures du Rust (`full_range.mp4`, `full_range_midway.mp4`, `two_gops.mp4`, `spot.mp4`
   et son remux en plage pleine `spot_full_range.mp4`, quelques Ko) sont des fichiers git
   ordinaires, faits une fois par la commande de
   [docs/11](docs/11-migration-rust.md#tests). Les détections de l'extrait par le Rust
   (`tests/fixtures/rust/`) aussi, écrites par `compare --frames` et redemandées au bit
   près sur chaque système. La 092 entière `video_092_original.mp4` est
-  une copie exacte de `in/`. Son test, marqueur `reference`, est exclu de `pytest` par
-  défaut et tourne dans sa propre tâche de CI : `uv run pytest -m reference`. Les tâches
-  `slow-tests` et `rust-windows-slow` ne récupèrent que l'extrait ; les tâches
+  une copie exacte de `in/`. Ses tests (`tests/reference_*.rs`) tournent par
+  `mise run rust:reference`, dans leur propre tâche de CI `rust-reference`. La tâche
+  `rust-windows-slow` ne récupère que l'extrait ; les tâches
   `rust-slow` et `rust-settings`, l'extrait et sa 720×540.
   Tolérances du test de référence, sur les deux vidéos : nombre de pistes exact, début ±5
   images, points ±3, qui couvrent l'écart mesuré entre Mac et Linux (4 images, 2 points).
@@ -53,105 +53,29 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 
 ## Code
 
-**Un module, une responsabilité, son fichier de tests** (`tests/test_<module>.py`, ou
-`test_<paquet>_<module>.py`). Dépendances à sens unique : `track` → `detect` → `video`, `detect` → `noise` → `median`,
-`stability` → `spans` → `detect`, `probe` → `damage` → `spans`, `damage` → `video`, `exclusion` → `damage`,
-`stability`, `spans`, `detect`, `arguments`, `cli`, `pofile`, `output/summary` → `language`. Dans `output/` : `zoomview` → `zoom`, `overlay`, `clips`, `names`, `config`, `track`,
-`detect`, `video` ; `zoom` → `config`, `track` ; `clips` → `names`, `track`, `video` ; `names` → `language`, `track` ; `summary` → `names`.
-Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs rôles.
+**Un module, une responsabilité, ses tests.** Mieux vaut beaucoup de petits fichiers clairs
+qu'un gros fichier à plusieurs rôles.
 
-- `video.py` : ouverture, lecture et réduction des images (`open_video`, `read_frames`,
-  `to_work_gray`). Seul endroit qui lit la vidéo pour la détection.
-- `detect.py` : `DetectConfig`, `Detection`, masques, filtre à la taille de la cible
-  (`target_blur`), fond médian, seuil par pixel (`raised_threshold`) et taches
-  (`detect_frames`, `find_blobs`). Fonctions pures testables sur des tableaux numpy.
-- `median.py` : `temporal_median`, médiane d'une pile d'images par tri par comparaisons,
-  identique au bit près à `np.median`, environ 10 fois plus rapide.
-- `noise.py` : `temporal_noise`, bruit de chaque pixel (MAD des écarts au fond sur les
-  images de la fenêtre, corrigés du gain) pour le seuil par pixel (`noise_factor`).
-- `stability.py` : `StabilityConfig`, `unstable_spans` : images
-  saturées de taches (jumelles qui bougent) et leurs abords, retirées avant le suivi,
-  par la commande comme par le banc.
-- `spans.py` : `Span`, `without_spans`, plages d'images dont les détections sont vidées
-  en gardant leurs clés.
-- `damage.py` : lecture de la sortie d'ffprobe (`parse_probe`), images en erreur de
-  décodage ou après un saut de `pts`, plages abîmées jusqu'à l'image-clé suivante,
-  élargies de la demi-fenêtre du fond de chaque côté (`damaged_spans`),
-  `check_frame_count` (ffprobe et OpenCV doivent voir le même nombre d'images).
-- `probe.py` : `probing`, le processus ffprobe (un seul fil, sortie dans un
-  fichier temporaire, tué si le bloc échoue), lu après le bloc.
-- `exclusion.py` : `exclude`, seul point d'entrée de la commande comme du banc : contrôle du
-  nombre d'images, plages abîmées sorties du calcul de stabilité, détections vidées dans
-  les plages abîmées et instables (clés gardées).
-- `track.py` : `TrackConfig`, `Track`, appariement, fusion des jumelles, filtres de fin
-  (`min_hits`, `min_travel`, virage médian), tout dans `track_detections`. Ne dépend que de `Detection`.
-  `Track.max_area()` et `Track.peak_amplitude()` servent au CSV comme au choix du zoom.
-- `output/` : `config.py` (`RenderConfig`), `timefmt.py` (temps),
-  `overlay.py` (boîtes, trace, interpolation, `track_overlay`), `render.py` (une lecture
-  de l'original qui alimente les extraits et la vidéo annotée optionnelle ; au plus
-  `MAX_WRITERS` encodeurs à la fois, sinon plusieurs passes), `writer.py` (`FrameWriter`,
-  un ffmpeg qui reçoit des images brutes ; supprime le fichier partiel s'il est
-  abandonné), `clips.py` (fenêtres d'extraits, répartition en passes ; une fenêtre peut
-  porter une vue sur l'image brute et un ralenti), `zoom.py` (pistes qui ont un zoom,
-  cadre fixe), `zoomview.py` (vue zoomée, trace coupée près de la cible, fenêtres
-  `_zoom.mp4`), `names.py` (tous les noms des fichiers produits, une table par langue,
-  ménage des sorties précédentes des deux langues et des anciens noms), `tables.py`
-  (CSV, `params.json`), `encoder.py`
-  (moteur multimédia ou x264, choisi au démarrage par un essai d'encodage). Image résumé :
-  `summary.py` (assemblage, écriture), `background.py` (fond médian, zones d'affichage masquées), `style.py`
-  (palette, tailles selon la largeur), `geometry.py` (longueur d'arc), `colors.py`,
-  `placement.py` (pastilles), `arrows.py`, `marker.py`, `legend.py`, `periods.py`
-  (tranches de 10 min).
-- `language.py` : langue des messages (gettext, domaine `messages` partagé avec argparse,
-  virgule décimale en français) ; `pofile.py` écrit le `.mo` depuis le `.po`
-  (`mise run catalog`, [docs/05](docs/05-outillage-python.md)).
-- `jobs.py` (vidéos à traiter, dossiers de sortie), `arguments.py` (options partagées,
-  modes `--mode quick|normal` dans `MODES`, construction des configs), `cli.py` (commande `batdetect`).
-- `parallel.py` : détection découpée en tranches de temps, une par processus (`--workers`,
-  1 par défaut : plus de tranches ajoutent surtout de la relecture, voir
-  [docs/09](docs/09-profilage.md)). Chaque tranche lit la vidéo depuis le début et saute
-  jusqu'à elle : jamais `CAP_PROP_POS_FRAMES`, imprécis d'une image en mp4. Le résultat
-  doit rester identique au bit près au traitement séquentiel. Seul le test `slow` sur le
-  vrai extrait détecte un positionnement imprécis : le lancer après toute modification de
-  `parallel.py`. Les processus de détection s'arrêtent si le parent meurt. Dans chaque
-  tranche, un fil lecteur (`prefetch.py`, file bornée à `READ_AHEAD` images) décode,
-  applique le crochet et réduit pendant que le fil principal détecte ; il est arrêté
-  et attendu avant la libération de la vidéo.
-- `synthetic/` (`trajectory.py`, `hunting.py`, `sampling.py`, `injection.py`) : fausses chauves-souris
-  injectées en pleine résolution, en transit (Bézier) ou en chasse (`--motions hunt circle`). `bench/` (`config`, `collect`, `cache`, `matching`,
-  `metrics`, `stats`, `report`, `cli`) : banc de mesure (`batdetect-bench`,
-  [docs/08-banc-de-mesure.md](docs/08-banc-de-mesure.md)).
-  Toute amélioration de la détection ou du suivi se mesure au banc avant et après.
-- `packaging/` : `NOTICE` (une ligne par bibliothèque du binaire, sources de FFmpeg) et
-  `GPL-3.0.txt`. Le binaire Homebrew est sous GPL v3, le code sous MIT
-  ([docs/05](docs/05-outillage-python.md)). `mise run package` construit le binaire
-  PyInstaller et son archive dans `dist/`. `mise run package:check` la contrôle : macOS
-  minimum, FFmpeg et bibliothèques présents dans le NOTICE, CSV des pistes identique au dépôt
-  sur l'extrait. Une montée d'opencv ou de numpy se vérifie par `package:check`, et le NOTICE
-  se complète à la main.
-- `tools/reference_v011.py` : enregistre la référence v0.1.1 (détections, pistes, bancs) ;
-  refuse de tourner si `src/` diffère du tag `v0.1.1`. `tools/summary_v011.py` en tire
-  les attendus de l'image résumé (couleurs, tranches, en-tête), avec la même garde.
+- Code et identifiants en anglais, docs en français. Une valeur magique devient une constante
+  nommée.
+- Tests sans commentaire, le nom du test porte le pourquoi. Pas de mock de FFmpeg ni d'un
+  processus : images fabriquées ou vraie vidéo.
 - `tests/fixtures/reference/` : la référence v0.1.1 de l'extrait et de la 092, la 092 à
   1440 pixels de travail (`video_092_original_width_1440/`, #151), et dans `settings/` ses
   16 cas à d'autres réglages de détection (`--detect`, docs/11), fichiers git ordinaires ;
   format, dossier des 26 vidéos (`BATDETECT_VIDEOS_DIR`) et versions dans son
-  `README.md`.
-- Toutes les coordonnées, distances et surfaces hors de `find_blobs` sont en pixels de la
+  `README.md`. Elle ne se réenregistre que depuis le tag `python-final` (`tools/reference_v011.py`, qui
+  exige `src/` identique à `v0.1.1`).
+- `packaging/` : `NOTICE` et `GPL-3.0.txt` décrivent le binaire v0.1.1 publié, jusqu'à #93.
+  `release.yml` refuse toute publication avant #93.
+- Toutes les coordonnées, distances et surfaces hors de la détection sont en pixels de la
   vidéo d'origine ; seule la détection travaille à `work_width`.
-- Configs en dataclasses gelées qui valident dans `__post_init__` ; pas de `Namespace`
-  au-delà de `cli.py` et `arguments.py`.
-- Chaque retour de `cv2` passe par `np.asarray(..., dtype=...)` : les stubs d'OpenCV
-  sont trop larges pour basedpyright strict.
-- Code et identifiants en anglais, docs en français. Zéro commentaire, zéro `noqa` ou
-  `type: ignore` : une valeur magique devient une constante nommée.
-- Tests sans commentaire, le nom du test porte le pourquoi. Pas de mock d'OpenCV ni de
-  subprocess : images fabriquées (`tests/helpers.py`) ou vraie vidéo.
 
 ## Rust
 
-Réécriture en cours, détail dans [docs/11](docs/11-migration-rust.md). Le Python reste
-l'outil livré jusqu'à #106 ; docs/02 et docs/10 le décrivent, lui.
+Le Python est retiré depuis #199 (dernier état au tag `python-final`) ; l'histoire de la
+migration est dans [docs/11](docs/11-migration-rust.md). docs/02 et docs/10 décrivent encore
+le Python jusqu'à #200.
 
 ```bash
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:ffmpeg  # FFmpeg 7.1.1 + openh264, une fois par poste
@@ -194,9 +118,9 @@ crates depuis #100, dépendances à sens unique :
 - `compare` → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré ;
   `bench` → `engine`, `tracking`, `reference`, `media`, `types` (#100) : banc de mesure,
-  binaire `batdetect-bench-rs` (`--targets`, `--replay`, `--against`), non livré avant #106 ;
+  binaire `batdetect-bench` (`--targets`, `--replay`, `--against`) ;
   sa feature `testing` porte la vidéo bruitée et la cible lente de ses tests (`noisy`) ;
-  `cli` (paquet `batdetect`, binaire `batdetect-rs`) → `engine`, `tracking`, `files`,
+  `cli` (paquet `batdetect`, binaire `batdetect`) → `engine`, `tracking`, `files`,
   `summary`, `render`, `draw`, `media`, `types`, et `compare` pour ses tests (#184) ;
   `options` (réglages de la commande),
   `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), `writable`

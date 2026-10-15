@@ -1,47 +1,12 @@
 [tools]
 python = "3.14.8"
-uv = "0.12.22"
 lefthook = "2.1.16"
 "github:taiki-e/cargo-llvm-cov" = "0.9.1"
 cargo-deny = "0.20.2"
 "github:Boshen/cargo-shear" = "1.14.0"
 
-[tasks.lint]
-run = "uv run ruff check"
-
-[tasks.format]
-run = "uv run ruff format"
-
-[tasks."format:check"]
-run = "uv run ruff format --check"
-
-[tasks.typecheck]
-run = "uv run basedpyright"
-
-[tasks.test]
-run = "uv run pytest"
-
-[tasks.coverage]
-run = "uv run pytest --cov=batdetect --cov-report=term-missing"
-
-[tasks.static]
-run = [
-  "uv run ruff check",
-  "uv run ruff format --check",
-  "uv run basedpyright",
-]
-
-[tasks."test:fast"]
-run = "uv run pytest -n auto -m 'not slow and not reference' --cov=batdetect --cov-report=term-missing --cov-fail-under=95"
-
-[tasks."test:slow"]
-run = "uv run pytest -m slow"
-
 [tasks.check]
 run = [
-  { task = "static" },
-  { task = "test:fast" },
-  { task = "test:slow" },
   { task = "rust:static" },
   { task = "rust:test" },
   { task = "rust:slow" },
@@ -231,64 +196,4 @@ refuse_strangers img_0000 "$BATDETECT_VIDEOS_DIR" 1 "*.mp4"
 refuse_altered img_0000 "$BATDETECT_VIDEOS_DIR"
 fetch reference-v0.1.1 "$BATDETECT_REFERENCE_DIR"
 fetch img_0000 "$BATDETECT_VIDEOS_DIR"
-'''
-
-[tasks.catalog]
-run = "uv run python -m batdetect.pofile src/batdetect/locale"
-
-[tasks.package]
-run = '''
-set -euo pipefail
-rm -rf build/pyinstaller dist/batdetect dist/batdetect-darwin-arm64.tar.gz
-uv run python -m batdetect.pofile src/batdetect/locale
-uv run --group release pyinstaller --noconfirm --clean --onedir --noupx --name batdetect \
-  --copy-metadata batdetect --copy-metadata opencv-python-headless \
-  --add-data "$PWD/src/batdetect/locale/fr/LC_MESSAGES/messages.mo:batdetect/locale/fr/LC_MESSAGES" \
-  --distpath dist --workpath build/pyinstaller --specpath build/pyinstaller src/batdetect/cli.py
-cv2_dir=$(uv run python -c "import cv2, pathlib; print(pathlib.Path(cv2.__file__).parent)")
-python_license=$(uv run python -c "import sysconfig; print(sysconfig.get_path('stdlib'))")/LICENSE.txt
-cp LICENSE packaging/NOTICE packaging/GPL-3.0.txt "$cv2_dir/LICENSE-3RD-PARTY.txt" dist/batdetect/
-cp "$python_license" dist/batdetect/LICENSE-PYTHON.txt
-COPYFILE_DISABLE=1 tar -czf dist/batdetect-darwin-arm64.tar.gz -C dist batdetect
-'''
-
-[tasks."package:check"]
-env = { MACOS_MIN = "14.0", EXTRACT = "tests/fixtures/video_092_original_3m24-4m05.mp4", CHECK_DIR = "out/package-check" }
-run = '''
-set -euo pipefail
-binary=dist/batdetect/batdetect
-minos=$(find dist/batdetect -type f -exec otool -l {} + 2>/dev/null | awk '$1 == "minos" { print $2 }' | sort -V | tail -1)
-if [ -z "$minos" ] || [ "$(printf '%s\n' "$minos" "$MACOS_MIN" | sort -V | tail -1)" != "$MACOS_MIN" ]; then
-  echo "binary needs macOS $minos, the formula promises $MACOS_MIN" >&2
-  exit 1
-fi
-ffmpeg_prefix=$(grep -o '/opt/homebrew/Cellar/ffmpeg/[^)]*' packaging/NOTICE)
-if ! strings dist/batdetect/_internal/libavcodec.*.dylib | grep -- "--prefix=$ffmpeg_prefix " > /dev/null; then
-  echo "bundled FFmpeg is not $ffmpeg_prefix named in packaging/NOTICE" >&2
-  exit 1
-fi
-unlisted=$(find dist/batdetect -name '*.dylib' -exec basename {} \; | while read -r lib; do
-  grep -q "^$lib:" packaging/NOTICE || echo "$lib"
-done)
-if [ -n "$unlisted" ]; then
-  echo "libraries missing from packaging/NOTICE: $unlisted" >&2
-  exit 1
-fi
-french_help=$(env -u LC_ALL -u LC_MESSAGES -u LANGUAGE LANG=fr_FR.UTF-8 "$binary" --help)
-case "$french_help" in
-  "utilisation : batdetect"*"affiche ce message d'aide et quitte"*) ;;
-  *) echo "binary help is not in French under LANG=fr_FR.UTF-8" >&2; exit 1 ;;
-esac
-english_help=$(env -u LC_ALL -u LC_MESSAGES -u LANGUAGE -u LANG "$binary" --help)
-case "$english_help" in
-  "usage: batdetect"*) ;;
-  *) echo "binary help is not in English without a locale" >&2; exit 1 ;;
-esac
-rm -rf "$CHECK_DIR"
-uv run batdetect "$EXTRACT" -o "$CHECK_DIR/source"
-"$binary" "$EXTRACT" -o "$CHECK_DIR/binary"
-"$binary" "$EXTRACT" -o "$CHECK_DIR/binary-workers" --workers 2
-for run in binary binary-workers; do
-  cmp "$CHECK_DIR"/source/*/*.csv "$CHECK_DIR/$run"/*/*.csv
-done
 '''

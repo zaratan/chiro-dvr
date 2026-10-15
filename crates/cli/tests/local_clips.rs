@@ -1,7 +1,8 @@
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 
-use engine::config::DetectConfig;
+use batdetect::options::Options;
+use batdetect::process::{Tracked, tracked};
 use engine::detection::detect;
 use media::decode::{Decoder, Threads};
 use media::fingerprint;
@@ -11,9 +12,6 @@ use reference::recording::Recording;
 use render::config::RenderConfig;
 use render::source::{Error, Origin, Source};
 use render::windows::{Group, Window, clip_windows, groups};
-use tracking::exclusion::exclude;
-use tracking::stability::StabilityConfig;
-use tracking::track::{TrackConfig, track_detections};
 use types::span::Span;
 use types::timeline::Timeline;
 use types::track::Track;
@@ -41,21 +39,15 @@ struct Engine {
 #[cfg(test)]
 fn through_the_engine(name: &str) -> Engine {
     let video = recorded_video(&format!("{name}.mp4")).unwrap();
-    let detected = detect(&video, Threads::Automatic, &DetectConfig::default()).unwrap();
-    let reading = detected.reading();
-    let rate = reading.video().frame_rate();
-    let pts = reading.frames().iter().map(|frame| frame.pts()).collect();
-    let timeline = Timeline::new(pts, reading.video().time_base(), rate).unwrap();
-    let damage = detected.damage();
-    let exclusion = exclude(
-        detected.detections(),
-        damage.spans().to_vec(),
-        damage.reported_frames(),
-        rate,
-        StabilityConfig::default(),
-    );
-    let tracks = track_detections(&exclusion.detections, TrackConfig::default()).unwrap();
-    let source = Source::new(&video, &timeline, &reading.key_frames(), damage.error_frames()).unwrap();
+    let options = Options::default();
+    let detected = detect(&video, Threads::Automatic, &options.detect).unwrap();
+    let Tracked {
+        timeline,
+        exclusion,
+        tracks,
+    } = tracked(&detected, &options).unwrap();
+    let errors = detected.damage().error_frames();
+    let source = Source::new(&video, &timeline, &detected.reading().key_frames(), errors).unwrap();
     Engine {
         video,
         timeline,

@@ -19,7 +19,8 @@ infaillibles les constructeurs de `types` qui ne font que filtrer ou renumérote
 noyau et disque calculés, plage pleine lue) et #151 (fenêtre et masques : médiane sans
 borne, zones OSD, réglages unifiés). Depuis #151, aucun réglage valide n'est refusé, et
 les 16 cas du banc sont comparés. L'image résumé
-est arrivée avec #104, sa frise avec #127 ; les extraits sont en cours (#112).
+est arrivée avec #104, sa frise avec #127 ; les extraits avec #110 et #112, les zooms avec
+#103.
 
 #100 porte le banc de mesure en Rust (#107 à #109, crate `bench`, binaire
 `batdetect-bench-rs`) : fausses chauves-souris injectées par une couture du moteur,
@@ -101,7 +102,7 @@ lancent sans lui.
   - La CI vérifie par `otool -L` et `ldd` qu'aucune `libav*`, `libsw*` ni openh264
     n'est liée en dynamique. La liste complète n'est pas contrôlée.
 - **Version liée vérifiable** : FFmpeg est construit avec `--extra-version=<empreinte>`.
-  `batdetect-rs --version` affiche donc `FFmpeg 7.1.1-<empreinte>`, et un test compare
+  `batdetect --version` affiche donc `FFmpeg 7.1.1-<empreinte>`, et un test compare
   cette empreinte à la cible de `.ffmpeg`.
 - **Reconstruction** : cargo ne suit pas les `.a`.
   - La rlib de ffmpeg-sys-next n'en contient aucune copie (mesuré le 11 octobre 2026
@@ -533,12 +534,13 @@ Forme et tests :
   d'essai (`rust:settings`). Ils ne tournent plus sous macOS ni Windows ; `slow_extract`
   garde l'identité au bit près sur les trois systèmes.
   Quand l'empreinte de FFmpeg change, `rust-slow`, `rust-reference` et `rust-settings` le
-  construisent donc aussi, sans le sauver : seule `rust` sauve le cache de FFmpeg. Le binaire contrôlé se construit par `--workspace --bin batdetect-rs` : avec
+  construisent donc aussi, sans le sauver : seule `rust` sauve le cache de FFmpeg. Le binaire contrôlé se construit par `--workspace --bin batdetect` : avec
   `-p batdetect`, les features de `syn` changent (`draw` en ajoute par `skrifa`), et
   `bindgen`, `ffmpeg-sys-next` et `media` se recompilaient (11 s sous Linux, 22 s sous
   macOS, 60 s sous Windows à la PR #145). Le cache de FFmpeg est
   restauré, puis sauvé dès la construction, même si la suite échoue. L'action `setup`
-  n'installe les outils cargo et la toolchain qu'avec `rust: true`. Premier passage
+  installe la toolchain, les outils cargo et le Python de `rust:rules` (sans entrée
+  depuis #199, qui a retiré sa branche Python). Premier passage
   (PR #130), sans cache de `target/` : `rust` 3 min 04 sur macOS et 3 min 46 sous Linux ;
   `rust-reference` 1 min 15. Depuis #181, deux actions composites servent à chaque tâche :
   - `.github/actions/ffmpeg-key` pose `XDG_CACHE_HOME` et calcule les clés des caches de
@@ -1618,11 +1620,11 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       1:32 ; 097 2:43, 099 0:19 et 100 1:36 sont dans les deux.
     - La formule sera retentée après la 0.2.0 (issue en Backlog).
 - **`cli`** → `engine`, `tracking`, `files`, `summary`, `render`, `draw`, `media`, `types` : paquet `batdetect`, binaire
-  `batdetect-rs` (#123). Tout texte vu par l'utilisateur vit dans les deux catalogues
+  `batdetect` (#123, `batdetect-rs` jusqu'à #199). Tout texte vu par l'utilisateur vit dans les deux catalogues
   Fluent `locales/{fr,en}.ftl`, lus par `texts.rs` (#114) ; `messages.rs` fait les messages
   à partir des vidéos et des erreurs, `arguments.rs` la ligne de commande. La bibliothèque (`failure`, `jobs`, `language`, `options`, `process`, `progress`, `settings`, `tally`, `writable`)
   sert aux tests.
-  - `batdetect-rs VIDÉO|DOSSIER… [-o DOSSIER]`. Sans `-o`/`--out-dir`, les résultats de
+  - `batdetect VIDÉO|DOSSIER… [-o DOSSIER]`. Sans `-o`/`--out-dir`, les résultats de
     chaque vidéo vont dans `<dossier de la vidéo>/batdetect/` (#86) ; l'aide le dit
     (« [par défaut : batdetect/ à côté de chaque vidéo] »). `--output` n'existe plus.
     Les anciennes sorties de la v0.1.1 (`out/`, relatif au dossier de lancement) restent où
@@ -1630,11 +1632,11 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
   - Usages courants en tête de l'aide (#56), au format de `tldr` : « - description : », puis
     la commande en retrait. Six exemples : un dossier de soirée, plusieurs soirées, une
     vidéo, `-o`, `--zoom all`, `--annotated`. Le nom de la commande est
-    `env!("CARGO_BIN_NAME")` (`arguments::PROGRAM`), si bien que le renommage de #106 ne
-    touche qu'un endroit. Textes dans `texts.rs` (`common_uses`, `all_options`,
+    `env!("CARGO_BIN_NAME")` (`arguments::PROGRAM`), si bien que le renommage de #199 n'a
+    touché qu'un endroit du code livré. Textes dans `texts.rs` (`common_uses`, `all_options`,
     `files_produced`) et les `.ftl`, sans module à part.
     - Sans aucun argument : la phrase d'en-tête, les usages et « Toutes les options et les
-      fichiers produits : batdetect-rs --help », sur la sortie standard, code 0.
+      fichiers produits : batdetect --help », sur la sortie standard, code 0.
       `arg_required_else_help` est retiré. `-o` sans vidéo reste une erreur d'usage (code 2).
     - `-h` : la phrase, les usages (`before_help`), l'essentiel, et le même pied
       (`after_help`).
@@ -1956,7 +1958,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       « les arguments sont refusés », sans le texte anglais du genre (#55).
     - Ligne d'usage et pied (#55). La ligne d'usage ne suit que les erreurs de syntaxe de
       clap. Les refus de valeurs ne l'ont pas et gardent le pied, « Pour en savoir plus,
-      essayez 'batdetect-rs --help'. », dont le nom vient de `CARGO_BIN_NAME`. Les refus
+      essayez 'batdetect --help'. », dont le nom vient de `CARGO_BIN_NAME`. Les refus
       d'entrées et de dossiers n'ont ni l'une ni l'autre (`errors::rejection`, marqués par
       `ErrorKind::Io`).
     - Causes : les `Display` des erreurs des bibliothèques restent en anglais dans le seul
@@ -2615,8 +2617,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       l'utilisateur.
 
 - **`bench`** → `engine`, `tracking`, `reference`, `media`, `types` (#107 à #109) : le
-  banc de mesure, bibliothèque et binaire `batdetect-bench-rs` (le nom ne heurte pas
-  `uv run batdetect-bench` avant #106). Aucune dépendance de plus au workspace.
+  banc de mesure, bibliothèque et binaire `batdetect-bench` (`batdetect-bench-rs` jusqu'à
+  #199, pour ne pas heurter le banc Python). Aucune dépendance de plus au workspace.
   - `random` : SplitMix64 (une graine par cible, tirée de `--seed` dans l'ordre des
     numéros, comme `SeedSequence.spawn` : le tirage d'une cible ne dépend pas du nombre
     d'essais des précédentes) et xoshiro256\*\*, écrits dans le dépôt, épinglés sur les
@@ -2670,7 +2672,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     `null` pour des cibles rejouées. `code` : `git describe --always --dirty` du dossier
     courant, ou `unknown`.
   - `guard`, `against` : la garde de la bascule ([Banc de mesure](#banc-de-mesure)).
-  - Commande : `batdetect-bench-rs VIDÉO [-o DOSSIER]` avec les options du Python
+  - Commande : `batdetect-bench VIDÉO [-o DOSSIER]` avec les options du Python
     (`--per-class`, `--amplitudes`, `--sigmas`, `--motions`, `--seed`,
     `--match-radius`, les dix de détection, `--max-blobs`, `--unstable-pad`, les six de
     suivi), sans `--mode` ni `--workers`, plus `--targets FICHIER`, `--replay DOSSIER` et
@@ -2921,7 +2923,7 @@ bascule.
 
 ### Garde
 
-`batdetect-bench-rs VIDÉO --against DOSSIER` (et le test `local_guard`, qui appelle la
+`batdetect-bench VIDÉO --against DOSSIER` (et le test `local_guard`, qui appelle la
 même fonction `bench::against::against`) rejoue un banc enregistré par la v0.1.1 :
 
 - `DOSSIER` contient `bench.json` et `bats.jsonl.gz` (`$BATDETECT_REFERENCE_DIR/bench/`

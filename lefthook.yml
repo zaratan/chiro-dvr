@@ -1,13 +1,5 @@
 pre-commit:
   jobs:
-    - name: ruff
-      glob: "*.py"
-      run: uv run ruff check --fix {staged_files}
-      stage_fixed: true
-    - name: format
-      glob: "*.py"
-      run: uv run ruff format {staged_files}
-      stage_fixed: true
     - name: rustfmt
       glob: "*.rs"
       run: rustfmt --edition 2024 {staged_files}
