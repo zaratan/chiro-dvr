@@ -23,7 +23,7 @@ pas, et pourquoi les choses sont comme elles sont.
 | [06-questions-ouvertes.md](06-questions-ouvertes.md) | Naturaliste et développeur | Ce qui reste à trancher ou à valider |
 | [07-ameliorer-la-detection.md](07-ameliorer-la-detection.md) | Développeur | Diagnostic mesuré des pistes manquées et catalogue des améliorations |
 | [08-banc-de-mesure.md](08-banc-de-mesure.md) | Développeur | Le banc de cibles synthétiques : méthode, métriques, limites, résultats |
-| [09-profilage.md](09-profilage.md) | Développeur | Où part le temps de calcul : étapes, médiane CPU contre GPU, encodeurs |
+| [09-profilage.md](09-profilage.md) | Développeur | Où part le temps de calcul du Rust : étapes, points chauds, fils ; puis le profil de la v0.1.1 en Python |
 | [10-logique-de-detection.md](10-logique-de-detection.md) | Naturaliste et développeur | La logique expliquée : outil mathématique de chaque étape, choix et limites |
 | [11-migration-rust.md](11-migration-rust.md) | Développeur | La réécriture en Rust : construction de FFmpeg, licences, charte, tests, crates |
 
