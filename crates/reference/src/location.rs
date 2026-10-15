@@ -14,6 +14,7 @@ pub const VIDEOS_DIR_VARIABLE: &str = "BATDETECT_VIDEOS_DIR";
 pub const SETTINGS_FOLDER: &str = "settings";
 pub const BENCH_FOLDER: &str = "bench";
 pub const OUTPUTS_FOLDER: &str = "outputs";
+pub const VIDEOS_FOLDER: &str = "videos";
 
 pub fn committed(name: &str) -> PathBuf {
     fixture::fixtures().join("reference").join(name)
@@ -39,6 +40,10 @@ pub fn recorded_video(name: &str) -> Result<PathBuf, Error> {
     video_under(env::var_os(VIDEOS_DIR_VARIABLE), name)
 }
 
+pub fn reference_video(name: &str) -> Result<PathBuf, Error> {
+    reference_video_under(env::var_os(REFERENCE_DIR_VARIABLE), name)
+}
+
 fn folder(value: Option<OsString>, variable: &'static str) -> Result<PathBuf, Error> {
     value
         .filter(|value| !value.is_empty())
@@ -47,7 +52,14 @@ fn folder(value: Option<OsString>, variable: &'static str) -> Result<PathBuf, Er
 }
 
 fn video_under(videos: Option<OsString>, name: &str) -> Result<PathBuf, Error> {
-    let path = folder(videos, VIDEOS_DIR_VARIABLE)?.join(name);
+    existing(folder(videos, VIDEOS_DIR_VARIABLE)?.join(name))
+}
+
+fn reference_video_under(root: Option<OsString>, name: &str) -> Result<PathBuf, Error> {
+    existing(folder(root, REFERENCE_DIR_VARIABLE)?.join(VIDEOS_FOLDER).join(name))
+}
+
+fn existing(path: PathBuf) -> Result<PathBuf, Error> {
     if path.is_file() {
         Ok(path)
     } else {

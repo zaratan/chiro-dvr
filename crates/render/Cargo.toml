@@ -6,6 +6,9 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+testing = ["media/testing"]
+
 [dependencies]
 draw.workspace = true
 media.workspace = true
@@ -15,6 +18,7 @@ types.workspace = true
 [dev-dependencies]
 media = { workspace = true, features = ["testing"] }
 reference.workspace = true
+render = { workspace = true, features = ["testing"] }
 tempfile.workspace = true
 
 [lints]

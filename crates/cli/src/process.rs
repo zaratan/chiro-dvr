@@ -118,6 +118,34 @@ pub fn process(
     process_detected(job, &detected, wording, progress, versions, options)
 }
 
+#[derive(Debug)]
+pub struct Tracked {
+    pub timeline: Timeline,
+    pub exclusion: Exclusion,
+    pub tracks: Vec<Track>,
+}
+
+pub fn tracked(detected: &Detected, options: &Options) -> Result<Tracked, Error> {
+    let reading = detected.reading();
+    let rate = reading.video().frame_rate();
+    let pts = reading.frames().iter().map(|frame| frame.pts()).collect();
+    let timeline = Timeline::new(pts, reading.video().time_base(), rate).map_err(Error::Timeline)?;
+    let damage = detected.damage();
+    let exclusion = exclude(
+        detected.detections(),
+        damage.spans().to_vec(),
+        damage.reported_frames(),
+        rate,
+        options.stability,
+    );
+    let tracks = track_detections(&exclusion.detections, options.track).map_err(Error::Tracking)?;
+    Ok(Tracked {
+        timeline,
+        exclusion,
+        tracks,
+    })
+}
+
 /// `detected` must come from `options.detect`: the parameters and the overview describe those settings.
 pub fn process_detected(
     job: &Job,
@@ -131,20 +159,13 @@ pub fn process_detected(
     let config = &options.detect;
     let reading = detected.reading();
     let rate = reading.video().frame_rate();
-    let pts = reading.frames().iter().map(|frame| frame.pts()).collect();
-    let timeline = Timeline::new(pts, reading.video().time_base(), rate).map_err(Error::Timeline)?;
-    let damage = detected.damage();
-    let reported = damage.reported_frames();
-    let (track, stability) = (options.track, options.stability);
+    let reported = detected.damage().reported_frames();
     progress.step(Step::Tracking).map_err(Error::Progress)?;
-    let exclusion = exclude(
-        detected.detections(),
-        damage.spans().to_vec(),
-        reported,
-        rate,
-        stability,
-    );
-    let tracks = track_detections(&exclusion.detections, track).map_err(Error::Tracking)?;
+    let Tracked {
+        timeline,
+        exclusion,
+        tracks,
+    } = tracked(detected, options)?;
     fs::create_dir_all(&job.dest).map_err(|source| Error::Folder {
         dest: job.dest.clone(),
         source,

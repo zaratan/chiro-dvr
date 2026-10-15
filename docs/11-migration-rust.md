@@ -28,6 +28,11 @@ les deux bancs enregistrés par la v0.1.1 ([Banc de mesure](#banc-de-mesure)). L
 Python n'est pas porté : `--targets` et `--replay` le remplacent. docs/08 décrit encore
 le banc Python ; il change à #106.
 
+#198 passe la garde de la bascule : parité remesurée sur la commande telle qu'elle est,
+garde du banc rejouée, six cas d'extraits et de zooms jugés à l'aveugle et deux images
+résumé jugées à découvert, puis figés ([Garde](#garde)). Le retrait du Python peut
+commencer.
+
 ## Construction
 
 ```bash
@@ -1013,9 +1018,14 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     hors de la boîte ou qui déborde est refusée. Les tests de `media`, d'`engine` et de
     `render` y fabriquent leurs vidéos abîmées.
   - `fingerprint`, derrière la même feature (#154) : `of(image)` hache les trois plans
-    d'une image décodée. C'est la seule empreinte d'image des tests de `media`, `engine`,
-    `render` et `cli`. `DefaultHasher` ne promet rien d'une version de Rust à l'autre :
-    une empreinte se compare dans un même passage, elle ne s'enregistre pas.
+    d'une image décodée, `of_pixels(largeur, hauteur, octets)` les pixels d'une image
+    (le PNG d'une image résumé), `of_sequence` une suite d'empreintes (les images d'un
+    extrait). C'est la seule empreinte d'image des tests de `media`, `engine`, `render`
+    et `cli`. Depuis #198, c'est un FNV-1a sur des mots de 64 bits écrit à la main, dont
+    chaque pas replie les bits hauts sur les bas (sans ce repli, deux mots changés dans
+    leur seul octet haut s'annulaient une fois sur 256). Il est le même sur chaque
+    système et chaque version de Rust (`DefaultHasher` avant) : une
+    empreinte peut s'enregistrer dans un test figé (`a_stored_fingerprint_stays_valid_…`).
 - **`draw`** (#101) : dessin pur sur une toile RGBA, sans FFmpeg ni entrée-sortie.
   - `text` : `Typeface::roboto`, la police embarquée.
     - Graisses 400 pour le texte et 600 pour les numéros (choix de l'utilisateur sur la
@@ -2182,6 +2192,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
   des images à l'écriture. `clips::render(source, pistes, Outputs { clips, zooms },
   RenderConfig, encodeurs)` en est le point d'entrée ; `cli` l'appelle depuis #112, et
   choisit les zooms par `ZoomConfig::wants` (#103).
+  - `drawn`, derrière la feature `testing` (tests seulement, #198) : `drawn(source,
+    pistes, Outputs, RenderConfig)` passe par le même rendu, sur un fil, mais chaque
+    encodeur est remplacé par un enregistreur qui garde l'empreinte de chaque image
+    poussée, fichier par fichier. Les tests figés de `cli` s'en servent.
   - `source` : `Source::new(chemin, Timeline, images-clés, images en erreur)`, puis
     `serve(plage, visite)`, qui rend chaque image de la plage une fois, dans l'ordre,
     avec son `FrameIndex`. Les images-clés et les images en erreur viennent du moteur
@@ -2844,6 +2858,11 @@ même fonction `bench::against::against`) rejoue un banc enregistré par la v0.1
 - `DOSSIER` contient `bench.json` et `bats.jsonl.gz` (`$BATDETECT_REFERENCE_DIR/bench/`
   `transit` ou `hunt`). Un banc fait à d'autres réglages de détection, de suivi, de
   stabilité ou d'appariement est refusé, le réglage nommé.
+- Un banc d'une autre vidéo est refusé (#198) : le nom de fichier de `video` dans
+  `bench.json`, sans son dossier, doit être celui de `VIDÉO`, vérifié avant toute
+  détection ; le nombre d'images d'`injected.jsonl.gz` doit être celui que décode le
+  Rust, vérifié après les deux détections. `injected.jsonl.gz` plutôt que
+  `bench-run.json` : seul le premier existe aussi dans un banc écrit par le Rust.
 - Mêmes cibles des deux côtés : positions et amplitudes de `bats.jsonl.gz`, placées par
   le numéro d'image du décodeur de `media` (identique à celui d'OpenCV sur la 092 ; une
   vidéo où ils diffèrent décalerait les cibles). Le Rust injecte et détecte.
@@ -2896,6 +2915,88 @@ La 092 du dépôt (LFS), réglages par défaut. Garde : aucun échec, sur les de
   | v0.1.1, banc transit | 243 s | 689 s | |
 
   L'évaluation seule prend moins de 10 ms : un `--replay` est immédiat.
+
+### Mesure de la bascule (#198, 15 octobre 2026, M1 Max, sous le verrou)
+
+`main` @ f364698, plus la vérification de la vidéo de `--against`, sans effet sur la
+détection, le suivi ou le rendu. Les quatre mesures de la garde de #106 :
+
+- **`rust:reference`** : vert, 5 tests, 96 s réels. La 092 donne 14 pistes, toutes
+  appariées et concordantes ; 780 détections de référence toutes appariées, une ajoutée
+  à 03:43.80. À 1440 pixels : 14 pistes concordantes, deux détections ajoutées
+  (02:24.97, 03:29.31), comme à #151.
+- **`compare local`** (profil `ci`) : 966 pistes, 963 appariées (958 concordantes), 3
+  perdues, 9 ajoutées ; la 089 à 98,19 % (référence) et 98,46 % (Rust) ; aucune vidéo
+  sous 98 %. Les 17 écarts de pistes sont ceux de #123, à la même image : 094 1:42.21,
+  1:43.08 ; 097 0:20.38, 0:20.62, 2:42.26, 2:43.39 ; 098 0:05.86, 0:41.46 ; 099 0:14.29,
+  0:16.95, 0:17.92, 0:19.42, 0:27.91 ; 100 1:36.25, 1:36.38 ; 126 1:31.72, 1:32.45.
+  Aucun écart par rapport au lot 7. 736 s réels, 4 598 s de CPU.
+- **Garde du banc** (`batdetect-bench-rs` en `release`, la 092 du dépôt) : passe sur les
+  deux bancs. Transit : 253 cibles visibles des deux côtés, 148 trouvées de chaque côté,
+  0 perdue, 0 gagnée. Chasse : 584 cibles, 456 trouvées par la v0.1.1 et 455 par le Rust ;
+  perdues la 19 (image 3 221) et la 543 (image 6 935), gagnée la 555 (image 7 948) ;
+  visibilité changée par le contraste du Rust : 84, 120, 341, 602, 665. 14 pistes de
+  référence et aucune fausse piste de chaque côté. C'est la liste de #109. Temps : 29,6 s
+  réels et 218,6 s de CPU pour le transit, 0,54 Go ; 29,2 s et 219,4 s pour la chasse,
+  0,60 Go.
+- **La 092 par la commande** (`batdetect-rs` en `release`, détection, suivi, extraits,
+  zoom et image résumé, `LANG=fr_FR.UTF-8`), machine calme selon `MESURES.md`, sans mise
+  en veille : 19,0 s réels, 128,5 s de CPU, 1,09 Go de mémoire résidente au maximum
+  (1,05 Go d'empreinte). 14 pistes, mêmes nombres de points que la v0.1.1. Les temps de
+  début sont plus tôt de 0,01 à 0,02 s, moins d'une image. La v0.1.1 donnait 135,4 s
+  réels, 436,6 s de CPU et 0,70 Go.
+
+### Validation à l'aveugle (#198, 15 octobre 2026)
+
+Jugée par l'utilisateur (décision du 10 octobre 2026 : sans Manon), sur les sorties de
+f364698 en `release`, `LANG=fr_FR.UTF-8`, contre `$BATDETECT_REFERENCE_DIR/outputs/fr/`.
+Deux fichiers par cas, A et B tirés au sort, ouverts l'un après l'autre en plein écran
+dans QuickTime. Une question : « la cible se voit-elle aussi bien ? ». Le texte dessiné
+(`#N`, Roboto contre la police d'OpenCV) trahit la provenance ; il n'était pas à juger.
+
+| Cas | Vidéo | Piste (début v0.1.1) | Fichier | Verdict |
+|---|---|---|---|---|
+| bordure avec zoom | 125 | 0:28.41 | zoom | aussi bien |
+| passage rapide (1 926 px/s) | 092 | 3:48.29 | extrait | aussi bien |
+| piste courte (6 images) | 097 | 1:54.63 | extrait | aussi bien |
+| piste lente | 092 | 3:29.61 | extrait | aussi bien |
+| boîte interpolée (30 images) | 097 | 1:48.54 | extrait | aussi bien |
+| zoom ×4 | 125 | 0:47.12 | zoom | aussi bien |
+
+- L'utilisateur voit peu ou pas de différence entre A et B.
+- La piste courte retenue d'abord, 097 2:42.26, est une divergence connue (24 points
+  contre 86) : remplacée par 1:54.63, la même des deux côtés.
+- Images résumé, à découvert, côte à côte : la 097 (148 pistes, plages abîmées et
+  instables ; une image en v0.1.1, huit en Rust) et la 089-091 (plages instables dans
+  la 089 et la 091 ; deux tranches de 10 min, chacune en deux images en Rust). Rien à
+  redire.
+
+### Tests figés (#198)
+
+Les cas validés deviennent des empreintes, jamais celle d'un mp4 (VideoToolbox n'est
+pas reproductible d'une machine à l'autre) :
+
+- **Extraits et zooms** : les images dessinées que `render` pousserait à l'encodeur
+  (`YuvFrame`, boîtes, traces et numéros compris), récupérées par `render::drawn::drawn`
+  (feature `testing`), sans encodeur. Une empreinte `of_sequence` par fichier, avec son
+  nombre d'images. Les pistes sont celles du Rust, pas celles de la référence : ce sont
+  elles que l'utilisateur a jugées. Elles viennent de `batdetect::process::tracked`
+  (timeline, exclusion, suivi), que `process_detected` appelle aussi : un changement de
+  la commande entre la détection et le rendu se voit dans ces tests.
+  - `cli/tests/slow_frozen.rs`, sur l'extrait LFS, dans la CI des trois systèmes : la
+    piste lente (380 images) et le passage rapide (108 images). Sur l'extrait, elles
+    portent les numéros `#1` et `#2` au lieu de `#11` et `#12` : seuls les numéros
+    diffèrent des images jugées. À confirmer au premier passage en CI : tiny-skia (avec
+    SIMD) et swscale (`BITEXACT`) n'avaient jamais été comparés au pixel près d'un
+    système à l'autre.
+  - `cli/tests/local_frozen.rs`, jamais en CI (vidéos hors dépôt) : les six cas sur
+    leurs vidéos entières, exactement les images jugées.
+- **Images résumé** : les pixels de chaque PNG écrit par `batdetect-rs` en français
+  (`of_pixels`), la 097 et la 089-091, dans `cli/tests/local_frozen.rs`. Ce test ne
+  peut pas vivre dans `summary` : le fond est la médiane calculée par la détection, et
+  `summary` n'a ni FFmpeg ni moteur.
+- Un changement voulu du dessin, de la détection ou du suivi casse ces empreintes : on
+  les refige en le disant, après un nouveau jugement à l'œil si le dessin a changé.
 
 ## Référence v0.1.1
 

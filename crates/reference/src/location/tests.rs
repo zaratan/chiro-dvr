@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 use std::fs;
 
-use super::{bench_under, committed, outputs_under, recording_directories_under, video_under};
+use super::{bench_under, committed, outputs_under, recording_directories_under, reference_video_under, video_under};
 use crate::error::Error;
 
 #[test]
@@ -92,6 +92,26 @@ fn the_recorded_outputs_live_under_outputs_by_language_then_video_and_need_the_v
     assert_eq!(found, root.path().join("outputs").join("fr").join("video_097"));
     assert!(matches!(
         outputs_under(None, "fr", "video_097"),
+        Err(Error::UnsetVariable { .. })
+    ));
+}
+
+#[test]
+fn a_video_of_the_reference_lives_under_videos_and_needs_the_variable_and_the_file() {
+    let root = tempfile::tempdir().unwrap();
+    let videos = root.path().join("videos");
+    fs::create_dir_all(&videos).unwrap();
+    fs::write(videos.join("video_089-091.mp4"), [0_u8; 64]).unwrap();
+
+    let found = reference_video_under(Some(root.path().into()), "video_089-091.mp4").unwrap();
+
+    assert_eq!(found, videos.join("video_089-091.mp4"));
+    assert!(matches!(
+        reference_video_under(Some(root.path().into()), "video_097.mp4"),
+        Err(Error::MissingVideo { .. })
+    ));
+    assert!(matches!(
+        reference_video_under(None, "video_089-091.mp4"),
         Err(Error::UnsetVariable { .. })
     ));
 }
