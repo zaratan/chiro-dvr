@@ -90,7 +90,7 @@ fn rendered_into_a_fresh_folder(
 }
 
 #[test]
-fn above_the_track_limit_the_clips_folder_is_left_empty_and_nothing_is_written() {
+fn above_the_track_limit_no_clips_folder_is_created_and_nothing_is_written() {
     let folder = tempfile::tempdir().unwrap();
     let (rendered, clips_dir) = rendered_into_a_fresh_folder(folder.path(), 1, Ok(vec![Codec::OpenH264]));
     assert!(matches!(
@@ -103,16 +103,16 @@ fn above_the_track_limit_the_clips_folder_is_left_empty_and_nothing_is_written()
             ref kept,
         }) if kept.len() == 1
     ));
-    assert_eq!(clips_dir.read_dir().unwrap().count(), 0);
+    assert!(!clips_dir.exists());
 }
 
 #[test]
-fn without_a_working_encoder_the_clips_folder_is_left_empty_before_the_failure_is_returned() {
+fn without_a_working_encoder_no_clips_folder_is_created_before_the_failure_is_returned() {
     let folder = tempfile::tempdir().unwrap();
     let failed = Fallback::new(Vec::new()).map(|_| Vec::new()).map_err(Error::Encoders);
     let (rendered, clips_dir) = rendered_into_a_fresh_folder(folder.path(), 300, failed);
     assert!(matches!(rendered, Err(Error::Encoders(fallback::Error::Empty))));
-    assert_eq!(clips_dir.read_dir().unwrap().count(), 0);
+    assert!(!clips_dir.exists());
 }
 
 #[derive(Debug)]

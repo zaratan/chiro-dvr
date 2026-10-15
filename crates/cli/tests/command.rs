@@ -236,6 +236,33 @@ fn without_an_output_folder_the_results_go_to_a_batdetect_folder_beside_the_vide
 }
 
 #[test]
+fn a_video_without_tracks_leaves_no_clips_folder_even_with_its_annotated_video() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    let output = run(
+        &[
+            &videos,
+            Path::new("-o"),
+            &out,
+            Path::new("--threshold"),
+            Path::new("200"),
+            Path::new("--annotated"),
+        ],
+        "fr_FR.UTF-8",
+    );
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    assert_eq!(
+        tree::tree(&out.join("flight")),
+        [
+            "flight_annotee.mp4",
+            "flight_pistes.csv",
+            "flight_resume.png",
+            "params.json"
+        ]
+    );
+}
+
+#[test]
 fn a_video_that_does_not_exist_without_an_output_folder_creates_no_folder() {
     let (root, videos) = videos_with_a_flight(&[]);
     let missing = root.path().join("faute").join("v.mp4");

@@ -255,10 +255,6 @@ fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, E
     let annotated = clips.names.annotated_video(&clips.job.dest, stem);
     let render = clips.options.render;
     let folder = clips.names.clips_dir(&clips.job.dest);
-    fs::create_dir_all(&folder).map_err(|source| Error::Folder {
-        dest: folder.clone(),
-        source,
-    })?;
     if !render.renders_clips_for(tracks.len()) {
         return Err(Error::TooManyTracks {
             count: tracks.len(),
@@ -293,5 +289,11 @@ fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, E
             .collect(),
         annotated: clips.options.annotated.then_some(annotated),
     };
+    if !outputs.clips.is_empty() {
+        fs::create_dir_all(&folder).map_err(|source| Error::Folder {
+            dest: folder.clone(),
+            source,
+        })?;
+    }
     clips::render(&source, tracks, &outputs, render, &encoders).map_err(Error::Clips)
 }
