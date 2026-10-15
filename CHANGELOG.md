@@ -1,9 +1,19 @@
 # Changelog
 
 Les versions suivent [SemVer](https://semver.org/lang/fr/). Chaque version publiée a sa section
-ici : la release GitHub en reprend le texte, et le workflow de release échoue sans elle.
+ici ; à partir de #93, la release GitHub en reprendra le texte (`packaging/release-notes.sh`), et
+le workflow de release échouera sans elle.
 
 ## [Non publiée]
+
+### Ajouté
+
+- Usages courants en tête de l'aide ; `-h` donne l'essentiel, `--help` toutes les options (#56).
+- Toutes les entrées sont contrôlées avant le calcul, les refusées listées ensemble ;
+  `--skip-refused` traite les vidéos valides sans poser la question (#55).
+- Une ligne par étape pendant le calcul, et un bilan de la soirée à la fin (#63, #65).
+- Image résumé : frise du temps et plages illisibles datées (#127), coupée en parties au-delà
+  de 20 pistes (#157). Extraits zoomés en pleine taille (#103).
 
 ### Modifié
 
@@ -12,10 +22,16 @@ ici : la release GitHub en reprend le texte, et le workflow de release échoue s
   retrouvent, 3 sont perdues et 9 apparaissent ; les écarts sont listés dans docs/11.
 - Sans `-o`/`--out-dir`, les résultats vont dans `batdetect/` à côté de chaque vidéo, et non plus
   dans `out/` du dossier de lancement (#86).
+- Encodage par VideoToolbox puis openh264 sous macOS, openh264 ailleurs, au lieu de libx264 ;
+  ffmpeg et ffprobe ne sont plus nécessaires. Le binaire liera FFmpeg sous LGPL et openh264 (BSD),
+  sa licence se décidera à #93.
 
 ### Retiré
 
 - Le code Python. Son dernier état est au tag `python-final` (#199).
+- Les options `--mode`, `--workers`, `--encoder`, `--crf`, `--vt-quality`, `--box-pad`, `--trail`
+  et les réglages fins de détection et de suivi : la commande garde `--threshold`, `--min-hits`,
+  `--max-blobs` et `--work-width`, les autres valeurs sont écrites dans `params.json`.
 
 ## [0.1.1] - 2026-10-10
 
@@ -50,5 +66,6 @@ Première version publiée : binaire macOS arm64 (macOS 14 ou plus récent) inst
 - `--max-tracks` (300 par défaut) arrête le rendu d'une vidéo qui sort trop de pistes (#3).
 - Images abîmées au décodage repérées et sorties du calcul (#1), réglages invalides refusés (#4).
 
+[Non publiée]: https://github.com/zaratan/chiro-dvr/compare/v0.1.1...HEAD
 [0.1.1]: https://github.com/zaratan/chiro-dvr/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/zaratan/chiro-dvr/releases/tag/v0.1.0

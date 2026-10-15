@@ -2,9 +2,10 @@
 
 La référence est l'original copié en USB (`video_092_original.mp4`). Depuis le 6 octobre
 2026, les réglages par défaut sont 960 px, filtre de 1,5 px, seuil 12 et seuil par pixel
-(facteur 8) ; la section suivante en donne les 14 pistes. Les sections plus bas sont
-l'historique : export de Stream Vision 2, puis original avec l'ancien réglage (480 px,
-seuil fixe 25).
+(facteur 8). La section [Commande Rust](#commande-rust-12-octobre-2026--14-pistes) donne les
+14 pistes de l'outil d'aujourd'hui ; la section suivante, celles de la v0.1.1 aux mêmes
+réglages. Les sections plus bas sont l'historique : export de Stream Vision 2, puis
+original avec l'ancien réglage (480 px, seuil fixe 25).
 
 ## Réglages par défaut du 6 octobre 2026 : 14 pistes
 
@@ -64,7 +65,8 @@ divisait par la cadence moyenne ([11](11-migration-rust.md), crate `files`).
 Temps : 11,7 et 12,0 s réels, 103,7 s de CPU, 434 Mo de mémoire résidente (M1 Max,
 `release`, sous le verrou, machine au calme). Pour comparaison : 11,8 s réels pour la
 détection Rust seule (#118) ; pour la v0.1.1, 118,7 s de détection et 134 s pour la commande complète, rendu compris. La
-commande Rust n'écrit encore que le CSV et `params.json`, sans image résumé ni extraits.
+commande Rust n'écrivait alors que le CSV et `params.json`. Avec l'image résumé, les extraits
+et le zoom : 19,81 s réels le 16 octobre 2026 ([09](09-profilage.md)).
 
 ## Verdict de Manon (9 octobre 2026)
 

@@ -1,7 +1,7 @@
 # Référence v0.1.1
 
 Ce que la v0.1.1 de batdetect (tag `v0.1.1`, commit c9948d2) détecte, enregistré une fois par
-`tools/reference_v011.py`, pour que la réécriture en Rust s'y compare sans relancer le Python. Le
+`tools/reference_v011.py` (au tag `python-final`), pour que la réécriture en Rust s'y compare sans relancer le Python. Le
 script refuse de tourner si `src/` diffère du tag (`git diff --quiet v0.1.1 -- src`).
 
 La référence sert à comparer (aussi bien ou mieux), pas à exiger l'identité : les fichiers vidéo
@@ -122,7 +122,7 @@ Une ligne par image, **images vides comprises** :
 - `key_frame`, `decode_error` : vus par ffprobe, lancé avec les arguments de `probe.py`
   (`-threads 1`, `-show_log 16`) ;
 - `detections` : les détections **brutes**, avant l'exclusion des plages abîmées et instables,
-  **dans l'ordre** où `find_blobs` (`src/batdetect/detect.py`) les rend :
+  **dans l'ordre** où `find_blobs` (`detect.py` de la v0.1.1) les rend :
   - `x`, `y` : barycentre de la composante après fermeture (`merge_radius`), ramené à l'image
     d'origine par `(c + 0,5) × échelle − 0,5` ;
   - `left`, `top`, `width`, `height` : boîte de cette composante, multipliée par l'échelle ;
@@ -189,13 +189,11 @@ la commande.
 
 ## Relancer
 
-Depuis un checkout du tag `python-final` : le script et le Python ont quitté `main` à #199 (le
-script exige `src/` identique à `v0.1.1`, ce qui est le cas à `python-final`).
-
-```bash
-uv run python tools/reference_v011.py data <vidéo> <dossier> [--gzip] [--detect JSON]
-uv run python tools/reference_v011.py bench <vidéo> <dossier> <dossier du cache> [arguments de batdetect-bench]
-```
+Seulement depuis un checkout du tag `python-final` (un worktree, par exemple) : le script et le
+Python ont quitté `main` à #199, et le script exige un `src/` identique à `v0.1.1`, ce qui est le
+cas à ce tag. L'environnement s'installe comme le dit le `README.md` du dépôt à ce tag
+(section « Depuis les sources ») ; les deux commandes, `data` et `bench`, sont dans la section
+« Relancer » de ce fichier-ci (`tests/fixtures/reference/README.md`) à ce tag.
 
 `bench` refuse un dossier de cache qui contient déjà la vidéo : la clé du cache du banc ignore les
 réglages de suivi, qui guident pourtant le placement des cibles.

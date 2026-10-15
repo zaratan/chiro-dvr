@@ -1,9 +1,10 @@
 # Méthode
 
 Le traitement d'une vidéo se fait en deux passes. La première lit la vidéo en petit,
-détecte et suit. La seconde relit la vidéo en pleine résolution, dessine les boîtes et
-encode directement chaque extrait, l'extrait zoomé et ralenti des pistes petites ou
-faibles, et la vidéo annotée complète avec `--annotated`.
+détecte et suit. La seconde relit la vidéo en pleine résolution, seulement autour des
+pistes, dessine les boîtes et encode directement chaque extrait, l'extrait zoomé et
+ralenti des pistes petites ou faibles, et la vidéo annotée complète avec `--annotated`
+([Rendu](#rendu)).
 
 **Règle de réglage** (décision du 9 octobre 2026, après le verdict de Manon sur la 092) : mieux
 vaut un faux positif facile à écarter à l'extrait qu'un passage manqué. Quand un seuil
@@ -22,15 +23,18 @@ autre résolution, demandera peut-être d'autres valeurs. Les valeurs par défau
 choisies sur sept vidéos 1440×1080 de la falaise (092, 089, 090, 091, 125, 126, 127 ;
 [08](08-banc-de-mesure.md#sur-six-autres-vidéos)).
 
-Deux modes : `--mode normal` (défaut) prend les valeurs décrites ici ; `--mode quick`
-reprend celles d'avant le seuil par pixel (#7 : `work_width` 480, seuil fixe 25, sans
-filtre à la taille de la cible ni seuil par pixel). Une option donnée explicitement
-l'emporte sur le mode.
+Ce document tient la valeur de chaque réglage et sa justification ; la logique de chaque
+étape et son module sont dans [10](10-logique-de-detection.md). Les réglages portent ici
+leur nom de `params.json`. Seuls quatre sont des options de la commande : `--threshold`,
+`--min-hits`, `--max-blobs` et `--work-width` ; `batdetect --help` affiche leurs défauts. Les
+autres ont une valeur fixe, écrite dans `params.json`, et restent réglables par les options
+du banc ([08](08-banc-de-mesure.md)) : `--target-sigma`, `--noise-factor`, `--unstable-pad`,
+`--twin-distance` et les autres options citées ci-dessous en sont. La v0.1.1 avait en plus
+deux modes (`--mode quick` : 480 px, seuil fixe 25, sans filtre ni seuil par pixel) ; le Rust
+n'en a plus.
 
-La détection tourne par défaut dans un seul processus. Avec `--workers` > 1, elle peut
-être découpée en tranches de temps traitées en parallèle, si la vidéo est assez longue,
-avec une demi-fenêtre de recouvrement : le résultat est identique au traitement d'un seul
-tenant. Chaque tranche supplémentaire ajoute surtout de la relecture ([09](09-profilage.md)).
+La détection se partage entre tous les cœurs sans changer le résultat, au bit près
+([10](10-logique-de-detection.md#10-aller-vite-sans-changer-le-résultat)).
 
 ## 1. Fond par médiane glissante
 
@@ -45,13 +49,10 @@ Pour chaque image *t*, le fond est la médiane, pixel par pixel, des images de
   lentement. Un `bg_step` qui laisse moins de 3 images dans la fenêtre (16 et plus à
   30 i/s) est refusé : le fond ne serait plus une médiane mais une ou deux images
   (moyennées).
-- La médiane est calculée par un tri par comparaisons partiel (`median.py`) : des
-  `minimum` et `maximum` sur des images entières, jusqu'à fixer la ou les valeurs
-  centrales. Résultat identique au bit près à `np.median` (sur des flottants, la moyenne
-  des deux valeurs centrales se fait en double précision). Sans filtre, la fenêtre est
-  gardée en uint8 : 0,7 ms par image à 480 px sur un cœur, contre 12,6 à 18 ms avec
-  `np.median`. Avec le filtre à la taille de la cible (défaut), elle est en float32 et
-  la médiane coûte plus cher ([09](09-profilage.md)).
+- La médiane est calculée par un réseau de tri sur des valeurs entières (au 1/64 de
+  niveau), qui ne fixe que la ou les deux valeurs du milieu ; pour un nombre pair de
+  valeurs, le fond est leur demi-somme ([10](10-logique-de-detection.md#2-estimer-le-fond--la-médiane-temporelle)).
+  Une fenêtre dont les images dépasseraient 4 Gio de mémoire est refusée.
 - Aux bords de la vidéo, la fenêtre est tronquée : la première et la dernière demi-seconde
   sont analysées avec moins d'images.
 
@@ -62,8 +63,8 @@ au résidu l'écart entre la luminosité moyenne de l'image et celle des images 
 Le fond médian, lui, n'est pas corrigé : pendant la demi-seconde où la fenêtre mélange
 des images avant et après un saut, le résidu garde une partie du saut. Avec l'ancien
 seuil fixe de 25, un saut global de 30 niveaux ne produisait aucune détection. Avec les
-réglages par défaut (seuil 12, filtre, seuil par pixel), mesuré sur des images
-fabriquées : un saut de 10 donne au plus une tache, un saut de 20 jusqu'à 10 taches par
+réglages par défaut (seuil 12, filtre, seuil par pixel), mesuré avec la v0.1.1 sur des
+images fabriquées : un saut de 10 donne au plus une tache, un saut de 20 jusqu'à 10 taches par
 image sur 11 images, un saut de 30 à 40 des centaines de taches par image. Aucune piste
 n'en sort (testé de 10 à 40) : pour 30 et 40, le filtre des images saturées
 (§ 4 bis) ignore 2,6 à 2,8 s autour du saut.
@@ -86,9 +87,10 @@ pixel), sur l'image filtrée.
   l'image filtrée. C'est le filtre adapté à une tache gaussienne : il moyenne le bruit
   d'un pixel à l'autre et garde une tache de la même taille. Il remplace le débruitage
   qu'apporte la réduction à 480 px, et rend utilisables des largeurs de travail plus
-  grandes. Les images filtrées sont gardées en flottants, ce qui rend la médiane plus
-  lente. Une zone `--osd-region` est élargie de 3 `s` pour couvrir l'étalement de
-  l'affichage par le flou. `min_area` et `max_area` s'appliquent à la tache filtrée,
+  grandes. Les images filtrées sont gardées en entiers, au 1/64 de niveau. Une zone
+  `--osd-region` est élargie de la portée du flou, ⌈4 σ⌉ pixels de travail (σ = `s` ramené à
+  la largeur de travail : 4 px à 960 sur 1440), pour couvrir
+  l'étalement de l'affichage. `min_area` et `max_area` s'appliquent à la tache filtrée,
   plus large que la tache brute. Mesures : [08](08-banc-de-mesure.md#filtre-à-la-taille-de-la-cible-b2).
 - **Seuil par pixel** (`--noise-factor k`, 8 par défaut, 0 pour revenir au seuil fixe) : le
   seuil d'un pixel devient max(`threshold`, k × σ), où σ = 1,4826 × la MAD des écarts au
@@ -97,10 +99,10 @@ pixel), sur l'image filtrée.
   le résidu dépasse déjà `threshold`, seuls à pouvoir être retenus. `threshold` devient
   le plancher : on l'abaisse pour gagner en sensibilité sur la roche calme, et la MAD
   relève le seuil là où l'image s'agite. C'est lui qui empêche le bruit de fond des vidéos
-  agitées de devenir des pistes. La carte ne dépend que de la fenêtre : la détection parallèle reste
-  identique au bit près. Aux bords de la vidéo, quand la fenêtre tronquée compte moins de
-  7 images, le seuil fixe s'applique seul. Pour la même raison, le seuil par pixel est
-  **désactivé sur toute la vidéo** sous 17,5 images par seconde avec `bg_step` = 3, ou
+  agitées de devenir des pistes. La carte ne dépend que de la fenêtre : le résultat ne
+  dépend pas du découpage du travail entre les fils. Aux bords de la vidéo, quand la fenêtre tronquée compte moins de
+  7 échantillons (une image sur `bg_step`), le seuil fixe s'applique seul. Pour la même raison, le seuil par pixel est
+  **désactivé sur toute la vidéo** sous 17 images par seconde avec `bg_step` = 3, ou
   dès `bg_step` = 6 à 30 i/s : il ne reste que le plancher de 12, qui laisse passer le
   bruit de fond des vidéos agitées. Toutes nos vidéos sont à 30 i/s. Le ciel saturé à 0 a une MAD nulle et aucun
   résidu sombre possible : le seuil par pixel n'y gagne rien. Mesures et coût :
@@ -145,8 +147,8 @@ dessous ; la règle a été réglée à l'ancien seuil fixe de 25. Avec les rég
 défaut actuels (seuil par pixel), la médiane reste à 0 tache par image sur 089, 090 et 091
 et la limite à 20. Secondes ignorées : 089 8,3 s contre 19,5 avec l'ancien réglage,
 091 20,6 s contre 22,3 ; le glissement de la 089 produit moins de taches au-dessus du
-seuil par pixel. Les périodes ignorées sont ces images
-élargies de `pad_s` = 1 s (`--unstable-pad`) de chaque côté (la fenêtre du fond déborde de ½ s, et
+seuil par pixel (mesures de la v0.1.1). Les périodes ignorées sont ces images
+élargies de `pad_s` = 1 s (`--unstable-pad` dans le banc) de chaque côté (la fenêtre du fond déborde de ½ s, et
 les images calmes au milieu d'un mouvement restent suspectes), fusionnées quand au plus
 1 s les sépare. Leurs détections sont retirées avant le suivi ; la détection elle-même
 ne change pas. Une piste qui traverse une période est coupée en deux.
@@ -156,14 +158,14 @@ Mesuré sur les détections réelles : cadre stable, au plus 12 taches par image
 089 1 546 → 96 pistes (19,5 s ignorées), 091 4 327 → 53 (22,3 s), 092 inchangée
 (14 pistes, rien d'ignoré). Le nombre de taches sert d'indicateur parce qu'il est
 gratuit : mesurer le décalage du cadre par corrélation de phase coûterait 3,2 ms par
-image, environ 29 s par vidéo de 5 min.
+image, environ 29 s par vidéo de 5 min (mesuré avec la v0.1.1).
 
 La règle repère des images saturées, pas seulement des mouvements : sur la 089, entre
 7,5 et 10,7 s, des images à plus de 20 taches apparaissent sans mouvement mesurable.
 Un essaim d'au moins 20 chauves-souris dans la même image serait aussi ignoré : les
-périodes sont toujours signalées (en-tête de l'image résumé, « hors analyse » sans accent
-parce que la police ne dessine que l'ASCII, trois lignes au plus puis « + N autres » ;
-console ; `params.json` sous `ignored_s`), et
+périodes sont toujours signalées (bandeau de l'image résumé, « hors analyse 0:00 - 0:09 »,
+trois lignes au plus puis « + N autres » ; frise du temps ; temps non analysé dans le
+bilan de la soirée ; `params.json` sous `ignored_s`), et
 `--max-blobs 0` désactive le filtre. Le banc applique le même filtre et retire des
 cibles visibles celles qui tombent dans une période ignorée. Les images illisibles (4 ter)
 sont retirées avant le comptage : elles ne déclenchent plus de période et ne pèsent pas
@@ -171,22 +173,22 @@ sur la médiane des taches.
 
 ## 4 ter. Images illisibles
 
-Une passe `ffprobe` sur un seul fil tourne pendant la détection et signale les images
-que le décodeur a dû réparer (message d'erreur rattaché à l'image), ainsi que l'image qui
-suit un trou dans les horodatages de plus d'un pas et demi. Chacune est écartée jusqu'à
-l'image qui précède la prochaine image-clé, puis la plage est élargie de la demi-fenêtre
-du fond de chaque côté (`half_window`, 15 images à 30 i/s, déduite de `bg_window_s`),
-avant la fusion des plages, la stabilité et le suivi. Pas d'option pour désactiver.
+La lecture de la détection signale les images que le décodeur a dû réparer, et l'image
+qui suit un trou dans les horodatages (plus d'une image manquante au pas habituel).
+Chacune est écartée jusqu'à l'image qui précède la prochaine image-clé, puis la plage est
+élargie de la demi-fenêtre du fond de chaque côté (`half_window`, 15 images à 30 i/s,
+déduite de `bg_window_s`), avant la fusion des plages, la stabilité et le suivi. Pas
+d'option pour désactiver. Une vidéo dont il manque des images sans explication est comptée
+en échec.
 
-Mesuré : la 092 (aucune erreur) est inchangée au bit près. La 093 (11 erreurs) a 14,0 s
+Mesuré avec la v0.1.1 (le Rust donne les mêmes plages sur 25 des 26 vidéos de la référence,
+[10](10-logique-de-detection.md#5-bis-écarter-les-images-que-le-décodeur-a-réparées)) : la 092 (aucune erreur) est inchangée au bit près. La 093 (11 erreurs) a 14,0 s
 illisibles en 8 plages, une seule période instable au lieu de quatre, et 3 pistes au lieu
 de 4. La 122 (195 erreurs, 13 images jamais décodées) a 201,2 s illisibles en 79 plages,
 plus aucune période instable, et plus aucune piste au lieu de 25. Sans la marge, il
-restait sur la 122 50,3 s instables et 4 pistes, toutes collées aux plages. Les raisons, la
-preuve de la correspondance entre ffprobe et OpenCV et les limites sont dans
-[10](10-logique-de-detection.md). La passe coûte 55 à 75 s de CPU pour 5 min de vidéo,
-mais elle finit avant la détection à `--workers 1` et n'allonge pas la commande
-([09](09-profilage.md#avec-les-réglages-du-6-octobre-issue-36)).
+restait sur la 122 50,3 s instables et 4 pistes, toutes collées aux plages. Les raisons et
+les limites sont dans [10](10-logique-de-detection.md). Ces images sortent de la lecture
+même de la détection : les repérer ne coûte rien de plus.
 
 ## 5. Suivi
 
@@ -213,7 +215,7 @@ fusionnées (boîte englobante, centre pondéré par l'aire). Deux vraies chauve
 s'écartent au moins une fois et restent séparées. Sur la 092 à 2:44, une chauve-souris
 peu contrastée sortait en fragments écartés de 18 à 24 px, trop pour `merge_radius`.
 
-`twin_distance` = 0 désactive la fusion.
+`twin_distance` = 0 désactive la fusion (`--twin-distance 0` dans le banc).
 
 ## Rendu
 
@@ -223,21 +225,26 @@ dernière seconde la suit jusqu'à cette position. Ces positions servent
 uniquement à l'affichage : le CSV et le banc ne comptent que les vraies détections, et la
 colonne `filled_frames` indique combien d'images ont été comblées.
 
-La vidéo annotée et les extraits sont encodés par le moteur multimédia des puces Apple
-(`h264_videotoolbox`, qualité `--vt-quality` 65) quand un essai d'encodage de quelques
-images (0,2 s) au démarrage réussit, sinon par `libx264` (`--crf` 20), par exemple sous Linux.
-`--encoder videotoolbox|x264` force le choix, et un encodeur forcé inutilisable arrête la
-commande avec le message d'ffmpeg ; `params.json` enregistre l'encodeur réellement
-utilisé. Mesuré sur la 092 : vidéo annotée en 19,8 s au lieu de 118,5 s, fidélité
-presque égale (SSIM 0,977 contre 0,982, [09](09-profilage.md)).
+Chaque côté de la boîte dessinée est borné à 4 fois la médiane du même côté sur les points
+détectés de la piste, et la boîte bornée est recentrée sur le barycentre : une tache étalée
+(339 × 235,5 px pour 353 px de surface sur la 092 à 3:51) ne dessine plus une boîte autour
+de rien. Cette borne ne sert qu'à l'affichage ; la détection, le suivi et le CSV ne changent
+pas ([11](11-migration-rust.md#crates), `render`).
 
-La seconde passe lit l'original dans l'ordre, avec la même numérotation des images que
-la détection, une seule fois quand 6 encodeurs suffisent. Chaque extrait a son encodeur, ouvert à la première image de
-sa fenêtre (début de la piste moins `--clip-margin`, fin plus `--clip-margin`) et fermé à
-la dernière ; les images que personne n'attend sont sautées sans être converties. Au plus
-6 encodeurs tournent en même temps (`MAX_WRITERS`) : au-delà, les extraits sont répartis
-en plusieurs passes, chacune relisant la vidéo. Un extrait qui échoue ou une interruption
-ne laissent pas de fichier tronqué.
+Sous macOS, les extraits et la vidéo annotée sont encodés par le moteur multimédia de la
+puce (VideoToolbox) quand un essai d'encodage au démarrage réussit, sinon par openh264 ;
+ailleurs, par openh264. Un groupe d'extraits dont VideoToolbox échoue en cours de route est
+réécrit par openh264, et une ligne le dit. Les zooms sont toujours encodés par openh264.
+`params.json` enregistre les encodeurs retenus (`encoders`). Qualités, essai et mesures :
+[11](11-migration-rust.md#encodage).
+
+La seconde passe ne relit que les fenêtres des extraits (début de la piste moins
+`--clip-margin`, fin plus `--clip-margin`). Les fenêtres qui se chevauchent forment un
+groupe ; chaque groupe se lit depuis une image-clé saine qui le précède, avec la même
+numérotation des images que la détection, et un seul encodeur écrit tous les extraits du
+groupe. Les zooms et la vidéo annotée sont des travaux à part. Les travaux se partagent la
+moitié des cœurs. Un fichier s'écrit sous un nom provisoire et ne prend son nom qu'une fois
+complet : un extrait qui échoue ou une interruption ne laissent pas de fichier tronqué.
 
 ### Extrait zoomé et ralenti
 
@@ -255,7 +262,7 @@ ralentissant dans le lecteur, #37). Pour ces pistes, un second fichier
   de 0 sur la 089 à 83 sur 136 pour la 096 ; sur 095 à 099, c'est surtout l'aire qui
   déclenche. `--zoom all` en fait un pour chaque piste, `--zoom none` aucun. Les seuils
   (`zoom_below_area`, `zoom_below_amplitude`) sont dans `params.json` mais pas en option.
-  **L'amplitude dépend du filtre `--target-sigma`, du seuil et de `--work-width`** : le
+  **L'amplitude dépend du filtre (`target_sigma`), du seuil et de `--work-width`** : le
   seuil de 40 se remesure quand ces réglages changent.
 - **Cadre** : fixe pour tout l'extrait. Boîte englobante des détections de la piste,
   plus 40 px (pixels d'origine) de chaque côté, élargie au rapport de l'image source
@@ -271,16 +278,14 @@ ralentissant dans le lecteur, #37). Pour ces pistes, un second fichier
 - **Ralenti ×0,25** : les mêmes images que l'extrait normal (même fenêtre, marges
   comprises), aucune dupliquée ni interpolée, déclarées à un quart de la cadence
   (7,5 i/s pour 30 i/s). La piste 0:51.62 dure 3,3 s en extrait normal, 13,2 s en zoom.
-- **Dessin** : seulement la trace de la piste du fichier (`--trail`, trait de 1 px après
+- **Dessin** : seulement la trace de la piste du fichier (`trail_s`, 1 s, trait de 1 px après
   agrandissement), sans boîte ni numéro, et rien des autres pistes. Chaque segment de la
   trace est coupé à 16 px (pixels d'origine) de la boîte de la cible, pour ne pas
   recouvrir une cible ténue, même quand la piste revient sur elle-même. Le recadrage se
   fait sur l'image brute, avant le dessin de l'extrait normal, qui reste identique.
-- **Coût** : chaque zoom a son propre encodeur, compté dans les 6 de `MAX_WRITERS`. Sur
-  la 092, rien de mesurable ; sur la 125 (39 zooms), une seconde passe et environ 42 s
-  de CPU de plus ([09](09-profilage.md#extraits-zoomés-issue-37)). En `libx264`, la
-  qualité `--crf` dépend de la cadence déclarée : un zoom pèse plus qu'un extrait aux
-  mêmes images.
+- **Coût** : chaque zoom est un travail à part, encodé par openh264. Coût mesuré :
+  [11](11-migration-rust.md#encodage) ; celui de la v0.1.1 :
+  [09](09-profilage.md#extraits-zoomés-issue-37).
 
 ## 7. Filtres finaux
 
@@ -319,7 +324,7 @@ utiliser son temps de début.
 
 ## Sorties
 
-La liste des fichiers produits est dans le [README](../README.md#utilisation).
+La liste des fichiers produits est dans le [README](../README.md#fichiers-produits).
 
 Garde-fou : au-delà de `max_tracks` pistes (300 par défaut, 0 désactive), les extraits
 et la vidéo annotée ne sont pas produits, et la vidéo compte en échec. Le CSV,
@@ -327,13 +332,13 @@ et la vidéo annotée ne sont pas produits, et la vidéo compte en échec. Le CS
 est au-dessus de la vidéo la plus chargée sans explosion (148 pistes, 097) et en dessous
 de la plus petite explosion connue (374 pistes, seuil 12 sans facteur de bruit). Le
 seuil est fixe, pas un taux par minute : il suppose des clips d'environ 5 min, comme ceux
-des jumelles, et se monte avec `--max-tracks` pour une vidéo plus longue. Au-delà, la
-liste des pistes n'est pas affichée en console.
+des jumelles, et se monte avec `--max-tracks` pour une vidéo plus longue. Le bilan de la
+soirée compte ces vidéos à part, avec leur nombre de pistes.
 
 Colonnes du CSV : `id`, `start`, `end`, `start_s` (début en secondes), `duration_s`, `hits` (nombre de détections),
 `chord_px` (distance de bout en bout), `path_px` (chemin parcouru), `speed_px_s`
 (chemin ÷ durée), `max_area_px` (plus grande tache, en pixels d'origine),
-`peak_amplitude` (plus fort écart au fond, en niveaux de gris ; avec `--target-sigma`,
-écart mesuré sur l'image filtrée, donc plus bas que l'écart brut pour une petite tache),
+`peak_amplitude` (plus fort écart au fond, en niveaux de gris ; avec le filtre à la taille
+de la cible, écart mesuré sur l'image filtrée, donc plus bas que l'écart brut pour une petite tache),
 `filled_frames` (images
 comblées par interpolation à l'affichage).

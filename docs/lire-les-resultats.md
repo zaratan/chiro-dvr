@@ -40,7 +40,7 @@ renvoie au suivi du défaut ; une ligne sans numéro est une limite de principe.
 | Une seule piste là où vous voyez deux animaux | Deux animaux restés tout près l'un de l'autre sont réunis en une piste ; cette règle n'a jamais été éprouvée sur deux vraies chauves-souris ([« La fusion des morceaux »][techniques]) | Compter les animaux à l'œil dans l'extrait, et noter ce moment : il servira à éprouver l'outil ([#26]) |
 | Une piste très lente au milieu de vols rapides | L'outil ne distingue pas un vol d'un déplacement lent : c'est le cas de la piste de 3:29 sur la 092 ([verdict](03-resultats-092.md#verdict-de-manon-9-octobre-2026), [« Ressembler à un vol »][techniques]) | Comparer sa vitesse dans le tableau des pistes, puis trancher à l'extrait ([#28]) |
 | Une chauve-souris plus claire que le ciel derrière elle | L'outil cherche dans les deux sens, plus clair ou plus sombre, mais n'a jamais été essayé sur une vraie vidéo de ce genre ([« Un seuil propre à chaque endroit »][techniques]) | Revoir la vidéo d'origine, et garder la vidéo : elle servira à éprouver l'outil ([#27]) |
-| Une période hors analyse ou illisible sur l'image résumé | Les jumelles ont bougé, la luminosité a sauté d'un coup, un essaim a rempli l'image, ou le fichier est abîmé : rien n'y a été cherché ([« Les périodes ignorées »][techniques]) | Revoir la vidéo d'origine aux moments donnés par le bandeau ; pour une période illisible, il n'en donne que la durée : si elle n'est pas négligeable, revoir la vidéo entière |
+| Une période hors analyse ou illisible sur l'image résumé | Les jumelles ont bougé, la luminosité a sauté d'un coup, un essaim a rempli l'image, ou le fichier est abîmé : rien n'y a été cherché ([« Les périodes ignorées »][techniques]) | Revoir la vidéo d'origine aux moments donnés par le bandeau (les trois premiers de chaque sorte) et par la frise du temps sous l'image, qui les montre tous |
 | Une piste sur une image visiblement abîmée (blocs, morceaux d'image décalés), hors des périodes illisibles | Le fichier a été réparé à la lecture sans que rien ne le signale, et l'image passe pour une vraie scène ([« Les périodes ignorées »][techniques]) | L'écarter à l'extrait |
 | Un nombre de passages à la fin de la relecture | L'outil manque des passages, pour les raisons ci-dessus, et aucun comptage de référence ne dit encore dans quelle proportion | Le présenter comme un minimum, et ne pas le comparer tel quel à un comptage à l'œil ou à une autre soirée ([#25]) |
 
@@ -56,6 +56,20 @@ Les conseils suivants viennent de la littérature sur l'observation en caméra t
 - calibrage (NUC) manuel ou semi-automatique pendant l'enregistrement ;
 - débit maximal ;
 - pas de zoom numérique.
+
+## Où sont les résultats
+
+Pour chaque vidéo, un dossier à son nom, dans `batdetect/` à côté des vidéos, ou dans le
+dossier choisi au lancement (`-o`). Sous une locale française : l'image résumé
+`<vidéo>_resume.png`, le tableau des pistes `<vidéo>_pistes.csv`, les extraits dans
+`extraits/` (`piste_01_0m04s.mp4`, et `piste_01_0m04s_zoom.mp4` pour l'extrait zoomé), et
+`params.json`, les réglages du calcul. Sous une autre locale, les mêmes fichiers en anglais
+(`_summary.png`, `_tracks.csv`, `clips/track_01_0m04s.mp4`). La liste complète est dans le
+[README](../README.md#fichiers-produits).
+
+À la fin du calcul, la commande écrit un bilan de la soirée : pour chaque vidéo sa durée, son
+nombre de pistes, le temps non analysé et le temps de calcul, puis à part les vidéos qui ont
+trop de pistes, celles en échec avec ce qu'il faut faire, et les entrées refusées.
 
 [techniques]: 10-logique-de-detection.md#les-techniques-en-simple
 [#9]: https://github.com/zaratan/chiro-dvr/issues/9
@@ -80,6 +94,12 @@ l'image filtrée par l'outil et non sur l'image brute
 ([docs/10](10-logique-de-detection.md#4-décider-pixel-par-pixel--le-seuil)). On la lit dans
 le tableau des pistes : plus elle est faible, plus la cible se voit mal à l'œil.
 
+### Corde
+
+La distance en ligne droite entre le début et la fin de la piste, en pixels de la vidéo
+d'origine, dans le tableau des pistes (`chord_px`). Une piste longue à petite corde a tourné
+ou est revenue sur ses pas.
+
 ### Extrait
 
 Une courte vidéo par piste, de peu avant son début à peu après sa fin, avec une boîte
@@ -90,8 +110,8 @@ verdict.
 ### Extrait zoomé
 
 Un second extrait, rangé à côté du premier, pour les pistes petites ou faibles : la même
-scène recadrée sur la trajectoire, agrandie autant que la trajectoire le permet, et
-ralentie. Seule la trace du vol y est dessinée, sans boîte, sans numéro ni autres pistes,
+scène recadrée sur la trajectoire, agrandie jusqu'à quatre fois et montrée à la taille de la
+vidéo, et ralentie quatre fois. Seule la trace du vol y est dessinée, sans boîte, sans numéro ni autres pistes,
 pour ne pas cacher une cible ténue.
 
 ### Fond médian
@@ -105,18 +125,25 @@ de l'image résumé est obtenu de la même façon, mais sur toute la vidéo.
 ### Garde-fou du nombre de pistes
 
 Au-delà d'un certain nombre de pistes, elles sont presque sûrement du bruit d'image :
-l'outil écrit l'image résumé et le tableau des pistes, mais aucun extrait. La vidéo est
-signalée en échec à la fin du calcul, et les autres vidéos du lot sont traitées
-normalement.
+l'outil écrit l'image résumé et le tableau des pistes, mais aucun extrait. Le bilan de la
+soirée compte cette vidéo à part, avec son nombre de pistes, et les autres vidéos du lot
+sont traitées normalement.
 
 ### Image résumé
 
-Une image par vidéo qui montre toutes les pistes sur le fond médian, chacune avec une
-couleur qui la distingue de ses voisines, une flèche dans le sens du vol et sa pastille.
-Le bandeau à droite donne le nom de la vidéo, le nombre de pistes, le début et la fin de la
-tranche couverte, les périodes hors analyse ou illisibles, puis la légende (numéro et début
-de chaque piste, à la seconde) ; une longue vidéo en donne plusieurs, une par tranche de
-temps.
+Une image qui montre les pistes sur le fond médian, chacune avec une couleur qui la
+distingue de ses voisines, une flèche dans le sens du vol et sa pastille. Le bandeau à droite
+donne le nom de la vidéo, le nombre de pistes, le début et la fin de la tranche couverte, les
+périodes hors analyse ou illisibles, puis la légende (numéro et début de chaque piste, à la
+seconde). Une frise du temps sous l'image montre la tranche, les départs des pistes et toutes
+les périodes ignorées. Une vidéo de plus de 10 min donne une image par tranche de 10 min ;
+une tranche de plus de 20 pistes est coupée en parties (`_1_sur_3`, « partie 1 / 3 » dans le
+bandeau), et la frise d'une partie montre aussi, en gris, les départs des autres parties.
+
+### Images estimées
+
+Les images d'une piste sans point, entre deux points : la boîte de l'extrait y passe en trait
+fin, à une position estimée. Le tableau des pistes en donne le nombre (`filled_frames`).
 
 ### Passage
 
@@ -145,8 +172,9 @@ revoir à l'œil.
 Un moment où le fichier vidéo est abîmé, avec des images manquantes ou réparées à la
 lecture, que l'outil ignore avec une marge de chaque côté
 ([docs/10](10-logique-de-detection.md#5-bis-écarter-les-images-que-le-décodeur-a-réparées)).
-Le bandeau de l'image résumé en donne seulement la durée totale et le nombre de plages, pas
-leurs moments ; comme une période hors analyse, rien n'y a été cherché.
+Le bandeau de l'image résumé en donne le début et la fin (les trois premières plages, puis
+le nombre des autres et la durée illisible en tout) ; la frise du temps les montre toutes.
+Comme une période hors analyse, rien n'y a été cherché.
 
 ### Piste
 

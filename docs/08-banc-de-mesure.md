@@ -5,13 +5,43 @@ chauves-souris dans une vraie vidéo, à des positions et des instants connus, p
 ce que l'outil retrouve à ce qui a été injecté. Aucun pipeline publié en écologie ne le
 fait (voir [07](07-ameliorer-la-detection.md)).
 
+La méthode (cibles, visibilité, appariement, limites) vaut pour le banc Rust d'aujourd'hui
+comme pour celui de la v0.1.1. Les mesures, plus bas, viennent de la v0.1.1 et gardent leur
+date ; celles du Rust sont dans [11](11-migration-rust.md#banc-de-mesure).
+
+## La commande et ses sorties
+
+Le banc est la crate `bench`, binaire `batdetect-bench` (`crates/bench`).
+
 ```bash
-uv run batdetect-bench in/video_092_original.mp4            # 9 classes × 30 cibles
-uv run batdetect-bench in/video_092_original.mp4 --max-gap 8 # rejoue le suivi en quelques secondes
+cargo run --release -p bench -- in/video_092_original.mp4                    # 9 classes × 30 cibles
+cargo run --release -p bench -- in/video_092_original.mp4 --motions hunt circle
+cargo run --release -p bench -- --replay out/bench/video_092_original --max-gap 8 -o out/gap8
 ```
 
-Sorties dans `out/bench/<nom>/` : `bench.json` (réglages, version du code, résumé par
-classe, résultat par cible) et `cache.pkl` (détections de référence et injectées).
+- **Tirer des cibles** (par défaut) : `--per-class`, `--amplitudes`, `--sigmas`, `--motions`,
+  `--seed`. La vidéo se donne avant `--amplitudes`, qui prend plusieurs valeurs.
+- **Rejouer des cibles** : `--targets FICHIER` reprend les cibles d'un `bats.jsonl.gz` au
+  lieu de les tirer ; `--against DOSSIER` rejoue un banc enregistré par la v0.1.1 et dresse la
+  garde (cibles perdues et gagnées, échec sous la borne basse de Wilson d'une classe ;
+  règles dans [11](11-migration-rust.md#garde)).
+- **Réévaluer** : `--replay DOSSIER` relit un passage déjà écrit et le réévalue avec d'autres
+  réglages de suivi, de stabilité ou d'appariement, sans aucune détection : immédiat.
+- **Réglages** : les dix de la détection (`--threshold`, `--min-area`, `--max-area`,
+  `--bg-window`, `--bg-step`, `--osd-region`, `--merge-radius`, `--work-width`,
+  `--noise-factor`, `--target-sigma`), la stabilité (`--max-blobs`, `--unstable-pad`), le suivi
+  (`--max-jump`, `--max-gap`, `--min-hits`, `--min-travel`, `--twin-distance`,
+  `--max-median-turn`) et l'appariement (`--match-radius`). `batdetect-bench --help` donne
+  leurs défauts, ceux de la commande.
+- **Sorties** dans `-o` (`out/bench` par défaut) : un dossier par vidéo, avec le passage
+  (`run.json`, `reference.jsonl.gz` et `injected.jsonl.gz`, les détections de référence et
+  injectées ; `bats.jsonl.gz`, les cibles et leur contraste effectif) et `bench.json`
+  (réglages, version du code, résumé par classe, résultat par cible), aux clés de la v0.1.1
+  plus `targets` et `seconds`. `--against` écrit dans `<vidéo>_<dossier>/` et ajoute
+  `guard.txt` ; `--replay` écrit `bench.json` dans `-o`. Une sortie qui écraserait l'entrée
+  est refusée.
+- La sortie standard donne le tableau par classe, le chemin du rapport et, avec
+  `--against`, la garde. Code de sortie : 0, 1 (échec, ou garde en échec), 2 (usage).
 
 ## Les cibles
 
@@ -24,7 +54,7 @@ classe, résultat par cible) et `cache.pkl` (détections de référence et injec
   accélération (progression en u^a, a de 1 à 1,8), et la **saccade de période 3** mesurée
   sur les Symbion (un pas double, deux simples, phase aléatoire).
 - **Battements** : amplitude multipliée par un facteur aléatoire de 0,6 à 1 à chaque image.
-- **Vols de chasse** (`--motions hunt circle`, `synthetic/hunting.py`) : la cible entre par
+- **Vols de chasse** (`--motions hunt circle`, `crates/bench/src/synthetic/hunting.rs`) : la cible entre par
   un bord vers l'intérieur, vole à 8 à 30 px d'origine par image, et enchaîne segments
   presque droits (0,2 à 1 s pour `hunt`, 0,1 à 0,3 s pour `circle`, qui vire plus de la
   moitié du temps) et virages de 45° à 180°. Dans un virage, la vitesse descend à 25 à
@@ -45,8 +75,11 @@ classe, résultat par cible) et `cache.pkl` (détections de référence et injec
 - **Placement** : tirage par rejet. Aucune cible à moins de 3 rayons d'appariement d'une
   piste réelle (run de référence) ou d'une autre cible au même instant, pour éviter les
   crédits indus et les fusions de jumelles.
-- **Reproductible** : une graine par cible (`SeedSequence.spawn`) ; ajouter une classe ne
-  change pas les cibles déjà tirées.
+- **Reproductible** : une graine par cible, tirée de `--seed` dans l'ordre des numéros
+  (`crates/bench/src/random.rs`) ; ajouter une classe ne change pas les cibles déjà tirées. La
+  même graine redonne les mêmes cibles sur un même système ; d'un système à l'autre,
+  rejouer les cibles par `--targets`. Le tirage de la v0.1.1 ne se reproduit pas en Rust : ses
+  bancs se rejouent par `--against`.
 
 ## Ce qui compte comme visible
 
@@ -98,22 +131,23 @@ le change pas.
   image au moins) face au bruit du centroïde, que le banc mesure réellement.
 - **Saccade modélisée** : le banc reproduit la saccade, donc un correctif de la saccade
   y paraîtra efficace par construction. Le run réel (trous, fragments) reste juge.
-- **Coût** : deux détections complètes (référence et injectée), puis le suivi est rejoué
-  à la demande depuis le cache. Le cache est invalidé par un changement de réglage de
-  détection, de tirage ou de stabilité (`--max-blobs`, `--unstable-pad` : ils changent
-  les pistes de référence qui guident le placement), et par toute modification du code de
-  `video.py`, `median.py`, `detect.py`, `track.py`, `stability.py`, `spans.py`,
-  `damage.py`, `probe.py`, `exclusion.py`, `parallel.py` ou du paquet `synthetic/`
-  (empreinte de leur contenu dans la clé), et par la version d'`ffprobe`, qui repère les
-  images abîmées. Le rapport note
-  la version du code avec `git describe --dirty`.
+- **Coût** : deux détections complètes (référence et injectée) par passage, environ 31 s
+  sur la 092 en `release` ; `--replay` réévalue un passage écrit en moins d'une seconde.
+  Le rapport note la version du code avec `git describe --always --dirty`
+  ([11](11-migration-rust.md#banc-de-mesure)).
 - **Placement figé** : les cibles sont placées loin des pistes du run de référence, calculées
   avec les réglages de suivi du premier run. Rejouer avec un autre réglage de suivi
   réutilise ces mêmes cibles, ce qui garde les comparaisons appariées.
 - **Masques** : une cible sous une `--osd-region` n'est pas comptée visible. Pour mesurer le
   coût d'un masque, comparer le nombre de cibles trouvées plutôt que la complétude.
 
-## Référence avant les gains rapides
+## Mesures de la v0.1.1 (Python)
+
+Mesures du 3 au 6 octobre 2026, avec le banc Python de la v0.1.1 (son cache, `--workers`,
+le décodeur d'OpenCV). Elles ont fixé les défauts d'aujourd'hui ; leurs chiffres ne se
+comparent pas au banc Rust à l'unité près.
+
+### Référence avant les gains rapides
 
 `video_092_original.mp4`, réglages par défaut, graine 1, code au commit de la sous-phase
 1A. 270 cibles tirées, 251 évaluées (19 jamais visibles assez longtemps). Calcul : 4 min 31.
@@ -139,7 +173,7 @@ Aucune fausse piste. Lecture :
 - La chauve-souris de 3:57 à son arrivée (−30 à −70 en pleine résolution, petite) tombe
   exactement dans la zone que l'outil rate aujourd'hui.
 
-## Résolution de travail et `min_area` (sous-phase 1A bis)
+### Résolution de travail et `min_area` (sous-phase 1A bis)
 
 Mêmes cibles (graine 1), détection parallèle sur 10 processus, vérifiée identique au bit
 près au traitement séquentiel sur la vidéo complète (la ligne 480 px / 18 reproduit
@@ -179,7 +213,7 @@ Lecture :
   la vidéo complète, une tranche était décalée d'une image. Chaque processus lit désormais
   depuis le début et saute les images jusqu'à sa tranche (`grab`, 0,84 ms par image).
 
-## Gains rapides (sous-phase 1B)
+### Gains rapides (sous-phase 1B)
 
 480 px, `min_area` 4, nouvelle définition de « visible » (sans profil de caméra), les deux
 lignes mesurées avec le même code :
@@ -193,7 +227,7 @@ La vitesse estimée sur 3 images ne change rien de mesurable au banc (une seule 
 bouge de 0,01) ; sur la vraie vidéo, elle prolonge de 2 images la piste la plus rapide.
 L'interpolation ne touche que l'affichage et n'a pas d'effet sur le banc par construction.
 
-## Vols de chasse (4 octobre 2026)
+### Vols de chasse (4 octobre 2026)
 
 Banc dédié sur la 092 : `--motions hunt circle --amplitudes -60 -30 --sigmas 1.5 3 5
 --per-class 60`, 34,7 s. 720 cibles tirées (12 classes × 60), 592 visibles (les 128
@@ -222,7 +256,7 @@ qu'une cible est visible et trouvée : à `min_hits` 6 pour le suivi seul (crit�
 5), la chasse perd 11 cibles au lieu de 14. Un critère « trouvée » indépendant du suivi
 rendrait la comparaison plus honnête.
 
-## Seuil par pixel (D1)
+### Seuil par pixel (D1)
 
 5 octobre 2026, 480 px, graine 1, transit, `--workers 1` (le décodeur d'OpenCV occupe
 plusieurs cœurs), temps sur un second lancement.
@@ -303,7 +337,7 @@ Lecture :
   (B2 et B1 dans [07](07-ameliorer-la-detection.md)).
 
 
-## Filtre à la taille de la cible (B2)
+### Filtre à la taille de la cible (B2)
 
 5 octobre 2026, graine 1, transit, `--workers 1`, `min_area` 4 sauf mention. σ est
 `--target-sigma` en pixels d'origine, k est `--noise-factor`. Entre parenthèses :
@@ -429,7 +463,7 @@ Lecture :
 - **Coût** : la médiane sur des images en flottants et le flou. Banc 32 s → 4 min à
   960 px, 9 min à 1440 px ; la 092 passe de 30 s à 135 s (960 px) ou 283 s (1440 px).
 
-### Sur six autres vidéos
+#### Sur six autres vidéos
 
 Les quatre candidats et le défaut ont été passés sur la 092 et sur six autres vidéos
 sans erreur de décodage (089, 090, 091, 125, 126, 127 ; comparaison détaillée hors
@@ -450,7 +484,7 @@ le seuil par pixel la perd sur 2 de ses 6 images, où 8σ vaut 22 à 36. Elle to
 sous `min_hits`. C1 la perd autrement : à 960 px, une de ses images n'a qu'un pixel de
 travail au-dessus du seuil, sous `min_area`.
 
-## Décision du 6 octobre 2026
+### Décision du 6 octobre 2026
 
 C3 devient le réglage par défaut : 960 px, filtre de 1,5 px, seuil 12, facteur de bruit 8.
 L'utilisateur a regardé une à une les six pistes de l'ancien réglage que C3 ne sort
