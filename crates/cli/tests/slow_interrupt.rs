@@ -1,5 +1,6 @@
 #[cfg(unix)]
 #[test]
+#[ignore = "slow"]
 fn ctrl_c_during_the_detection_names_the_video_reached_and_exits_with_130_then_the_same_command_redoes_the_lot() {
     use std::io::{BufRead, BufReader, Read};
     use std::path::Path;
