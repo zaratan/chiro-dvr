@@ -3,6 +3,7 @@ mod board;
 mod errors;
 mod messages;
 mod numbers;
+mod parsing;
 mod status;
 mod style;
 mod texts;
@@ -10,7 +11,7 @@ mod texts;
 use std::io::{self, IsTerminal};
 use std::process::ExitCode;
 
-use batdetect::jobs::{Job, collect_videos, plan_jobs};
+use batdetect::jobs::{Job, plan};
 use batdetect::language::system_language;
 use batdetect::options::Options;
 use batdetect::outcome::{self, run_all};
@@ -21,7 +22,7 @@ use media::decode::Threads;
 
 use crate::errors::report;
 use crate::status::{Status, Video};
-use crate::texts::{Fixed, Message, Texts};
+use crate::texts::Texts;
 
 fn main() -> ExitCode {
     outcome::quiet_panics();
@@ -37,17 +38,17 @@ fn main() -> ExitCode {
         Ok(request) => request,
         Err(error) => return report(texts, error),
     };
-    let planned = collect_videos(&request.inputs).and_then(|videos| plan_jobs(&videos, request.out_dir.as_deref()));
-    let jobs = match planned {
-        Ok(jobs) if jobs.is_empty() => {
-            return report(texts, arguments::refusal(texts, &Message::Fixed(Fixed::NoVideo)));
-        }
+    let jobs = match plan(&request.inputs, request.out_dir.as_deref()) {
         Ok(jobs) => jobs,
-        Err(error) => return report(texts, arguments::refusal(texts, &messages::videos_refused(&error))),
+        Err(error) => {
+            let (heading, lines) = messages::inputs_refused(texts, &error);
+            return report(texts, arguments::rejection(texts, &heading, &lines));
+        }
     };
     let refused = unwritable_folders(&jobs);
     if !refused.is_empty() {
-        return report(texts, arguments::refusal(texts, &messages::folders_refused(&refused)));
+        let (heading, lines) = messages::folders_refused(texts, &refused);
+        return report(texts, arguments::rejection(texts, &heading, &lines));
     }
     run(&jobs, texts, &request.options)
 }

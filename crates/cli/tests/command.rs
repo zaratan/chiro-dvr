@@ -203,18 +203,41 @@ fn under_a_french_locale_a_failure_gives_its_cause_and_what_to_do_in_french_and_
 }
 
 #[test]
-fn a_video_that_does_not_exist_is_said_to_be_missing() {
-    let (root, videos) = videos_with_a_flight(&[]);
-    let missing = videos.join("absente.mp4");
-    let output = run(&[&missing, Path::new("-o"), &root.path().join("out")], "fr_FR.UTF-8");
-    assert_eq!(output.status.code(), Some(1));
-    let errors = text(&output.stderr);
-    assert!(
-        errors
-            .lines()
-            .any(|line| line.ends_with("absente.mp4 : fichier introuvable")),
-        "{errors}"
+fn every_faulty_input_is_refused_at_once_before_any_work_one_line_each_without_the_usage_line() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let empty = videos.join("vide");
+    fs::create_dir(&empty).unwrap();
+    let readme = videos.join("README.md");
+    fs::write(&readme, "").unwrap();
+    let (missing, video, out) = (
+        videos.join("absente.mp4"),
+        videos.join("flight.mp4"),
+        root.path().join("out"),
     );
+    let (missing_name, readme_name, empty_name) = (missing.display(), readme.display(), empty.display());
+    for (lang, expected) in [
+        (
+            "fr_FR.UTF-8",
+            format!(
+                "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:\n  {missing_name}\u{a0}: introuvable\n  \
+                 {readme_name}\u{a0}: pas une vidéo (mp4, mov, avi, mkv ou m4v)\n  \
+                 {empty_name}\u{a0}: aucune vidéo (mp4, mov, avi, mkv ou m4v) dans ce dossier\n"
+            ),
+        ),
+        (
+            "C",
+            format!(
+                "error: no video is processed:\n  {missing_name}: not found\n  \
+                 {readme_name}: not a video (mp4, mov, avi, mkv or m4v)\n  \
+                 {empty_name}: no video (mp4, mov, avi, mkv or m4v) in this folder\n"
+            ),
+        ),
+    ] {
+        let output = run(&[&missing, &readme, &empty, &video, Path::new("-o"), &out], lang);
+        assert_eq!(output.status.code(), Some(2));
+        assert_eq!(text(&output.stderr), expected);
+        assert!(!out.exists());
+    }
 }
 
 #[test]
@@ -263,11 +286,11 @@ fn a_video_without_tracks_leaves_no_clips_folder_even_with_its_annotated_video()
 }
 
 #[test]
-fn a_video_that_does_not_exist_without_an_output_folder_creates_no_folder() {
+fn a_video_that_does_not_exist_without_an_output_folder_is_refused_and_creates_no_folder() {
     let (root, videos) = videos_with_a_flight(&[]);
     let missing = root.path().join("faute").join("v.mp4");
     let output = run(&[&missing, &videos.join("absent.mp4")], "C");
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(2));
     assert!(!root.path().join("faute").exists());
     assert!(!videos.join("batdetect").exists());
 }
@@ -321,11 +344,17 @@ fn two_videos_whose_names_differ_only_by_case_keep_their_own_clips_in_one_output
 }
 
 #[test]
-fn a_folder_without_any_video_is_refused() {
+fn a_folder_without_any_video_is_refused_by_name_with_the_extensions_looked_for() {
     let (root, videos) = videos_with_a_flight(&[]);
     let output = run(&[&videos, Path::new("-o"), &root.path().join("out")], "C");
     assert_eq!(output.status.code(), Some(2));
-    assert!(text(&output.stderr).contains("no video found"));
+    assert_eq!(
+        text(&output.stderr),
+        format!(
+            "error: no video (mp4, mov, avi, mkv or m4v) found in this folder:\n  {}\n",
+            videos.display()
+        )
+    );
 }
 
 #[test]
@@ -343,7 +372,7 @@ fn under_a_french_locale_the_help_and_the_refusals_are_in_french_with_their_usua
     assert!(
         text(&refused.stderr)
             .lines()
-            .any(|line| line == "erreur\u{a0}: aucune vidéo trouvée"),
+            .any(|line| line == "erreur\u{a0}: aucune vidéo (mp4, mov, avi, mkv ou m4v) trouvée dans ce dossier\u{a0}:"),
         "{}",
         text(&refused.stderr)
     );
@@ -369,7 +398,7 @@ fn a_french_refusal_is_coloured_only_when_colours_are_forced() {
 }
 
 #[test]
-fn two_videos_that_would_share_an_output_folder_are_refused_before_any_work() {
+fn two_videos_that_would_share_an_output_folder_are_refused_by_that_folder_before_any_work_in_either_language() {
     let root = tempfile::tempdir().unwrap();
     let (first, second) = (root.path().join("a/night"), root.path().join("b/night"));
     fs::create_dir_all(&first).unwrap();
@@ -377,24 +406,49 @@ fn two_videos_that_would_share_an_output_folder_are_refused_before_any_work() {
     fs::copy(flight(), first.join("x.mp4")).unwrap();
     fs::copy(flight(), second.join("x.mp4")).unwrap();
     let out = root.path().join("out");
-    let output = run(
-        &[&first.join("x.mp4"), &second.join("x.mp4"), Path::new("-o"), &out],
-        "C",
-    );
-    assert_eq!(output.status.code(), Some(2));
-    assert!(text(&output.stderr).contains("several videos would write to"));
-    assert!(!out.exists());
+    let (first, second) = (first.join("x.mp4"), second.join("x.mp4"));
+    let shared = out.join("night_x_mp4");
+    for (lang, line) in [
+        (
+            "fr_FR.UTF-8",
+            format!(
+                "  {}\u{a0}: dossier de résultats commun à {}, {}",
+                shared.display(),
+                first.display(),
+                second.display()
+            ),
+        ),
+        (
+            "C",
+            format!(
+                "  {}: results folder shared by {}, {}",
+                shared.display(),
+                first.display(),
+                second.display()
+            ),
+        ),
+    ] {
+        let output = run(&[&first, &second, Path::new("-o"), &out], lang);
+        assert_eq!(output.status.code(), Some(2));
+        let errors = text(&output.stderr);
+        assert_eq!(errors.lines().nth(1), Some(line.as_str()), "{errors}");
+        assert!(!out.exists());
+    }
 }
 
 #[test]
-fn a_video_that_does_not_exist_fails_alone_and_is_named() {
+fn a_video_that_does_not_exist_stops_the_others_before_any_work() {
     let (root, videos) = videos_with_a_flight(&["ok.mp4"]);
     let out = root.path().join("out");
     let missing = videos.join("absent.mp4");
     let output = run(&[&missing, &videos.join("ok.mp4"), Path::new("-o"), &out], "C");
-    assert_eq!(output.status.code(), Some(1));
-    assert!(text(&output.stderr).contains("absent.mp4: "));
-    assert!(out.join("ok").join("ok_tracks.csv").is_file());
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        text(&output.stderr).contains(&format!("{}: not found", missing.display())),
+        "{}",
+        text(&output.stderr)
+    );
+    assert!(!out.exists());
 }
 
 #[test]
@@ -404,13 +458,13 @@ fn an_output_that_is_a_file_is_refused_by_name_before_any_work() {
     fs::write(&file, "").unwrap();
     let output = run(&[&videos, Path::new("-o"), &file], "C");
     assert_eq!(output.status.code(), Some(2));
-    let errors = text(&output.stderr);
-    let refusal = format!(
-        "error: no video is processed, the results cannot be written in: {} (",
-        file.display()
+    assert_eq!(
+        text(&output.stderr),
+        format!(
+            "error: no video is processed, the results cannot be written in this folder:\n  {}: not a folder\n",
+            file.display()
+        )
     );
-    assert!(errors.lines().any(|line| line.starts_with(&refusal)), "{errors}");
-    assert!(!errors.contains("flight.mp4"), "{errors}");
 }
 
 #[cfg(target_os = "linux")]
@@ -640,22 +694,21 @@ fn a_folder_where_nothing_can_be_written_stops_every_video_before_any_work_in_ei
         (
             french,
             format!(
-                "erreur\u{a0}: aucune vidéo n'est traitée, les résultats ne peuvent pas s'écrire dans\u{a0}: {} (",
+                "erreur\u{a0}: aucune vidéo n'est traitée, les résultats ne peuvent pas s'écrire dans ce dossier\u{a0}:\n  \
+                 {}\u{a0}: écriture refusée\n",
                 refused.display()
             ),
         ),
         (
             english,
             format!(
-                "error: no video is processed, the results cannot be written in: {} (",
+                "error: no video is processed, the results cannot be written in this folder:\n  {}: writing refused\n",
                 refused.display()
             ),
         ),
     ] {
         assert_eq!(output.status.code(), Some(2));
-        let errors = text(&output.stderr);
-        assert!(errors.lines().any(|line| line.starts_with(&refusal)), "{errors}");
-        assert!(!errors.contains(&open.display().to_string()), "{errors}");
+        assert_eq!(text(&output.stderr), refusal);
     }
     assert!(!open.join("batdetect").join("autre").exists());
 }

@@ -2,6 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::{nearest_existing, unwritable_folders};
+use crate::access::Access;
 use crate::jobs::Job;
 
 fn job(dest: PathBuf) -> Job {
@@ -36,6 +37,7 @@ fn a_file_in_place_of_the_folder_is_refused_by_name() {
     let refused = unwritable_folders(&[job(file.join("v"))]);
     assert_eq!(refused.len(), 1);
     assert_eq!(refused[0].folder, file);
+    assert_eq!(refused[0].access, Access::NotAFolder);
 }
 
 #[cfg(unix)]
@@ -62,9 +64,7 @@ fn an_existing_folder_without_write_permission_is_refused_and_each_refused_folde
         fs::set_permissions(folder, fs::Permissions::from_mode(0o755)).unwrap();
     }
     assert!(
-        refused
-            .iter()
-            .all(|refusal| refusal.source.to_string() == "permission denied"),
+        refused.iter().all(|refusal| refusal.access == Access::Refused),
         "{refused:?}"
     );
     let folders: Vec<PathBuf> = refused.into_iter().map(|refusal| refusal.folder).collect();

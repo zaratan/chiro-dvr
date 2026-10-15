@@ -1,8 +1,9 @@
 use std::error::Error;
 use std::path::PathBuf;
 
+use batdetect::access::Access;
 use batdetect::failure::{self, Cause};
-use batdetect::jobs::Job;
+use batdetect::jobs::{self, Job, Reason, Refused};
 use batdetect::options::Options;
 use batdetect::outcome::{Failure, Panic, Rank};
 use batdetect::progress::Step;
@@ -10,7 +11,8 @@ use batdetect::writable::Unwritable;
 use engine::settings;
 use render::config;
 
-use crate::texts::Message;
+use crate::parsing::{Expected, Unreadable};
+use crate::texts::{Fixed, Message, Shown, Texts};
 
 #[cfg(test)]
 mod tests;
@@ -28,41 +30,141 @@ pub(crate) fn detection_refused(error: &settings::Error) -> Message {
         settings::Error::Setting { setting, value, bound } => Message::SettingRefused {
             option: format!("--{}", setting.flag()),
             bound,
-            value,
+            value: Shown::Number(value),
         },
         settings::Error::Region { index, region } => Message::RegionRefused {
             index: index + 1,
             region: region.to_string(),
         },
-        settings::Error::Areas { .. } => settings_refused(error),
+        settings::Error::Areas { .. } => Message::Fixed(Fixed::SettingsRefused),
     }
 }
 
 pub(crate) fn render_refused(error: &config::Error) -> Message {
     match *error {
         config::Error::Seconds {
-            name: "clip_margin_s",
+            setting: config::Seconds::ClipMargin,
             value,
-        } => Message::ClipMarginRefused { value },
-        _ => settings_refused(error),
+        } => Message::ClipMarginRefused {
+            value: Shown::Number(value),
+        },
+        config::Error::Seconds {
+            setting: config::Seconds::Trail,
+            ..
+        }
+        | config::Error::Threshold { .. } => Message::Fixed(Fixed::SettingsRefused),
     }
 }
 
-pub(crate) fn settings_refused(error: &dyn Error) -> Message {
-    Message::SettingsRefused { causes: causes(error) }
+pub(crate) fn value_refused(unreadable: &Unreadable) -> Message {
+    let value = unreadable.written.clone();
+    match unreadable.expected {
+        Expected::Setting(bound) => Message::SettingRefused {
+            option: unreadable.option.clone(),
+            bound,
+            value: Shown::Written(value),
+        },
+        Expected::Seconds => Message::ClipMarginRefused {
+            value: Shown::Written(value),
+        },
+        Expected::Region => Message::RegionShape { value },
+    }
 }
 
-pub(crate) fn videos_refused(error: &dyn Error) -> Message {
-    Message::VideosRefused { causes: causes(error) }
+pub(crate) fn tracking_refused(option: &str, error: &tracking::error::Error) -> Message {
+    match error {
+        tracking::error::Error::Setting { .. } | tracking::error::Error::Track(_) => option_refused(option),
+    }
 }
 
-pub(crate) fn folders_refused(refused: &[Unwritable]) -> Message {
-    let folders: Vec<String> = refused
+pub(crate) fn option_refused(option: &str) -> Message {
+    Message::OptionRefused {
+        option: format!("--{option}"),
+    }
+}
+
+pub(crate) fn inputs_refused(texts: Texts, error: &jobs::Error) -> (Message, Vec<String>) {
+    let (listed, last) = extensions();
+    match error {
+        jobs::Error::NoVideo { folders } => (
+            Message::NoVideo {
+                count: folders.len(),
+                listed,
+                last,
+            },
+            folders.iter().map(|folder| folder.display().to_string()).collect(),
+        ),
+        jobs::Error::Refused { refused } => (
+            Message::Fixed(Fixed::InputsRefused),
+            refused
+                .iter()
+                .map(|refusal| texts.say(&input_refused(refusal, &listed, &last)))
+                .collect(),
+        ),
+    }
+}
+
+fn extensions() -> (String, String) {
+    match jobs::video_extensions().split_last() {
+        Some((last, listed)) => (listed.join(", "), (*last).to_owned()),
+        None => (String::new(), String::new()),
+    }
+}
+
+fn input_refused(refusal: &Refused, listed: &str, last: &str) -> Message {
+    let path = refusal.path.display().to_string();
+    let reason = match &refusal.reason {
+        Reason::Missing => "missing",
+        Reason::Unreadable(access) => read_access(*access),
+        Reason::NotAVideo | Reason::NoVideo => {
+            return Message::InputWithoutVideo {
+                path,
+                folder: refusal.reason == Reason::NoVideo,
+                listed: listed.to_owned(),
+                last: last.to_owned(),
+            };
+        }
+        Reason::SharedFolder { videos } => {
+            let named: Vec<String> = videos.iter().map(|video| video.display().to_string()).collect();
+            return Message::SharedFolder {
+                path,
+                videos: named.join(", "),
+            };
+        }
+    };
+    Message::InputRefused { path, reason }
+}
+
+const fn read_access(access: Access) -> &'static str {
+    match access {
+        Access::Missing => "missing",
+        Access::Refused => "refused",
+        Access::NotAFolder => "not-a-folder",
+        Access::ReadOnly | Access::DiskFull | Access::Unavailable => "unavailable",
+    }
+}
+
+pub(crate) fn folders_refused(texts: Texts, refused: &[Unwritable]) -> (Message, Vec<String>) {
+    let lines = refused
         .iter()
-        .map(|refusal| format!("{} ({})", refusal.folder.display(), refusal.source))
+        .map(|refusal| {
+            texts.say(&Message::FolderRefused {
+                path: refusal.folder.display().to_string(),
+                access: write_access(refusal.access),
+            })
+        })
         .collect();
-    Message::FoldersRefused {
-        folders: folders.join(", "),
+    (Message::FoldersRefused { count: refused.len() }, lines)
+}
+
+const fn write_access(access: Access) -> &'static str {
+    match access {
+        Access::Refused => "refused",
+        Access::NotAFolder => "not-a-folder",
+        Access::Missing => "missing",
+        Access::ReadOnly => "read-only",
+        Access::DiskFull => "disk-full",
+        Access::Unavailable => "unavailable",
     }
 }
 

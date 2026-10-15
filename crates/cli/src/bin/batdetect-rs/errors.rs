@@ -8,6 +8,9 @@ use clap::builder::styling::Style;
 use clap::error::{ContextKind, ContextValue, Error, ErrorFormatter, ErrorKind};
 use types::language::Language;
 
+use crate::arguments::PROGRAM;
+use crate::messages;
+use crate::parsing::Unreadable;
 use crate::style::{HELP, STYLES};
 use crate::texts::{Fixed, Message, Texts};
 
@@ -16,6 +19,7 @@ mod tests;
 
 const TAB: &str = "  ";
 const ENGLISH_USAGE_HEADING: &str = "Usage:";
+const INPUTS_REFUSED: ErrorKind = ErrorKind::Io;
 
 #[derive(Debug)]
 pub(crate) struct French;
@@ -50,7 +54,18 @@ pub(crate) fn report(texts: Texts, error: Error) -> ExitCode {
 pub(crate) fn refusal(texts: Texts, message: &Message, command: &mut Command) -> Error {
     let mut error = Error::new(ErrorKind::ValueValidation).with_cmd(command);
     error.insert(ContextKind::Custom, ContextValue::String(texts.say(message)));
-    error.insert(ContextKind::Usage, ContextValue::StyledStr(command.render_usage()));
+    error
+}
+
+pub(crate) fn rejection(texts: Texts, heading: &Message, lines: &[String], command: &mut Command) -> Error {
+    let mut said = texts.say(heading);
+    for line in lines {
+        said.push('\n');
+        said.push_str(TAB);
+        said.push_str(line);
+    }
+    let mut error = Error::new(INPUTS_REFUSED).with_cmd(command);
+    error.insert(ContextKind::Custom, ContextValue::String(said));
     error
 }
 
@@ -63,8 +78,11 @@ pub(crate) fn rendered<F: ErrorFormatter>(texts: Texts, error: &Error<F>) -> Sty
         styled.push_str("\n\n");
         styled.push_str(&usage_line(texts, usage));
     }
+    if error.kind() == INPUTS_REFUSED {
+        return StyledStr::from(format!("{styled}\n"));
+    }
     let literal = STYLES.get_literal();
-    let flag = format!("{literal}--{HELP}{literal:#}");
+    let flag = format!("{literal}{PROGRAM} --{HELP}{literal:#}");
     let more = texts.say(&Message::MoreInformation { flag });
     StyledStr::from(format!("{styled}\n\n{more}\n"))
 }
@@ -98,12 +116,8 @@ fn sentence<F: ErrorFormatter>(texts: Texts, error: &Error<F>) -> String {
             value: styled(*invalid, value),
             argument: styled(*literal, argument),
         },
-        (ErrorKind::ValueValidation, Some(argument), Some(value)) => match error.source() {
-            Some(cause) => Message::InvalidValueBecause {
-                value: styled(*invalid, value),
-                argument: styled(*literal, argument),
-                cause: cause.to_string(),
-            },
+        (ErrorKind::ValueValidation, Some(argument), Some(value)) => match unreadable(error) {
+            Some(unreadable) => messages::value_refused(unreadable),
             None => Message::InvalidValue {
                 value: styled(*invalid, value),
                 argument: styled(*literal, argument),
@@ -120,10 +134,10 @@ fn sentence<F: ErrorFormatter>(texts: Texts, error: &Error<F>) -> String {
         }
         (ErrorKind::MissingRequiredArgument, _, _) => match missing(texts, error) {
             Some(listed) => return listed,
-            None => unknown(error),
+            None => Message::Fixed(Fixed::ArgumentsRefused),
         },
         (ErrorKind::InvalidUtf8, _, _) => Message::Fixed(Fixed::InvalidUtf8),
-        _ => unknown(error),
+        _ => Message::Fixed(Fixed::ArgumentsRefused),
     };
     let sentence = texts.say(&message);
     if error.kind() == ErrorKind::InvalidValue
@@ -151,12 +165,8 @@ fn missing<F: ErrorFormatter>(texts: Texts, error: &Error<F>) -> Option<String> 
     Some(format!("{}{}", texts.text(Fixed::MissingArguments), listed.concat()))
 }
 
-fn unknown<F: ErrorFormatter>(error: &Error<F>) -> Message {
-    let cause = error
-        .kind()
-        .as_str()
-        .map_or_else(|| format!("{:?}", error.kind()), str::to_owned);
-    Message::ArgumentsRefused { cause }
+fn unreadable<F: ErrorFormatter>(error: &Error<F>) -> Option<&Unreadable> {
+    error.source().and_then(|cause| cause.downcast_ref::<Unreadable>())
 }
 
 fn suggestions<F: ErrorFormatter>(texts: Texts, error: &Error<F>) -> String {
@@ -166,6 +176,11 @@ fn suggestions<F: ErrorFormatter>(texts: Texts, error: &Error<F>) -> String {
     if let Some(suggestion) = text(error, ContextKind::SuggestedArg) {
         tips.push(Message::SimilarArgument {
             suggestion: styled(*valid, suggestion),
+        });
+    }
+    if let Some(written) = unreadable(error).and_then(|unreadable| unreadable.pointed.as_deref()) {
+        tips.push(Message::DecimalPoint {
+            written: styled(*valid, written),
         });
     }
     if let Some(suggestion) = text(error, ContextKind::SuggestedValue) {
