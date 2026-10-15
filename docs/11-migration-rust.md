@@ -1813,9 +1813,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     `Converter::new(…, SourceRange::FullBlackAt16)`, puis `summary::pages` ; chaque page
     prend son nom par `Names::summary_png`. Pas de fond : erreur `NoBackground`.
   - Extraits (#112) : `render_clips`, appelée après l'image résumé.
-    - Le dossier des extraits (`extraits` ou `clips`, selon la langue), vidé par le
-      ménage, est recréé avant le rendu.
-    - Garde `max_tracks` (300) : au-delà, le dossier est vidé, aucun extrait n'est écrit,
+    - Le dossier des extraits (`extraits` ou `clips`, selon la langue), retiré par le
+      ménage, n'est recréé qu'avec au moins un extrait à écrire, après l'essai d'encodeur
+      réussi (#195) : 0 piste, trop de pistes ou aucun encodeur ne laissent aucun dossier.
+    - Garde `max_tracks` (300) : au-delà, aucun extrait n'est écrit,
       et la vidéo échoue avec sa ligne (« 301 pistes, au-delà de 300 : extraits non
       écrits ») après le CSV, `params.json` et l'image résumé.
     - Encodeurs : un essai d'encodage (`Fallback::trial`) à la taille et à la cadence de
