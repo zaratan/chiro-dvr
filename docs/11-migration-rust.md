@@ -97,6 +97,11 @@ ailleurs, ces commandes se lancent sans lui.
   parsers et décodeurs h264 et hevc, protocole file, swscale). S'y ajoutent l'encodeur
   libopenh264, le muxeur mp4 et, sur macOS, VideoToolbox (décodage et encodeur
   `h264_videotoolbox`). `--disable-autodetect` écarte les bibliothèques du système.
+  `--enable-pic` est explicite (#220) : sans lui, le `configure` n'active le PIC que si
+  le compilateur en produit déjà par défaut, comme le clang de macOS et le gcc d'Ubuntu
+  (PIE par défaut), pas le gcc de Rocky 10. Or Rust lie en PIE sous Linux, et l'édition de
+  liens échoue sur des `.a` non PIC. Son ajout change l'empreinte : FFmpeg se reconstruit
+  une fois par poste et par runner Linux ou macOS.
 - **Script** : `packaging/ffmpeg-unix.sh`, en bash portable (bash 3.2 de macOS compris).
   - Il construit dans un dossier temporaire du cache, puis le déplace par `mv`. Si une
     construction concurrente a déjà posé la cible, `mv` refuse et la cible existante est

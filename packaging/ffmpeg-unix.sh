@@ -85,7 +85,7 @@ build_ffmpeg() {
     PKG_CONFIG_LIBDIR=$prefix/lib/pkgconfig PKG_CONFIG_PATH='' ./configure \
       --prefix="$prefix" --pkg-config-flags=--static --extra-version="$(fingerprint)" \
       --disable-everything --disable-programs --disable-doc --disable-network --disable-autodetect \
-      --enable-static --disable-shared --disable-avdevice --disable-avfilter --disable-swresample --enable-swscale \
+      --enable-static --disable-shared --enable-pic --disable-avdevice --disable-avfilter --disable-swresample --enable-swscale \
       --enable-decoder=h264,hevc --enable-parser=h264,hevc --enable-demuxer=mov --enable-protocol=file \
       --enable-libopenh264 --enable-muxer=mp4 "${platform[@]}"
     grep -q '^#define FFMPEG_LICENSE "LGPL version 2.1 or later"$' config.h || fail "FFmpeg is not configured as LGPL 2.1+"
