@@ -316,3 +316,39 @@ la CI ne voit pas (tour).
 
 **Ordres de grandeur** : 15 issues et 13 PR en deux jours ; jusqu'à trois agents en parallèle ; CI d'une PR de 4 min
 (après #146) remontée à 14-17 min avec les nouveaux tests (#167).
+
+## Lot 8 — 13 au 15 octobre 2026 (zaratan) : commande définitive, langues, gardes, CI et QA
+
+**Fait** (issue → PR) : #167 → #170, #154 → #171, #113 → #173, #160 → #174, #114 → #175, #159 → #177, #115 → #178,
+#179 → #182, #86 + #91 → #183, #63 → #185, #180 → #186, #184 → #188, #64 → #189, #187 → #190, #65 → #191,
+#181 → #192, #56 → #193, #194 → #197 (né de la passe de QA). 19 issues, label `lot: 8`.
+
+**Résultats mesurés**
+- `batdetect-rs` complet : options décidées et aide à deux niveaux au look d'argparse, français et anglais (Fluent),
+  sortie à côté des vidéos, homonymes à la casse près, ménage des passes précédentes, progression, raisons en clair
+  avec « à faire », bilan de fin de soirée, usages courants façon tldr. Borne de 4 Gio sur la fenêtre du fond.
+- CI d'une PR : 15 min 16 s → environ 7 min (#179 tâches parallèles, #180 `slow_clips` −27 % de CPU, #184 la 092 traitée
+  deux fois au lieu de cinq : `rust-reference` 468 s → 258 s). Ruleset sans exigence de branche à jour.
+- Moteur générique : +7,9 % → +6,3 % de CPU sur le 3:2 (#159, trois pistes gardées, empreintes identiques).
+- Passe de QA (cahier `chemins-d-or.md`, 11 chemins d'or et 23 d'argent) : 58 lignes, 53 OK, 3 KO ; pics de mémoire
+  sous 1,2 Go.
+
+**Décisions marquantes de l'utilisateur** : `fluent-bundle` et formateur maison ; titres français calqués sur l'anglais
+et majuscule en tête des aides ; défauts sur leur ligne ; « vrais passages » (vocabulaire) ; la 092 traitée une fois
+dans les tests ; ruleset assoupli ; label de lot ; passe de QA avec chemins d'argent ; corriger #194 avant de clore ;
+données hors du Mac : dépôt privé `chiro-dvr-data` et bucket Scaleway `chiro-dvr-videos` (11 Go).
+
+**Incidents**
+- Une sonde `dhat` à sept points a tenu le verrou plus de deux heures ; arrêtée à cinq.
+- Un panneau ouvert dans le pane d'un agent a avalé un message sans erreur.
+- Coupures réseau répétées : agents arrêtés sur des erreurs d'API, journaux de CI injoignables (vérification refaite en
+  local).
+- Prémisses fausses de la tour, corrigées par les agents : `pts` des extraits, `#[cfg(test)]` dits inutiles, chemin du
+  cache FFmpeg, `stat -c`, « traces » au lieu de « passages » ; et deux annonces d'état de PR non relues.
+- 11,8 Go de planches et de maquettes nettoyés dans `rapports/` et les dossiers temporaires.
+
+**Reste** : #55 (4 commentaires, à placer), #83, #172, #176, #195, #196 en Backlog ; #10 (script pour le Mac de Manon) ;
+l'issue des données hors du Mac à créer ; lot 9 : #106, la bascule.
+
+**Ordres de grandeur** : 19 issues et 18 PR en trois jours, deux agents en parallèle ; une garde de 3 points en 1 à 2 h
+d'agent plan compris ; CI d'une PR divisée par deux.

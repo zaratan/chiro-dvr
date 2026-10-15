@@ -193,7 +193,7 @@ garder un gain que s'il dépasse le bruit.
     `create_dir_all` réussit sur un dossier existant en lecture seule ; en cas d'échec, tout le lot s'arrête avant
     calcul, avec le code 2, et chaque dossier refusé est nommé (texte par Fluent, #114) ;
   - les homonymes se comptent par racine : sans `-o`, `nuit1/v.mp4` et `nuit2/v.mp4` ne se gênent plus ;
-  - la clé des homonymes et du refus `SharedFolder` : nom en NFC (la normalisation de `files::names` faite par #115,
+  - la clé des homonymes et du refus `SharedFolder` : nom en NFC (la normalisation NFC que #115 a mise dans `files::previous`, l. 95, à rendre partageable plutôt que copiée,
     si elle convient), puis `to_lowercase`, sur tous les systèmes ; un nom non UTF-8 passe par `to_string_lossy`
     pour la clé et reste un `OsStr` pour le chemin ;
   - les anciennes sorties `~/out/` de la v0.1.1 restent, sans migration (une phrase dans le README à #106).
@@ -205,6 +205,125 @@ garder un gain que s'il dépasse le bruit.
   qui ne diffèrent que par la casse, et le refus d'un dossier non inscriptible, dans les deux langues.
 - Attendu : les tests inversés (`-o` absent n'est plus une erreur) et les nouveaux verts ; les tests longs que le diff
   peut changer tournent une seule fois, à la fin, sous le verrou ; dis lesquels et pourquoi.
+
+### #179 — Tests rapides et tests lents en tâches de CI parallèles (worktree `ci`, branche `rust/179-ci-parallele`)
+
+2 points, ajoutée au lot le 14 octobre à la demande de l'utilisateur. Pas de plan relu. En parallèle de la file
+`commande` : le diff ne touche que `.github/workflows/ci.yml`, `mise.toml` si besoin, docs/11 et `CLAUDE.md`, jamais
+`crates/cli`.
+- Mesuré le 14 octobre (CI de `main` après #175, run 38438917879) : macOS 916 s, dont `rust:test` 302 s et `rust:slow`
+  461 s (114 s de compilation, 345 s de tests, dont `slow_clips` 172 s et `slow_canary` 47 s) ; Ubuntu 816 s (278 +
+  373) ; Windows 812 s (347 + 332) ; `rust-reference` 468 s. Les deux étapes ne partagent pas leur compilation
+  (`target/llvm-cov-target` contre `target/ci`).
+- À faire : séparer, sur chaque système, les tests rapides (couverture) et les tests lents en deux tâches parallèles,
+  chacune avec son cache (clés distinctes, même logique de repli en PR que l'existant). Les vérifications requises du
+  ruleset de `main` changent de noms : donne la liste exacte dans le compte rendu ; c'est la tour qui modifie le
+  ruleset, au moment du merge.
+- `slow_clips` : mesure ce que coûte chacun de ses 4 tests sur les trois systèmes (journaux de CI), et propose une
+  réduction qui ne perd rien de ce qu'ils vérifient. Ne l'applique pas : c'est une question pour l'utilisateur.
+- Attendu : même liste de tests passés par système, avant et après (`rapports/tests-146-extraire.sh`, à compléter
+  avec les nouveaux noms de tâches) ; le temps d'une PR mesuré sur la PR elle-même, au second passage (cache chaud),
+  par étape. Tu ne peux pas pousser : donne à la tour ce qu'il faut mesurer, elle le fera sur la PR.
+
+### #180 — Réduire `slow_clips` (worktree `ci`, branche `rust/180-slow-clips`)
+
+2 points, P2. Suite de #179, même agent. L'issue reprend le profil et les trois réductions proposées par l'agent ;
+l'utilisateur les a acceptées, plus le passage de `the_similarity_is_one_…` en test rapide.
+- Ne rien perdre de ce qui est vérifié : même similarité au bit près, mêmes `pts` et même nombre d'images contrôlés.
+  Pas de comparaison d'une image sur N, pas de rendu fondu.
+- Le code touché est dans `crates/render` (tests et leur support), pas dans `crates/cli`.
+- Attendu : même liste de tests passés par système ; durée de `slow_clips` mesurée en local (sous le verrou, M1 Max)
+  avant et après ; la tour mesurera la CI sur la PR (cache chaud).
+
+### #63 — La vidéo et l'étape en cours (worktree `extraits`, branche `rust/63-progression`)
+
+2 points. Pas de plan relu. Relecture : `lot8-relectures/gardes.md` § #63. Décision 6 de ce fichier.
+- Décidé : étapes nommées détection (lecture comprise), suivi, image résumé, extraits ; la ligne d'une vidéo finie
+  reste, avec son nombre de pistes (« [3/12] video_092 — 14 pistes », ou « — échec »).
+- Recommandations de la relecture, à appliquer sauf prémisse fausse, et à lister dans « Décisions prises seul » :
+  stderr ; effacement par `\r` puis des espaces (aucune séquence d'échappement) ; les lignes d'événement (extrait
+  refait, CSV laissé) écrites au-dessus de la ligne d'étape, qui est redessinée ; `std::io::IsTerminal` pour le mode,
+  sans crate ; un protocole d'étapes dans la bibliothèque, appelé par `process`, avec un rapporteur muet pour les tests ;
+  pas d'avancement image par image (c'est #68).
+- Textes par Fluent, dans les deux langues, avec la majuscule de #115 là où elle s'applique.
+- Pièges de #178 : pas d'égalité exacte sur la sortie d'erreur, imports des tests réservés à un système.
+- Planche dans `rapports/planche-63/` : la sortie redirigée (une ligne par étape) et, si possible, une capture du mode
+  terminal, dans les deux langues.
+- Attendu : tests de l'ordre des lignes d'étape sur stderr redirigé ; aucun test lourd (rien ne touche la détection),
+  sauf si le diff le demande ; dis-le.
+
+### #64 — Raisons en clair et conseils (worktree `extraits`, branche `rust/64-raisons`)
+
+3 points. **Plan court d'abord** (`rapports/plan-64.md`), relu par `rust-expert`, puis arrêt pour validation : il
+porte surtout la table des causes et les textes que Manon lira. Relecture : `lot8-relectures/gardes.md` § #64.
+Décisions 6 et 7 de ce fichier. Deux commentaires sur l'issue (#114 : « failed: the detection failed: » ; #115 : un
+fichier ouvert sous Windows fait échouer le ménage).
+- Décidé : un crochet de panique à nous, qui garde le message et le lieu (forme finale de la ligne « erreur interne »
+  de #113) ; le disque plein reconnu, par un accesseur `io_kind()` dans `media` (aucun type d'`ffmpeg_next` ne sort) ;
+  les causes des bibliothèques restent en anglais, précédées d'une phrase traduite par cause connue ; « trop de pistes »
+  garde le code 1, et le bilan de #65 le rangera à part des pannes.
+- Recommandations de la relecture, à reprendre dans le plan : classement par `match` sur `process::Error` et ses
+  énumérations, puis `downcast_ref::<io::Error>` le long de la chaîne pour le disque (piège : `#[error(transparent)]`
+  saute un niveau) ; « introuvable » distingué de « pas une vidéo » ; « erreur inattendue » suivi du texte brut pour
+  le reste ; le conseil de recopier depuis les jumelles en USB pour un fichier abîmé, avec un renvoi à docs/01.
+- Le plan donne la table cause → phrase et conseil, en français et en anglais, mot pour mot : c'est ce que
+  l'utilisateur validera. Il dit aussi comment le doublon « failed: the detection failed: » disparaît.
+- Pièges de #178 : pas d'égalité exacte sur la sortie d'erreur, imports des tests réservés à un système.
+
+### #184 — Un seul passage sur la 092 dans les tests de référence (worktree `ci`, branche `rust/184-reference`)
+
+3 points, P2. **Plan d'abord** (`rapports/plan-184.md`), relu par `tech-architect` et `rust-expert`, puis arrêt pour
+validation. Décision de l'utilisateur (14 octobre) : « tu le fais une première fois au début puis tu utilises ces
+résultats partout » ; la détection à 1440 reste à part, en parallèle.
+- Le plan dit : comment partager entre les quatre crates (`cli`, `compare`, `engine`, `media`) — un seul binaire de test
+  ou un résultat écrit une fois et relu — et où vivent les tests ; la liste de toutes les assertions des quatre
+  binaires actuels, et où chacune se retrouve ; le temps attendu en CI, et le budget de verrou en local (nombre de
+  passages de la 092 et durée estimée de chacun).
+- Le test de la commande sur la 092 dépend de la signature de `process` : #63 est fusionnée, ta branche part après
+  elle. #64 (dans `extraits`) touche aussi `process` : dis dans le plan ce qui en dépend.
+
+### #187 puis #181 — Ménage des tests lents, puis copies de la CI (worktree `ci`)
+
+Ajoutées au lot le 14 octobre, à la demande de l'utilisateur. Pas de plan relu.
+- **#187** (branche `rust/187-tmp`, 1 point) : `crates/cli/tests/slow_command.rs` (`EXTRACT_RUN`, l. 25) et
+  `crates/compare/tests/slow_extract.rs` (`RUN`, l. 23) gardent un `TempDir` dans un `static`, jamais supprimé. Relever
+  dans le `static` ce dont les tests ont besoin, et supprimer le dossier à la fin de l'initialisation, comme
+  `reference_092.rs` (#184). Attendu : aucun dossier nouveau dans le dossier temporaire après `mise run rust:slow`
+  (sous le verrou), même liste de tests.
+- **#181** (branche `rust/181-ci-composite`, 2 points, après la fusion de #187) : une action composite pour la clé de
+  cache de FFmpeg (six copies dans `ci.yml`), une autre pour la mise en place de Windows (deux copies). Attendu : mêmes
+  clés de cache, vérifiées sur la PR ; `actionlint` vert ; même liste de tests par système.
+
+### #65 — Le bilan de fin de soirée (worktree `extraits`, branche `rust/65-bilan`)
+
+3 points. **Plan court d'abord** (`rapports/plan-65.md`), avec une maquette du bilan en français et en anglais, puis
+arrêt pour validation. Relecture : `lot8-relectures/gardes.md` § #65. Décision 6 de ce fichier.
+- Décidé : « trop de pistes » rangé à part des pannes dans le bilan ; pas de bilan écrit dans les dossiers (c'est #71) ;
+  la ligne « N pistes -> dossier » de la sortie standard, gardée par #63 en attendant, est remplacée par le bilan.
+- Recommandations de la relecture, à reprendre dans le plan : colonnes vidéo, durée, pistes, non analysé (plages
+  instables et abîmées réunies), calcul ; le dossier en titre par racine (#86) ; le tableau sur stdout, la progression
+  sur stderr (#63) ; largeur comptée en `char`, sans crate ; les échecs sous le tableau avec la cause et le « à faire »
+  de #64, et une ligne « 2 vidéos sur 12 en échec » ; le CSV laissé (#115) dans le bilan, l'extrait refait en openh264
+  reste une ligne au fil de l'eau ; pas d'état « sautée » avant #70 ; la durée lisible de `summary::header::duration` ;
+  le rappel des réglages avancés changés en pied de bilan (décision du lot 8 : le rappel va à #65).
+- Le modèle du résultat (bibliothèque) et la mise en forme du tableau (binaire) dans deux modules distincts, testés.
+  Codes de sortie inchangés. Textes par Fluent, dans les deux langues, nombres par le formateur de #114.
+- Pièges de #178 : pas d'égalité exacte sur la sortie d'erreur ; imports des tests réservés à un système ;
+  `#[cfg(test)]` seulement sur les aides de tests qui font `unwrap`.
+
+### #56 — Les usages courants en tête de l'aide (worktree `extraits`, branche `rust/56-tldr`)
+
+3 points. **Plan court d'abord** (`rapports/plan-56.md`), avec la maquette du tl;dr, de `-h` et de `--help` en français
+et en anglais, mot pour mot, puis arrêt pour validation. Relecture : `lot8-relectures/gardes.md` § #56. Décision 6.
+- Décidé : les exemples portent le nom de la commande lancée (aujourd'hui `batdetect-rs`, `batdetect` après #106).
+- Recommandations de la relecture, à reprendre dans le plan : clés Fluent et une fonction `usage` dans le module de
+  textes, sans module à part ; sans aucun argument, le tl;dr sur stdout avec le code 0 (`-o` sans vidéo reste une
+  erreur d'usage, code 2) ; seul : tl;dr et « --help pour tout » ; `-h` : tl;dr et options essentielles ; `--help` :
+  tout, plus les fichiers produits (noms réels livrés par #86, #103, #115) et un renvoi au README ; les exemples sur le
+  modèle de `tldr` (une ligne « description : », puis la commande), dans `before_help` et `after_help` comme prévu à
+  #113 ; plus d'exemple de mode rapide, `--workers` ni `doctor` (#58). La section « Utilisation » du README va à #106.
+- Le look de l'aide (#113, #115) se garde : couleurs, une ligne par option, défauts sur leur ligne, majuscule.
+- Pièges de #178 ; `#[cfg(test)]` seulement sur les aides de tests qui font `unwrap`.
 
 ## Décisions prises pendant le lot
 
@@ -320,3 +439,97 @@ garder un gain que s'il dépasse le bruit.
   Unix) fait échouer clippy `-D warnings`. Sous macOS, deux tests de `command.rs` exigent une sortie d'erreur exacte,
   alors que le runner virtualisé de GitHub y écrit « IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver ».
   Invisible sur le Mac de l'utilisateur. Correctif demandé à l'agent, dans la même branche.
+- **#115 fusionnée (PR #178, 14 octobre, 7 h 52)** après le correctif de CI.
+- **#179 créée et lancée (14 octobre, 8 h)** à la demande de l'utilisateur : séparer tests rapides et tests lents en
+  tâches de CI parallèles (2 points, P2), et mesurer `slow_clips` (172 s sous macOS) sans le réduire. Worktree `ci`
+  ouvert par le lanceur, en parallèle de la file `commande`.
+- **#86 et #91 lancées (14 octobre, 8 h)** dans `extraits`, branche `rust/86-sortie` depuis 44153bb.
+- **#179, compte rendu (14 octobre, 8 h 30)** : choix de l'agent acceptés (noms `rust`/`rust-windows` gardés, tâches
+  lentes `rust-slow` et `rust-windows-slow`, répartition des étapes, LFS retiré des tâches rapides, docs/05). Au merge,
+  la tour ajoute `rust-slow (macos-latest)`, `rust-slow (ubuntu-latest)` et `rust-windows-slow` au ruleset, puis purge
+  les anciennes générations du cache (10,24 Go pour 32 entrées, au-delà du quota), liste montrée avant. Issues créées :
+  #180 (réduire `slow_clips`, 2 points, P2, À faire, lancée dans `ci` après #179) et #181 (action composite pour la clé de
+  FFmpeg et la mise en place Windows, 2 points, P3, Backlog). En Review.
+- **#86 et #91, compte rendu (14 octobre, 8 h 45)** : deux prémisses fausses de la tour corrigées par l'agent (clé non
+  UTF-8 par octets bruts et non par `to_string_lossy` ; la v0.1.1 écrivait dans `out/` relatif, pas `~/out/`). Décisions
+  acceptées (sonde dans le dossier existant le plus proche, défaut de `-o` sur sa ligne, forme du refus). Règle de casse
+  gardée sous Linux. Retouche : `writable` dans `CLAUDE.md`. Laissés : une même vidéo donnée deux fois est traitée
+  deux fois, et le refus affiche un chemin relatif.
+- **Après #182 et #183 (14 octobre, 11 h 50)** : ruleset à 12 vérifications requises (les trois tâches lentes
+  ajoutées). Cache purgé de 18 entrées (6,5 Go : anciennes générations de main et PR fusionnées), 19 restent. CI de
+  main après #179 : 7 min 51 s contre 15 min 16 s ; macOS 4 min 33 s (rapide) et 4 min 55 s (lent). Sur les PR #182
+  et #183, `rust-slow (macos-latest)` a pris 7 à 9 min, cache froid (aucune entrée `-slow` sur main avant le merge de
+  #182). Les plus longues sont maintenant `rust-reference` (7 min 48 s) et `rust-windows-slow` (7 min 46 s). #180 et
+  #63 lancées.
+- **#184 créée (14 octobre, 12 h)** à la demande de l'utilisateur : « tu le fais une première fois au début puis tu
+  utilises ces résultats partout ». Les tests de référence traitent la 092 entière cinq fois (468 s en CI) ; un seul
+  passage aux défauts, partagé, plus la détection à 1440 (gardée). 3 points, P2. Plan d'abord, dans `ci` après #180,
+  relu par tech-architect et rust-expert ; code après la fusion de #63 (signature de `process`).
+- **#180, compte rendu (14 octobre, 12 h 15)** : `slow_clips` de 107 à 115 s à 59 à 76 s sur le M1 Max (−27 % de CPU),
+  similarité identique au bit près. Décisions acceptées. Retouche : `#[cfg(test)]` inutiles retirés ; le contrôle des
+  pts des extraits que la tour avait demandé était fondé sur une prémisse fausse (extraits et zooms sont réécrits à la
+  cadence de l'encodeur ; seule la vidéo annotée garde les pts de la source) : docs/11 est corrigée à la place.
+- **#63, compte rendu (14 octobre, 12 h 20)** : étapes sur la sortie d'erreur, une ligne par étape quand elle est
+  redirigée, réécrite sur place dans un terminal. Décisions acceptées (échec d'affichage qui arrête le lot, ligne de
+  stdout gardée jusqu'à #65, cause au-dessus de « — échec », effacement par caractères). Retouches : `progress` et
+  `status` dans `CLAUDE.md`, `#[cfg(test)]` retirés de `tests/command.rs`.
+- **`#[cfg(test)]` dans `tests/` (14 octobre, 12 h 40)** : la tour l'avait dit inutile ; il sert à clippy, qui ne permet
+  `unwrap` qu'en `cfg(test)`. Il n'est inutile que sur une aide sans `unwrap`. Retiré seulement de celles-là
+  (`lines_naming`, `video_lines`, le support de similarité).
+- **#184, plan (14 octobre, 13 h)** : validé. Un binaire `crates/cli/tests/reference_092.rs`, un `OnceLock` calculé une
+  fois (passage aux défauts ∥ détection à 1440), `process` coupé en `process` + `process_detected` public, dépendance
+  de test `cli` → `compare`, vérification N1 (réglages de la 092 = défauts) dans le test de concordance, recoupement
+  des deux chemins de lecture perdu sur la 092 (gardé sur l'extrait). Estimation : `rust-reference` de 468 s à 300 à
+  330 s. #184 fusionnée avant #64 ; l'agent de #64 est prévenu.
+- **#64, plan (14 octobre, 13 h 15)** : validé. Une phrase pour « pas une vidéo » et la copie tronquée ; table validée
+  mot pour mot, sauf « trop de pistes », dont « c'est probablement du bruit » est retiré (juger le bruit revient à
+  Manon) : « regarder l'image résumé ; si ce sont de vraies traces, relancer avec un --max-tracks plus grand ». Choix de
+  forme acceptés (trois lignes, « à faire : », lecture refusée et nom illisible à part, sans renvoi à docs/01, quota non
+  reconnu côté FFmpeg). Codé sans attendre #184 : la branche sera mise à jour par l'utilisateur à la PR.
+- **#184, compte rendu (14 octobre, 15 h 30)** : un binaire `reference_092.rs`, deux passages sur la 092 au lieu de
+  cinq ; en local 116 s → 67 s, CPU 759 s → 437 s, pic 1,66 Go. Décisions acceptées (trois résultats séparés, causes
+  gardées, `processed_in_removed_folder`). Retouche : `compare` dans la ligne de `cli` de `CLAUDE.md`. Issue #187 créée
+  (dossiers laissés dans `/tmp` par `slow_command` et `slow_extract`, 1 point, P3, Backlog).
+- **Ménage (14 octobre, 15 h 45)** : maquettes de rust-expert et dossiers de compilation d'une ancienne session `ci`
+  supprimés (2,1 Go) ; dans `rapports/`, planches et mesures des issues fusionnées, démo de la 092, essai du lot 3,
+  listes et journaux de CI (9,7 Go → 2,9 Mo). Restent les comptes rendus, plans, relectures et petites planches.
+- **#64, compte rendu (14 octobre, 16 h 45)** : trois lignes par échec (phrase, « à faire : », « détail : »), doublon
+  « failed » disparu, crochet de panique, `io_kind` dans `media`, `NoDecoder`. Choix de l'agent acceptés ; « format non
+  géré » gardé pour une vidéo trop courte. Retouches : « si ce sont de vrais passages » (vocabulaire du projet, la tour
+  avait écrit « traces »), `failure` dans `CLAUDE.md`. Le test du fichier ouvert, le crochet et la branche Windows ne
+  seront vérifiés que par la CI Windows.
+- **#184 fusionnée (PR #188, 14 octobre, 17 h)** : `rust-reference` 468 s → 258 s sur la PR ; les cinq noms de tests
+  vérifiés identiques en local (les journaux de CI ne se téléchargeaient pas : `results-receiver` injoignable). #64
+  commitée, fusion avec main simulée sans conflit. #187 et #181 ajoutées au lot pour le worktree `ci` ; #187 lancée.
+- **#64 fusionnée (PR #189, 14 octobre, 18 h 58)** ; #65 lancée le 15 octobre.
+- **#187, compte rendu (15 octobre)** : plus aucun dossier dans le TMPDIR après `rust:slow` (2 avant). Choix de l'agent
+  acceptés. Retouches : `command.rs` (`FLIGHT`) et `settings_agreement.rs` passent à `CARGO_TARGET_TMPDIR` ; `panicked`
+  partagé dans `cli/tests/support/`.
+- **#181 (15 octobre)** : choix de l'agent acceptés. Retouche du chemin du cache FFmpeg sous Unix abandonnée : la tour
+  l'avait dite sans effet sur la clé, mais `actions/cache` calcule la version sur le texte brut du chemin, et FFmpeg
+  aurait été reconstruit. `~/.cache` reste en dur sous Unix (juste, puisque `XDG_CACHE_HOME` y vaut `$HOME/.cache`).
+- **#65, compte rendu (15 octobre)** : bilan réel validé sur la planche. Choix acceptés (« avec le détail écrit pendant
+  le traitement », « — » pour une durée impossible) ; retouche : `tally` et `board` dans `CLAUDE.md`.
+- **Label `lot: 8`** créé et posé sur les 15 issues fermées par un merge du lot (règle ajoutée au skill le 15 octobre).
+- **#65 (PR #191) et #181 (PR #192) fusionnées (15 octobre, 7 h 25)**. #192 : CI verte, aucune nouvelle entrée de cache
+  `cargo-` ni `ffmpeg-` sur la PR, donc les clés n'ont pas bougé (succès exacts, FFmpeg non reconstruit). #56 lancée.
+- **#56, plan (15 octobre)** : validé, avec un sixième exemple (deux soirées d'un coup). Choix de l'agent acceptés (format
+  tldr, noms d'exemple, pied sous l'usage seul et `-h`, lien vers le README). `chemins-d-or.md` écrit par la tour, à
+  valider par l'utilisateur ; la passe de QA se fera dans le worktree `ci`, après #56.
+- **#56, compte rendu (15 octobre)** : disposition des fichiers produits sur deux lignes acceptée (clap cassait les
+  colonnes). Retouches : noms de tranche, de partie et `batdetect/` tirés de `files::names` ; module `style` qui coupe
+  les cycles `texts`/`errors` ↔ `arguments` ; `CLAUDE.md`. Le repli sans retrait à 80 colonnes n'est pas mesuré.
+- **Pause (15 octobre, vers 16 h 50)** : PR #193 (#56) ouverte, CI en cours. À la reprise : lire sa CI, poser le label
+  `lot: 8` sur #56 au merge, puis la passe de QA dans `ci` avec `chemins-d-or.md` (non relu par l'utilisateur), puis la
+  clôture du lot.
+- **Passe de QA du lot 8 (15 octobre)** : 58 lignes, 53 OK, 3 KO, 2 à constater ; pics de mémoire sous 1,2 Go. KO rejoués
+  par la tour : 5b (raisons anglaises de nos propres refus) → commentaire sur #55 ; A4 (même vidéo sous deux écritures,
+  né de #86 et #65) → #194, corrigée avant la clôture à la demande de l'utilisateur ; B7 (dossier d'extraits vide,
+  antérieur au lot, #112) → #195 (P3, Backlog). Sept frictions → #196 (P3, Backlog). Cahier mis à jour.
+- **#194, compte rendu (15 octobre)** : dédoublonnage par chemin réel, racines réelles ; rejoué par la tour (`. ./v.mp4`
+  et deux casses sur APFS : une seule vidéo). Choix de l'agent acceptés (première écriture gardée, fichier absent,
+  dédoublonnage sensible à la casse). En Review.
+- **Clôture (15 octobre)** : #194 fusionnée (PR #197) ; copies de la QA supprimées ; worktrees `ci` et `extraits` fermés ;
+  journal écrit ; leçons du lot réunies dans `retours.md` ; skill retouché (état de PR relu, ce que le local ne voit
+  pas, retouche vérifiée dans le code, planches lourdes au merge, QA d'une commande, mesure du dossier des comptes
+  rendus, budget de mesure dans la consigne commune, `board-field.py` patient après un ajout au board).
