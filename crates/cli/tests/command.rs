@@ -37,7 +37,7 @@ fn run(arguments: &[&Path], lang: &str) -> Output {
 fn flight() -> &'static Path {
     static FLIGHT: OnceLock<(tempfile::TempDir, PathBuf)> = OnceLock::new();
     let (_folder, path) = FLIGHT.get_or_init(|| {
-        let folder = tempfile::tempdir().unwrap();
+        let folder = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
         let path = folder.path().join("flight.mp4");
         flight::write_flight(&path);
         (folder, path)

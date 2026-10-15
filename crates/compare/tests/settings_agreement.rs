@@ -28,7 +28,7 @@ struct Run {
 fn run() -> &'static Run {
     static RUN: OnceLock<Run> = OnceLock::new();
     RUN.get_or_init(|| {
-        let folder = TempDir::new().unwrap();
+        let folder = TempDir::new_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
         let cases = Target::Settings.cases().unwrap();
         let outcome = Outcome::of(&cases, compare_all(&cases, VIDEOS_AT_ONCE, Some(folder.path())));
         let mut stdout = io::stdout().lock();
