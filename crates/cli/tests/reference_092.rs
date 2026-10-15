@@ -2,8 +2,9 @@
 mod agreement;
 #[path = "support/clips.rs"]
 mod clips;
+#[path = "support/panics.rs"]
+mod panics;
 
-use std::any::Any;
 use std::error::Error;
 use std::io;
 use std::iter::successors;
@@ -34,6 +35,8 @@ use reference::recording::{Recording, SUMMARY_FILE};
 use reference::video::VideoSummary;
 use types::rate::FrameRate;
 use types::rational::Rational;
+
+use crate::panics::panicked;
 
 struct Defaults {
     detected: Detected,
@@ -81,14 +84,6 @@ fn described(error: &(dyn Error + 'static)) -> String {
         .map(ToString::to_string)
         .collect::<Vec<_>>()
         .join(": ")
-}
-
-fn panicked(payload: &(dyn Any + Send)) -> String {
-    payload
-        .downcast_ref::<String>()
-        .cloned()
-        .or_else(|| payload.downcast_ref::<&str>().map(|message| (*message).to_owned()))
-        .unwrap_or_else(|| "panicked without a message".to_owned())
 }
 
 fn defaults() -> Result<Defaults, Box<dyn Error>> {
