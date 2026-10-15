@@ -4,3 +4,8 @@ pre-commit:
       glob: "*.rs"
       run: rustfmt --edition 2024 {staged_files}
       stage_fixed: true
+
+pre-push:
+  jobs:
+    - name: check
+      run: mise run check

@@ -6,7 +6,7 @@ connaissances : [docs/](docs/README.md), à lire avant de toucher à un réglage
 ([docs/02-methode.md](docs/02-methode.md)).
 
 ```bash
-mise run check                    # rust:static, rust:test, rust:slow, rust:settings : vert avant de rendre la main
+mise run check                    # rust:static et rust:test, environ 1 min : vert avant de rendre la main
 cargo run --release -p batdetect -- in/video_092_original.mp4 -o out # référence : 5 min, 14 pistes, ~20 s de calcul (docs/11)
 ```
 
@@ -80,7 +80,10 @@ le Python jusqu'à #200.
 ```bash
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:ffmpeg  # FFmpeg 7.1.1 + openh264, une fois par poste
 mise run rust:static      # fmt, clippy, règles de la charte, cargo deny, cargo shear
-mise run rust:test        # tests rapides, couverture ≥ 95 %
+mise run rust:test        # tests rapides, sans couverture (dans check)
+mise run rust:coverage    # tests rapides, couverture ≥ 95 % (dans check:ci)
+/Users/zaratan/Projects/dvr-wt/verrou lourd mise run check:ci  # rust:coverage, rust:slow, rust:settings : joué par la CI
+# git push : le hook pre-push de lefthook lance mise run check (pre-commit : rustfmt seul)
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:slow       # l'extrait LFS, le test de mémoire (hors couverture)
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:settings   # les 16 cas de réglages, sous Linux seulement en CI
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 092 entière
@@ -88,6 +91,12 @@ lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --profile ci -p compa
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --release -p bench -- VIDÉO --against DOSSIER  # garde du banc contre un banc de la v0.1.1
 BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… mise run rust:data  # référence et 26 vidéos sur une autre machine (seau, sommes dans tests/fixtures/reference/SHA256SUMS)
 ```
+
+Avant de rendre : `mise run check`. Le lourd (`check:ci`, `rust:reference`, `local_*`) une seule
+fois, seulement si le diff peut changer son résultat : la CI joue `check:ci` sur chaque PR.
+Le hook pre-push de `lefthook.yml` lance `mise run check` (pre-commit : rustfmt seul) ; sans cache
+FFmpeg pour la branche, `LEFTHOOK=0 git push` le saute. Ne pas lancer `lefthook run` ni
+`lefthook install` : ils réécrivent les hooks du dossier git commun à tous les worktrees.
 
 Windows (MSVC, `/MT`, `+crt-static`) ne se construit que dans les tâches CI
 `rust-windows` et `rust-windows-slow`, par `packaging/ffmpeg-windows.sh` sous MSYS2

@@ -40,7 +40,7 @@ jobs:
           path: ~/.cache/batdetect/ffmpeg
           key: ${{ steps.ffmpeg-key.outputs.key }}
       - run: mise run rust:static
-      - run: mise run rust:test
+      - run: mise run rust:coverage
 
   rust-slow:
     strategy:
