@@ -14,24 +14,17 @@ worktree, sous `~/Projects/dvr-wt/`. Ton compte rendu s'écrit dans
     settings` si les réglages du moteur bougent, le test `local_` de la crate touchée.
   - Après une retouche de revue qui ne touche que docs, tests ou noms : `rust:static` et les tests de la crate, pas de
     nouveau passage lourd.
-- `mise run check` vert (lint, format, types, tests).
-- Si tu touches à `parallel.py`, `video.py`, `detect.py`, `track.py`, `stability.py` ou
-  `median.py` : `uv run pytest -m slow`, puis la référence
-  `uv run batdetect /Users/zaratan/Projects/dvr/in/video_092_original.mp4 -o out/ref`,
-  avec le nombre de pistes et les temps de début, avant et après. La consigne de l'issue
-  donne les chiffres de départ.
-- Tout changement de détection ou de suivi se mesure aussi au banc, avant et après :
-  `uv run batdetect-bench /Users/zaratan/Projects/dvr/in/video_092_original.mp4`
-  (docs/08-banc-de-mesure.md).
+- `mise run check` vert (statique, tests, couverture, `slow`, `settings`).
+**Mesures : lourd en partagé, chronométré en exclusif**
 
-**Mesures : une à la fois, verrouillées**
-
-- Plusieurs agents mesurent sur la même machine. Toute commande lourde (`batdetect` ou
-  `batdetect-bench` sur une vidéo entière, `ffprobe`/`ffmpeg` sur une vidéo entière, tout
-  chronométrage, `pytest -m slow` et `pytest -m reference`) passe par le verrou commun, une
-  commande par appel : `lockf /Users/zaratan/Projects/dvr-wt/mesure.lock <commande>`. Règle
-  complète dans `/Users/zaratan/Projects/dvr-wt/MESURES.md`. Les séries durent plus longtemps :
-  n'écourte rien pour compenser.
+- Plusieurs agents mesurent sur la même machine. Toute commande lourde (`batdetect-rs`, `compare` ou un banc sur une
+  vidéo entière, `ffprobe`/`ffmpeg` sur une vidéo entière, tests `slow_*`, `settings_*`, `reference_*`, `local_*`,
+  `mise run check`, compilation froide) passe par `/Users/zaratan/Projects/dvr-wt/verrou lourd <commande>` : les
+  lourds tournent ensemble. Tout temps ou pic de mémoire qui sera publié passe par
+  `/Users/zaratan/Projects/dvr-wt/verrou chrono /usr/bin/time -l <commande>` : il attend que plus rien de lourd ne
+  tourne et bloque les lourds pendant sa durée. Une commande par appel. Un téléchargement ou un envoi réseau ne prend
+  aucun verrou. Règle complète et critère de calme dans `/Users/zaratan/Projects/dvr-wt/MESURES.md`. Les séries durent
+  plus longtemps : n'écourte rien pour compenser.
 - Avant chaque traitement d'une vidéo entière, vérifie qu'il reste au moins 20 Go libres
   (`/bin/df -g .` : `df` est un alias de `duf` sur ce poste) ; au-delà de 200 pistes, supprime les extraits produits et garde le CSV.
 - Un réglage bon sur la 092 et au banc n'est pas un réglage : avant de le proposer, lance-le
