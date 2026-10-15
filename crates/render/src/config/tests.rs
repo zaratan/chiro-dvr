@@ -4,7 +4,7 @@ use types::rate::FrameRate;
 use types::rational::Rational;
 use types::track::Track;
 
-use super::{Error, RenderConfig, Zoom, ZoomConfig};
+use super::{Error, RenderConfig, Seconds, Zoom, ZoomConfig};
 
 fn rate(num: i32, den: i32) -> FrameRate {
     FrameRate::new(Rational::new(num, den).unwrap()).unwrap()
@@ -30,16 +30,36 @@ fn seconds_that_are_negative_infinite_or_not_a_number_are_refused() {
     for value in [-0.5, f64::INFINITY, f64::NAN] {
         assert!(matches!(
             RenderConfig::new(12, value, 1.5, 300),
-            Err(Error::Seconds { name: "trail_s", .. })
+            Err(Error::Seconds {
+                setting: Seconds::Trail,
+                ..
+            })
         ));
         assert!(matches!(
             RenderConfig::new(12, 1.0, value, 300),
             Err(Error::Seconds {
-                name: "clip_margin_s",
+                setting: Seconds::ClipMargin,
                 ..
             })
         ));
     }
+}
+
+#[test]
+fn a_refused_number_of_seconds_is_named_as_params_json_names_it() {
+    let refused = |trail_s, clip_margin_s| {
+        RenderConfig::new(12, trail_s, clip_margin_s, 300)
+            .unwrap_err()
+            .to_string()
+    };
+    assert_eq!(
+        refused(-1.0, 1.5),
+        "trail_s must be a finite number of seconds, at least 0, not -1"
+    );
+    assert_eq!(
+        refused(1.0, -2.0),
+        "clip_margin_s must be a finite number of seconds, at least 0, not -2"
+    );
 }
 
 #[test]

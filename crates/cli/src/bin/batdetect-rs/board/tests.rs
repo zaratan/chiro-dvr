@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use batdetect::jobs::Job;
+use batdetect::jobs::{Job, Reason, Refused};
 use batdetect::options::Options;
 use batdetect::outcome::{Failure, Panic, Row, State};
 use batdetect::process::{self, Extent};
@@ -64,6 +64,7 @@ fn evening() -> Tally {
         ours: true,
     }];
     Tally {
+        refused: Vec::new(),
         rows: vec![
             row("nuit/batdetect/video_089", 130, done(48, extent(962.4, 41.2))),
             row(
@@ -163,6 +164,7 @@ fn the_english_summary_has_the_same_shape() {
 #[test]
 fn a_summary_of_videos_all_done_with_default_settings_has_only_its_title_and_its_table() {
     let tally = Tally {
+        refused: Vec::new(),
         rows: vec![row("nuit/batdetect/video_092", 17, done(1, extent(301.0, 0.0)))],
     };
     assert_eq!(
@@ -175,6 +177,7 @@ fn a_summary_of_videos_all_done_with_default_settings_has_only_its_title_and_its
 #[test]
 fn a_long_video_counts_hours_and_a_fraction_of_a_second_not_analysed_still_shows() {
     let tally = Tally {
+        refused: Vec::new(),
         rows: vec![row("nuit/batdetect/longue", 4323, done(2, extent(7200.0, 0.3)))],
     };
     let summary = written(&tally, &Options::default(), Language::French);
@@ -187,6 +190,7 @@ fn a_long_video_counts_hours_and_a_fraction_of_a_second_not_analysed_still_shows
 #[test]
 fn a_name_decomposed_by_the_file_system_is_composed_before_its_width_is_counted() {
     let tally = Tally {
+        refused: Vec::new(),
         rows: vec![row(
             "nuit/batdetect/e\u{301}te\u{301}te\u{301}",
             1,
@@ -214,6 +218,7 @@ fn several_failures_and_several_tables_left_as_they_are_are_counted_in_the_plura
         }],
     };
     let tally = Tally {
+        refused: Vec::new(),
         rows: vec![
             row("nuit/batdetect/a", 0, damaged()),
             row("nuit/batdetect/b", 0, panic),
@@ -261,6 +266,7 @@ fn the_changed_settings_are_written_as_they_are_typed() {
         ..Options::default()
     };
     let tally = Tally {
+        refused: Vec::new(),
         rows: vec![row("nuit/batdetect/v", 1, done(1, extent(1.0, 0.0)))],
     };
     let summary = written(&tally, &options, Language::French);
@@ -270,4 +276,70 @@ fn the_changed_settings_are_written_as_they_are_typed() {
         ),
         "{summary}"
     );
+}
+
+fn with_refused(refused: Vec<Refused>) -> Tally {
+    Tally {
+        refused,
+        rows: vec![row("nuit/batdetect/video_092", 17, done(1, extent(301.0, 0.0)))],
+    }
+}
+
+fn missing(path: &str) -> Refused {
+    Refused {
+        path: PathBuf::from(path),
+        reason: Reason::Missing,
+    }
+}
+
+#[test]
+fn the_inputs_refused_before_the_valid_videos_were_processed_are_counted_and_listed_under_their_own_title() {
+    let two = with_refused(vec![
+        missing("absente.mp4"),
+        Refused {
+            path: PathBuf::from("README.md"),
+            reason: Reason::NotAVideo,
+        },
+    ]);
+    assert_eq!(
+        written(&two, &Options::default(), Language::French),
+        "Bilan : 1 vidéo, 1 réussie, 2 entrées refusées\n\nnuit/batdetect\n  vidéo           durée   pistes   non \
+         analysé   calcul\n  video_092   5 min 1 s        1           0 s     17 s\n\nEntrées refusées, non \
+         traitées\u{a0}:\n  absente.mp4\u{a0}: introuvable\n  README.md\u{a0}: pas une vidéo (mp4, mov, avi, mkv ou \
+         m4v)\n"
+    );
+    let english = written(&two, &Options::default(), Language::English);
+    let lines: Vec<&str> = english.lines().collect();
+    assert_eq!(lines[0], "Summary: 1 video, 1 done, 2 inputs refused", "{english}");
+    assert_eq!(
+        lines[lines.len() - 3..],
+        [
+            "Refused inputs, not processed:",
+            "  absente.mp4: not found",
+            "  README.md: not a video (mp4, mov, avi, mkv or m4v)"
+        ]
+    );
+    assert!(!two.all_done());
+}
+
+#[test]
+fn a_single_refused_input_is_counted_and_titled_in_the_singular() {
+    let one = with_refused(vec![missing("absente.mp4")]);
+    for (language, title, heading) in [
+        (
+            Language::French,
+            "Bilan : 1 vidéo, 1 réussie, 1 entrée refusée",
+            "Entrée refusée, non traitée\u{a0}:",
+        ),
+        (
+            Language::English,
+            "Summary: 1 video, 1 done, 1 input refused",
+            "Refused input, not processed:",
+        ),
+    ] {
+        let summary = written(&one, &Options::default(), language);
+        let lines: Vec<&str> = summary.lines().collect();
+        assert_eq!(lines[0], title, "{summary}");
+        assert!(lines.contains(&heading), "{summary}");
+    }
 }

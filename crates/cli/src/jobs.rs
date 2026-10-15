@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 
 use files::names::{RESULTS_FOLDER, composed};
 
+use crate::access::Access;
+
 #[cfg(test)]
 mod tests;
 
@@ -18,40 +20,101 @@ pub struct Job {
     pub dest: PathBuf,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Reason {
+    Missing,
+    NotAVideo,
+    NoVideo,
+    Unreadable(Access),
+    SharedFolder { videos: Vec<PathBuf> },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Refused {
+    pub path: PathBuf,
+    pub reason: Reason,
+}
+
+impl Refused {
+    fn names(&self, video: &Path) -> bool {
+        matches!(&self.reason, Reason::SharedFolder { videos } if videos.iter().any(|shared| shared == video))
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("cannot list the videos of {}", folder.display())]
-    Folder {
-        folder: PathBuf,
-        #[source]
-        source: io::Error,
-    },
-    #[error("several videos would write to {}", dest.display())]
-    SharedFolder { dest: PathBuf },
+    #[error("no video found")]
+    NoVideo { folders: Vec<PathBuf> },
+    #[error("{} inputs are refused", refused.len())]
+    Refused { refused: Vec<Refused>, valid: Vec<Job> },
 }
 
-pub fn collect_videos(inputs: &[PathBuf]) -> Result<Vec<PathBuf>, Error> {
-    let mut videos = Vec::new();
+pub const fn video_extensions() -> &'static [&'static str] {
+    &VIDEO_EXTENSIONS
+}
+
+pub fn plan(inputs: &[PathBuf], out: Option<&Path>) -> Result<Vec<Job>, Error> {
+    let Collected { videos, mut refused } = collect_videos(inputs);
+    let (jobs, shared) = plan_jobs(&videos, out);
+    let jobs: Vec<Job> = jobs
+        .into_iter()
+        .filter(|job| !shared.iter().any(|refusal| refusal.names(&job.video)))
+        .collect();
+    refused.extend(shared);
+    if jobs.is_empty() && refused.iter().all(|refusal| refusal.reason == Reason::NoVideo) {
+        return Err(Error::NoVideo {
+            folders: refused.into_iter().map(|refusal| refusal.path).collect(),
+        });
+    }
+    if refused.is_empty() {
+        Ok(jobs)
+    } else {
+        Err(Error::Refused { refused, valid: jobs })
+    }
+}
+
+#[derive(Debug, Default)]
+struct Collected {
+    videos: Vec<PathBuf>,
+    refused: Vec<Refused>,
+}
+
+fn collect_videos(inputs: &[PathBuf]) -> Collected {
+    let mut collected = Collected::default();
     for input in inputs {
-        if input.is_dir() {
-            videos.extend(videos_of(input)?);
-        } else {
-            videos.push(input.clone());
-        }
+        let reason = match fs::metadata(input) {
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Reason::Missing,
+            Err(error) => Reason::Unreadable(Access::from(error.kind())),
+            Ok(found) if found.is_dir() => match videos_of(input) {
+                Ok(videos) if videos.is_empty() => Reason::NoVideo,
+                Ok(videos) => {
+                    collected.videos.extend(videos);
+                    continue;
+                }
+                Err(error) => Reason::Unreadable(Access::from(error.kind())),
+            },
+            Ok(_) if is_video(input) => {
+                collected.videos.push(input.clone());
+                continue;
+            }
+            Ok(_) => Reason::NotAVideo,
+        };
+        collected.refused.push(Refused {
+            path: input.clone(),
+            reason,
+        });
     }
     let mut seen = BTreeSet::new();
-    videos.retain(|video| seen.insert(identity(video)));
-    Ok(videos)
+    collected.videos.retain(|video| seen.insert(identity(video)));
+    let mut seen = BTreeSet::new();
+    collected.refused.retain(|refusal| seen.insert(identity(&refusal.path)));
+    collected
 }
 
-fn videos_of(folder: &Path) -> Result<Vec<PathBuf>, Error> {
-    let failed = |source| Error::Folder {
-        folder: folder.to_path_buf(),
-        source,
-    };
+fn videos_of(folder: &Path) -> io::Result<Vec<PathBuf>> {
     let mut videos = Vec::new();
-    for entry in fs::read_dir(folder).map_err(failed)? {
-        let path = entry.map_err(failed)?.path();
+    for entry in fs::read_dir(folder)? {
+        let path = entry?.path();
         if path.is_file() && is_video(&path) {
             videos.push(path);
         }
@@ -68,7 +131,7 @@ fn is_video(path: &Path) -> bool {
     })
 }
 
-pub fn plan_jobs(videos: &[PathBuf], out: Option<&Path>) -> Result<Vec<Job>, Error> {
+fn plan_jobs(videos: &[PathBuf], out: Option<&Path>) -> (Vec<Job>, Vec<Refused>) {
     let real_roots: Vec<PathBuf> = videos.iter().map(|video| real_root(video, out)).collect();
     let mut written: BTreeMap<Vec<u8>, PathBuf> = BTreeMap::new();
     let roots: Vec<PathBuf> = videos
@@ -93,21 +156,34 @@ pub fn plan_jobs(videos: &[PathBuf], out: Option<&Path>) -> Result<Vec<Job>, Err
     for key in &keys {
         *counts.entry(key).or_default() += 1;
     }
-    let mut seen = BTreeSet::new();
+    let mut shared: BTreeMap<Vec<u8>, (usize, PathBuf, Vec<PathBuf>)> = BTreeMap::new();
     let mut jobs = Vec::with_capacity(videos.len());
     for ((video, (root, real)), key) in videos.iter().zip(roots.iter().zip(&real_roots)).zip(&keys) {
         let ambiguous = counts.get(key).is_some_and(|&count| count > 1);
         let name = output_name(video, ambiguous, out.is_some());
         let dest = root.join(&name);
-        if !seen.insert(folded(real.join(&name).as_os_str())) {
-            return Err(Error::SharedFolder { dest });
-        }
+        let rank = shared.len();
+        shared
+            .entry(folded(real.join(&name).as_os_str()))
+            .or_insert_with(|| (rank, dest.clone(), Vec::new()))
+            .2
+            .push(video.clone());
         jobs.push(Job {
             video: video.clone(),
             dest,
         });
     }
-    Ok(jobs)
+    let mut groups: Vec<(usize, PathBuf, Vec<PathBuf>)> =
+        shared.into_values().filter(|(_, _, videos)| videos.len() > 1).collect();
+    groups.sort_by_key(|(rank, _, _)| *rank);
+    let shared = groups
+        .into_iter()
+        .map(|(_, dest, videos)| Refused {
+            path: dest,
+            reason: Reason::SharedFolder { videos },
+        })
+        .collect();
+    (jobs, shared)
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]

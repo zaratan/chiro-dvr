@@ -104,13 +104,14 @@ similar-argument = un argument proche existe : '{ $suggestion }'
 similar-value = une valeur proche existe : '{ $suggestion }'
 argument-as-value = pour passer '{ $argument }' comme valeur, écrire '{ $escaped }'
 invalid-value = valeur invalide '{ $value }' pour '{ $argument }'
-invalid-value-because = valeur invalide '{ $value }' pour '{ $argument }' : { $cause }
+region-shape = --osd-region doit être quatre fractions X0,Y0,X1,Y1 séparées par des virgules, pas { $value }
 value-required = une valeur est attendue pour '{ $argument }', mais aucune n'est donnée
 missing-arguments = arguments obligatoires manquants :
 used-twice = l'argument '{ $argument }' ne peut être donné qu'une fois
 unexpected-value = valeur inattendue '{ $value }' pour '{ $argument }' : aucune n'était attendue
 invalid-utf8 = UTF-8 invalide dans un ou plusieurs arguments
-arguments-refused = les arguments sont refusés : { $cause }
+arguments-refused = les arguments sont refusés
+decimal-point = écrire { $written }, avec un point
 more-information = Pour en savoir plus, essayez '{ $flag }'.
 setting-refused = { $option } doit être { $bound ->
         [positive] un nombre fini > 0
@@ -120,10 +121,36 @@ setting-refused = { $option } doit être { $bound ->
     }, pas { $value }
 region-refused = --osd-region { $index } ne vérifie pas 0 ≤ x0 < x1 ≤ 1 et 0 ≤ y0 < y1 ≤ 1 : { $region }
 clip-margin-refused = --clip-margin doit être un nombre fini de secondes, au moins 0, pas { $value }
-settings-refused = les réglages sont refusés : { $causes }
-no-video = aucune vidéo trouvée
-videos-refused = vidéos refusées : { $causes }
-folders-refused = aucune vidéo n'est traitée, les résultats ne peuvent pas s'écrire dans : { $folders }
+settings-refused = les réglages par défaut sont refusés ; le signaler
+option-refused = { $option } ne peut pas s'appliquer ; le signaler
+inputs-refused = aucune vidéo n'est traitée :
+input-refused = { $path } : { $reason ->
+        [missing] introuvable
+        [refused] lecture refusée
+        [not-a-folder] un élément du chemin n'est pas un dossier
+       *[unavailable] inaccessible
+    }
+input-without-video = { $path } : { $folder ->
+        [yes] aucune vidéo ({ $listed } ou { $last }) dans ce dossier
+       *[no] pas une vidéo ({ $listed } ou { $last })
+    }
+shared-folder = { $path } : dossier de résultats commun à { $videos }
+no-video = aucune vidéo ({ $listed } ou { $last }) trouvée dans { $count ->
+        [one] ce dossier
+       *[other] ces dossiers
+    } :
+folders-refused = aucune vidéo n'est traitée, les résultats ne peuvent pas s'écrire dans { $count ->
+        [one] ce dossier
+       *[other] ces dossiers
+    } :
+folder-refused = { $path } : { $access ->
+        [refused] écriture refusée
+        [not-a-folder] n'est pas un dossier
+        [missing] introuvable
+        [read-only] disque en lecture seule
+        [disk-full] disque plein
+       *[unavailable] inaccessible
+    }
 tally-title = Bilan : { $total ->
         [one] { $total } vidéo
        *[other] { $total } vidéos
@@ -188,3 +215,21 @@ files-long =
     Une vidéo longue ou chargée a plusieurs images résumé, par tranche de 10 min ({ $period })
     ou par partie ({ $part }).
 guide = Mode d'emploi complet :
+inputs-skipped = { $count ->
+        [one] une entrée est refusée
+       *[other] { $count } entrées sont refusées
+    } :
+skip-refused-question = Traiter quand même { $count ->
+        [one] la vidéo valide
+       *[other] les { $count } vidéos valides
+    } ? (O/n)
+skip-refused-declined = aucune vidéo n'est traitée
+skip-refused-help = Traite les vidéos valides sans poser la question quand des entrées sont refusées
+tally-refused-count = { $count ->
+        [one] { $count } entrée refusée
+       *[other] { $count } entrées refusées
+    }
+tally-refused-heading = { $count ->
+        [one] Entrée refusée, non traitée
+       *[other] Entrées refusées, non traitées
+    } :

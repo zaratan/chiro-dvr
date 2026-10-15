@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use crate::access::Access;
 use crate::jobs::Job;
 
 #[cfg(test)]
@@ -13,7 +14,7 @@ const CURRENT_FOLDER: &str = ".";
 #[derive(Debug)]
 pub struct Unwritable {
     pub folder: PathBuf,
-    pub source: io::Error,
+    pub access: Access,
 }
 
 pub fn unwritable_folders(jobs: &[Job]) -> Vec<Unwritable> {
@@ -21,9 +22,9 @@ pub fn unwritable_folders(jobs: &[Job]) -> Vec<Unwritable> {
     folders
         .into_iter()
         .filter_map(|folder| {
-            probe(folder).err().map(|source| Unwritable {
+            probe(folder).err().map(|error| Unwritable {
                 folder: folder.to_path_buf(),
-                source,
+                access: Access::from(error.kind()),
             })
         })
         .collect()
@@ -38,7 +39,6 @@ fn probe(folder: &Path) -> io::Result<()> {
         .prefix(PROBE_PREFIX)
         .tempfile_in(existing)
         .and_then(tempfile::NamedTempFile::close)
-        .map_err(|error| io::Error::from(error.kind()))
 }
 
 fn nearest_existing(folder: &Path) -> Option<&Path> {

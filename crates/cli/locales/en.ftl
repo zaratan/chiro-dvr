@@ -92,13 +92,14 @@ similar-argument = a similar argument exists: '{ $suggestion }'
 similar-value = a similar value exists: '{ $suggestion }'
 argument-as-value = to pass '{ $argument }' as a value, use '{ $escaped }'
 invalid-value = invalid value '{ $value }' for '{ $argument }'
-invalid-value-because = invalid value '{ $value }' for '{ $argument }': { $cause }
+region-shape = --osd-region must be four fractions X0,Y0,X1,Y1 separated by commas, not { $value }
 value-required = a value is required for '{ $argument }' but none was supplied
 missing-arguments = the following required arguments were not provided:
 used-twice = the argument '{ $argument }' cannot be used multiple times
 unexpected-value = unexpected value '{ $value }' for '{ $argument }' found; no more were expected
 invalid-utf8 = invalid UTF-8 was detected in one or more arguments
-arguments-refused = the arguments are refused: { $cause }
+arguments-refused = the arguments are refused
+decimal-point = write { $written }, with a point
 more-information = For more information, try '{ $flag }'.
 setting-refused = { $option } must be { $bound ->
         [positive] a finite number > 0
@@ -108,10 +109,36 @@ setting-refused = { $option } must be { $bound ->
     }, not { $value }
 region-refused = --osd-region { $index } does not satisfy 0 ≤ x0 < x1 ≤ 1 and 0 ≤ y0 < y1 ≤ 1: { $region }
 clip-margin-refused = --clip-margin must be a finite number of seconds, at least 0, not { $value }
-settings-refused = the settings are refused: { $causes }
-no-video = no video found
-videos-refused = videos refused: { $causes }
-folders-refused = no video is processed, the results cannot be written in: { $folders }
+settings-refused = the default settings are refused; please report it
+option-refused = { $option } cannot be applied; please report it
+inputs-refused = no video is processed:
+input-refused = { $path }: { $reason ->
+        [missing] not found
+        [refused] reading refused
+        [not-a-folder] part of the path is not a folder
+       *[unavailable] unreachable
+    }
+input-without-video = { $path }: { $folder ->
+        [yes] no video ({ $listed } or { $last }) in this folder
+       *[no] not a video ({ $listed } or { $last })
+    }
+shared-folder = { $path }: results folder shared by { $videos }
+no-video = no video ({ $listed } or { $last }) found in { $count ->
+        [one] this folder
+       *[other] these folders
+    }:
+folders-refused = no video is processed, the results cannot be written in { $count ->
+        [one] this folder
+       *[other] these folders
+    }:
+folder-refused = { $path }: { $access ->
+        [refused] writing refused
+        [not-a-folder] not a folder
+        [missing] not found
+        [read-only] read-only disk
+        [disk-full] disk full
+       *[unavailable] unreachable
+    }
 tally-title = Summary: { $total ->
         [one] { $total } video
        *[other] { $total } videos
@@ -173,3 +200,21 @@ files-long =
     A long or crowded video has several summary images, per 10 min slice ({ $period })
     or per part ({ $part }).
 guide = Full guide:
+inputs-skipped = { $count ->
+        [one] one input is refused
+       *[other] { $count } inputs are refused
+    }:
+skip-refused-question = Process { $count ->
+        [one] the valid video
+       *[other] the { $count } valid videos
+    } anyway? (Y/n)
+skip-refused-declined = no video is processed
+skip-refused-help = Processes the valid videos without asking when some inputs are refused
+tally-refused-count = { $count ->
+        [one] { $count } input refused
+       *[other] { $count } inputs refused
+    }
+tally-refused-heading = { $count ->
+        [one] Refused input, not processed
+       *[other] Refused inputs, not processed
+    }:

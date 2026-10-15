@@ -49,6 +49,7 @@ fn several_videos_and_the_long_out_dir_option_are_read_with_the_v0_1_1_settings(
             inputs: vec![PathBuf::from("a.mp4"), PathBuf::from("nuit")],
             out_dir: Some(PathBuf::from("out")),
             options: Options::default(),
+            skip_refused: false,
         }
     );
 }
@@ -161,11 +162,13 @@ fn a_value_that_is_not_a_number_or_not_allowed_is_a_usage_error_that_names_the_o
 }
 
 #[test]
-fn a_display_region_that_is_not_four_fractions_is_refused() {
+fn a_display_region_that_is_not_four_fractions_is_refused_by_its_own_sentence() {
     for region in ["0,0,1", "a,b,c,d"] {
         let error = refused(&["--osd-region", region]);
         let text = rendered(ENGLISH, &error).to_string();
-        assert!(text.contains("expected four fractions X0,Y0,X1,Y1"), "{region}: {text}");
+        let sentence =
+            format!("error: --osd-region must be four fractions X0,Y0,X1,Y1 separated by commas, not {region}\n");
+        assert!(text.starts_with(&sentence), "{region}: {text}");
     }
 }
 

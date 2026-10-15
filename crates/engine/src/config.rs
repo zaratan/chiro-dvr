@@ -11,7 +11,7 @@ mod tests;
 pub(crate) const MIN_BACKGROUND_FRAMES: usize = 3;
 pub(crate) const BACKGROUND_BUDGET: u64 = 4 << 30;
 const BYTES_PER_WINDOW_PIXEL: f64 = size_of::<Unit>() as f64;
-pub(crate) const MIN_WORK_WIDTH: u32 = 16;
+pub const MIN_WORK_WIDTH: u32 = 16;
 pub(crate) const MAX_MERGE_RADIUS: u32 = 12;
 
 #[derive(Debug, Clone, PartialEq)]

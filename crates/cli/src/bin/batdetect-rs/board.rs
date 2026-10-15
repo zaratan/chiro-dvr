@@ -35,6 +35,7 @@ pub(crate) fn write(out: &mut impl Write, tally: &Tally, options: &Options, text
     }
     too_many(out, tally, texts)?;
     failed(out, tally, options, texts)?;
+    refused(out, tally, texts)?;
     kept(out, tally, texts)?;
     let changed = options.changed();
     if !changed.is_empty() {
@@ -52,6 +53,12 @@ fn title(tally: &Tally, texts: Texts) -> String {
         (done, Message::TallyDone { count: done }),
         (too_many, Message::TallyTooManyCount { count: too_many }),
         (failed, Message::TallyFailedCount { count: failed }),
+        (
+            tally.refused.len(),
+            Message::TallyRefusedCount {
+                count: tally.refused.len(),
+            },
+        ),
     ];
     let total = texts.say(&Message::TallyTitle {
         total: tally.rows.len(),
@@ -183,6 +190,21 @@ fn failed(out: &mut impl Write, tally: &Tally, options: &Options, texts: Texts) 
         for message in messages::failure_reason(name(row), &row.job, failure, options) {
             writeln!(out, "{INDENT}{}", texts.say(&messages::without_detail(message)))?;
         }
+    }
+    Ok(())
+}
+
+fn refused(out: &mut impl Write, tally: &Tally, texts: Texts) -> io::Result<()> {
+    if tally.refused.is_empty() {
+        return Ok(());
+    }
+    writeln!(out)?;
+    let heading = Message::TallyRefusedHeading {
+        count: tally.refused.len(),
+    };
+    writeln!(out, "{}", texts.say(&heading))?;
+    for line in messages::refused_lines(texts, &tally.refused) {
+        writeln!(out, "{INDENT}{line}")?;
     }
     Ok(())
 }

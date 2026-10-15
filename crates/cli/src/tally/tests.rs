@@ -4,7 +4,7 @@ use std::time::Duration;
 use files::previous::Kept;
 
 use super::Tally;
-use crate::jobs::Job;
+use crate::jobs::{Job, Reason, Refused};
 use crate::outcome::{Failure, Panic, Row, State};
 use crate::process::Extent;
 
@@ -37,6 +37,7 @@ fn evening() -> Tally {
         location: None,
     };
     Tally {
+        refused: Vec::new(),
         rows: vec![
             row(
                 "a/batdetect/1",
@@ -110,6 +111,7 @@ fn the_tables_left_as_they_are_come_from_done_videos_and_from_videos_with_too_ma
 #[test]
 fn a_lot_without_failure_nor_too_many_tracks_is_all_done() {
     let tally = Tally {
+        refused: Vec::new(),
         rows: vec![row(
             "a/batdetect/1",
             State::Done {
@@ -120,4 +122,26 @@ fn a_lot_without_failure_nor_too_many_tracks_is_all_done() {
         )],
     };
     assert!(tally.all_done());
+}
+
+#[test]
+fn a_refused_input_keeps_the_evening_from_counting_as_all_done() {
+    let refused = Refused {
+        path: PathBuf::from("absente.mp4"),
+        reason: Reason::Missing,
+    };
+    assert!(
+        Tally {
+            refused: Vec::new(),
+            rows: Vec::new()
+        }
+        .all_done()
+    );
+    assert!(
+        !Tally {
+            refused: vec![refused],
+            rows: Vec::new()
+        }
+        .all_done()
+    );
 }

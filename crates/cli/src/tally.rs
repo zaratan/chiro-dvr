@@ -2,6 +2,7 @@ use std::path::Path;
 
 use files::previous::Kept;
 
+use crate::jobs::Refused;
 use crate::outcome::{Failure, Row, State};
 
 #[cfg(test)]
@@ -10,6 +11,7 @@ mod tests;
 #[derive(Debug)]
 pub struct Tally {
     pub rows: Vec<Row>,
+    pub refused: Vec<Refused>,
 }
 
 impl Tally {
@@ -56,7 +58,7 @@ impl Tally {
     }
 
     pub fn all_done(&self) -> bool {
-        self.done().count() == self.rows.len()
+        self.refused.is_empty() && self.done().count() == self.rows.len()
     }
 }
 

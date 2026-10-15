@@ -11,12 +11,12 @@ use summary::header::{Band, HeaderLine, Labels};
 use summary::legend::{column_width, fit_text, legend_width};
 use types::language::Language;
 
-use super::{ENGLISH_SOURCE, FRENCH_SOURCE, Fixed, Message, Texts, resolved};
+use super::{ENGLISH_SOURCE, FRENCH_SOURCE, Fixed, Message, Shown, Texts, resolved};
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 49;
-const FIXED: [Fixed; 59] = [
+const VARIANTS: usize = 57;
+const FIXED: [Fixed; 63] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -50,7 +50,11 @@ const FIXED: [Fixed; 59] = [
     Fixed::TipLabel,
     Fixed::MissingArguments,
     Fixed::InvalidUtf8,
-    Fixed::NoVideo,
+    Fixed::ArgumentsRefused,
+    Fixed::SettingsRefused,
+    Fixed::SkipRefusedHelp,
+    Fixed::SkipRefusedDeclined,
+    Fixed::InputsRefused,
     Fixed::TallyVideo,
     Fixed::TallyLength,
     Fixed::TallyTracks,
@@ -99,17 +103,17 @@ fn rank(message: &Message) -> usize {
         Message::SimilarValue { .. } => 16,
         Message::ArgumentAsValue { .. } => 17,
         Message::InvalidValue { .. } => 18,
-        Message::InvalidValueBecause { .. } => 19,
+        Message::RegionShape { .. } => 19,
         Message::ValueRequired { .. } => 20,
         Message::UsedTwice { .. } => 21,
         Message::UnexpectedValue { .. } => 22,
-        Message::ArgumentsRefused { .. } => 23,
+        Message::DecimalPoint { .. } => 23,
         Message::MoreInformation { .. } => 24,
         Message::SettingRefused { .. } => 25,
         Message::RegionRefused { .. } => 26,
         Message::ClipMarginRefused { .. } => 27,
-        Message::SettingsRefused { .. } => 28,
-        Message::VideosRefused { .. } => 29,
+        Message::OptionRefused { .. } => 28,
+        Message::InputRefused { .. } => 29,
         Message::TallyDone { .. } => 30,
         Message::FoldersRefused { .. } => 31,
         Message::VideoStep { .. } => 32,
@@ -129,6 +133,14 @@ fn rank(message: &Message) -> usize {
         Message::UseFolder { .. } => 46,
         Message::FilesHeading { .. } => 47,
         Message::FilesLong { .. } => 48,
+        Message::NoVideo { .. } => 49,
+        Message::InputWithoutVideo { .. } => 50,
+        Message::SharedFolder { .. } => 51,
+        Message::FolderRefused { .. } => 52,
+        Message::InputsSkipped { .. } => 53,
+        Message::SkipRefusedQuestion { .. } => 54,
+        Message::TallyRefusedCount { .. } => 55,
+        Message::TallyRefusedHeading { .. } => 56,
     }
 }
 
@@ -166,7 +178,7 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::TipLabel => 29,
         Fixed::MissingArguments => 30,
         Fixed::InvalidUtf8 => 31,
-        Fixed::NoVideo => 32,
+        Fixed::InputsRefused => 32,
         Fixed::BesideTheVideos => 33,
         Fixed::TallyVideo => 34,
         Fixed::TallyLength => 35,
@@ -193,6 +205,10 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::FileAnnotated => 56,
         Fixed::FileParams => 57,
         Fixed::Guide => 58,
+        Fixed::ArgumentsRefused => 59,
+        Fixed::SettingsRefused => 60,
+        Fixed::SkipRefusedHelp => 61,
+        Fixed::SkipRefusedDeclined => 62,
     }
 }
 
@@ -321,11 +337,7 @@ fn command_line() -> Vec<Message> {
             value: text("x"),
             argument: text("--zoom <WHICH>"),
         },
-        Message::InvalidValueBecause {
-            value: text("many"),
-            argument: text("--max-tracks <COUNT>"),
-            cause: text("invalid digit found in string"),
-        },
+        Message::RegionShape { value: text("0,0,1") },
         Message::ValueRequired {
             argument: text("--max-tracks <COUNT>"),
         },
@@ -336,29 +348,51 @@ fn command_line() -> Vec<Message> {
             value: text("oui"),
             argument: text("--annotated"),
         },
-        Message::ArgumentsRefused {
-            cause: text("unknown cause"),
-        },
+        Message::DecimalPoint { written: text("11.5") },
         Message::MoreInformation { flag: text("--help") },
         Message::SettingRefused {
             option: text("--work-width"),
             bound: Bound::AtLeast(16),
-            value: 8.0,
+            value: Shown::Number(8.0),
         },
         Message::RegionRefused {
             index: 1,
             region: text("0.5,0,0.2,1"),
         },
-        Message::ClipMarginRefused { value: -2.0 },
-        Message::SettingsRefused {
-            causes: text("min_hits must be at least 1"),
+        Message::ClipMarginRefused {
+            value: Shown::Written(text("1,5")),
         },
-        Message::VideosRefused {
-            causes: text("several videos would write to out/night"),
+        Message::OptionRefused {
+            option: text("--min-hits"),
         },
-        Message::FoldersRefused {
-            folders: text("nuit/batdetect (Permission denied (os error 13))"),
+        Message::InputRefused {
+            path: text("absente.mp4"),
+            reason: "missing",
         },
+        Message::InputWithoutVideo {
+            path: text("nuit-12-oct"),
+            folder: true,
+            listed: text("mp4, mov, avi, mkv"),
+            last: text("m4v"),
+        },
+        Message::SharedFolder {
+            path: text("out/night_x_mp4"),
+            videos: text("a/night/x.mp4, b/night/x.mp4"),
+        },
+        Message::NoVideo {
+            count: 2,
+            listed: text("mp4, mov, avi, mkv"),
+            last: text("m4v"),
+        },
+        Message::FoldersRefused { count: 2 },
+        Message::FolderRefused {
+            path: text("nuit/batdetect"),
+            access: "read-only",
+        },
+        Message::InputsSkipped { count: 2 },
+        Message::SkipRefusedQuestion { count: 3 },
+        Message::TallyRefusedCount { count: 2 },
+        Message::TallyRefusedHeading { count: 2 },
     ]
 }
 
@@ -630,11 +664,13 @@ fn a_message_that_misses_an_argument_still_says_what_it_can() {
 fn a_refused_number_of_any_kind_is_written_without_a_panic_in_both_languages() {
     for value in [5e-324, f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -0.0, 1e300] {
         for message in [
-            Message::ClipMarginRefused { value },
+            Message::ClipMarginRefused {
+                value: Shown::Number(value),
+            },
             Message::SettingRefused {
                 option: "--threshold".to_owned(),
                 bound: Bound::Positive,
-                value,
+                value: Shown::Number(value),
             },
         ] {
             for language in LANGUAGES {
@@ -660,7 +696,7 @@ fn the_english_refusal_of_a_setting_reads_as_the_engine_writes_it_for_every_boun
         let message = Message::SettingRefused {
             option: "work_width".to_owned(),
             bound,
-            value: -1.5,
+            value: Shown::Number(-1.5),
         };
         assert_eq!(Texts::new(Language::English).say(&message), engine.to_string());
     }
