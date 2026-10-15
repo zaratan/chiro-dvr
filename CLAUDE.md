@@ -135,7 +135,7 @@ Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs r�
 - `tests/fixtures/reference/` : la référence v0.1.1 de l'extrait et de la 092, la 092 à
   1440 pixels de travail (`video_092_original_width_1440/`, #151), et dans `settings/` ses
   16 cas à d'autres réglages de détection (`--detect`, docs/11), fichiers git ordinaires ;
-  format, dossier des 26 vidéos (`BATDETECT_REFERENCE_DIR`) et versions dans son
+  format, dossier des 26 vidéos (`BATDETECT_VIDEOS_DIR`) et versions dans son
   `README.md`.
 - Toutes les coordonnées, distances et surfaces hors de `find_blobs` sont en pixels de la
   vidéo d'origine ; seule la détection travaille à `work_width`.
@@ -162,6 +162,7 @@ lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:settings   # les 
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 092 entière
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --profile ci -p compare -- local  # écarts à la référence (extract, 092, settings, local)
 lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --release -p bench -- VIDÉO --against DOSSIER  # garde du banc contre un banc de la v0.1.1
+BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… mise run rust:data  # référence et 26 vidéos sur une autre machine (seau, sommes dans tests/fixtures/reference/SHA256SUMS)
 ```
 
 Windows (MSVC, `/MT`, `+crt-static`) ne se construit que dans les tâches CI

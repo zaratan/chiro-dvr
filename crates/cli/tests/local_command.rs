@@ -11,7 +11,7 @@ use batdetect::progress::Silent;
 use files::names::Names;
 use media::decode::{Decoder, Threads};
 use media::frame::{ColorRange, YuvFrame};
-use reference::location::{recorded_video, recording_directories};
+use reference::location::{committed, recorded_video, recording_directories};
 use reference::recording::Recording;
 use reference::track_matching::{DiscrepancyKind, match_tracks};
 use render::config::{RenderConfig, Zoom, ZoomConfig};
@@ -47,7 +47,7 @@ fn the_twenty_six_videos_give_the_tracks_of_the_reference_but_for_the_known_dive
         .unwrap();
         let found = agreement::agreement(&processed, &recording, rate);
         switches.extend(zoom_switches(&name, &recording, &processed.tracks));
-        checked += usize::from(check_recorded_zooms(&directory, &recording));
+        checked += usize::from(check_recorded_zooms(&recording));
         println!(
             "{name}\treference {}\ttracked {}\tpaired {} (agreeing {})\tlost {}\tadded {}",
             found.reference,
@@ -126,15 +126,14 @@ fn zoom_switches(video: &str, recording: &Recording, tracks: &[Track]) -> Vec<Sw
 }
 
 #[cfg(test)]
-fn check_recorded_zooms(directory: &Path, recording: &Recording) -> bool {
+fn check_recorded_zooms(recording: &Recording) -> bool {
     let stem = Path::new(&recording.summary.video.name).file_stem().unwrap().to_owned();
-    let outputs = directory.join("../../outputs/fr").join(stem).join("extraits");
-    let Ok(entries) = fs::read_dir(&outputs) else {
+    let list = committed("zooms").join(stem).with_extension("txt");
+    let Ok(names) = fs::read_to_string(&list) else {
         return false;
     };
-    let mut recorded: Vec<usize> = entries
-        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
-        .filter(|name| name.ends_with("_zoom.mp4"))
+    let mut recorded: Vec<usize> = names
+        .lines()
         .map(|name| name.split('_').nth(1).unwrap().parse().unwrap())
         .collect();
     recorded.sort_unstable();
@@ -145,7 +144,7 @@ fn check_recorded_zooms(directory: &Path, recording: &Recording) -> bool {
         .filter(|track| auto.wants(track))
         .map(Track::id)
         .collect();
-    assert_eq!(recorded, decided, "{}", outputs.display());
+    assert_eq!(recorded, decided, "{}", list.display());
     true
 }
 

@@ -433,7 +433,7 @@ Forme et tests :
 | settings | `tests/settings_*.rs`, `#[ignore = "settings"]` | `mise run rust:settings` | les 16 cas du banc d'essai sur l'extrait et sa 720×540 (`settings_agreement`), sous Linux seulement en CI (#167) |
 | reference | `tests/reference_*.rs`, `#[ignore = "reference"]` | `mise run rust:reference` | la 092 : 9 011 images, cadence moyenne 90110000/3000927, aux défauts et à 1440 pixels de travail (#151), en un seul binaire depuis #184 (`cli/tests/reference_092.rs`) |
 | matériel | `tests/hardware_*.rs`, `#[ignore = "hardware"]` | étape d'essai de la CI macOS | VideoToolbox sans repli logiciel |
-| local | `tests/local_*.rs`, `#[ignore = "local"]` | `BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… cargo test --workspace --locked --profile ci --test 'local_*' -- --include-ignored` | les 26 vidéos de la référence, hors dépôt, jamais en CI |
+| local | `tests/local_*.rs`, `#[ignore = "local"]` | `BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… cargo test --workspace --locked --profile ci --test 'local_*' -- --include-ignored` | les 26 vidéos de la référence, hors dépôt, jamais en CI ; récupérées du seau sur une autre machine par `mise run rust:data` ([emplacements](../tests/fixtures/reference/README.md#récupération-sur-une-autre-machine)) |
 
 - Le niveau d'un test se choisit par le nom de son fichier. Ajouter un test ne demande
   de toucher ni la CI ni `mise.toml`.
