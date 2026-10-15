@@ -4,6 +4,7 @@ mod errors;
 mod messages;
 mod numbers;
 mod status;
+mod style;
 mod texts;
 
 use std::io::{self, IsTerminal};
@@ -25,6 +26,13 @@ use crate::texts::{Fixed, Message, Texts};
 fn main() -> ExitCode {
     outcome::quiet_panics();
     let texts = Texts::new(system_language());
+    if std::env::args_os().len() <= 1 {
+        return if arguments::print_common_uses(texts).is_ok() {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::FAILURE
+        };
+    }
     let request = match arguments::parse(std::env::args_os(), texts) {
         Ok(request) => request,
         Err(error) => return report(texts, error),

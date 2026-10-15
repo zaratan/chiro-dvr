@@ -8,7 +8,7 @@ use engine::settings::Region;
 use render::config::Zoom;
 use types::language::Language;
 
-use super::{Level, Request, command, level, parse};
+use super::{Level, PROGRAM, Request, command, level, parse};
 use crate::errors::rendered;
 use crate::texts::Texts;
 
@@ -175,13 +175,14 @@ fn the_short_help_shows_only_the_essential_options_and_points_to_the_long_help()
     for shown in ["<VIDEO>", "--out-dir <FOLDER>", "--zoom <WHICH>", "--help", "--version"] {
         assert!(short.contains(shown), "{shown}: {short}");
     }
+    let options = short.split("Options:").nth(1).unwrap();
     for hidden in [
         "--annotated",
         "--max-tracks",
         "--threshold",
         "Settings that change the detection",
     ] {
-        assert!(!short.contains(hidden), "{hidden}: {short}");
+        assert!(!options.contains(hidden), "{hidden}: {short}");
     }
     assert!(short.contains("--help all of them"), "{short}");
 }
@@ -282,7 +283,7 @@ fn the_french_help_of_either_level_keeps_no_english_word_of_clap() {
     for level in [Level::Essential, Level::Full] {
         let shown = help_in(level, FRENCH);
         for english in [
-            "Usage",
+            "Usage:",
             "Options:",
             "Arguments:",
             "Print",
@@ -349,8 +350,9 @@ fn the_french_help_keeps_the_colours_of_the_english_one_and_colours_only_the_val
 #[test]
 fn the_french_short_help_shows_only_the_essential_options_each_with_its_text_on_its_line() {
     let short = help_in(Level::Essential, FRENCH);
+    let options = short.split("Options\u{a0}:").nth(1).unwrap();
     for hidden in ["--annotated", "--threshold", "Réglages qui changent"] {
-        assert!(!short.contains(hidden), "{hidden}: {short}");
+        assert!(!options.contains(hidden), "{hidden}: {short}");
     }
     let out_dir = short
         .lines()
@@ -358,4 +360,91 @@ fn the_french_short_help_shows_only_the_essential_options_each_with_its_text_on_
         .unwrap();
     assert!(out_dir.contains("Dossier qui reçoit"), "{out_dir}");
     assert!(short.contains("--help toutes les options"), "{short}");
+}
+
+fn positions(text: &str, marks: &[&str]) -> Vec<usize> {
+    marks
+        .iter()
+        .map(|mark| text.find(mark).unwrap_or_else(|| panic!("{mark}: {text}")))
+        .collect()
+}
+
+#[test]
+fn the_short_help_starts_with_the_common_uses_and_ends_by_pointing_to_the_long_help() {
+    for (texts, marks) in [
+        (
+            ENGLISH,
+            [
+                "Detects and tracks",
+                "Common uses:",
+                "Usage: ",
+                "Options:",
+                "All the options and the files produced: ",
+            ],
+        ),
+        (
+            FRENCH,
+            [
+                "Détecte et suit",
+                "Usages courants\u{a0}:",
+                "Utilisation\u{a0}: ",
+                "Options\u{a0}:",
+                "Toutes les options et les fichiers produits\u{a0}: ",
+            ],
+        ),
+    ] {
+        let short = help_in(Level::Essential, texts);
+        let found = positions(&short, &marks);
+        assert!(found.is_sorted(), "{found:?}: {short}");
+        assert!(short.trim_end().ends_with(&format!("{PROGRAM} --help")), "{short}");
+    }
+}
+
+#[test]
+fn the_long_help_ends_with_the_files_produced_and_the_guide_after_every_option() {
+    for (texts, marks) in [
+        (
+            ENGLISH,
+            [
+                "Common uses:",
+                "Usage: ",
+                "Settings that change the detection:",
+                "Files produced, ",
+                "Full guide: ",
+            ],
+        ),
+        (
+            FRENCH,
+            [
+                "Usages courants\u{a0}:",
+                "Utilisation\u{a0}: ",
+                "Réglages qui changent la détection\u{a0}:",
+                "Fichiers produits, ",
+                "Mode d'emploi complet\u{a0}: ",
+            ],
+        ),
+    ] {
+        let long = help_in(Level::Full, texts);
+        let found = positions(&long, &marks);
+        assert!(found.is_sorted(), "{found:?}: {long}");
+        assert!(
+            long.trim_end().ends_with("https://github.com/zaratan/chiro-dvr#readme"),
+            "{long}"
+        );
+        assert!(!long.contains("All the options and the files produced"), "{long}");
+    }
+}
+
+#[test]
+fn the_headings_of_the_common_uses_and_of_the_files_take_the_colour_of_the_other_headings() {
+    let coloured = command(Level::Full, FRENCH).render_help().ansi().to_string();
+    for styled in [
+        "\u{1b}[1m\u{1b}[34mUsages courants\u{a0}:",
+        "\u{1b}[1m\u{1b}[34mFichiers produits, ",
+        "\u{1b}[33m<vidéo>_resume.png\u{1b}[0m",
+    ] {
+        assert!(coloured.contains(styled), "{styled:?}: {coloured:?}");
+    }
+    let command = format!("\u{1b}[1m\u{1b}[36m{PROGRAM} nuit-12-oct\u{1b}[0m");
+    assert!(coloured.contains(&command), "{command:?}: {coloured:?}");
 }

@@ -10,6 +10,7 @@ use unicode_normalization::UnicodeNormalization;
 mod tests;
 
 const PARAMS: &str = "params.json";
+pub const RESULTS_FOLDER: &str = "batdetect";
 const ZOOM_SUFFIX: &str = "_zoom";
 const VIDEO_EXTENSION: &str = ".mp4";
 const TABLE_EXTENSION: &str = ".csv";
@@ -86,13 +87,24 @@ impl Names {
     }
 
     pub fn clip(self, track: &Track, start_seconds: f64, track_count: usize) -> String {
-        format!("{}{VIDEO_EXTENSION}", self.clip_stem(track, start_seconds, track_count))
+        self.numbered_clip(track.id(), start_seconds, track_count)
     }
 
     pub fn zoomed_clip(self, track: &Track, start_seconds: f64, track_count: usize) -> String {
+        self.numbered_zoomed_clip(track.id(), start_seconds, track_count)
+    }
+
+    pub fn numbered_clip(self, number: usize, start_seconds: f64, track_count: usize) -> String {
+        format!(
+            "{}{VIDEO_EXTENSION}",
+            self.clip_stem(number, start_seconds, track_count)
+        )
+    }
+
+    pub fn numbered_zoomed_clip(self, number: usize, start_seconds: f64, track_count: usize) -> String {
         format!(
             "{}{ZOOM_SUFFIX}{VIDEO_EXTENSION}",
-            self.clip_stem(track, start_seconds, track_count)
+            self.clip_stem(number, start_seconds, track_count)
         )
     }
 
@@ -107,28 +119,28 @@ impl Names {
         period_minutes: Option<Range<u32>>,
         part: Option<Part>,
     ) -> PathBuf {
-        let period = period_minutes.map_or_else(String::new, |minutes| {
-            format!("_{:03}m-{:03}m", minutes.start, minutes.end)
-        });
-        let part = part.map_or_else(String::new, |Part { number, count }| {
-            let width = count.to_string().len();
-            format!("_{number:0width$}_{}_{count}", self.part_of)
-        });
+        let period = period_minutes.map_or_else(String::new, period_suffix);
+        let part = part.map_or_else(String::new, |part| self.part_suffix(part));
         dest.join(suffixed(
             stem,
             &format!("{}{period}{part}{IMAGE_EXTENSION}", self.summary),
         ))
     }
 
+    pub fn part_suffix(self, Part { number, count }: Part) -> String {
+        let width = count.to_string().len();
+        format!("_{number:0width$}_{}_{count}", self.part_of)
+    }
+
     pub fn annotated_video(self, dest: &Path, stem: &OsStr) -> PathBuf {
         dest.join(suffixed(stem, &format!("{}{VIDEO_EXTENSION}", self.annotated)))
     }
 
-    fn clip_stem(self, track: &Track, start_seconds: f64, track_count: usize) -> String {
+    fn clip_stem(self, number: usize, start_seconds: f64, track_count: usize) -> String {
         let whole_seconds = start_seconds.max(0.0).floor() as u64;
         let (minutes, seconds) = (whole_seconds / SECONDS_PER_MINUTE, whole_seconds % SECONDS_PER_MINUTE);
         let width = MIN_TRACK_DIGITS.max(track_count.to_string().len());
-        format!("{}_{:0width$}_{minutes}m{seconds:02}s", self.track, track.id())
+        format!("{}_{number:0width$}_{minutes}m{seconds:02}s", self.track)
     }
 
     fn output(self, name: &[u8], stem: &[u8]) -> Option<Output> {
@@ -199,6 +211,10 @@ pub fn partial_path(path: &Path) -> PathBuf {
     name.push(path.file_name().unwrap_or_default());
     name.push(PARTIAL_SUFFIX);
     path.with_file_name(name)
+}
+
+pub fn period_suffix(minutes: Range<u32>) -> String {
+    format!("_{:03}m-{:03}m", minutes.start, minutes.end)
 }
 
 pub fn params_json(dest: &Path) -> PathBuf {

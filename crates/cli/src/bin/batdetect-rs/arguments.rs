@@ -1,9 +1,9 @@
 use std::ffi::OsString;
+use std::io;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::path::PathBuf;
 
 use batdetect::options::Options;
-use clap::builder::styling::{AnsiColor, Effects, Styles};
 use clap::builder::{PossibleValuesParser, StyledStr, TypedValueParser};
 use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use engine::config::DetectConfig;
@@ -15,8 +15,10 @@ use tracking::track::TrackConfig;
 
 use crate::errors;
 use crate::messages;
+use crate::style::{HELP, STYLES};
 use crate::texts::{Fixed, Message, Texts};
 
+pub(crate) const PROGRAM: &str = env!("CARGO_BIN_NAME");
 pub(crate) const MIN_HITS: &str = "min-hits";
 pub(crate) const MAX_BLOBS: &str = "max-blobs";
 pub(crate) const OSD_REGION: &str = "osd-region";
@@ -198,28 +200,28 @@ enum Level {
     Full,
 }
 
-pub(crate) const HELP: &str = "help";
-
-pub(crate) const STYLES: Styles = Styles::styled()
-    .header(AnsiColor::Blue.on_default().effects(Effects::BOLD))
-    .usage(AnsiColor::Blue.on_default().effects(Effects::BOLD))
-    .literal(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
-    .placeholder(AnsiColor::Yellow.on_default())
-    .valid(AnsiColor::Green.on_default())
-    .invalid(AnsiColor::Red.on_default().effects(Effects::BOLD))
-    .error(AnsiColor::Red.on_default().effects(Effects::BOLD))
-    .context_value(AnsiColor::Green.on_default());
-
 fn template(texts: Texts) -> StyledStr {
     let usage = STYLES.get_usage();
     StyledStr::from(format!(
-        "{{before-help}}{{about-with-newline}}\n{usage}{}{usage:#} {{usage}}\n\n{{all-args}}{{after-help}}",
+        "{{about-with-newline}}\n{{before-help}}{usage}{}{usage:#} {{usage}}\n\n{{all-args}}{{after-help}}",
         texts.text(Fixed::UsageHeading)
     ))
 }
 
+pub(crate) fn print_common_uses(texts: Texts) -> io::Result<()> {
+    let uses = format!("{}\n\n{}", texts.common_uses(PROGRAM), texts.all_options(PROGRAM));
+    command(Level::Essential, texts)
+        .before_help(StyledStr::from(uses))
+        .help_template("{about-with-newline}\n{before-help}")
+        .print_help()
+}
+
 fn command(level: Level, texts: Texts) -> Command {
-    Command::new("batdetect-rs")
+    let after = match level {
+        Level::Essential => texts.all_options(PROGRAM),
+        Level::Full => texts.files_produced(),
+    };
+    Command::new(PROGRAM)
         .version(messages::version())
         .long_version(messages::long_version(
             &media::library::version(),
@@ -227,8 +229,9 @@ fn command(level: Level, texts: Texts) -> Command {
         ))
         .about(texts.text(Fixed::About))
         .help_template(template(texts))
+        .before_help(StyledStr::from(texts.common_uses(PROGRAM)))
+        .after_help(StyledStr::from(after))
         .styles(STYLES)
-        .arg_required_else_help(true)
         .disable_help_flag(true)
         .disable_version_flag(true)
         .next_help_heading(texts.text(Fixed::OptionsHeading))

@@ -150,3 +150,26 @@ tally-failure-todo = {"  "}what to do: { $cause ->
         [encoding] run again; if it happens again, report it with the detail written during the run
        *[unexpected] report it with the detail written during the run
     }
+common-uses = Common uses:
+use-folder = Process a whole night folder, with the results in { $folder }/:
+use-nights = Process several nights at once:
+use-video = Process a single video:
+use-out-dir = Write the results to another folder:
+use-zoom = Make a slowed, magnified clip of every track:
+use-annotated = Also write the whole video, with every track drawn:
+example-night = night-oct-12
+example-next-night = night-oct-13
+example-results = results
+all-options = All the options and the files produced:
+files-heading = Files produced, in { $folder }/<video>/ beside the videos, or in <folder of -o>/<video>/:
+file-video = <video>
+file-summary = the summary image: every track of the video on one image
+file-table = one row per track (start, end, length, speed, size), for a spreadsheet
+file-clip = the clip of every track, named by its number and its start
+file-zoom = the same, slowed and magnified, for small or faint tracks
+file-annotated = the whole video with the tracks drawn, with --annotated
+file-params = the settings used, to run the same computation again
+files-long =
+    A long or crowded video has several summary images, per 10 min slice ({ $period })
+    or per part ({ $part }).
+guide = Full guide:
