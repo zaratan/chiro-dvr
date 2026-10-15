@@ -1,11 +1,11 @@
-too-many-tracks = { $video } : { $count } pistes, au-delà de { $limit } : { $annotated ->
+too-many-tracks = { $video } : { $count } pistes, au-delà de { $limit } : { $annotated ->
         [yes] extraits et vidéo annotée non écrits
        *[no] extraits non écrits
     }
-clips-redone = { $video } : { $names } { $count ->
+clips-redone = { $video } : { $names } { $count ->
         [one] réécrit
        *[other] réécrits
-    } avec openh264 après une erreur de VideoToolbox : { $causes }
+    } avec openh264 après une erreur de VideoToolbox : { $causes }
 video-step = [{ $position }/{ $total }] { $video } — { $step ->
         [detection] détection
         [tracking] suivi
@@ -16,8 +16,11 @@ video-done = [{ $position }/{ $total }] { $video } — { $tracks ->
         [one] { $tracks } piste
        *[other] { $tracks } pistes
     }
-video-failed = [{ $position }/{ $total }] { $video } — échec
-failure = { $video } : { $cause ->
+video-failed = [{ $position }/{ $total }] { $video } — { $too-many ->
+        [yes] trop de pistes
+       *[no] échec
+    }
+failure = { $video } : { $cause ->
         [missing] fichier introuvable
         [read-refused] le système refuse la lecture de ce fichier
         [not-a-video] ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète
@@ -32,22 +35,22 @@ failure = { $video } : { $cause ->
         [internal] erreur interne
        *[unexpected] erreur inattendue
     }
-failure-todo = {"  "}à faire : { $cause ->
-        [missing] vérifier le chemin ; la vidéo a peut-être été déplacée ou renommée
-        [read-refused] vérifier ses droits ; sur Mac, autoriser le Terminal dans Réglages Système, Confidentialité et sécurité, Fichiers et dossiers
-        [not-a-video] s'il vient des jumelles, le recopier par le câble USB, sans passer par Stream Vision 2 ; sinon, le retirer du dossier
+failure-todo = {"  "}à faire : { $cause ->
+        [missing] vérifier le chemin ; la vidéo a peut-être été déplacée ou renommée
+        [read-refused] vérifier ses droits ; sur Mac, autoriser le Terminal dans Réglages Système, Confidentialité et sécurité, Fichiers et dossiers
+        [not-a-video] s'il vient des jumelles, le recopier par le câble USB, sans passer par Stream Vision 2 ; sinon, le retirer du dossier
         [unusable-name] renommer la vidéo avec des lettres, des chiffres et des tirets
-        [damaged] la recopier depuis les jumelles par le câble USB, sans passer par Stream Vision 2, puis relancer ; si elle reste abîmée, le signaler
+        [damaged] la recopier depuis les jumelles par le câble USB, sans passer par Stream Vision 2, puis relancer ; si elle reste abîmée, le signaler
         [unsupported] le signaler, avec le détail ci-dessous
         [settings] relancer sans --work-width ni --osd-region
         [disk-full] libérer de la place sur le disque de { $folder }, puis relancer
         [forbidden] vérifier les droits de ce dossier, ou en choisir un autre avec -o
         [in-use] le fermer, puis relancer
-        [encoding] relancer ; si cela recommence, le signaler avec le détail ci-dessous
-        [too-many-tracks] regarder l'image résumé ; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
+        [encoding] relancer ; si cela recommence, le signaler avec le détail ci-dessous
+        [too-many-tracks] regarder l'image résumé ; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
        *[unexpected] le signaler avec le détail ci-dessous
     }
-failure-detail = {"  "}détail : { $detail }
+failure-detail = {"  "}détail : { $detail }
 summary-part = partie { $number } / { $count }
 summary-tracks = { $count ->
         [one] { $count } piste
@@ -151,7 +154,7 @@ folder-refused = { $path } : { $access ->
         [disk-full] disque plein
        *[unavailable] inaccessible
     }
-tally-title = Bilan : { $total ->
+tally-title = Bilan : { $total ->
         [one] { $total } vidéo
        *[other] { $total } vidéos
     }
@@ -168,28 +171,28 @@ tally-not-analysed = non analysé
 tally-compute = calcul
 tally-failed-cell = échec
 tally-too-many-cell = { $count }, trop
-tally-too-many-heading = Trop de pistes (tableau et image résumé écrits, pas d'extraits) :
-tally-too-many = { $video } : { $count } pistes, au-delà de { $limit }
+tally-too-many-heading = Trop de pistes (tableau et image résumé écrits, pas d'extraits) :
+tally-too-many = { $video } : { $count } pistes, au-delà de { $limit }
 tally-failed-heading = { $failed ->
         [one] { $failed } vidéo
        *[other] { $failed } vidéos
-    } sur { $total } en échec :
+    } sur { $total } en échec :
 tally-kept-heading = { $count ->
-        [one] Tableau laissé tel quel :
-       *[other] Tableaux laissés tels quels :
+        [one] Tableau laissé tel quel :
+       *[other] Tableaux laissés tels quels :
     }
-tally-kept = { $video } : { $table } n'a pas la forme d'un tableau des pistes{ $written ->
-        [no] {" "}; le nouveau tableau n'est pas écrit
+tally-kept = { $video } : { $table } n'a pas la forme d'un tableau des pistes{ $written ->
+        [no] {"\u00A0"}; le nouveau tableau n'est pas écrit
        *[yes] {""}
     }
-tally-changed = Réglages changés : { $settings }
+tally-changed = Réglages changés : { $settings }
 tally-regions = { $count ->
         [one] { $count } zone
        *[other] { $count } zones
     }
-tally-failure-todo = {"  "}à faire : { $cause ->
+tally-failure-todo = {"  "}à faire : { $cause ->
         [unsupported] le signaler, avec le détail écrit pendant le traitement
-        [encoding] relancer ; si cela recommence, le signaler avec le détail écrit pendant le traitement
+        [encoding] relancer ; si cela recommence, le signaler avec le détail écrit pendant le traitement
        *[unexpected] le signaler avec le détail écrit pendant le traitement
     }
 common-uses = Usages courants :
@@ -205,12 +208,12 @@ example-results = resultats
 all-options = Toutes les options et les fichiers produits :
 files-heading = Fichiers produits, dans { $folder }/<vidéo>/ à côté des vidéos, ou dans <dossier de -o>/<vidéo>/ :
 file-video = <vidéo>
-file-summary = l'image résumé : toutes les pistes de la vidéo sur une image
-file-table = une ligne par piste (début, fin, durée, vitesse, taille), pour un tableur
-file-clip = l'extrait de chaque piste, nommé par son numéro et son début
-file-zoom = le même, ralenti et agrandi, pour les pistes petites ou faibles
-file-annotated = la vidéo entière avec les pistes dessinées, avec --annotated
-file-params = les réglages employés, pour refaire le même calcul
+file-summary = L'image résumé : toutes les pistes de la vidéo sur une image
+file-table = Une ligne par piste (début, fin, durée, vitesse, taille), pour un tableur
+file-clip = L'extrait de chaque piste, nommé par son numéro et son début
+file-zoom = Le même, ralenti et agrandi, pour les pistes petites ou faibles
+file-annotated = La vidéo entière avec les pistes dessinées, avec --annotated
+file-params = Les réglages employés, pour refaire le même calcul
 files-long =
     Une vidéo longue ou chargée a plusieurs images résumé, par tranche de 10 min ({ $period })
     ou par partie ({ $part }).
@@ -233,3 +236,4 @@ tally-refused-heading = { $count ->
         [one] Entrée refusée, non traitée
        *[other] Entrées refusées, non traitées
     } :
+interrupted = lot interrompu à la vidéo { $position }/{ $total } ; relancer la même commande refait le lot

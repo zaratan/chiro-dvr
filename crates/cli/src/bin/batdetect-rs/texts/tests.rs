@@ -15,7 +15,7 @@ use super::{ENGLISH_SOURCE, FRENCH_SOURCE, Fixed, Message, Shown, Texts, resolve
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 57;
+const VARIANTS: usize = 58;
 const FIXED: [Fixed; 63] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
@@ -141,6 +141,7 @@ fn rank(message: &Message) -> usize {
         Message::SkipRefusedQuestion { .. } => 54,
         Message::TallyRefusedCount { .. } => 55,
         Message::TallyRefusedHeading { .. } => 56,
+        Message::Interrupted { .. } => 57,
     }
 }
 
@@ -278,9 +279,13 @@ fn lines() -> Vec<Message> {
             video: text("video_092"),
             tracks: 14,
         },
+        Message::Interrupted {
+            rank: Rank { position: 3, total: 12 },
+        },
         Message::VideoFailed {
             rank: Rank { position: 3, total: 12 },
             video: text("video_092"),
+            too_many: true,
         },
         Message::Failure {
             video: text("nuit/video_092.mp4"),
@@ -502,7 +507,7 @@ fn a_french_count_of_thousands_is_grouped_with_a_narrow_no_break_space_on_the_co
     };
     assert_eq!(
         Texts::new(Language::French).say(&message),
-        "video_092 : 1\u{202f}234 pistes, au-delà de 300"
+        "video_092\u{a0}: 1\u{202f}234 pistes, au-delà de 300"
     );
     assert_eq!(
         Texts::new(Language::English).say(&message),
@@ -655,7 +660,7 @@ fn a_message_that_misses_an_argument_still_says_what_it_can() {
     };
     let said = Texts::new(Language::French).say(&message);
     assert!(
-        said.starts_with("nuit/video_092.mp4 : écriture refusée dans "),
+        said.starts_with("nuit/video_092.mp4\u{a0}: écriture refusée dans "),
         "{said}"
     );
 }
@@ -710,9 +715,11 @@ fn a_number_outside_fluent_takes_the_decimal_mark_of_the_language() {
 }
 
 #[test]
-fn every_help_text_starts_with_a_capital_letter_in_both_languages() {
+fn every_help_text_and_every_description_of_a_file_produced_starts_with_a_capital_letter_in_both_languages() {
     for language in LANGUAGES {
-        for fixed in FIXED.into_iter().filter(|fixed| fixed.id().ends_with("-help")) {
+        for fixed in FIXED.into_iter().filter(|fixed| {
+            fixed.id().ends_with("-help") || (fixed.id().starts_with("file-") && *fixed != Fixed::FileVideo)
+        }) {
             let help = Texts::new(language).text(fixed);
             assert!(
                 help.starts_with(char::is_uppercase),

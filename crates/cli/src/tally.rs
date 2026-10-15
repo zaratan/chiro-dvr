@@ -18,11 +18,15 @@ impl Tally {
     pub fn roots(&self) -> Vec<&Path> {
         let mut roots: Vec<&Path> = Vec::new();
         for root in self.rows.iter().map(root) {
-            if !roots.contains(&root) {
+            if !roots.contains(&root) && self.exists(root) {
                 roots.push(root);
             }
         }
         roots
+    }
+
+    fn exists(&self, folder: &Path) -> bool {
+        self.rows_in(folder).any(|row| !matches!(row.state, State::Failed(_))) || folder.is_dir()
     }
 
     pub fn rows_in<'a>(&'a self, folder: &'a Path) -> impl Iterator<Item = &'a Row> {

@@ -230,8 +230,7 @@ fn command(level: Level, texts: Texts) -> Command {
         Level::Full => texts.files_produced(),
     };
     Command::new(PROGRAM)
-        .version(messages::version())
-        .long_version(messages::long_version(
+        .version(messages::long_version(
             &media::library::version(),
             media::library::license(),
         ))

@@ -77,7 +77,7 @@ fn a_video_gives_its_tracks_table_and_params_in_a_folder_named_after_it() {
     assert!(table.starts_with("id,start,end,start_s,duration_s,hits,"));
     assert!(out.join("flight").join("params.json").is_file());
     assert!(
-        text(&output.stdout).starts_with("Bilan : 1 vidéo, 1 réussie\n"),
+        text(&output.stdout).starts_with("Bilan\u{a0}: 1 vidéo, 1 réussie\n"),
         "{}",
         text(&output.stdout)
     );
@@ -190,15 +190,15 @@ fn under_a_french_locale_a_failure_gives_its_cause_and_what_to_do_in_french_and_
     let cause = lines
         .iter()
         .position(|line| {
-            line.ends_with("broken.mp4 : ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète")
+            line.ends_with("broken.mp4\u{a0}: ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète")
         })
         .unwrap_or_else(|| panic!("{errors}"));
     assert!(
-        lines[cause + 1].starts_with("  à faire : s'il vient des jumelles, le recopier"),
+        lines[cause + 1].starts_with("  à faire\u{a0}: s'il vient des jumelles, le recopier"),
         "{errors}"
     );
     assert!(
-        lines[cause + 2].starts_with("  détail : the detection failed: cannot decode "),
+        lines[cause + 2].starts_with("  détail\u{a0}: the detection failed: cannot decode "),
         "{errors}"
     );
 }
@@ -656,11 +656,11 @@ fn a_table_annotated_by_hand_is_left_and_named_in_the_summary_in_the_language_of
     let lines: Vec<&str> = summary.lines().collect();
     let heading = lines
         .iter()
-        .position(|line| *line == "Tableau laissé tel quel :")
+        .position(|line| *line == "Tableau laissé tel quel\u{a0}:")
         .unwrap_or_else(|| panic!("{summary}"));
     assert_eq!(
         lines[heading + 1],
-        "  flight : flight_pistes.csv n'a pas la forme d'un tableau des pistes ; le nouveau tableau n'est pas écrit"
+        "  flight\u{a0}: flight_pistes.csv n'a pas la forme d'un tableau des pistes\u{a0}; le nouveau tableau n'est pas écrit"
     );
     let errors = text(&output.stderr);
     assert!(!errors.contains("flight_pistes.csv"), "{errors}");
@@ -744,7 +744,7 @@ fn redirected_each_video_shows_its_steps_in_order_then_its_track_count_or_its_fa
     let lines: Vec<&str> = errors.lines().collect();
     let cause = lines
         .iter()
-        .position(|line| line.contains("zz_broken.mp4 : ce fichier n'est pas une vidéo lisible"))
+        .position(|line| line.contains("zz_broken.mp4\u{a0}: ce fichier n'est pas une vidéo lisible"))
         .unwrap();
     let failed = lines
         .iter()
@@ -762,7 +762,7 @@ fn the_summary_alone_goes_to_the_standard_output_with_a_row_per_video_and_the_fa
     assert_eq!(output.status.code(), Some(1));
     let summary = text(&output.stdout);
     let lines: Vec<&str> = summary.lines().collect();
-    assert_eq!(lines[0], "Bilan : 2 vidéos, 1 réussie, 1 en échec", "{summary}");
+    assert_eq!(lines[0], "Bilan\u{a0}: 2 vidéos, 1 réussie, 1 en échec", "{summary}");
     assert_eq!(lines[2], out.display().to_string(), "{summary}");
     assert!(lines[3].starts_with("  vidéo "), "{summary}");
     assert!(
@@ -773,16 +773,19 @@ fn the_summary_alone_goes_to_the_standard_output_with_a_row_per_video_and_the_fa
         lines[5].starts_with("  zz_broken ") && lines[5].contains(" échec "),
         "{summary}"
     );
-    assert!(lines.contains(&"1 vidéo sur 2 en échec :"), "{summary}");
+    assert!(lines.contains(&"1 vidéo sur 2 en échec\u{a0}:"), "{summary}");
     assert!(
-        lines.contains(&"  zz_broken : ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète"),
+        lines.contains(&"  zz_broken\u{a0}: ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète"),
         "{summary}"
     );
     assert!(!summary.contains("détail"), "{summary}");
     assert!(!summary.contains("[1/2]"), "{summary}");
     let errors = text(&output.stderr);
     assert!(errors.lines().any(|line| line == "[1/2] flight — 1 piste"), "{errors}");
-    assert!(errors.lines().any(|line| line.starts_with("  détail : ")), "{errors}");
+    assert!(
+        errors.lines().any(|line| line.starts_with("  détail\u{a0}: ")),
+        "{errors}"
+    );
 }
 
 #[test]
@@ -793,7 +796,7 @@ fn a_video_given_by_its_folder_and_again_under_another_writing_is_processed_once
     assert!(output.status.success(), "{}", text(&output.stderr));
     let summary = text(&output.stdout);
     let lines: Vec<&str> = summary.lines().collect();
-    assert_eq!(lines[0], "Bilan : 1 vidéo, 1 réussie", "{summary}");
+    assert_eq!(lines[0], "Bilan\u{a0}: 1 vidéo, 1 réussie", "{summary}");
     let titles = lines.iter().filter(|line| line.ends_with("batdetect")).count();
     assert_eq!(titles, 1, "{summary}");
     assert!(
@@ -861,7 +864,10 @@ fn skip_refused_processes_the_valid_videos_without_asking_and_lists_the_refused_
     assert!(out.join("flight").join("flight_pistes.csv").is_file());
     let summary = text(&output.stdout);
     let lines: Vec<&str> = summary.lines().collect();
-    assert_eq!(lines[0], "Bilan : 1 vidéo, 1 réussie, 1 entrée refusée", "{summary}");
+    assert_eq!(
+        lines[0], "Bilan\u{a0}: 1 vidéo, 1 réussie, 1 entrée refusée",
+        "{summary}"
+    );
     let refusal = format!("  {}\u{a0}: introuvable", missing.display());
     assert_eq!(
         lines[lines.len() - 2..],
@@ -881,4 +887,26 @@ fn skip_refused_does_not_turn_inputs_that_are_all_faulty_into_an_empty_run() {
         format!("error: no video is processed:\n  {}: not found\n", missing.display())
     );
     assert!(!out.exists());
+}
+
+#[test]
+fn a_video_damaged_in_a_folder_of_its_own_is_told_among_the_failures_without_a_title_for_a_folder_never_written() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let traps = root.path().join("pieges");
+    fs::create_dir(&traps).unwrap();
+    fs::write(traps.join("abimee.mp4"), "not a video").unwrap();
+    let output = run(&[&videos, &traps], "fr_FR.UTF-8");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(!traps.join("batdetect").exists());
+    let summary = text(&output.stdout);
+    let titles: Vec<&str> = summary.lines().filter(|line| line.ends_with("batdetect")).collect();
+    assert_eq!(titles, [videos.join("batdetect").display().to_string()], "{summary}");
+    assert!(
+        summary.lines().any(|line| line == "1 vidéo sur 2 en échec\u{a0}:"),
+        "{summary}"
+    );
+    assert!(
+        summary.lines().any(|line| line.starts_with("  abimee\u{a0}: ")),
+        "{summary}"
+    );
 }

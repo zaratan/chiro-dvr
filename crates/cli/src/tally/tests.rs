@@ -67,9 +67,23 @@ fn dests<'a>(rows: impl Iterator<Item = &'a Row>) -> Vec<&'a Path> {
 }
 
 #[test]
-fn the_folders_come_in_the_order_they_first_appear_and_each_keeps_its_videos_in_the_order_of_the_lot() {
+fn the_folders_come_in_the_order_they_first_appear_and_a_folder_of_failures_never_written_is_not_titled() {
+    let done = || State::Done {
+        tracks: 1,
+        extent: EXTENT,
+        kept: Vec::new(),
+    };
+    let night = Tally {
+        refused: Vec::new(),
+        rows: vec![
+            row("c/batdetect/1", done()),
+            row("a/batdetect/1", done()),
+            row("c/batdetect/2", done()),
+        ],
+    };
+    assert_eq!(night.roots(), [Path::new("c/batdetect"), Path::new("a/batdetect")]);
     let tally = evening();
-    assert_eq!(tally.roots(), [Path::new("a/batdetect"), Path::new("b/batdetect")]);
+    assert_eq!(tally.roots(), [Path::new("a/batdetect")]);
     assert_eq!(
         dests(tally.rows_in(Path::new("a/batdetect"))),
         [Path::new("a/batdetect/1"), Path::new("a/batdetect/2")]
@@ -144,4 +158,31 @@ fn a_refused_input_keeps_the_evening_from_counting_as_all_done() {
         }
         .all_done()
     );
+}
+
+#[test]
+fn a_folder_of_failed_videos_only_is_titled_only_if_it_exists() {
+    let night = tempfile::tempdir().unwrap();
+    let written = night.path().join("batdetect");
+    std::fs::create_dir(&written).unwrap();
+    let failed = |dest: PathBuf| Row {
+        job: Job {
+            video: PathBuf::from("v.mp4"),
+            dest,
+        },
+        elapsed: Duration::ZERO,
+        state: State::Failed(Failure::Panic(Panic {
+            message: "boom".to_owned(),
+            location: None,
+        })),
+    };
+    let tally = Tally {
+        refused: Vec::new(),
+        rows: vec![
+            failed(night.path().join("jamais/batdetect/1")),
+            failed(written.join("2")),
+        ],
+    };
+    assert_eq!(tally.roots(), [written.as_path()]);
+    assert_eq!(tally.failed().count(), 2);
 }

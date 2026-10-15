@@ -1683,7 +1683,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       la ligne suivante dès qu'une seule ne tient plus (règle des 40 % de `help_template`).
       Les tests rendent l'aide à 100 colonnes fixes.
     - `-V/--version` est une option de la commande, au ton des autres (« print the
-      version »), comme `-h/--help`.
+      version »), comme `-h/--help`. Les deux écrivent les mêmes deux lignes, version
+      puis FFmpeg et sa licence (#196) : la commande n'a qu'une `version`, la longue.
     - Le gabarit de la commande (`help_template`, #114) reprend celui de clap avec notre
       titre d'usage, et garde `{before-help}` et `{after-help}` : les exemples de #56 s'y
       logeront sans changer la forme des options.
@@ -1794,7 +1795,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     - Un `-o` qui est un fichier est refusé de même, avant la détection.
   - Bilan de fin de soirée (#65), écrit une fois après `run_all`, sur la sortie standard.
     - Modèle sans texte dans la bibliothèque : `tally::Tally` (les `Row` de `run_all`),
-      avec `roots()` (les dossiers de résultats dans l'ordre où ils apparaissent),
+      avec `roots()` (les dossiers de résultats dans l'ordre où ils apparaissent, et
+      seulement ceux qui existent, #196 : une racine qui n'a que des vidéos en échec n'a
+      de titre que si son dossier est sur le disque ; ses vidéos restent sous « vidéos en
+      échec »),
       `rows_in`, `done`, `too_many`, `failed`, `kept` et `all_done`. Il servira à #69 et
       #71. Mise en forme dans le binaire : `board::write`.
     - Titre : « Bilan : 12 vidéos, 10 réussies, 1 avec trop de pistes, 1 en échec » (les
@@ -1844,7 +1848,15 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     - Le binaire (`status.rs`) écrit « [3/12] video_092 — détection », puis « — suivi »,
       « — image résumé », « — extraits ». La vidéo est nommée sans extension, et son rang
       compte dans le lot.
-    - La ligne d'une vidéo finie reste : « [3/12] video_092 — 14 pistes », ou « — échec ».
+    - La ligne d'une vidéo finie reste : « [3/12] video_092 — 14 pistes », « — trop de
+      pistes » (le mot du bilan, #196) ou « — échec ».
+    - Ctrl-C (#196) : un gestionnaire `ctrlc`, posé par `main` une fois le lot admis,
+      efface la ligne d'étape sur un terminal, écrit « lot interrompu à la vidéo 3/12 ;
+      relancer la même commande refait le lot » sur la sortie d'erreur et sort en 130,
+      même si la ligne ne s'écrit pas, en gardant la sortie d'erreur jusqu'à la sortie.
+      `Status` retient la vidéo en cours. Rien
+      d'autre ne se fait : un `.partial` laissé par l'interruption est retiré par le
+      ménage de la relance (#115). La reprise d'un lot interrompu est #70.
     - Les lignes d'événement (extrait refait, cause d'un échec) s'écrivent
       au-dessus de cette dernière ligne.
     - Le mode se choisit par `std::io::IsTerminal` sur la sortie d'erreur.

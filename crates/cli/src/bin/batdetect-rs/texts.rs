@@ -199,6 +199,7 @@ pub(crate) enum Message {
     VideoFailed {
         rank: Rank,
         video: String,
+        too_many: bool,
     },
     Failure {
         video: String,
@@ -381,6 +382,9 @@ pub(crate) enum Message {
     TallyRefusedHeading {
         count: usize,
     },
+    Interrupted {
+        rank: Rank,
+    },
 }
 
 impl Message {
@@ -443,6 +447,7 @@ impl Message {
             Self::SkipRefusedQuestion { .. } => "skip-refused-question",
             Self::TallyRefusedCount { .. } => "tally-refused-count",
             Self::TallyRefusedHeading { .. } => "tally-refused-heading",
+            Self::Interrupted { .. } => "interrupted",
         }
     }
 
@@ -479,7 +484,14 @@ impl Message {
                 ranked(&mut arguments, *rank, video);
                 arguments.set("tracks", *tracks);
             }
-            Self::VideoFailed { rank, video } => ranked(&mut arguments, *rank, video),
+            Self::Interrupted { rank } => {
+                arguments.set("position", rank.position);
+                arguments.set("total", rank.total);
+            }
+            Self::VideoFailed { rank, video, too_many } => {
+                ranked(&mut arguments, *rank, video);
+                arguments.set("too-many", if *too_many { YES } else { NO });
+            }
             Self::Failure { video, cause, place } => {
                 arguments.set("video", video.as_str());
                 arguments.set("cause", *cause);
@@ -619,6 +631,7 @@ impl Message {
             | Self::VideoStep { .. }
             | Self::VideoDone { .. }
             | Self::VideoFailed { .. }
+            | Self::Interrupted { .. }
             | Self::Failure { .. }
             | Self::FailureTodo { .. }
             | Self::FailureDetail { .. }
