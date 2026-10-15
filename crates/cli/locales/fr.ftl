@@ -1,7 +1,3 @@
-processed = { $video } : { $tracks ->
-        [one] { $tracks } piste
-       *[other] { $tracks } pistes
-    } -> { $dest }
 too-many-tracks = { $video } : { $count } pistes, au-delà de { $limit } : { $annotated ->
         [yes] extraits et vidéo annotée non écrits
        *[no] extraits non écrits
@@ -10,10 +6,6 @@ clips-redone = { $video } : { $names } { $count ->
         [one] réécrit
        *[other] réécrits
     } avec openh264 après une erreur de VideoToolbox : { $causes }
-table-kept = { $video } : { $table } laissé tel quel, il n'a pas la forme d'un tableau des pistes{ $written ->
-        [no] {" "}; le nouveau tableau n'est pas écrit
-       *[yes] {""}
-    }
 video-step = [{ $position }/{ $total }] { $video } — { $step ->
         [detection] détection
         [tracking] suivi
@@ -132,3 +124,44 @@ settings-refused = les réglages sont refusés : { $causes }
 no-video = aucune vidéo trouvée
 videos-refused = vidéos refusées : { $causes }
 folders-refused = aucune vidéo n'est traitée, les résultats ne peuvent pas s'écrire dans : { $folders }
+tally-title = Bilan : { $total ->
+        [one] { $total } vidéo
+       *[other] { $total } vidéos
+    }
+tally-done = { $count ->
+        [one] { $count } réussie
+       *[other] { $count } réussies
+    }
+tally-too-many-count = { $count } avec trop de pistes
+tally-failed-count = { $count } en échec
+tally-video = vidéo
+tally-length = durée
+tally-tracks = pistes
+tally-not-analysed = non analysé
+tally-compute = calcul
+tally-failed-cell = échec
+tally-too-many-cell = { $count }, trop
+tally-too-many-heading = Trop de pistes (tableau et image résumé écrits, pas d'extraits) :
+tally-too-many = { $video } : { $count } pistes, au-delà de { $limit }
+tally-failed-heading = { $failed ->
+        [one] { $failed } vidéo
+       *[other] { $failed } vidéos
+    } sur { $total } en échec :
+tally-kept-heading = { $count ->
+        [one] Tableau laissé tel quel :
+       *[other] Tableaux laissés tels quels :
+    }
+tally-kept = { $video } : { $table } n'a pas la forme d'un tableau des pistes{ $written ->
+        [no] {" "}; le nouveau tableau n'est pas écrit
+       *[yes] {""}
+    }
+tally-changed = Réglages changés : { $settings }
+tally-regions = { $count ->
+        [one] { $count } zone
+       *[other] { $count } zones
+    }
+tally-failure-todo = {"  "}à faire : { $cause ->
+        [unsupported] le signaler, avec le détail écrit pendant le traitement
+        [encoding] relancer ; si cela recommence, le signaler avec le détail écrit pendant le traitement
+       *[unexpected] le signaler avec le détail écrit pendant le traitement
+    }

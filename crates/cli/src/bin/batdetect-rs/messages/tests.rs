@@ -8,17 +8,14 @@ use batdetect::jobs::Job;
 use batdetect::options::Options;
 use batdetect::outcome::Rank;
 use batdetect::outcome::{Failure, Panic};
-use batdetect::process;
+use batdetect::process::{self, Extent};
 use batdetect::progress::Step;
 use engine::detection;
 use engine::input;
 use engine::lost::Losses;
-use files::previous::Kept;
 use types::language::Language;
 
-use super::{
-    failure_lines, named, processed, redone, table_kept, too_many_tracks, video_done, video_failed, video_step,
-};
+use super::{failure_lines, named, redone, video_done, video_failed, video_step};
 use crate::texts::{Message, Texts};
 
 const THIRD: Rank = Rank { position: 3, total: 12 };
@@ -49,43 +46,24 @@ impl Error for Layer {
     }
 }
 
-#[test]
-fn french_counts_zero_and_one_track_in_the_singular() {
-    assert_eq!(
-        said(Language::French, &processed(&job(), 0)),
-        "video_092.mp4 : 0 piste -> out/video_092"
-    );
-    assert_eq!(
-        said(Language::French, &processed(&job(), 1)),
-        "video_092.mp4 : 1 piste -> out/video_092"
-    );
-    assert_eq!(
-        said(Language::French, &processed(&job(), 14)),
-        "video_092.mp4 : 14 pistes -> out/video_092"
-    );
-}
-
-#[test]
-fn english_counts_only_one_track_in_the_singular() {
-    assert_eq!(
-        said(Language::English, &processed(&job(), 0)),
-        "video_092.mp4: 0 tracks -> out/video_092"
-    );
-    assert_eq!(
-        said(Language::English, &processed(&job(), 1)),
-        "video_092.mp4: 1 track -> out/video_092"
-    );
-    assert_eq!(
-        said(Language::English, &processed(&job(), 3)),
-        "video_092.mp4: 3 tracks -> out/video_092"
-    );
-}
-
 fn lines(language: Language, failure: &Failure) -> Vec<String> {
     failure_lines(&job(), failure, &Options::default())
         .iter()
         .map(|message| said(language, message))
         .collect()
+}
+
+fn too_many(annotated: bool) -> Failure {
+    Failure::Error(process::Error::TooManyTracks {
+        count: 301,
+        limit: 300,
+        annotated,
+        extent: Extent {
+            length_s: 60.0,
+            not_analysed_s: 0.0,
+        },
+        kept: Vec::new(),
+    })
 }
 
 fn damaged() -> Failure {
@@ -141,11 +119,7 @@ fn a_full_disk_names_the_folder_of_the_results() {
 
 #[test]
 fn too_many_tracks_says_what_to_look_at_without_judging_the_tracks_and_without_detail() {
-    let too_many = Failure::Error(process::Error::TooManyTracks {
-        count: 301,
-        limit: 300,
-        annotated: false,
-    });
+    let too_many = too_many(false);
     assert_eq!(
         lines(Language::French, &too_many),
         [
@@ -233,19 +207,19 @@ fn every_cause_has_its_own_sentence_and_its_own_advice_in_both_languages() {
 #[test]
 fn too_many_tracks_names_the_video_the_count_and_the_limit_in_the_language_of_the_user() {
     assert_eq!(
-        said(Language::French, &too_many_tracks(&job(), 301, 300, false)),
+        lines(Language::French, &too_many(false))[0],
         "nuit/video_092.mp4 : 301 pistes, au-delà de 300 : extraits non écrits"
     );
     assert_eq!(
-        said(Language::English, &too_many_tracks(&job(), 301, 300, false)),
+        lines(Language::English, &too_many(false))[0],
         "nuit/video_092.mp4: 301 tracks, above 300: clips skipped"
     );
     assert_eq!(
-        said(Language::French, &too_many_tracks(&job(), 301, 300, true)),
+        lines(Language::French, &too_many(true))[0],
         "nuit/video_092.mp4 : 301 pistes, au-delà de 300 : extraits et vidéo annotée non écrits"
     );
     assert_eq!(
-        said(Language::English, &too_many_tracks(&job(), 301, 300, true)),
+        lines(Language::English, &too_many(true))[0],
         "nuit/video_092.mp4: 301 tracks, above 300: clips and annotated video skipped"
     );
 }
@@ -272,32 +246,6 @@ fn the_clips_written_again_are_named_with_the_cause_of_the_videotoolbox_failure(
         said(Language::English, &redone(&job(), &one, &cause)),
         "nuit/video_092.mp4: piste_03_0m51s.mp4 written again with openh264 after a VideoToolbox error: \
          the encoder failed: Invalid data"
-    );
-}
-
-#[test]
-fn a_table_left_as_it_is_is_named_and_says_when_the_new_table_was_not_written() {
-    let kept = |ours| Kept {
-        path: PathBuf::from("out/video_092/video_092_pistes.csv"),
-        ours,
-    };
-    assert_eq!(
-        said(Language::French, &table_kept(&job(), &kept(false))),
-        "nuit/video_092.mp4 : video_092_pistes.csv laissé tel quel, il n'a pas la forme d'un tableau des pistes"
-    );
-    assert_eq!(
-        said(Language::French, &table_kept(&job(), &kept(true))),
-        "nuit/video_092.mp4 : video_092_pistes.csv laissé tel quel, il n'a pas la forme d'un tableau des pistes ; \
-         le nouveau tableau n'est pas écrit"
-    );
-    assert_eq!(
-        said(Language::English, &table_kept(&job(), &kept(false))),
-        "nuit/video_092.mp4: video_092_pistes.csv left as it is, it does not have the form of a tracks table"
-    );
-    assert_eq!(
-        said(Language::English, &table_kept(&job(), &kept(true))),
-        "nuit/video_092.mp4: video_092_pistes.csv left as it is, it does not have the form of a tracks table; \
-         the new table is not written"
     );
 }
 

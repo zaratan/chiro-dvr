@@ -16,7 +16,8 @@ use render::clips::Rendered;
 use render::config::RenderConfig;
 use render::windows::clip_windows;
 use summary::header::{Band, HeaderLine, Labels};
-use types::detection::Detection;
+use tracking::exclusion::Exclusion;
+use types::detection::{Detection, FrameDetections};
 use types::frame::{FrameIndex, Pts};
 use types::language::Language;
 use types::rate::FrameRate;
@@ -24,7 +25,7 @@ use types::rational::Rational;
 use types::timeline::Timeline;
 use types::track::Track;
 
-use super::{Clips, Error, Versions, Wording, process, render_clips};
+use super::{Clips, Error, Extent, Versions, Wording, extent, process, render_clips};
 use crate::flight;
 use crate::jobs::Job;
 use crate::options::Options;
@@ -46,6 +47,11 @@ fn still(id: usize) -> Track {
         .collect();
     Track::new(id, points).unwrap()
 }
+
+const MEASURED: Extent = Extent {
+    length_s: 4.0,
+    not_analysed_s: 0.5,
+};
 
 fn rendered_into_a_fresh_folder(
     folder: &Path,
@@ -73,6 +79,11 @@ fn rendered_into_a_fresh_folder(
             annotated: true,
             ..Options::default()
         },
+        extent: MEASURED,
+        kept: &[Kept {
+            path: PathBuf::from("out/flight_tracks.csv"),
+            ours: true,
+        }],
     };
     let rendered = render_clips(&clips, &[still(1), still(2)], trial);
     (rendered, names.clips_dir(&job.dest))
@@ -87,8 +98,10 @@ fn above_the_track_limit_the_clips_folder_is_left_empty_and_nothing_is_written()
         Err(Error::TooManyTracks {
             count: 2,
             limit: 1,
-            annotated: true
-        })
+            annotated: true,
+            extent: MEASURED,
+            ref kept,
+        }) if kept.len() == 1
     ));
     assert_eq!(clips_dir.read_dir().unwrap().count(), 0);
 }
@@ -471,4 +484,86 @@ fn a_step_that_cannot_be_shown_fails_the_video_before_its_detection() {
     );
     assert!(matches!(failed, Err(Error::Progress(_))));
     assert!(!job.dest.exists());
+}
+
+fn timeline_from(first_pts: i64, frames: usize) -> Timeline {
+    let pts = (0..frames)
+        .map(|index| Some(Pts::new(first_pts + 100 * index as i64)))
+        .collect();
+    let rate = FrameRate::new(Rational::new(10, 1).unwrap()).unwrap();
+    Timeline::new(pts, Rational::new(1, 1000).unwrap(), rate).unwrap()
+}
+
+fn excluding(frames: usize, ignored_frame_count: usize) -> Exclusion {
+    Exclusion {
+        detections: FrameDetections::new(vec![Vec::new(); frames]).unwrap(),
+        damaged: Vec::new(),
+        unstable: Vec::new(),
+        reported_frames: 0,
+        ignored_frame_count,
+        damaged_frame_count: 0,
+    }
+}
+
+#[test]
+fn the_length_of_a_video_runs_from_its_first_frame_to_the_end_of_its_last_one_whatever_its_first_pts() {
+    for first_pts in [0, 2500] {
+        let measured = extent(&timeline_from(first_pts, 10), &excluding(10, 0));
+        assert!((measured.length_s - 1.0).abs() < 1e-9, "{first_pts}: {measured:?}");
+        assert!(measured.not_analysed_s.abs() < 1e-9, "{measured:?}");
+    }
+}
+
+#[test]
+fn the_time_not_analysed_converts_the_frames_left_out_into_seconds() {
+    let measured = extent(&timeline_from(0, 10), &excluding(10, 3));
+    assert!((measured.not_analysed_s - 0.3).abs() < 1e-9, "{measured:?}");
+}
+
+#[test]
+fn a_processed_video_reports_its_length() {
+    let folder = tempfile::tempdir().unwrap();
+    let job = flight_job(folder.path());
+    let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
+    let frames = clip_frames(&job.video).len();
+    let expected = frames as f64 / 10.0;
+    assert!(
+        (processed.extent.length_s - expected).abs() < 1e-6,
+        "{:?} for {frames} frames",
+        processed.extent
+    );
+}
+
+#[test]
+fn a_video_with_too_many_tracks_brings_back_its_measures_and_the_table_left_as_it_is() {
+    let folder = tempfile::tempdir().unwrap();
+    let video = folder.path().join("flight.mp4");
+    flight::write_flight_of(&video, LONG_FLIGHT, NonZeroU32::new(KEY_INTERVAL));
+    media::payload::wipe(&video, LOST_PART..LOST_PART + 1, PARTS).unwrap();
+    let job = Job {
+        video,
+        dest: folder.path().join("out"),
+    };
+    fs::create_dir_all(&job.dest).unwrap();
+    fs::write(job.dest.join("flight_tracks.csv"), ANNOTATED_HEADER).unwrap();
+    let options = Options {
+        render: RenderConfig::new(12, 1.0, 1.5, 1).unwrap(),
+        ..Options::default()
+    };
+    let failed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &options);
+    let Err(Error::TooManyTracks {
+        count, extent, kept, ..
+    }) = failed
+    else {
+        panic!("{failed:?}");
+    };
+    assert_eq!(count, 2);
+    assert!(extent.length_s > 0.0 && extent.not_analysed_s > 0.0, "{extent:?}");
+    assert_eq!(
+        kept,
+        [Kept {
+            path: job.dest.join("flight_tracks.csv"),
+            ours: true,
+        }]
+    );
 }

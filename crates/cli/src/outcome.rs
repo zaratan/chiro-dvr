@@ -3,9 +3,12 @@ use std::io;
 use std::panic::{self, PanicHookInfo, RefUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, PoisonError};
+use std::time::{Duration, Instant};
+
+use files::previous::Kept;
 
 use crate::jobs::Job;
-use crate::process::{self, Processed};
+use crate::process::{self, Extent, Processed};
 
 #[cfg(test)]
 mod tests;
@@ -27,12 +30,29 @@ pub enum Failure {
     Panic(Panic),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Done {
-    pub tracks: usize,
+#[derive(Debug)]
+pub enum State {
+    Done {
+        tracks: usize,
+        extent: Extent,
+        kept: Vec<Kept>,
+    },
+    TooManyTracks {
+        count: usize,
+        limit: usize,
+        annotated: bool,
+        extent: Extent,
+        kept: Vec<Kept>,
+    },
+    Failed(Failure),
 }
 
-pub type Outcome = Result<Done, Failure>;
+#[derive(Debug)]
+pub struct Row {
+    pub job: Job,
+    pub elapsed: Duration,
+    pub state: State,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rank {
@@ -44,17 +64,19 @@ pub fn run_all(
     jobs: &[Job],
     work: impl Fn(&Job, Rank) -> Result<Processed, process::Error> + RefUnwindSafe,
     mut report: impl FnMut(&Job, Rank, &Result<Processed, Failure>) -> io::Result<()>,
-) -> io::Result<Vec<Outcome>> {
-    let mut outcomes = Vec::with_capacity(jobs.len());
+) -> io::Result<Vec<Row>> {
+    let mut rows = Vec::with_capacity(jobs.len());
     for (job, position) in jobs.iter().zip(1..) {
         let rank = Rank {
             position,
             total: jobs.len(),
         };
         forget_panic();
+        let started = Instant::now();
         IN_VIDEO.store(true, Ordering::SeqCst);
         let caught = panic::catch_unwind(|| work(job, rank));
         IN_VIDEO.store(false, Ordering::SeqCst);
+        let elapsed = started.elapsed();
         let result = match caught {
             Ok(Ok(processed)) => Ok(processed),
             Ok(Err(error)) => Err(Failure::Error(error)),
@@ -64,11 +86,37 @@ pub fn run_all(
             }))),
         };
         report(job, rank, &result)?;
-        outcomes.push(result.map(|processed| Done {
-            tracks: processed.tracks.len(),
-        }));
+        rows.push(Row {
+            job: job.clone(),
+            elapsed,
+            state: state(result),
+        });
     }
-    Ok(outcomes)
+    Ok(rows)
+}
+
+fn state(result: Result<Processed, Failure>) -> State {
+    match result {
+        Ok(processed) => State::Done {
+            tracks: processed.tracks.len(),
+            extent: processed.extent,
+            kept: processed.kept,
+        },
+        Err(Failure::Error(process::Error::TooManyTracks {
+            count,
+            limit,
+            annotated,
+            extent,
+            kept,
+        })) => State::TooManyTracks {
+            count,
+            limit,
+            annotated,
+            extent,
+            kept,
+        },
+        Err(failure) => State::Failed(failure),
+    }
 }
 
 pub fn quiet_panics() {
@@ -100,10 +148,6 @@ fn forget_panic() {
 
 fn first_panic() -> Option<Panic> {
     FIRST_PANIC.lock().unwrap_or_else(PoisonError::into_inner).take()
-}
-
-pub fn all_succeeded(outcomes: &[Outcome]) -> bool {
-    outcomes.iter().all(Result::is_ok)
 }
 
 fn message(payload: &(dyn Any + Send)) -> String {

@@ -1,16 +1,8 @@
-processed = { $video }: { $tracks ->
-        [one] { $tracks } track
-       *[other] { $tracks } tracks
-    } -> { $dest }
 too-many-tracks = { $video }: { $count } tracks, above { $limit }: { $annotated ->
         [yes] clips and annotated video skipped
        *[no] clips skipped
     }
 clips-redone = { $video }: { $names } written again with openh264 after a VideoToolbox error: { $causes }
-table-kept = { $video }: { $table } left as it is, it does not have the form of a tracks table{ $written ->
-        [no] ; the new table is not written
-       *[yes] {""}
-    }
 video-step = [{ $position }/{ $total }] { $video } — { $step ->
         [detection] detection
         [tracking] tracking
@@ -120,3 +112,41 @@ settings-refused = the settings are refused: { $causes }
 no-video = no video found
 videos-refused = videos refused: { $causes }
 folders-refused = no video is processed, the results cannot be written in: { $folders }
+tally-title = Summary: { $total ->
+        [one] { $total } video
+       *[other] { $total } videos
+    }
+tally-done = { $count } done
+tally-too-many-count = { $count } with too many tracks
+tally-failed-count = { $count } failed
+tally-video = video
+tally-length = length
+tally-tracks = tracks
+tally-not-analysed = not analysed
+tally-compute = compute
+tally-failed-cell = failed
+tally-too-many-cell = { $count }, too many
+tally-too-many-heading = Too many tracks (table and summary image written, no clips):
+tally-too-many = { $video }: { $count } tracks, above { $limit }
+tally-failed-heading = { $failed ->
+        [one] { $failed } video
+       *[other] { $failed } videos
+    } of { $total } failed:
+tally-kept-heading = { $count ->
+        [one] Table left as it is:
+       *[other] Tables left as they are:
+    }
+tally-kept = { $video }: { $table } does not have the form of a tracks table{ $written ->
+        [no] ; the new table is not written
+       *[yes] {""}
+    }
+tally-changed = Changed settings: { $settings }
+tally-regions = { $count ->
+        [one] { $count } region
+       *[other] { $count } regions
+    }
+tally-failure-todo = {"  "}what to do: { $cause ->
+        [unsupported] report it, with the detail written during the run
+        [encoding] run again; if it happens again, report it with the detail written during the run
+       *[unexpected] report it with the detail written during the run
+    }

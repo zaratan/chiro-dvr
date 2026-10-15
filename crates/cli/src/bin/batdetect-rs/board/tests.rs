@@ -1,0 +1,273 @@
+use std::num::NonZeroUsize;
+use std::path::PathBuf;
+use std::time::Duration;
+
+use batdetect::jobs::Job;
+use batdetect::options::Options;
+use batdetect::outcome::{Failure, Panic, Row, State};
+use batdetect::process::{self, Extent};
+use batdetect::tally::Tally;
+use engine::config::DetectConfig;
+use engine::detection;
+use engine::input;
+use engine::lost::Losses;
+use engine::settings::DetectSettings;
+use files::previous::Kept;
+use tracking::stability::StabilityConfig;
+use tracking::track::TrackConfig;
+use types::language::Language;
+
+use super::write;
+use crate::texts::Texts;
+
+fn row(dest: &str, seconds: u64, state: State) -> Row {
+    let dest = PathBuf::from(dest);
+    Row {
+        job: Job {
+            video: PathBuf::from(format!("{}.mp4", dest.display())),
+            dest,
+        },
+        elapsed: Duration::from_secs(seconds),
+        state,
+    }
+}
+
+fn extent(length_s: f64, not_analysed_s: f64) -> Extent {
+    Extent {
+        length_s,
+        not_analysed_s,
+    }
+}
+
+fn done(tracks: usize, extent: Extent) -> State {
+    State::Done {
+        tracks,
+        extent,
+        kept: Vec::new(),
+    }
+}
+
+fn damaged() -> State {
+    State::Failed(Failure::Error(process::Error::Detection(detection::Error::Input(
+        input::Error::FrameCount {
+            path: PathBuf::from("nuit/batdetect/video_094.mp4"),
+            announced: 30,
+            losses: Losses::default(),
+            decoded: 20,
+        },
+    ))))
+}
+
+fn evening() -> Tally {
+    let kept = vec![Kept {
+        path: PathBuf::from("nuit/batdetect/video_092/video_092_pistes.csv"),
+        ours: true,
+    }];
+    Tally {
+        rows: vec![
+            row("nuit/batdetect/video_089", 130, done(48, extent(962.4, 41.2))),
+            row(
+                "nuit/batdetect/video_092",
+                17,
+                State::Done {
+                    tracks: 14,
+                    extent: extent(301.0, 0.0),
+                    kept,
+                },
+            ),
+            row("nuit/batdetect/video_094", 0, damaged()),
+            row(
+                "nuit/batdetect/video_099",
+                72,
+                State::TooManyTracks {
+                    count: 412,
+                    limit: 300,
+                    annotated: false,
+                    extent: extent(600.0, 62.5),
+                    kept: Vec::new(),
+                },
+            ),
+            row("autre/batdetect/video_121", 100, done(1234, extent(598.0, 12.0))),
+        ],
+    }
+}
+
+fn written(tally: &Tally, options: &Options, language: Language) -> String {
+    let mut out = Vec::new();
+    write(&mut out, tally, options, Texts::new(language)).unwrap();
+    String::from_utf8(out).unwrap()
+}
+
+fn tuned() -> Options {
+    let settings = DetectSettings {
+        threshold: 11.0,
+        ..DetectSettings::default()
+    };
+    Options {
+        detect: DetectConfig::try_from(&settings).unwrap(),
+        ..Options::default()
+    }
+}
+
+#[test]
+fn the_french_summary_groups_the_videos_by_folder_then_lists_what_went_wrong_and_what_was_changed() {
+    let expected = "\
+Bilan : 5 vidéos, 3 réussies, 1 avec trop de pistes, 1 en échec
+
+nuit/batdetect
+  vidéo            durée      pistes   non analysé       calcul
+  video_089   16 min 2 s          48          42 s   2 min 10 s
+  video_092    5 min 1 s          14           0 s         17 s
+  video_094            —       échec             —          0 s
+  video_099   10 min 0 s   412, trop     1 min 3 s   1 min 12 s
+
+autre/batdetect
+  vidéo            durée   pistes   non analysé       calcul
+  video_121   9 min 58 s    1\u{202f}234          12 s   1 min 40 s
+
+Trop de pistes (tableau et image résumé écrits, pas d'extraits) :
+  video_099 : 412 pistes, au-delà de 300
+    à faire : regarder l'image résumé ; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
+
+1 vidéo sur 5 en échec :
+  video_094 : la vidéo est abîmée ou incomplète
+    à faire : la recopier depuis les jumelles par le câble USB, sans passer par Stream Vision 2, puis relancer ; si \
+elle reste abîmée, le signaler
+
+Tableau laissé tel quel :
+  video_092 : video_092_pistes.csv n'a pas la forme d'un tableau des pistes ; le nouveau tableau n'est pas écrit
+
+Réglages changés : --threshold 11
+";
+    assert_eq!(written(&evening(), &tuned(), Language::French), expected);
+}
+
+#[test]
+fn the_english_summary_has_the_same_shape() {
+    let summary = written(&evening(), &tuned(), Language::English);
+    let lines: Vec<&str> = summary.lines().collect();
+    assert_eq!(lines[0], "Summary: 5 videos, 3 done, 1 with too many tracks, 1 failed");
+    assert_eq!(
+        lines[3],
+        "  video           length          tracks   not analysed      compute"
+    );
+    assert!(
+        lines.contains(&"  video_121   9 min 58 s     1234           12 s   1 min 40 s"),
+        "{summary}"
+    );
+    assert!(lines.contains(&"1 video of 5 failed:"), "{summary}");
+    assert!(lines.contains(&"Changed settings: --threshold 11"), "{summary}");
+    assert!(lines.contains(&"Table left as it is:"), "{summary}");
+}
+
+#[test]
+fn a_summary_of_videos_all_done_with_default_settings_has_only_its_title_and_its_table() {
+    let tally = Tally {
+        rows: vec![row("nuit/batdetect/video_092", 17, done(1, extent(301.0, 0.0)))],
+    };
+    assert_eq!(
+        written(&tally, &Options::default(), Language::French),
+        "Bilan : 1 vidéo, 1 réussie\n\nnuit/batdetect\n  vidéo           durée   pistes   non analysé   calcul\n  \
+         video_092   5 min 1 s        1           0 s     17 s\n"
+    );
+}
+
+#[test]
+fn a_long_video_counts_hours_and_a_fraction_of_a_second_not_analysed_still_shows() {
+    let tally = Tally {
+        rows: vec![row("nuit/batdetect/longue", 4323, done(2, extent(7200.0, 0.3)))],
+    };
+    let summary = written(&tally, &Options::default(), Language::French);
+    assert!(
+        summary.contains("  longue   2 h 0 min 0 s        2           1 s   1 h 12 min 3 s"),
+        "{summary}"
+    );
+}
+
+#[test]
+fn a_name_decomposed_by_the_file_system_is_composed_before_its_width_is_counted() {
+    let tally = Tally {
+        rows: vec![row(
+            "nuit/batdetect/e\u{301}te\u{301}te\u{301}",
+            1,
+            done(1, extent(1.0, 0.0)),
+        )],
+    };
+    let summary = written(&tally, &Options::default(), Language::French);
+    let lines: Vec<&str> = summary.lines().collect();
+    assert_eq!(lines[3], "  vidéo   durée   pistes   non analysé   calcul", "{summary}");
+    assert!(lines[4].starts_with("  \u{e9}t\u{e9}t\u{e9}   "), "{summary}");
+}
+
+#[test]
+fn several_failures_and_several_tables_left_as_they_are_are_counted_in_the_plural() {
+    let panic = State::Failed(Failure::Panic(Panic {
+        message: "boom".to_owned(),
+        location: None,
+    }));
+    let kept = |name: &str| State::Done {
+        tracks: 1,
+        extent: extent(1.0, 0.0),
+        kept: vec![Kept {
+            path: PathBuf::from(format!("nuit/batdetect/{name}/{name}_tracks.csv")),
+            ours: false,
+        }],
+    };
+    let tally = Tally {
+        rows: vec![
+            row("nuit/batdetect/a", 0, damaged()),
+            row("nuit/batdetect/b", 0, panic),
+            row("nuit/batdetect/c", 1, kept("c")),
+            row("nuit/batdetect/d", 1, kept("d")),
+        ],
+    };
+    let french = written(&tally, &Options::default(), Language::French);
+    let lines: Vec<&str> = french.lines().collect();
+    assert!(lines.contains(&"2 vidéos sur 4 en échec :"), "{french}");
+    assert!(lines.contains(&"Tableaux laissés tels quels :"), "{french}");
+    assert!(
+        lines.contains(&"    à faire : le signaler avec le détail écrit pendant le traitement"),
+        "{french}"
+    );
+    assert!(!french.contains("ci-dessous"), "{french}");
+    let english = written(&tally, &Options::default(), Language::English);
+    let lines: Vec<&str> = english.lines().collect();
+    assert!(lines.contains(&"2 videos of 4 failed:"), "{english}");
+    assert!(lines.contains(&"Tables left as they are:"), "{english}");
+    assert!(!english.contains("detail below"), "{english}");
+}
+
+#[test]
+fn the_changed_settings_are_written_as_they_are_typed() {
+    let settings = DetectSettings {
+        threshold: 6.5,
+        work_width: 480,
+        osd_regions: vec!["0,0,1,0.05".parse().unwrap(), "0,0.9,1,1".parse().unwrap()],
+        ..DetectSettings::default()
+    };
+    let track = TrackConfig::default();
+    let options = Options {
+        detect: DetectConfig::try_from(&settings).unwrap(),
+        track: TrackConfig::new(
+            track.max_jump(),
+            track.max_gap(),
+            NonZeroUsize::new(3).unwrap(),
+            track.min_travel(),
+            track.twin_distance(),
+            track.max_median_turn(),
+        )
+        .unwrap(),
+        stability: StabilityConfig::new(None, StabilityConfig::default().pad_s()).unwrap(),
+        ..Options::default()
+    };
+    let tally = Tally {
+        rows: vec![row("nuit/batdetect/v", 1, done(1, extent(1.0, 0.0)))],
+    };
+    let summary = written(&tally, &options, Language::French);
+    assert!(
+        summary.ends_with(
+            "Réglages changés : --threshold 6.5, --min-hits 3, --max-blobs 0, --work-width 480, --osd-region (2 zones)\n"
+        ),
+        "{summary}"
+    );
+}

@@ -2,7 +2,6 @@ use std::error::Error as _;
 use std::io;
 use std::path::PathBuf;
 
-use engine::config::DetectConfig;
 use engine::detection;
 use engine::input;
 use media::decode;
@@ -40,7 +39,7 @@ pub enum Cause {
 
 pub fn cause(error: &Error, options: &Options) -> Cause {
     match error {
-        Error::Detection(detection) => detecting(detection, tuned(&options.detect)),
+        Error::Detection(detection) => detecting(detection, options.tunes_the_frames()),
         Error::Folder { .. } | Error::Files(_) | Error::Overview(_) => writing(error).unwrap_or(Cause::Unexpected),
         Error::Previous(previous) => in_use(previous).or_else(|| writing(error)).unwrap_or(Cause::Unexpected),
         Error::Encoders(fallback::Error::Scratch(_)) | Error::Source(_) => Cause::Encoding,
@@ -49,6 +48,7 @@ pub fn cause(error: &Error, options: &Options) -> Cause {
             count,
             limit,
             annotated,
+            ..
         } => Cause::TooManyTracks {
             count: *count,
             limit: *limit,
@@ -56,10 +56,6 @@ pub fn cause(error: &Error, options: &Options) -> Cause {
         },
         Error::Progress(_) | Error::Timeline(_) | Error::Tracking(_) => Cause::Unexpected,
     }
-}
-
-fn tuned(detect: &DetectConfig) -> bool {
-    detect.work_width() != DetectConfig::default().work_width() || !detect.osd_regions().is_empty()
 }
 
 fn detecting(error: &detection::Error, tuned: bool) -> Cause {
