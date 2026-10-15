@@ -131,24 +131,7 @@ jobs:
         with:
           rust: true
       - id: ffmpeg-key
-        env:
-          EVENT: ${{ github.event_name }}
-          TOOLCHAIN: ${{ hashFiles('rust-toolchain.toml') }}
-          LOCK: ${{ hashFiles('Cargo.lock') }}
-        run: |
-          echo "XDG_CACHE_HOME=$HOME/.cache" >> "$GITHUB_ENV"
-          fingerprint=$(bash packaging/ffmpeg-unix.sh --fingerprint)
-          image=${ImageOS:-$RUNNER_OS}
-          target_prefix="cargo-$GITHUB_JOB-$RUNNER_OS-$RUNNER_ARCH-$image-$fingerprint-$TOOLCHAIN-"
-          target_restore_key=
-          if [ "$EVENT" = pull_request ]; then
-            target_restore_key=$target_prefix
-          fi
-          {
-            echo "key=ffmpeg-$image-$RUNNER_ARCH-$fingerprint"
-            echo "target-key=$target_prefix$LOCK"
-            echo "target-restore-key=$target_restore_key"
-          } >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/ffmpeg-key
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
@@ -198,24 +181,7 @@ jobs:
         with:
           rust: true
       - id: ffmpeg-key
-        env:
-          EVENT: ${{ github.event_name }}
-          TOOLCHAIN: ${{ hashFiles('rust-toolchain.toml') }}
-          LOCK: ${{ hashFiles('Cargo.lock') }}
-        run: |
-          echo "XDG_CACHE_HOME=$HOME/.cache" >> "$GITHUB_ENV"
-          fingerprint=$(bash packaging/ffmpeg-unix.sh --fingerprint)
-          image=${ImageOS:-$RUNNER_OS}
-          target_prefix="cargo-$GITHUB_JOB-$RUNNER_OS-$RUNNER_ARCH-$image-$fingerprint-$TOOLCHAIN-"
-          target_restore_key=
-          if [ "$EVENT" = pull_request ]; then
-            target_restore_key=$target_prefix
-          fi
-          {
-            echo "key=ffmpeg-$image-$RUNNER_ARCH-$fingerprint"
-            echo "target-key=$target_prefix$LOCK"
-            echo "target-restore-key=$target_restore_key"
-          } >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/ffmpeg-key
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
@@ -264,24 +230,7 @@ jobs:
         with:
           rust: true
       - id: ffmpeg-key
-        env:
-          EVENT: ${{ github.event_name }}
-          TOOLCHAIN: ${{ hashFiles('rust-toolchain.toml') }}
-          LOCK: ${{ hashFiles('Cargo.lock') }}
-        run: |
-          echo "XDG_CACHE_HOME=$HOME/.cache" >> "$GITHUB_ENV"
-          fingerprint=$(bash packaging/ffmpeg-unix.sh --fingerprint)
-          image=${ImageOS:-$RUNNER_OS}
-          target_prefix="cargo-$GITHUB_JOB-$RUNNER_OS-$RUNNER_ARCH-$image-$fingerprint-$TOOLCHAIN-"
-          target_restore_key=
-          if [ "$EVENT" = pull_request ]; then
-            target_restore_key=$target_prefix
-          fi
-          {
-            echo "key=ffmpeg-$image-$RUNNER_ARCH-$fingerprint"
-            echo "target-key=$target_prefix$LOCK"
-            echo "target-restore-key=$target_restore_key"
-          } >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/ffmpeg-key
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
@@ -314,24 +263,9 @@ jobs:
         with:
           rust: true
       - id: ffmpeg-key
-        env:
-          EVENT: ${{ github.event_name }}
-          TOOLCHAIN: ${{ hashFiles('rust-toolchain.toml') }}
-          LOCK: ${{ hashFiles('Cargo.lock') }}
-        run: |
-          echo "XDG_CACHE_HOME=$HOME/.cache" >> "$GITHUB_ENV"
-          fingerprint=$(bash packaging/ffmpeg-unix.sh --fingerprint)
-          image=${ImageOS:-$RUNNER_OS}
-          target_prefix="cargo-rust-reference-$RUNNER_OS-$RUNNER_ARCH-$image-$fingerprint-$TOOLCHAIN-"
-          target_restore_key=
-          if [ "$EVENT" = pull_request ]; then
-            target_restore_key=$target_prefix
-          fi
-          {
-            echo "key=ffmpeg-$image-$RUNNER_ARCH-$fingerprint"
-            echo "target-key=$target_prefix$LOCK"
-            echo "target-restore-key=$target_restore_key"
-          } >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/ffmpeg-key
+        with:
+          job: rust-reference
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
@@ -357,44 +291,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
-        with:
-          msystem: UCRT64
-          path-type: inherit
-          update: false
-          install: >-
-            make
-            diffutils
-            unzip
-            mingw-w64-ucrt-x86_64-pkgconf
-      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
-        with:
-          arch: x64
-      - shell: msys2 {0}
-        run: |
-          mv /usr/bin/link.exe /usr/bin/link-coreutils.exe
-          which -a link cl lib dumpbin pkg-config cargo || true
-      - run: rustup toolchain install && cargo --version
+      - uses: ./.github/actions/windows
       - id: ffmpeg-key
-        shell: msys2 {0}
-        env:
-          EVENT: ${{ github.event_name }}
-          TOOLCHAIN: ${{ hashFiles('rust-toolchain.toml') }}
-          LOCK: ${{ hashFiles('Cargo.lock') }}
-        run: |
-          echo "XDG_CACHE_HOME=$(cygpath -m "$RUNNER_TEMP")/cache" >> "$GITHUB_ENV"
-          fingerprint=$(bash packaging/ffmpeg-windows.sh --fingerprint)
-          image=${ImageOS:-$RUNNER_OS}
-          target_prefix="cargo-$GITHUB_JOB-$RUNNER_OS-$RUNNER_ARCH-$image-$fingerprint-$TOOLCHAIN-"
-          target_restore_key=
-          if [ "$EVENT" = pull_request ]; then
-            target_restore_key=$target_prefix
-          fi
-          {
-            echo "key=ffmpeg-$image-$RUNNER_ARCH-$fingerprint"
-            echo "target-key=$target_prefix$LOCK"
-            echo "target-restore-key=$target_restore_key"
-          } >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/ffmpeg-key
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
@@ -462,44 +361,9 @@ jobs:
           path: .git/lfs
           key: lfs-extract-${{ hashFiles('.lfs-assets-id') }}
           enableCrossOsArchive: true
-      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
-        with:
-          msystem: UCRT64
-          path-type: inherit
-          update: false
-          install: >-
-            make
-            diffutils
-            unzip
-            mingw-w64-ucrt-x86_64-pkgconf
-      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
-        with:
-          arch: x64
-      - shell: msys2 {0}
-        run: |
-          mv /usr/bin/link.exe /usr/bin/link-coreutils.exe
-          which -a link cl lib dumpbin pkg-config cargo || true
-      - run: rustup toolchain install && cargo --version
+      - uses: ./.github/actions/windows
       - id: ffmpeg-key
-        shell: msys2 {0}
-        env:
-          EVENT: ${{ github.event_name }}
-          TOOLCHAIN: ${{ hashFiles('rust-toolchain.toml') }}
-          LOCK: ${{ hashFiles('Cargo.lock') }}
-        run: |
-          echo "XDG_CACHE_HOME=$(cygpath -m "$RUNNER_TEMP")/cache" >> "$GITHUB_ENV"
-          fingerprint=$(bash packaging/ffmpeg-windows.sh --fingerprint)
-          image=${ImageOS:-$RUNNER_OS}
-          target_prefix="cargo-$GITHUB_JOB-$RUNNER_OS-$RUNNER_ARCH-$image-$fingerprint-$TOOLCHAIN-"
-          target_restore_key=
-          if [ "$EVENT" = pull_request ]; then
-            target_restore_key=$target_prefix
-          fi
-          {
-            echo "key=ffmpeg-$image-$RUNNER_ARCH-$fingerprint"
-            echo "target-key=$target_prefix$LOCK"
-            echo "target-restore-key=$target_restore_key"
-          } >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/ffmpeg-key
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target

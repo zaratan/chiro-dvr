@@ -535,7 +535,12 @@ Forme et tests :
   restauré, puis sauvé dès la construction, même si la suite échoue. L'action `setup`
   n'installe les outils cargo et la toolchain qu'avec `rust: true`. Premier passage
   (PR #130), sans cache de `target/` : `rust` 3 min 04 sur macOS et 3 min 46 sous Linux ;
-  `rust-reference` 1 min 15.
+  `rust-reference` 1 min 15. Depuis #181, deux actions composites servent à chaque tâche :
+  - `.github/actions/ffmpeg-key` pose `XDG_CACHE_HOME` et calcule les clés des caches de
+    FFmpeg et de `target/`, par un seul script, `key.sh`, sous `bash`, ou sous MSYS2 sur
+    Windows.
+  - `.github/actions/windows` met en place MSYS2, MSVC et rustup, et renomme le
+    `link.exe` de coreutils.
 - **Tâches `rust-windows` et `rust-windows-slow`**, indépendantes des autres et
   parallèles depuis #179 (812 s pour la tâche unique, dont 347 s de tests rapides et 332 s
   de `slow`). Quand l'empreinte de FFmpeg change, chacune le construit ; seule
@@ -565,7 +570,9 @@ Forme et tests :
     clé trouvée telle quelle ne se resauve pas.
   - Il se sauve en fin de tâche réussie.
   - Sa clé porte, dans cet ordre, la tâche, l'OS, l'architecture, l'image du runner
-    (`ImageOS`), **l'empreinte de FFmpeg**, `rust-toolchain.toml`, puis `Cargo.lock`.
+    (`ImageOS`), **l'empreinte de FFmpeg**, `rust-toolchain.toml`, puis `Cargo.lock`
+    (action `ffmpeg-key` ; la tâche est celle qui appelle, sauf `rust-settings`, qui
+    passe `job: rust-reference`).
     Cargo ne suit pas les `.a`. Un `target/` construit avec un autre FFmpeg garderait
     donc des binaires déjà liés à l'ancien, et les liaisons de bindgen tirées de ses
     en-têtes (voir « Reconstruction »).
