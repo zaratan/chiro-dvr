@@ -1603,7 +1603,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
 - **`cli`** → `engine`, `tracking`, `files`, `summary`, `render`, `draw`, `media`, `types` : paquet `batdetect`, binaire
   `batdetect-rs` (#123). Tout texte vu par l'utilisateur vit dans les deux catalogues
   Fluent `locales/{fr,en}.ftl`, lus par `texts.rs` (#114) ; `messages.rs` fait les messages
-  à partir des vidéos et des erreurs, `arguments.rs` la ligne de commande. La bibliothèque (`failure`, `jobs`, `language`, `options`, `process`, `progress`, `settings`, `writable`)
+  à partir des vidéos et des erreurs, `arguments.rs` la ligne de commande. La bibliothèque (`failure`, `jobs`, `language`, `options`, `process`, `progress`, `settings`, `tally`, `writable`)
   sert aux tests.
   - `batdetect-rs VIDÉO|DOSSIER… [-o DOSSIER]`. Sans `-o`/`--out-dir`, les résultats de
     chaque vidéo vont dans `<dossier de la vidéo>/batdetect/` (#86) ; l'aide le dit
@@ -1693,8 +1693,46 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       est nommé avec sa cause : « aucune vidéo n'est traitée, les résultats ne peuvent pas
       s'écrire dans : … » (Fluent).
     - Un `-o` qui est un fichier est refusé de même, avant la détection.
-  - Vidéo et étape en cours (#63), sur la sortie d'erreur. La sortie standard garde la
-    ligne « N pistes -> dossier » de chaque vidéo réussie.
+  - Bilan de fin de soirée (#65), écrit une fois après `run_all`, sur la sortie standard.
+    - Modèle sans texte dans la bibliothèque : `tally::Tally` (les `Row` de `run_all`),
+      avec `roots()` (les dossiers de résultats dans l'ordre où ils apparaissent),
+      `rows_in`, `done`, `too_many`, `failed`, `kept` et `all_done`. Il servira à #69 et
+      #71. Mise en forme dans le binaire : `board::write`.
+    - Titre : « Bilan : 12 vidéos, 10 réussies, 1 avec trop de pistes, 1 en échec » (les
+      états absents ne sont pas nommés). Puis un tableau par dossier de résultats (#86),
+      les vidéos dans l'ordre du lot : vidéo, durée, pistes, non analysé, calcul.
+      - La vidéo est nommée par son dossier de résultats, qui porte déjà la levée
+        d'ambiguïté de #86 et #91.
+      - Le nom est à gauche, les nombres et les durées à droite. Les largeurs se comptent
+        en `char`, après composition NFC, sans crate. Une cellule inconnue vaut « — ».
+      - Pistes : le nombre par le formateur de #114, « échec », ou « 412, trop ».
+      - Durées en « 1 h 12 min 3 s » : la durée et le calcul sont tronqués à la seconde, le
+        non-analysé arrondi au-dessus. `summary::header::duration` n'a pas d'heures et
+        reste celui de l'image résumé.
+    - Mesures : `process::extent(&Timeline, &Exclusion) -> Extent`, une fonction pure.
+      - `length_s` va de la première image à la fin de la dernière, sans le premier `pts`.
+      - `not_analysed_s` vaut `Exclusion::ignored_frame_count` (l'union des plages abîmées
+        et instables) en secondes.
+      - `Processed` et `Error::TooManyTracks` les portent. `TooManyTracks` porte aussi le
+        CSV laissé : il naît dans `render_clips`, après le CSV.
+    - Sous le tableau, quatre sections, omises quand elles sont vides :
+      - « Trop de pistes (tableau et image résumé écrits, pas d'extraits) », avec le « à
+        faire » de #64 ;
+      - « 1 vidéo sur 12 en échec », avec la raison et le « à faire » de #64, sans le
+        détail anglais, qui reste sur la sortie d'erreur. Le « à faire » qui renvoie au
+        détail ci-dessous devient, dans le bilan, « avec le détail écrit pendant le
+        traitement » (`tally-failure-todo`) ;
+      - « Tableau laissé tel quel » (#115) ;
+      - « Réglages changés : --threshold 11, --max-blobs 0 ». Ce sont les cinq réglages de
+        la détection (`--threshold`, `--min-hits`, `--max-blobs`, `--work-width`,
+        `--osd-region` avec son nombre de zones), donnés par `Options::changed`, avec
+        leur valeur telle qu'elle se tape.
+    - Le rappel des réglages n'existait pas avant #65 : #113 n'écrit pas de ligne de départ.
+    - Codes de sortie inchangés : 1 si une vidéo a échoué ou a trop de pistes. Un bilan
+      qui ne peut pas s'écrire donne aussi 1. Si une écriture au fil de l'eau échoue,
+      `run_all` s'arrête et il n'y a pas de bilan.
+  - Vidéo et étape en cours (#63), sur la sortie d'erreur. La sortie standard ne porte que
+    le bilan de fin de soirée (#65).
     - `progress::Progress` est le protocole d'étapes de la bibliothèque : `process` appelle
       `step` avant la détection (lecture comprise), le suivi (ménage, CSV, essai des
       encodeurs et `params.json` compris), l'image résumé et les extraits (zooms et vidéo
@@ -1708,7 +1746,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       « — image résumé », « — extraits ». La vidéo est nommée sans extension, et son rang
       compte dans le lot.
     - La ligne d'une vidéo finie reste : « [3/12] video_092 — 14 pistes », ou « — échec ».
-    - Les lignes d'événement (CSV laissé, extrait refait, cause d'un échec) s'écrivent
+    - Les lignes d'événement (extrait refait, cause d'un échec) s'écrivent
       au-dessus de cette dernière ligne.
     - Le mode se choisit par `std::io::IsTerminal` sur la sortie d'erreur.
       - Redirigée : une ligne par étape, rien n'est effacé.
@@ -1727,9 +1765,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     - Il retire les sorties des deux langues et des anciens noms : sur l'extrait, une
       passe en français, puis en anglais, puis en français dans le même `-o`, ne laisse
       que les fichiers de la dernière, sous les noms de la v0.1.1.
-    - Un CSV qui n'a pas notre forme est laissé, et une ligne le dit sur la sortie
-      d'erreur, avant la ligne de réussite : « {vidéo} : {csv} laissé tel quel, il n'a
-      pas la forme d'un tableau des pistes ».
+    - Un CSV qui n'a pas notre forme est laissé, et le bilan le dit (#65), sous « Tableau
+      laissé tel quel » : « {vidéo} : {csv} n'a pas la forme d'un tableau des pistes ».
     - Si ce CSV porte le nom de la langue courante, ou si un fichier occupe encore ce
       nom après le ménage (`Error::Taken`, autre casse), le nouveau tableau n'est pas
       écrit par-dessus : `Processed::csv` vaut `None`, et la ligne finit par « ; le
@@ -1851,9 +1888,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     chaque vidéo dans `catch_unwind`, le seul du code livré (règle 10), sur un travail
     `Fn + RefUnwindSafe` : le compilateur vérifie qu'il ne modifie rien de ce qu'il capture,
     appelle le compte rendu au fil de l'eau (le binaire n'y fait qu'écrire) et rend un
-    résultat par vidéo, `Result<Done, Failure>` (`Failure::Error` ou `Failure::Panic` avec
-    son message et son lieu), que le bilan de #65 reprendra. Une panique donne « erreur
-    interne », avec le message et le lieu en détail, compte comme un échec (code 1), et la
+    `Row` par vidéo (#65) : le `Job`, le temps de calcul (`Instant` autour de
+    `catch_unwind`, détection comprise) et un `State` : `Done`, `TooManyTracks` ou
+    `Failed(Failure)` (`Failure::Error` ou `Failure::Panic` avec son message et son lieu).
+    Une panique donne « erreur interne », avec le message et le lieu en détail, compte comme un échec (code 1), et la
     vidéo suivante est traitée.
     - Crochet (#64) : `outcome::quiet_panics()`, appelé une fois par `main`, garde le
       crochet par défaut. Pendant une vidéo (un `AtomicBool` mis par `run_all` autour de

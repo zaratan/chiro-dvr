@@ -1,12 +1,14 @@
 use std::io;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::thread;
+use std::time::Duration;
 
 use render::clips::Rendered;
 
-use super::{Done, Failure, Outcome, Panic, Rank, all_succeeded, run_all};
+use super::{Failure, Rank, Row, State, run_all};
 use crate::jobs::Job;
-use crate::process::{Error, Processed};
+use crate::process::{Error, Extent, Processed};
 
 fn jobs(count: usize) -> Vec<Job> {
     (0..count)
@@ -20,6 +22,7 @@ fn jobs(count: usize) -> Vec<Job> {
 fn processed() -> Processed {
     Processed {
         tracks: Vec::new(),
+        extent: EXTENT,
         csv: Some(PathBuf::from("tracks.csv")),
         kept: Vec::new(),
         summaries: Vec::new(),
@@ -27,15 +30,27 @@ fn processed() -> Processed {
     }
 }
 
-fn kinds(outcomes: &[Outcome]) -> Vec<&'static str> {
-    outcomes
-        .iter()
-        .map(|outcome| match outcome {
-            Ok(_) => "done",
-            Err(Failure::Error(_)) => "error",
-            Err(Failure::Panic(_)) => "panic",
+const EXTENT: Extent = Extent {
+    length_s: 12.0,
+    not_analysed_s: 1.0,
+};
+
+fn kinds(rows: &[Row]) -> Vec<&'static str> {
+    rows.iter()
+        .map(|row| match row.state {
+            State::Done { .. } => "done",
+            State::TooManyTracks { .. } => "too many",
+            State::Failed(Failure::Error(_)) => "error",
+            State::Failed(Failure::Panic(_)) => "panic",
         })
         .collect()
+}
+
+fn panic_message(row: &Row) -> Option<&str> {
+    match &row.state {
+        State::Failed(Failure::Panic(panic)) => Some(&panic.message),
+        _ => None,
+    }
 }
 
 #[test]
@@ -62,8 +77,16 @@ fn a_panic_on_the_second_video_leaves_the_third_one_processed_and_reported() {
             (PathBuf::from("video_2.mp4"), true)
         ]
     );
-    assert!(matches!(&outcomes[1], Err(Failure::Panic(panic)) if panic.message.contains("forced panic")));
-    assert!(matches!(outcomes[0], Ok(Done { tracks: 0 })));
+    assert!(panic_message(&outcomes[1]).is_some_and(|message| message.contains("forced panic")));
+    assert!(matches!(
+        outcomes[0].state,
+        State::Done {
+            tracks: 0,
+            extent: EXTENT,
+            ..
+        }
+    ));
+    assert_eq!(outcomes[2].job, jobs(3)[2]);
 }
 
 #[test]
@@ -74,10 +97,10 @@ fn the_message_of_a_panic_is_kept_whether_it_is_a_literal_or_formatted() {
     ];
     for (work, expected) in panicking.into_iter().zip(["literal", "formatted video_0.mp4"]) {
         let outcomes = run_all(&jobs(1), work, |_, _, _| Ok(())).unwrap();
-        assert!(matches!(&outcomes[0], Err(Failure::Panic(panic)) if panic.message == expected));
+        assert_eq!(panic_message(&outcomes[0]), Some(expected));
     }
     let outcomes = run_all(&jobs(1), |_, _| std::panic::panic_any(7_u8), |_, _, _| Ok(())).unwrap();
-    assert!(matches!(&outcomes[0], Err(Failure::Panic(panic)) if panic.message == "unknown panic"));
+    assert_eq!(panic_message(&outcomes[0]), Some("unknown panic"));
 }
 
 #[test]
@@ -96,22 +119,53 @@ fn a_failed_report_stops_the_loop_before_the_next_video() {
 }
 
 #[test]
-fn the_lot_succeeds_only_when_every_video_is_done() {
-    assert!(all_succeeded(&[]));
-    assert!(all_succeeded(&[Ok(Done { tracks: 2 })]));
-    assert!(!all_succeeded(&[
-        Ok(Done { tracks: 2 }),
-        Err(Failure::Panic(Panic {
-            message: "boom".to_owned(),
-            location: None
-        }))
-    ]));
-    let failed = Err(Failure::Error(Error::TooManyTracks {
-        count: 301,
-        limit: 300,
-        annotated: false,
-    }));
-    assert!(!all_succeeded(&[failed]));
+fn too_many_tracks_becomes_a_state_of_its_own_with_its_measures_and_the_other_errors_stay_failures() {
+    let rows = run_all(
+        &jobs(2),
+        |_, rank| {
+            if rank.position == 1 {
+                Err(Error::TooManyTracks {
+                    count: 301,
+                    limit: 300,
+                    annotated: true,
+                    extent: EXTENT,
+                    kept: Vec::new(),
+                })
+            } else {
+                Err(Error::Progress(io::Error::other("closed")))
+            }
+        },
+        |_, _, _| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(kinds(&rows), ["too many", "error"]);
+    assert!(matches!(
+        rows[0].state,
+        State::TooManyTracks {
+            count: 301,
+            limit: 300,
+            annotated: true,
+            extent: EXTENT,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn the_compute_time_of_each_video_is_measured_whatever_its_end() {
+    let pause = Duration::from_millis(10);
+    let rows = run_all(
+        &jobs(2),
+        |_, rank| {
+            thread::sleep(pause);
+            assert_eq!(rank.position, 1, "forced panic");
+            Ok(processed())
+        },
+        |_, _, _| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(kinds(&rows), ["done", "panic"]);
+    assert!(rows.iter().all(|row| row.elapsed >= pause), "{rows:?}");
 }
 
 #[test]

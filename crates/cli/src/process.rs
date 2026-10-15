@@ -17,8 +17,9 @@ use render::config::RenderConfig;
 use render::source::{self, Source};
 use summary::header::Labels;
 use summary::layout::Summary;
-use tracking::exclusion::exclude;
+use tracking::exclusion::{Exclusion, exclude};
 use tracking::track::track_detections;
+use types::frame::FrameIndex;
 use types::language::Language;
 use types::timeline::{self, Timeline};
 use types::track::Track;
@@ -65,6 +66,8 @@ pub enum Error {
         count: usize,
         limit: usize,
         annotated: bool,
+        extent: Extent,
+        kept: Vec<Kept>,
     },
 }
 
@@ -81,10 +84,25 @@ pub struct Versions<'a> {
 #[derive(Debug)]
 pub struct Processed {
     pub tracks: Vec<Track>,
+    pub extent: Extent,
     pub csv: Option<PathBuf>,
     pub kept: Vec<Kept>,
     pub summaries: Vec<PathBuf>,
     pub rendered: Rendered,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Extent {
+    pub length_s: f64,
+    pub not_analysed_s: f64,
+}
+
+pub fn extent(timeline: &Timeline, exclusion: &Exclusion) -> Extent {
+    let end = FrameIndex::new(timeline.frame_count());
+    Extent {
+        length_s: frame_seconds(timeline, end) - frame_seconds(timeline, FrameIndex::new(0)),
+        not_analysed_s: timeline.rate().seconds(FrameIndex::new(exclusion.ignored_frame_count)),
+    }
 }
 
 pub fn process(
@@ -134,19 +152,7 @@ pub fn process_detected(
     let names = Names::new(wording.language());
     let stem = job.video.file_stem().unwrap_or_default();
     let mut kept = remove_previous_outputs(&job.dest, stem, names).map_err(Error::Previous)?;
-    let csv = names.tracks_csv(&job.dest, stem);
-    let csv = if kept.iter().any(|table| table.ours) {
-        None
-    } else {
-        match write_tracks_csv(&csv, &tracks, &timeline) {
-            Ok(()) => Some(csv),
-            Err(files::error::Error::Taken { path }) => {
-                kept.push(Kept { path, ours: true });
-                None
-            }
-            Err(error) => return Err(Error::Files(error)),
-        }
-    };
+    let csv = write_table(names.tracks_csv(&job.dest, stem), &tracks, &timeline, &mut kept)?;
     let trial = encoders(render, tracks.len(), reading.video());
     let settings = Settings::of(
         options,
@@ -188,16 +194,38 @@ pub fn process_detected(
         detected,
         timeline: &timeline,
         options,
+        extent: extent(&timeline, &exclusion),
+        kept: &kept,
     };
     progress.step(Step::Clips).map_err(Error::Progress)?;
     let rendered = render_clips(&clips, &tracks, trial)?;
     Ok(Processed {
         tracks,
+        extent: clips.extent,
         csv,
         kept,
         summaries,
         rendered,
     })
+}
+
+fn write_table(
+    csv: PathBuf,
+    tracks: &[Track],
+    timeline: &Timeline,
+    kept: &mut Vec<Kept>,
+) -> Result<Option<PathBuf>, Error> {
+    if kept.iter().any(|table| table.ours) {
+        return Ok(None);
+    }
+    match write_tracks_csv(&csv, tracks, timeline) {
+        Ok(()) => Ok(Some(csv)),
+        Err(files::error::Error::Taken { path }) => {
+            kept.push(Kept { path, ours: true });
+            Ok(None)
+        }
+        Err(error) => Err(Error::Files(error)),
+    }
 }
 
 fn encoders(render: RenderConfig, track_count: usize, video: &Video) -> Result<Vec<Codec>, Error> {
@@ -218,6 +246,8 @@ struct Clips<'a> {
     detected: &'a Detected,
     timeline: &'a Timeline,
     options: &'a Options,
+    extent: Extent,
+    kept: &'a [Kept],
 }
 
 fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, Error>) -> Result<Rendered, Error> {
@@ -234,6 +264,8 @@ fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, E
             count: tracks.len(),
             limit: render.max_tracks(),
             annotated: clips.options.annotated,
+            extent: clips.extent,
+            kept: clips.kept.to_vec(),
         });
     }
     let encoders = trial?;

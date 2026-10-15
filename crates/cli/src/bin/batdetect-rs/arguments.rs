@@ -17,6 +17,10 @@ use crate::errors;
 use crate::messages;
 use crate::texts::{Fixed, Message, Texts};
 
+pub(crate) const MIN_HITS: &str = "min-hits";
+pub(crate) const MAX_BLOBS: &str = "max-blobs";
+pub(crate) const OSD_REGION: &str = "osd-region";
+
 #[cfg(test)]
 mod tests;
 
@@ -120,8 +124,8 @@ fn useful_arguments(level: Level, texts: Texts) -> Vec<Arg> {
             texts,
         )
         .value_parser(value_parser!(f64)),
-        Arg::new("osd-region")
-            .long("osd-region")
+        Arg::new(OSD_REGION)
+            .long(OSD_REGION)
             .value_name("X0,Y0,X1,Y1")
             .action(ArgAction::Append)
             .value_parser(value_parser!(Region))
@@ -150,7 +154,7 @@ fn advanced_arguments(level: Level, texts: Texts) -> Vec<Arg> {
         )
         .value_parser(value_parser!(f64)),
         number(
-            "min-hits",
+            MIN_HITS,
             &track.min_hits(),
             Fixed::ValueCount,
             Fixed::MinHitsHelp,
@@ -158,7 +162,7 @@ fn advanced_arguments(level: Level, texts: Texts) -> Vec<Arg> {
         )
         .value_parser(value_parser!(NonZeroUsize)),
         number(
-            "max-blobs",
+            MAX_BLOBS,
             &stability.max_blobs,
             Fixed::ValueCount,
             Fixed::MaxBlobsHelp,
@@ -269,7 +273,7 @@ fn options(matches: &mut ArgMatches, texts: Texts) -> Result<Options, clap::Erro
     let settings = DetectSettings {
         threshold: one(matches, Setting::Threshold.flag(), texts)?,
         work_width: one(matches, Setting::WorkWidth.flag(), texts)?,
-        osd_regions: many(matches, "osd-region"),
+        osd_regions: many(matches, OSD_REGION),
         ..defaults
     };
     let detect =
@@ -278,14 +282,14 @@ fn options(matches: &mut ArgMatches, texts: Texts) -> Result<Options, clap::Erro
     let track = TrackConfig::new(
         default_track.max_jump(),
         default_track.max_gap(),
-        one(matches, "min-hits", texts)?,
+        one(matches, MIN_HITS, texts)?,
         default_track.min_travel(),
         default_track.twin_distance(),
         default_track.max_median_turn(),
     )
     .map_err(|error| refusal(texts, &messages::settings_refused(&error)))?;
     let stability = StabilityConfig::new(
-        NonZeroU32::new(one(matches, "max-blobs", texts)?),
+        NonZeroU32::new(one(matches, MAX_BLOBS, texts)?),
         StabilityConfig::default().pad_s(),
     )
     .map_err(|error| refusal(texts, &messages::settings_refused(&error)))?;

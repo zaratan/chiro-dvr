@@ -14,8 +14,8 @@ use types::language::Language;
 use super::{ENGLISH_SOURCE, FRENCH_SOURCE, Fixed, Message, Texts, resolved};
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 36;
-const FIXED: [Fixed; 34] = [
+const VARIANTS: usize = 46;
+const FIXED: [Fixed; 41] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -50,12 +50,19 @@ const FIXED: [Fixed; 34] = [
     Fixed::MissingArguments,
     Fixed::InvalidUtf8,
     Fixed::NoVideo,
+    Fixed::TallyVideo,
+    Fixed::TallyLength,
+    Fixed::TallyTracks,
+    Fixed::TallyNotAnalysed,
+    Fixed::TallyCompute,
+    Fixed::TallyFailedCell,
+    Fixed::TallyTooManyHeading,
 ];
 
 fn rank(message: &Message) -> usize {
     match message {
         Message::Fixed(_) => 0,
-        Message::Processed { .. } => 1,
+        Message::TallyTitle { .. } => 1,
         Message::TooManyTracks { .. } => 2,
         Message::ClipsRedone { .. } => 3,
         Message::Failure { .. } => 4,
@@ -84,12 +91,22 @@ fn rank(message: &Message) -> usize {
         Message::ClipMarginRefused { .. } => 27,
         Message::SettingsRefused { .. } => 28,
         Message::VideosRefused { .. } => 29,
-        Message::TableKept { .. } => 30,
+        Message::TallyDone { .. } => 30,
         Message::FoldersRefused { .. } => 31,
         Message::VideoStep { .. } => 32,
         Message::VideoDone { .. } => 33,
         Message::VideoFailed { .. } => 34,
         Message::FailureDetail { .. } => 35,
+        Message::TallyTooManyCount { .. } => 36,
+        Message::TallyFailedCount { .. } => 37,
+        Message::TallyTooManyCell { .. } => 38,
+        Message::TallyTooMany { .. } => 39,
+        Message::TallyFailedHeading { .. } => 40,
+        Message::TallyKeptHeading { .. } => 41,
+        Message::TallyKept { .. } => 42,
+        Message::TallyChanged { .. } => 43,
+        Message::TallyRegions { .. } => 44,
+        Message::TallyFailureTodo { .. } => 45,
     }
 }
 
@@ -129,6 +146,13 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::InvalidUtf8 => 31,
         Fixed::NoVideo => 32,
         Fixed::BesideTheVideos => 33,
+        Fixed::TallyVideo => 34,
+        Fixed::TallyLength => 35,
+        Fixed::TallyTracks => 36,
+        Fixed::TallyNotAnalysed => 37,
+        Fixed::TallyCompute => 38,
+        Fixed::TallyFailedCell => 39,
+        Fixed::TallyTooManyHeading => 40,
     }
 }
 
@@ -144,11 +168,28 @@ fn samples() -> Vec<Message> {
 fn lines() -> Vec<Message> {
     let text = |value: &str| value.to_owned();
     vec![
-        Message::Processed {
-            video: text("video_092.mp4"),
-            tracks: 14,
-            dest: text("out/video_092"),
+        Message::TallyTitle { total: 12 },
+        Message::TallyDone { count: 10 },
+        Message::TallyTooManyCount { count: 1 },
+        Message::TallyFailedCount { count: 1 },
+        Message::TallyTooManyCell { count: 412 },
+        Message::TallyTooMany {
+            video: text("video_099"),
+            count: 412,
+            limit: 300,
         },
+        Message::TallyFailedHeading { failed: 1, total: 12 },
+        Message::TallyKeptHeading { count: 1 },
+        Message::TallyKept {
+            video: text("video_092"),
+            table: text("video_092_pistes.csv"),
+            written: false,
+        },
+        Message::TallyChanged {
+            settings: text("--threshold 11"),
+        },
+        Message::TallyRegions { count: 2 },
+        Message::TallyFailureTodo { cause: "encoding" },
         Message::TooManyTracks {
             video: text("nuit/video_092.mp4"),
             count: 301,
@@ -160,11 +201,6 @@ fn lines() -> Vec<Message> {
             names: text("piste_03_0m51s.mp4"),
             count: 1,
             causes: text("the encoder failed"),
-        },
-        Message::TableKept {
-            video: text("nuit/video_092.mp4"),
-            table: text("video_092_pistes.csv"),
-            written: false,
         },
         Message::VideoStep {
             rank: Rank { position: 3, total: 12 },
@@ -375,18 +411,18 @@ fn no_isolation_mark_surrounds_the_arguments() {
 
 #[test]
 fn a_french_count_of_thousands_is_grouped_with_a_narrow_no_break_space_on_the_console() {
-    let message = Message::Processed {
-        video: "video_092.mp4".to_owned(),
-        tracks: 1234,
-        dest: "out/video_092".to_owned(),
+    let message = Message::TallyTooMany {
+        video: "video_092".to_owned(),
+        count: 1234,
+        limit: 300,
     };
     assert_eq!(
         Texts::new(Language::French).say(&message),
-        "video_092.mp4 : 1\u{202f}234 pistes -> out/video_092"
+        "video_092 : 1\u{202f}234 pistes, au-delà de 300"
     );
     assert_eq!(
         Texts::new(Language::English).say(&message),
-        "video_092.mp4: 1234 tracks -> out/video_092"
+        "video_092: 1234 tracks, above 300"
     );
 }
 

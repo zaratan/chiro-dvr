@@ -1,3 +1,4 @@
+use std::fmt;
 use std::sync::OnceLock;
 
 use batdetect::outcome::Rank;
@@ -60,6 +61,13 @@ pub(crate) enum Fixed {
     MissingArguments,
     InvalidUtf8,
     NoVideo,
+    TallyVideo,
+    TallyLength,
+    TallyTracks,
+    TallyNotAnalysed,
+    TallyCompute,
+    TallyFailedCell,
+    TallyTooManyHeading,
 }
 
 impl Fixed {
@@ -99,6 +107,13 @@ impl Fixed {
             Self::MissingArguments => "missing-arguments",
             Self::InvalidUtf8 => "invalid-utf8",
             Self::NoVideo => "no-video",
+            Self::TallyVideo => "tally-video",
+            Self::TallyLength => "tally-length",
+            Self::TallyTracks => "tally-tracks",
+            Self::TallyNotAnalysed => "tally-not-analysed",
+            Self::TallyCompute => "tally-compute",
+            Self::TallyFailedCell => "tally-failed-cell",
+            Self::TallyTooManyHeading => "tally-too-many-heading",
         }
     }
 }
@@ -106,11 +121,6 @@ impl Fixed {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Message {
     Fixed(Fixed),
-    Processed {
-        video: String,
-        tracks: usize,
-        dest: String,
-    },
     TooManyTracks {
         video: String,
         count: usize,
@@ -122,11 +132,6 @@ pub(crate) enum Message {
         names: String,
         count: usize,
         causes: String,
-    },
-    TableKept {
-        video: String,
-        table: String,
-        written: bool,
     },
     VideoStep {
         rank: Rank,
@@ -153,6 +158,47 @@ pub(crate) enum Message {
     },
     FailureDetail {
         detail: String,
+    },
+    TallyTitle {
+        total: usize,
+    },
+    TallyDone {
+        count: usize,
+    },
+    TallyTooManyCount {
+        count: usize,
+    },
+    TallyFailedCount {
+        count: usize,
+    },
+    TallyTooManyCell {
+        count: usize,
+    },
+    TallyTooMany {
+        video: String,
+        count: usize,
+        limit: usize,
+    },
+    TallyFailedHeading {
+        failed: usize,
+        total: usize,
+    },
+    TallyKeptHeading {
+        count: usize,
+    },
+    TallyKept {
+        video: String,
+        table: String,
+        written: bool,
+    },
+    TallyChanged {
+        settings: String,
+    },
+    TallyRegions {
+        count: usize,
+    },
+    TallyFailureTodo {
+        cause: &'static str,
     },
     SummaryPart {
         number: usize,
@@ -248,16 +294,26 @@ impl Message {
     pub(crate) fn id(&self) -> &'static str {
         match self {
             Self::Fixed(fixed) => fixed.id(),
-            Self::Processed { .. } => "processed",
             Self::TooManyTracks { .. } => "too-many-tracks",
             Self::ClipsRedone { .. } => "clips-redone",
-            Self::TableKept { .. } => "table-kept",
             Self::VideoStep { .. } => "video-step",
             Self::VideoDone { .. } => "video-done",
             Self::VideoFailed { .. } => "video-failed",
             Self::Failure { .. } => "failure",
             Self::FailureTodo { .. } => "failure-todo",
             Self::FailureDetail { .. } => "failure-detail",
+            Self::TallyTitle { .. } => "tally-title",
+            Self::TallyDone { .. } => "tally-done",
+            Self::TallyTooManyCount { .. } => "tally-too-many-count",
+            Self::TallyFailedCount { .. } => "tally-failed-count",
+            Self::TallyTooManyCell { .. } => "tally-too-many-cell",
+            Self::TallyTooMany { .. } => "tally-too-many",
+            Self::TallyFailedHeading { .. } => "tally-failed-heading",
+            Self::TallyKeptHeading { .. } => "tally-kept-heading",
+            Self::TallyKept { .. } => "tally-kept",
+            Self::TallyChanged { .. } => "tally-changed",
+            Self::TallyRegions { .. } => "tally-regions",
+            Self::TallyFailureTodo { .. } => "tally-failure-todo",
             Self::SummaryPart { .. } => "summary-part",
             Self::SummaryTracks { .. } => "summary-tracks",
             Self::SummaryNotAnalysed { .. } => "summary-not-analysed",
@@ -289,11 +345,6 @@ impl Message {
     pub(crate) fn arguments(&self) -> FluentArgs<'_> {
         let mut arguments = FluentArgs::new();
         match self {
-            Self::Processed { video, tracks, dest } => {
-                arguments.set("video", video.as_str());
-                arguments.set("tracks", *tracks);
-                arguments.set("dest", dest.as_str());
-            }
             Self::TooManyTracks {
                 video,
                 count,
@@ -315,11 +366,6 @@ impl Message {
                 arguments.set("names", names.as_str());
                 arguments.set("count", *count);
                 arguments.set("causes", causes.as_str());
-            }
-            Self::TableKept { video, table, written } => {
-                arguments.set("video", video.as_str());
-                arguments.set("table", table.as_str());
-                arguments.set("written", if *written { YES } else { NO });
             }
             Self::VideoStep { rank, video, step } => {
                 ranked(&mut arguments, *rank, video);
@@ -358,9 +404,38 @@ impl Message {
                 arguments.set("duration", duration.as_str());
                 arguments.set("seconds", *seconds);
             }
-            other => other.command_line_arguments(&mut arguments),
+            other => other.tally_arguments(&mut arguments),
         }
         arguments
+    }
+
+    fn tally_arguments<'a>(&'a self, arguments: &mut FluentArgs<'a>) {
+        match self {
+            Self::TallyTitle { total } => arguments.set("total", *total),
+            Self::TallyDone { count }
+            | Self::TallyTooManyCount { count }
+            | Self::TallyFailedCount { count }
+            | Self::TallyTooManyCell { count }
+            | Self::TallyKeptHeading { count }
+            | Self::TallyRegions { count } => arguments.set("count", *count),
+            Self::TallyTooMany { video, count, limit } => {
+                arguments.set("video", video.as_str());
+                arguments.set("count", *count);
+                arguments.set("limit", *limit);
+            }
+            Self::TallyFailedHeading { failed, total } => {
+                arguments.set("failed", *failed);
+                arguments.set("total", *total);
+            }
+            Self::TallyKept { video, table, written } => {
+                arguments.set("video", video.as_str());
+                arguments.set("table", table.as_str());
+                arguments.set("written", if *written { YES } else { NO });
+            }
+            Self::TallyChanged { settings } => arguments.set("settings", settings.as_str()),
+            Self::TallyFailureTodo { cause } => arguments.set("cause", *cause),
+            other => other.command_line_arguments(arguments),
+        }
     }
 
     fn command_line_arguments<'a>(&'a self, arguments: &mut FluentArgs<'a>) {
@@ -405,16 +480,26 @@ impl Message {
             }
             Self::FoldersRefused { folders } => arguments.set("folders", folders.as_str()),
             Self::Fixed(_)
-            | Self::Processed { .. }
             | Self::TooManyTracks { .. }
             | Self::ClipsRedone { .. }
-            | Self::TableKept { .. }
             | Self::VideoStep { .. }
             | Self::VideoDone { .. }
             | Self::VideoFailed { .. }
             | Self::Failure { .. }
             | Self::FailureTodo { .. }
             | Self::FailureDetail { .. }
+            | Self::TallyTitle { .. }
+            | Self::TallyDone { .. }
+            | Self::TallyTooManyCount { .. }
+            | Self::TallyFailedCount { .. }
+            | Self::TallyTooManyCell { .. }
+            | Self::TallyTooMany { .. }
+            | Self::TallyFailedHeading { .. }
+            | Self::TallyKeptHeading { .. }
+            | Self::TallyKept { .. }
+            | Self::TallyChanged { .. }
+            | Self::TallyRegions { .. }
+            | Self::TallyFailureTodo { .. }
             | Self::SummaryPart { .. }
             | Self::SummaryTracks { .. }
             | Self::SummaryNotAnalysed { .. }
@@ -460,6 +545,14 @@ impl Texts {
     }
 
     pub(crate) fn number(self, value: f64) -> String {
+        self.grouped(value)
+    }
+
+    pub(crate) fn count(self, value: usize) -> String {
+        self.grouped(value)
+    }
+
+    fn grouped(self, value: impl fmt::Display) -> String {
         match self.language {
             Language::French => numbers::french(&value.to_string()),
             Language::English => numbers::english(&value.to_string()),

@@ -69,7 +69,6 @@ impl Video<'_> {
     pub(crate) fn tell(
         &self,
         err: &mut impl Write,
-        out: &mut impl Write,
         result: &Result<Processed, Failure>,
         options: &Options,
     ) -> io::Result<()> {
@@ -78,14 +77,10 @@ impl Video<'_> {
         let mut say = |message: &Message| writeln!(err, "{}", texts.say(message));
         match result {
             Ok(processed) => {
-                for kept in &processed.kept {
-                    say(&messages::table_kept(job, kept))?;
-                }
                 for redone in &processed.rendered.redone {
                     say(&messages::redone(job, &redone.paths, &redone.cause))?;
                 }
-                say(&messages::video_done(rank, job, processed.tracks.len()))?;
-                writeln!(out, "{}", texts.say(&messages::processed(job, processed.tracks.len())))
+                say(&messages::video_done(rank, job, processed.tracks.len()))
             }
             Err(failure) => {
                 for message in messages::failure_lines(job, failure, options) {

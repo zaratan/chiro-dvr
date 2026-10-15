@@ -5,7 +5,7 @@ use std::process::Command;
 use std::thread;
 
 use batdetect::jobs::Job;
-use batdetect::outcome::{Failure, quiet_panics, run_all};
+use batdetect::outcome::{Failure, State, quiet_panics, run_all};
 
 const CHILD: &str = "BATDETECT_PANIC_HOOK_CHILD";
 const TEST: &str = "a_panic_in_a_video_is_kept_with_its_place_and_written_nowhere_while_one_outside_stays_visible";
@@ -32,7 +32,7 @@ fn a_panic_in_a_video_is_kept_with_its_place_and_written_nowhere_while_one_outsi
         )
         .unwrap();
         for outcome in &outcomes {
-            if let Err(Failure::Panic(panic)) = outcome {
+            if let State::Failed(Failure::Panic(panic)) = &outcome.state {
                 println!(
                     "kept: {} at {}",
                     panic.message,

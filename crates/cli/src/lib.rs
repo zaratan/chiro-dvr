@@ -10,4 +10,5 @@ pub mod overview;
 pub mod process;
 pub mod progress;
 mod settings;
+pub mod tally;
 pub mod writable;

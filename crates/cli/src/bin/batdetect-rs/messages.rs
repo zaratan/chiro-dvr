@@ -8,7 +8,6 @@ use batdetect::outcome::{Failure, Panic, Rank};
 use batdetect::progress::Step;
 use batdetect::writable::Unwritable;
 use engine::settings;
-use files::previous::Kept;
 use render::config;
 
 use crate::texts::Message;
@@ -19,6 +18,10 @@ mod tests;
 const CAUSE_SEPARATOR: &str = ": ";
 const TOO_MANY_TRACKS: &str = "too-many-tracks";
 const INTERNAL: &str = "internal";
+const UNSUPPORTED: &str = "unsupported";
+const ENCODING: &str = "encoding";
+const UNEXPECTED: &str = "unexpected";
+const REFERS_TO_DETAIL: [&str; 4] = [UNSUPPORTED, ENCODING, UNEXPECTED, INTERNAL];
 
 pub(crate) fn detection_refused(error: &settings::Error) -> Message {
     match *error {
@@ -98,31 +101,6 @@ fn short_name(job: &Job) -> String {
     job.video.file_stem().unwrap_or_default().to_string_lossy().into_owned()
 }
 
-pub(crate) fn processed(job: &Job, tracks: usize) -> Message {
-    Message::Processed {
-        video: job.video.file_name().unwrap_or_default().to_string_lossy().into_owned(),
-        tracks,
-        dest: job.dest.display().to_string(),
-    }
-}
-
-pub(crate) fn too_many_tracks(job: &Job, count: usize, limit: usize, annotated: bool) -> Message {
-    Message::TooManyTracks {
-        video: job.video.display().to_string(),
-        count,
-        limit,
-        annotated,
-    }
-}
-
-pub(crate) fn table_kept(job: &Job, kept: &Kept) -> Message {
-    Message::TableKept {
-        video: job.video.display().to_string(),
-        table: kept.path.file_name().unwrap_or_default().to_string_lossy().into_owned(),
-        written: !kept.ours,
-    }
-}
-
 pub(crate) fn redone(job: &Job, clips: &[PathBuf], cause: &dyn Error) -> Message {
     let names: Vec<String> = clips
         .iter()
@@ -137,7 +115,13 @@ pub(crate) fn redone(job: &Job, clips: &[PathBuf], cause: &dyn Error) -> Message
 }
 
 pub(crate) fn failure_lines(job: &Job, failure: &Failure, options: &Options) -> Vec<Message> {
-    let (cause, place, detail) = match failure {
+    let mut lines = failure_reason(job.video.display().to_string(), job, failure, options);
+    lines.extend(failure_detail(failure, options).map(|detail| Message::FailureDetail { detail }));
+    lines
+}
+
+pub(crate) fn failure_reason(video: String, job: &Job, failure: &Failure, options: &Options) -> Vec<Message> {
+    let (cause, place) = match failure {
         Failure::Error(error) => match failure::cause(error, options) {
             Cause::TooManyTracks {
                 count,
@@ -145,23 +129,48 @@ pub(crate) fn failure_lines(job: &Job, failure: &Failure, options: &Options) -> 
                 annotated,
             } => {
                 return vec![
-                    too_many_tracks(job, count, limit, annotated),
+                    Message::TooManyTracks {
+                        video,
+                        count,
+                        limit,
+                        annotated,
+                    },
                     todo(TOO_MANY_TRACKS, job),
                 ];
             }
-            cause => (named(&cause), place_of(cause, job), causes(error)),
+            cause => (named(&cause), place_of(cause, job)),
         },
-        Failure::Panic(panic) => (INTERNAL, job.dest.clone(), panicked(panic)),
+        Failure::Panic(_) => (INTERNAL, job.dest.clone()),
     };
     vec![
         Message::Failure {
-            video: job.video.display().to_string(),
+            video,
             cause,
             place: place.display().to_string(),
         },
         todo(cause, job),
-        Message::FailureDetail { detail },
     ]
+}
+
+fn failure_detail(failure: &Failure, options: &Options) -> Option<String> {
+    match failure {
+        Failure::Error(error) => match failure::cause(error, options) {
+            Cause::TooManyTracks { .. } => None,
+            _ => Some(causes(error)),
+        },
+        Failure::Panic(panic) => Some(panicked(panic)),
+    }
+}
+
+pub(crate) fn without_detail(message: Message) -> Message {
+    match message {
+        Message::FailureTodo { cause, .. } if REFERS_TO_DETAIL.contains(&cause) => Message::TallyFailureTodo { cause },
+        other => other,
+    }
+}
+
+pub(crate) fn too_many_todo(job: &Job) -> Message {
+    todo(TOO_MANY_TRACKS, job)
 }
 
 fn place_of(cause: Cause, job: &Job) -> PathBuf {
@@ -192,14 +201,14 @@ fn named(cause: &Cause) -> &'static str {
         Cause::NotAVideo => "not-a-video",
         Cause::UnusableName => "unusable-name",
         Cause::Damaged => "damaged",
-        Cause::Unsupported => "unsupported",
+        Cause::Unsupported => UNSUPPORTED,
         Cause::Settings => "settings",
         Cause::DiskFull => "disk-full",
         Cause::Forbidden => "forbidden",
         Cause::InUse { .. } => "in-use",
-        Cause::Encoding => "encoding",
+        Cause::Encoding => ENCODING,
         Cause::TooManyTracks { .. } => TOO_MANY_TRACKS,
-        Cause::Unexpected => "unexpected",
+        Cause::Unexpected => UNEXPECTED,
     }
 }
 

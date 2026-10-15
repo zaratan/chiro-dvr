@@ -1,4 +1,5 @@
 mod arguments;
+mod board;
 mod errors;
 mod messages;
 mod numbers;
@@ -11,8 +12,9 @@ use std::process::ExitCode;
 use batdetect::jobs::{Job, collect_videos, plan_jobs};
 use batdetect::language::system_language;
 use batdetect::options::Options;
-use batdetect::outcome::{self, all_succeeded, run_all};
+use batdetect::outcome::{self, run_all};
 use batdetect::process::{Versions, process};
+use batdetect::tally::Tally;
 use batdetect::writable::unwritable_folders;
 use media::decode::Threads;
 
@@ -49,7 +51,7 @@ fn run(jobs: &[Job], texts: Texts, options: &Options) -> ExitCode {
         ffmpeg: &ffmpeg,
     };
     let status = Status::new(texts, io::stderr().is_terminal());
-    let outcomes = run_all(
+    let rows = run_all(
         jobs,
         |job, rank| {
             let video = Video {
@@ -65,11 +67,15 @@ fn run(jobs: &[Job], texts: Texts, options: &Options) -> ExitCode {
                 rank,
                 job,
             };
-            video.tell(&mut io::stderr().lock(), &mut io::stdout().lock(), result, options)
+            video.tell(&mut io::stderr().lock(), result, options)
         },
     );
-    match outcomes {
-        Ok(outcomes) if all_succeeded(&outcomes) => ExitCode::SUCCESS,
+    let Ok(rows) = rows else {
+        return ExitCode::FAILURE;
+    };
+    let tally = Tally { rows };
+    match board::write(&mut io::stdout().lock(), &tally, options, texts) {
+        Ok(()) if tally.all_done() => ExitCode::SUCCESS,
         _ => ExitCode::FAILURE,
     }
 }

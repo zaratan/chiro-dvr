@@ -75,7 +75,11 @@ fn a_video_gives_its_tracks_table_and_params_in_a_folder_named_after_it() {
     assert_eq!(table.lines().count(), 2, "{table}");
     assert!(table.starts_with("id,start,end,start_s,duration_s,hits,"));
     assert!(out.join("flight").join("params.json").is_file());
-    assert!(text(&output.stdout).starts_with("flight.mp4 : 1 piste -> "));
+    assert!(
+        text(&output.stdout).starts_with("Bilan : 1 vidéo, 1 réussie\n"),
+        "{}",
+        text(&output.stdout)
+    );
 }
 
 #[test]
@@ -84,7 +88,11 @@ fn outside_a_french_locale_the_table_is_named_in_english_and_holds_the_same_byte
     let (english, french) = (root.path().join("en"), root.path().join("fr"));
     let output = run(&[&videos.join("flight.mp4"), Path::new("-o"), &english], "C");
     assert!(output.status.success(), "{}", text(&output.stderr));
-    assert!(text(&output.stdout).starts_with("flight.mp4: 1 track -> "));
+    assert!(
+        text(&output.stdout).starts_with("Summary: 1 video, 1 done\n"),
+        "{}",
+        text(&output.stdout)
+    );
     let output = run(&[&videos.join("flight.mp4"), Path::new("-o"), &french], "fr_FR.UTF-8");
     assert!(output.status.success(), "{}", text(&output.stderr));
     let read = |path: PathBuf| fs::read(path).unwrap();
@@ -553,7 +561,7 @@ fn a_run_in_french_then_in_english_then_in_french_in_the_same_folder_leaves_only
 }
 
 #[test]
-fn a_table_annotated_by_hand_is_left_and_named_in_the_language_of_the_messages() {
+fn a_table_annotated_by_hand_is_left_and_named_in_the_summary_in_the_language_of_the_messages() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let out = root.path().join("out");
     let folder = out.join("flight");
@@ -562,24 +570,26 @@ fn a_table_annotated_by_hand_is_left_and_named_in_the_language_of_the_messages()
     fs::write(folder.join("flight_pistes.csv"), annotated).unwrap();
     let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
     assert!(output.status.success(), "{}", text(&output.stderr));
-    let errors = text(&output.stderr);
+    let summary = text(&output.stdout);
+    let lines: Vec<&str> = summary.lines().collect();
+    let heading = lines
+        .iter()
+        .position(|line| *line == "Tableau laissé tel quel :")
+        .unwrap_or_else(|| panic!("{summary}"));
     assert_eq!(
-        lines_naming(&errors, "flight.mp4"),
-        [format!(
-            "{} : flight_pistes.csv laissé tel quel, il n'a pas la forme d'un tableau des pistes ; \
-             le nouveau tableau n'est pas écrit",
-            videos.join("flight.mp4").display()
-        )]
+        lines[heading + 1],
+        "  flight : flight_pistes.csv n'a pas la forme d'un tableau des pistes ; le nouveau tableau n'est pas écrit"
     );
+    let errors = text(&output.stderr);
+    assert!(!errors.contains("flight_pistes.csv"), "{errors}");
     let output = run(&[&videos, Path::new("-o"), &out], "C");
     assert!(output.status.success(), "{}", text(&output.stderr));
-    let errors = text(&output.stderr);
-    assert_eq!(
-        lines_naming(&errors, "flight.mp4"),
-        [format!(
-            "{}: flight_pistes.csv left as it is, it does not have the form of a tracks table",
-            videos.join("flight.mp4").display()
-        )]
+    let summary = text(&output.stdout);
+    assert!(
+        summary
+            .lines()
+            .any(|line| line == "  flight: flight_pistes.csv does not have the form of a tracks table"),
+        "{summary}"
     );
     assert_eq!(fs::read_to_string(folder.join("flight_pistes.csv")).unwrap(), annotated);
     assert!(folder.join("flight_tracks.csv").is_file());
@@ -663,17 +673,33 @@ fn redirected_each_video_shows_its_steps_in_order_then_its_track_count_or_its_fa
 }
 
 #[test]
-fn redirected_a_table_left_as_it_is_is_told_above_the_last_line_of_its_video_in_english() {
+fn the_summary_alone_goes_to_the_standard_output_with_a_row_per_video_and_the_failures_below() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    fs::write(videos.join("zz_broken.mp4"), "not a video").unwrap();
     let out = root.path().join("out");
-    fs::create_dir_all(out.join("flight")).unwrap();
-    fs::write(out.join("flight").join("flight_pistes.csv"), "id;verdict\r\n").unwrap();
-    let output = run(&[&videos, Path::new("-o"), &out], "C");
-    assert!(output.status.success(), "{}", text(&output.stderr));
+    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    assert_eq!(output.status.code(), Some(1));
+    let summary = text(&output.stdout);
+    let lines: Vec<&str> = summary.lines().collect();
+    assert_eq!(lines[0], "Bilan : 2 vidéos, 1 réussie, 1 en échec", "{summary}");
+    assert_eq!(lines[2], out.display().to_string(), "{summary}");
+    assert!(lines[3].starts_with("  vidéo "), "{summary}");
+    assert!(
+        lines[4].starts_with("  flight ") && lines[4].ends_with(" s"),
+        "{summary}"
+    );
+    assert!(
+        lines[5].starts_with("  zz_broken ") && lines[5].contains(" échec "),
+        "{summary}"
+    );
+    assert!(lines.contains(&"1 vidéo sur 2 en échec :"), "{summary}");
+    assert!(
+        lines.contains(&"  zz_broken : ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète"),
+        "{summary}"
+    );
+    assert!(!summary.contains("détail"), "{summary}");
+    assert!(!summary.contains("[1/2]"), "{summary}");
     let errors = text(&output.stderr);
-    let lines: Vec<&str> = errors.lines().collect();
-    let kept = lines.iter().position(|line| line.contains("left as it is")).unwrap();
-    let clips = lines.iter().position(|line| *line == "[1/1] flight — clips").unwrap();
-    let done = lines.iter().position(|line| *line == "[1/1] flight — 1 track").unwrap();
-    assert!(clips < kept && kept < done, "{errors}");
+    assert!(errors.lines().any(|line| line == "[1/2] flight — 1 piste"), "{errors}");
+    assert!(errors.lines().any(|line| line.starts_with("  détail : ")), "{errors}");
 }
