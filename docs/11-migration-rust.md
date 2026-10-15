@@ -1,10 +1,40 @@
-# Migration vers Rust
+# La réécriture Rust : chaîne, charte et histoire
 
-Le lot 6 commence la réécriture de `batdetect` en Rust. Le but est de détecter au moins
-aussi bien que la v0.1.1, pas de reproduire le Python bit à bit : les détections et les
-pistes se comparent par appariement avec tolérances, et chaque écart se juge à l'œil.
-Jusqu'à #106, le Python reste l'outil livré ; [02](02-methode.md) et
-[10](10-logique-de-detection.md) décrivent le Python, ce document décrit le Rust.
+Le lot 6 a commencé la réécriture de `batdetect` en Rust. Le but : détecter au moins aussi
+bien que la v0.1.1, pas reproduire le Python bit à bit ; les détections et les pistes se
+comparent par appariement avec tolérances, et chaque écart se juge à l'œil. Depuis #199, le
+Rust est seul (dernier état du Python au tag `python-final`).
+
+Ce document tient trois choses ([qui tient quoi](README.md#qui-tient-quoi)) :
+
+- **les sections tenues à jour**, de [Construction](#construction) à
+  [Plage réelle des sources](#plage-réelle-des-sources), puis la méthode des
+  [Réglages](#réglages) et la [Garde](#garde) du banc ;
+- **la description des crates** ([Crates](#crates)), figée au 16 octobre 2026 (30deaeb) :
+  l'état courant est dans [10](10-logique-de-detection.md), [02](02-methode.md) et
+  [CLAUDE.md](../CLAUDE.md) ;
+- **l'histoire de la migration**, mesures datées comprises, qui ne se récrivent pas.
+
+## Bilan (16 octobre 2026)
+
+| Mesure | Rust | v0.1.1 | Quand | Détail |
+| --- | --- | --- | --- | --- |
+| Pistes des 26 vidéos de la référence (`compare local`) | 963 sur 966 appariées (958 concordantes), 3 perdues, 9 ajoutées | — | 15 octobre, f364698 | [Mesure de la bascule](#mesure-de-la-bascule-198-15-octobre-2026-m1-max-sous-le-verrou) |
+| Pistes de la 092 (`rust:reference`) | 14, toutes concordantes | 14 | 15 octobre, f364698 | idem |
+| Garde du banc, transit / chasse | 148 / 455 cibles trouvées | 148 / 456 | 15 octobre, f364698 | idem |
+| La 092 par la commande, temps réel | 19,81 s | 135,4 s | 16 octobre, b38748a | [09](09-profilage.md) |
+| Validation à l'aveugle | 6 cas sur 6 « aussi bien » | — | 15 octobre | [Validation à l'aveugle](#validation-à-laveugle-198-15-octobre-2026) |
+
+- **Écarts voulus** : temps des pistes lus aux `pts` (0,01 à 0,02 s plus tôt sur la 092) ;
+  contraste effectif des cibles du banc arrondi à l'entier ; graine du banc reproductible
+  sur un même système seulement ; plus de cache du banc ni de `--workers` ; quatre réglages
+  seulement en options de la commande.
+- **Questions encore ouvertes** : dans [06](06-questions-ouvertes.md).
+- **Jalons** : lot 6 (#95 à #123 : workspace, moteur, suivi, CSV) ; #98 (#149 à #151 : moteur
+  générique, 16 cas de réglages) ; sorties (#104 image résumé, #127 frise, #157 parties,
+  #110 et #112 extraits, #103 zooms) ; banc #100 (#107 à #109) ; commande (#55, #56, #63 à
+  #65, #86, #91, #113 à #115) ; garde #198 ; retrait du Python et binaires renommés #199 ;
+  docs #200 ; profil #201 ; `check` rapide #205.
 
 ## État (octobre 2026)
 
@@ -23,30 +53,29 @@ est arrivée avec #104, sa frise avec #127 ; les extraits avec #110 et #112, les
 #103.
 
 #100 porte le banc de mesure en Rust (#107 à #109, crate `bench`, binaire
-`batdetect-bench-rs`) : fausses chauves-souris injectées par une couture du moteur,
-collecte, appariement, mesures, `bench.json` aux clés de la v0.1.1, et une garde contre
-les deux bancs enregistrés par la v0.1.1 ([Banc de mesure](#banc-de-mesure)). Le cache du
-Python n'est pas porté : `--targets` et `--replay` le remplacent. docs/08 décrit encore
-le banc Python ; il change à #106.
+`batdetect-bench-rs`, renommé `batdetect-bench` à #199) : fausses chauves-souris injectées
+par une couture du moteur, collecte, appariement, mesures, `bench.json` aux clés de la
+v0.1.1, et une garde contre les deux bancs enregistrés par la v0.1.1
+([Banc de mesure](#banc-de-mesure)). Le cache du Python n'est pas porté : `--targets` et
+`--replay` le remplacent. [08](08-banc-de-mesure.md) décrit la commande.
 
 #198 passe la garde de la bascule : parité remesurée sur la commande telle qu'elle est,
 garde du banc rejouée, six cas d'extraits et de zooms jugés à l'aveugle et deux images
-résumé jugées à découvert, puis figés ([Garde](#garde)). Le retrait du Python peut
-commencer.
+résumé jugées à découvert, puis figés ([Garde](#garde)). #199 retire le Python.
 
 ## Construction
 
 ```bash
-lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:ffmpeg   # construit FFmpeg une fois par poste
+/Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:ffmpeg   # construit FFmpeg une fois par poste
 mise run rust:static      # fmt, clippy, règles de la charte, cargo deny, cargo shear
 mise run rust:coverage    # tests rapides sous cargo-llvm-cov, couverture ≥ 95 %
-lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:slow       # l'extrait LFS
-lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:settings   # les 16 cas de réglages du banc d'essai
-lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 092 entière
+/Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:slow       # l'extrait LFS
+/Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:settings   # les 16 cas de réglages du banc d'essai
+/Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:reference  # la 092 entière
 ```
 
-`lockf` est le verrou de mesure des agents de ce poste ; ailleurs, ces commandes se
-lancent sans lui.
+`verrou lourd` est le verrou de mesure des agents de ce poste (`MESURES.md`, hors dépôt) ;
+ailleurs, ces commandes se lancent sans lui.
 
 - **Toolchain** : `rust-toolchain.toml` fixe Rust 1.99.0 (clippy, rustfmt,
   llvm-tools), édition 2024. C'est la seconde source de versions du dépôt, à côté de
@@ -507,7 +536,7 @@ Forme et tests :
   1 min 54 en profil `ci`.
 - `tests/fixtures/rust/video_092_original_3m24-4m05/frames.jsonl` : les détections de
   l'extrait par le Rust, écrites sur le Mac depuis la racine du dépôt par
-  `lockf …/mesure.lock cargo run --profile ci -p compare -- extract --frames tests/fixtures/rust`
+  `verrou lourd cargo run --profile ci -p compare -- extract --frames tests/fixtures/rust`
   (fichier git ordinaire, fin de ligne `\n` forcée par `.gitattributes`). Le test
   `slow_extract` de `compare` le redemande au bit près sur macOS, Linux et Windows ; un
   écart remonte à l'utilisateur (voir `compare`).
@@ -844,6 +873,9 @@ Mesure du 11 octobre 2026 (#101) :
     environ, au lieu de 0,966 (`slow_clips`, essai fait une fois, avant les zones).
 
 ## Crates
+
+Description figée au 16 octobre 2026 (30deaeb) : l'état courant est dans
+[10](10-logique-de-detection.md), [02](02-methode.md) et [CLAUDE.md](../CLAUDE.md).
 
 Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `members = ["crates/*"]`. `unsafe` n'est permis que dans `media`.
 
@@ -2549,7 +2581,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     `DetectConfig::try_from` (#149). Pistes et stabilité restent aux défauts, comme à
     l'enregistrement.
     Depuis la racine du dépôt, sous le verrou :
-    `lockf …/mesure.lock cargo run --profile ci -p compare -- local`.
+    `verrou lourd cargo run --profile ci -p compare -- local`.
   - Sortie, dans l'ordre :
     - par vidéo, les détections : nombres de chaque côté, paires, taux dans les deux
       sens, détections perdues (dont celles qui sont un point d'une piste de la
@@ -2748,8 +2780,8 @@ ffmpeg -i tests/fixtures/video_092_original_3m24-4m05.mp4 -map 0:v:0 -an -sn -dn
 ### Les 16 cas
 
 `tests/fixtures/reference/settings/<cas>/`, enregistrés le 12 octobre 2026 par
-`tools/reference_v011.py data <vidéo> <dossier> --gzip --detect '<JSON>'`, au code du tag
-`v0.1.1`, un cas par appel sous le verrou ; 1,6 Mo en tout (`frames.jsonl.gz`,
+`tools/reference_v011.py data <vidéo> <dossier> --gzip --detect '<JSON>'` (script au tag
+`python-final`), au code du tag `v0.1.1`, un cas par appel sous le verrou ; 1,6 Mo en tout (`frames.jsonl.gz`,
 `tracks.jsonl`, `tracks.csv`, `video.json`). Les mêmes versions que la référence de #94.
 Sur l'extrait sauf le dernier. Temps de la v0.1.1 sous `/usr/bin/time -l`, pris à
 l'intérieur du verrou (CPU = utilisateur + système).
@@ -2928,9 +2960,9 @@ en même temps dans le même binaire : leurs temps de détection s'y mélangent.
 
 ## Banc de mesure
 
-Le banc porté à #100 (crate `bench`). Le Python reste le banc livré jusqu'à #106 et
-docs/08 le décrit ; ici, ce que le Rust fait de plus ou autrement, et la garde de la
-bascule.
+Le banc porté à #100 (crate `bench`). Sa commande et sa méthode sont dans
+[08](08-banc-de-mesure.md) ; ici, ce que le Rust fait de plus ou autrement que la v0.1.1,
+et la garde de la bascule.
 
 ### Garde
 
@@ -3068,12 +3100,12 @@ pas reproductible d'une machine à l'autre) :
   - `cli/tests/slow_frozen.rs`, sur l'extrait LFS, dans la CI des trois systèmes : la
     piste lente (380 images) et le passage rapide (108 images). Sur l'extrait, elles
     portent les numéros `#1` et `#2` au lieu de `#11` et `#12` : seuls les numéros
-    diffèrent des images jugées. À confirmer au premier passage en CI : tiny-skia (avec
-    SIMD) et swscale (`BITEXACT`) n'avaient jamais été comparés au pixel près d'un
-    système à l'autre.
+    diffèrent des images jugées. tiny-skia (avec SIMD) et swscale (`BITEXACT`) n'avaient
+    jamais été comparés au pixel près d'un système à l'autre : la CI de la PR #208 a
+    confirmé les mêmes empreintes sous macOS, Linux et Windows.
   - `cli/tests/local_frozen.rs`, jamais en CI (vidéos hors dépôt) : les six cas sur
     leurs vidéos entières, exactement les images jugées.
-- **Images résumé** : les pixels de chaque PNG écrit par `batdetect-rs` en français
+- **Images résumé** : les pixels de chaque PNG écrit par `batdetect` en français
   (`of_pixels`), la 097 et la 089-091, dans `cli/tests/local_frozen.rs`. Ce test ne
   peut pas vivre dans `summary` : le fond est la médiane calculée par la détection, et
   `summary` n'a ni FFmpeg ni moteur.
@@ -3089,7 +3121,7 @@ apparie chacune à elle-même. Les 16 cas de réglages de #149 sont dans
 `tests/fixtures/reference/settings/` ([Réglages](#réglages)) ;
 `crates/reference/tests/committed_settings.rs` les relit.
 
-Attendus de l'image résumé (#104) : `tools/summary_v011.py` relit `tracks.jsonl` et
+Attendus de l'image résumé (#104) : `tools/summary_v011.py` (au tag `python-final`) relit `tracks.jsonl` et
 `video.json` d'un enregistrement, sans relancer la détection, avec la même garde que
 `tools/reference_v011.py`. Tranches, couleurs et horloges viennent des fonctions v0.1.1
 (`split_by_period`, `assign_colors`, `format_clock`, `format_duration`) ; l'en-tête est

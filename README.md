@@ -5,119 +5,90 @@ extrait par passage pour validation par une naturaliste.
 
 ## Installation
 
-Sur un Mac Apple Silicon en macOS 14 ou plus récent, sans Python ni uv :
+Homebrew installe pour l'instant la 0.1.1, la dernière version publiée, sur un Mac Apple Silicon
+en macOS 14 ou plus récent :
 
 ```bash
 brew install zaratan/bat-tools/batdetect   # installe aussi ffmpeg
 batdetect --version
 ```
 
-Le binaire est distribué sous GPL v3 (il embarque FFmpeg compilé avec x264 et x265) ; le
-code du dépôt reste sous MIT. Détail dans [docs/05](docs/05-outillage-python.md).
+La 0.1.1 est la version d'avant la réécriture en Rust : ses options (`--mode`, `--encoder`…) et
+ses sorties sont décrites dans le [README de la v0.1.1](https://github.com/zaratan/chiro-dvr/blob/v0.1.1/README.md),
+pas ici. Son binaire est sous GPL v3 (il embarque FFmpeg compilé avec x264 et x265). La version
+décrite ci-dessous se construit depuis les sources, en attendant sa publication (#93).
 
 ### Depuis les sources
 
-Prérequis : [mise](https://mise.jdx.dev/), ffmpeg et ffprobe (même paquet : `brew install ffmpeg` sur macOS,
-`apt install ffmpeg` sur Debian/Ubuntu ; testé avec ffmpeg 9) et Git LFS pour les deux
-vidéos de test (l'extrait et la 092 entière).
+Prérequis : [mise](https://mise.jdx.dev/), [rustup](https://rustup.rs/), Git LFS, `make`, un
+compilateur C et C++, `pkg-config`, `curl`, et `xz` sous Linux. FFmpeg n'est pas à installer :
+il se construit une fois par poste dans `~/.cache/batdetect/` (50 s sur un M1 Max) et se lie
+dans le binaire.
 
 ```bash
-git lfs install     # une fois par machine, avant le clone
-git lfs pull        # après un clone fait sans LFS : sinon les tests sur vraie vidéo échouent
-mise install        # Python 3.14.8, uv, lefthook et les outils cargo aux versions de mise.toml
-uv sync             # dépendances dans .venv/ depuis uv.lock
-lefthook install    # hooks avant commit (ruff)
-```
-
-Pour la réécriture en Rust ([docs/11](docs/11-migration-rust.md)), il faut en plus
-[rustup](https://rustup.rs/), `make`, un compilateur C et C++, `pkg-config`, `curl`, et
-`xz` sous Linux. FFmpeg
-n'est pas à installer : il se construit une fois par poste dans `~/.cache/batdetect/`
-(50 s sur un M1 Max).
-
-```bash
+git lfs install            # une fois par machine, avant le clone
+git lfs pull               # après un clone fait sans LFS : les trois vidéos de test
+mise install               # lefthook, les outils cargo et le Python des scripts de mise.toml
+lefthook install           # rustfmt avant chaque commit, mise run check avant chaque push
 rustup toolchain install   # la version de rust-toolchain.toml
 mise run rust:ffmpeg       # FFmpeg 7.1.1 (LGPL) et openh264 (BSD), liés en statique
+cargo build --release -p batdetect   # le binaire dans target/release/batdetect
 ```
 
 ## Utilisation
 
 ```bash
-uv run batdetect in                 # toutes les vidéos du dossier in/
-uv run batdetect a.mp4 b.mov -o res # fichiers précis, sorties dans res/
-uv run batdetect --help             # tous les réglages
+batdetect nuit-12-oct                  # toutes les vidéos du dossier, résultats dans nuit-12-oct/batdetect/
+batdetect nuit-12-oct nuit-13-oct      # plusieurs soirées d'un coup
+batdetect nuit-12-oct/video_092.mp4    # une seule vidéo
+batdetect nuit-12-oct -o resultats     # résultats dans un autre dossier
+batdetect nuit-12-oct --zoom all       # un extrait ralenti et agrandi pour chaque piste
+batdetect nuit-12-oct --annotated      # aussi la vidéo entière, toutes les pistes dessinées
 ```
 
-Installé par Homebrew, la commande s'appelle sans `uv run` : `batdetect in`.
+Depuis les sources, la commande se lance par `target/release/batdetect` ou par
+`cargo run --release -p batdetect -- <vidéos>`. `batdetect -h` donne l'essentiel,
+`batdetect --help` toutes les options avec leur valeur par défaut : c'est lui qui fait foi.
 
-### Modes
+- `-o`/`--out-dir`, `--zoom auto|all|none`, `--annotated`, `--max-tracks`, `--clip-margin`,
+  `--osd-region` (à répéter pour plusieurs zones) et `--skip-refused`.
+- Quatre réglages changent la détection : `--threshold`, `--min-hits`, `--max-blobs` et
+  `--work-width`. Les autres réglages sont fixés et écrits dans `params.json`
+  ([docs/02](docs/02-methode.md)).
 
-`--mode normal` (défaut) détecte au mieux. `--mode quick` reprend les réglages d'avant
-le seuil par pixel : image réduite à 480 px, seuil fixe 25, sans filtre à la taille de la
-cible ni seuil par pixel. Il demande à peu près deux fois moins de calcul (sur la 092 :
-241 s de temps processeur contre 437 s), mais il manque des choses :
+Toutes les entrées sont contrôlées avant le premier calcul. Les entrées refusées (fichier
+introuvable, illisible, pas une vidéo…) sont listées ensemble ; dans un terminal, la commande
+demande s'il faut traiter quand même les vidéos valides. Hors d'un terminal, rien n'est traité,
+sauf avec `--skip-refused`.
 
-- les cibles de moins de 3 px perdent 30 à 50 % de leur contraste à 480 px ;
-- une cible qui s'écarte du fond de moins de 25 niveaux n'est pas vue, alors que `normal`
-  descend jusqu'à 12 là où le bruit le permet ;
-- sur la 092, les 14 passages sont les mêmes, mais avec moins de points (2:37 : 7 contre
-  10 ; 3:57 : 18 contre 27), et certains commencent plus tard (3:57.32 contre 3:57.18).
-  Une piste courte et faible peut donc tomber sous `min_hits` et disparaître.
-
-Une option donnée explicitement l'emporte sur le mode (`--mode quick --threshold 20`).
-
-Pistes par vidéo, `normal` contre `quick`, mesurées du 4 au 7 octobre 2026 :
-
-| Vidéo | `normal` | `quick` |
-| --- | ---: | ---: |
-| 089 | 1 | 4 |
-| 090 | 20 | 12 |
-| 091 | 21 | 23 |
-| 092 | 14 | 14 |
-| 093 | 6 | 3 |
-| 094 | 14 | 9 |
-| 095 | 78 | 63 |
-| 096 | 136 | 110 |
-| 097 | 148 | 116 |
-| 099 | 115 | 98 |
-| 125 | 47 | 18 |
-| 126 | 12 | 4 |
-| 127 | 7 | 0 |
-
-Sur les vidéos calmes, `quick` trouve entre 3 pistes de plus et 8 de moins, sauf la 125
-(18 au lieu de 47, dont deux validées à l'œil). Sur les vidéos à beaucoup de pistes
-(095 à 099), les deux modes en sortent des dizaines : ce bruit est propre à ces fichiers,
-ce n'est pas un effet du mode.
-
-Sur un Mac Apple Silicon, les vidéos sont encodées par le moteur multimédia de la puce ;
-ailleurs par `libx264`. `--encoder x264` force l'encodeur logiciel.
+Pendant le calcul, une ligne par étape sur la sortie d'erreur (`[2/5] video_092 — détection`),
+puis un bilan de la soirée : pour chaque vidéo sa durée, ses pistes, le temps non analysé et le
+temps de calcul, puis les vidéos en échec avec ce qu'il faut faire. Le code de sortie n'est pas
+nul dès qu'une entrée est refusée ou qu'une vidéo échoue. Un lot interrompu (Ctrl-C) se refait
+en relançant la même commande.
 
 Les jumelles doivent être fixes pendant l'enregistrement. Les moments où le cadre bouge
 sont repérés et ignorés (environ 1 s de part et d'autre du mouvement) : ils ne sont pas
 analysés et sont à revoir à l'œil. `--max-blobs 0` désactive ce filtre.
 
-Les images que le décodeur a dû réparer (fichier abîmé) sont repérées par une passe
-`ffprobe` qui tourne pendant la détection, et ignorées jusqu'à l'image-clé suivante, plus
-une demi-seconde de chaque côté : le fond médian les voit encore
-([docs/10](docs/10-logique-de-detection.md)). Ce filtre ne se désactive pas. La passe
-finit avant la détection avec les réglages par défaut : elle ajoute 55 à 75 s de CPU par
-5 min de vidéo, mais pas d'attente ([docs/09](docs/09-profilage.md)). Si ffprobe et
-OpenCV ne voient pas le même nombre d'images, la vidéo échoue avec les deux nombres, et
-les autres vidéos du lot continuent.
+Les images que le décodeur a dû réparer (fichier abîmé) sont repérées pendant la lecture,
+par les signalements du décodeur et les trous dans les horodatages. Elles sont ignorées
+jusqu'à l'image-clé suivante, plus une demi-seconde de chaque côté : le fond médian les voit
+encore ([docs/10](docs/10-logique-de-detection.md)). Ce filtre ne se désactive pas. Une
+vidéo dont il manque des images sans explication est comptée en échec ; les autres vidéos du
+lot continuent.
 
-Au-delà de 300 pistes (`--max-tracks`, 0 désactive), la vidéo est presque sûrement du
-bruit : le CSV, `params.json` et l'image résumé sont écrits, mais ni extraits ni vidéo
-annotée. Une ligne sur la sortie d'erreur donne le nombre de pistes et le seuil, la
-vidéo compte en échec (code de sortie non nul à la fin du lot) et les vidéos suivantes
-sont traitées. La liste des pistes n'est pas affichée : la ligne d'erreur, le résumé et
-le CSV suffisent. Le balayage du 7 octobre 2026 va de 0 à 148 pistes sur les vidéos sans
-explosion ; les réglages qui explosaient en donnaient 374 à 5 479. Le seuil est fixe et
-suppose des clips d'environ 5 min, comme ceux des jumelles : pour une vidéo plus longue,
-montez `--max-tracks`.
+Au-delà de `--max-tracks` pistes, la vidéo est presque sûrement du bruit : le CSV,
+`params.json` et l'image résumé sont écrits, mais ni extraits ni vidéo annotée. Le bilan la
+compte à part, avec le nombre de pistes, et les vidéos suivantes sont traitées.
 
-Pour chaque vidéo, `out/<nom>/` contient les fichiers ci-dessous. Leurs noms suivent la
-langue de la locale, comme l'aide : en français sous une locale française, en anglais
-sinon. Les noms ne portent jamais d'accent.
+### Fichiers produits
+
+Pour chaque vidéo, un dossier à son nom, dans `batdetect/` à côté des vidéos, ou dans le
+dossier donné à `-o`. Les sorties de la v0.1.1, écrites dans `out/` du dossier où la commande
+était lancée, restent où elles sont : rien ne les déplace. Les noms suivent la langue de la
+locale, comme l'aide : en français sous une locale française, en anglais sinon. Ils ne portent
+jamais d'accent.
 
 | Fichier | Français | Anglais |
 | --- | --- | --- |
@@ -128,75 +99,68 @@ sinon. Les noms ne portent jamais d'accent.
 | Vidéo annotée | `<nom>_annotee.mp4` | `<nom>_annotated.mp4` |
 | Réglages | `params.json` | `params.json` |
 
-Une fois la détection finie, chaque calcul efface, dans le dossier de la vidéo, les sorties des deux
-langues et celles des versions précédentes (`split/`, `<nom>.tracks.*`, `<nom>_boxes.mp4`).
-La langue du dernier calcul fait foi.
+Une fois la détection finie, chaque calcul efface, dans le dossier de la vidéo, les sorties des
+deux langues et celles des versions précédentes (`split/`, `<nom>.tracks.*`, `<nom>_boxes.mp4`).
+La langue du dernier calcul fait foi. Un CSV qui n'a pas la forme d'un tableau des pistes est
+laissé tel quel, et le bilan le dit.
 
 - `<nom>_resume.png` : toutes les trajectoires sur le fond médian de la vidéo, une couleur,
-  une flèche (sens du vol) et une pastille numérotée par passage, avec une légende à droite
-  (numéro et début). Au-delà de 10 min, une image par tranche de 10 min
-  (`<nom>_resume_000m-010m.png`, …). `--osd-region 0,0,1,0.07` y cache l'affichage
-  des jumelles Symbion ;
-- `<nom>_pistes.csv` : début, fin, durée, vitesse de chaque passage ;
-- `params.json` : les réglages utilisés ;
-- `extraits/` : un extrait par passage, nommé par numéro de piste et temps de début à la
+  une flèche (sens du vol) et une pastille numérotée par piste, avec une légende à droite
+  (numéro et début) et une frise du temps en bas. Au-delà de 10 min, une image par tranche de
+  10 min (`<nom>_resume_000m-010m.png`, …) ; au-delà de 20 pistes, l'image est coupée en
+  parties (`<nom>_resume_1_sur_3.png`, …). `--osd-region 0,0,1,0.07` y cache l'affichage des
+  jumelles Symbion ;
+- `<nom>_pistes.csv` : une ligne par piste, avec `id`, `start`, `end`, `start_s`,
+  `duration_s`, `hits`, `chord_px`, `path_px`, `speed_px_s`, `max_area_px`,
+  `peak_amplitude` et `filled_frames` ([lire les résultats](docs/lire-les-resultats.md)) ;
+- `params.json` : les réglages employés, la version et le FFmpeg lié ;
+- `extraits/` : un extrait par piste, nommé par numéro de piste et temps de début à la
   seconde (le numéro départage deux pistes de la même seconde ; deux chiffres, trois dès
-  100 pistes, pour que le Finder les range dans l'ordre), avec une boîte,
-  un numéro et la trace des passages visibles ; pour les passages petits ou faibles,
-  aussi `<même nom>_zoom.mp4` : la même scène recadrée sur la trajectoire, agrandie
-  jusqu'à ×4 et ralentie ×0,25, avec la trace seule. `--zoom all` en fait un pour chaque
-  passage, `--zoom none` aucun ([docs/02](docs/02-methode.md#extrait-zoomé-et-ralenti)) ;
+  100 pistes, pour que le Finder les range dans l'ordre), avec une boîte, un numéro et la
+  trace des pistes visibles ; pour les pistes petites ou faibles, aussi
+  `<même nom>_zoom.mp4` : la même scène recadrée sur la trajectoire et agrandie jusqu'à
+  ×4, en pleine taille, ralentie ×0,25, avec la trace seule. `--zoom all` en fait un pour
+  chaque piste, `--zoom none` aucun ([docs/02](docs/02-methode.md#extrait-zoomé-et-ralenti)) ;
 - les périodes ignorées parce que l'image est saturée de taches (jumelles qui bougent)
-  sont écrites dans l'en-tête du bandeau de l'image résumé (`hors analyse 0:00 - 0:09`,
-  arrondi vers l'extérieur), affichées en console et listées dans `params.json`
-  (`ignored_s`) ;
-- les périodes illisibles (images abîmées et leur marge) sont signalées à part : une ligne
-  `illisible 3 min 22 s (79 plages)` dans le bandeau, une ligne `damaged …` en console,
-  et dans `params.json` la liste `damaged_s`, `damaged_frames` (nombre d'images signalées
-  par le décodeur ou qui suivent un trou dans les horodatages, pas le nombre d'images
-  écartées) et la version d'`ffprobe`. Le total « s ignored » de la console compte une
-  seule fois le temps à la fois illisible et instable ; le bandeau, lui, liste les deux
-  sans retirer leur recouvrement ;
+  sont écrites dans le bandeau de l'image résumé (`hors analyse 0:00 - 0:09`, arrondi vers
+  l'extérieur), montrées sur la frise et listées dans `params.json` (`ignored_s`) ;
+- les périodes illisibles (images abîmées et leur marge) sont signalées à part : des lignes
+  `illisible 1:12 - 1:15` dans le bandeau, la frise, et dans `params.json` la liste
+  `damaged_s` et `damaged_frames` (nombre d'images signalées par le décodeur ou qui suivent
+  un trou dans les horodatages, pas le nombre d'images écartées). Le bandeau garde trois
+  lignes de chaque sorte, puis `+ N autres` ;
 - avec `--annotated` seulement, `<nom>_annotee.mp4` : la vidéo annotée complète. Sans
   l'option, celle d'un traitement précédent est supprimée.
+
+Sous macOS, les extraits sont encodés par le moteur multimédia de la puce (VideoToolbox) ; si
+celui-ci échoue en cours de route, les extraits touchés sont réécrits par l'encodeur logiciel
+openh264, et une ligne le dit. Ailleurs, et pour les extraits zoomés partout, l'encodeur est
+openh264.
 
 Le détail de la méthode et des réglages est dans [docs/02-methode.md](docs/02-methode.md).
 
 ## Développement
 
 ```bash
-mise run check      # static, test:fast, test:slow, puis rust:static, rust:test, rust:slow et rust:settings : vert avant tout commit
-mise run static     # lint + format + types
-mise run test:fast  # tests sans aucune vraie vidéo, en parallèle, couverture ≥ 95 %
-mise run test:slow  # tests sur l'extrait réel
-mise run test       # tous les tests, sans la 092 entière
-uv run pytest -m reference                       # la 092 entière, ses 14 pistes (environ 40 s)
-mise run coverage
-mise run format
-uv run batdetect-bench in/video_092_original.mp4   # banc de mesure (docs/08)
-mise run rust:test       # tests rapides du Rust, couverture ≥ 95 %
-mise run rust:reference  # la 092 entière, décodée par le Rust
+mise run check                     # rust:static et rust:test, 20 s à 1 min : vert avant chaque push
+mise run rust:reference            # la 092 entière, ses 14 pistes
+cargo run --release -p bench -- in/video_092_original.mp4   # banc de mesure (docs/08)
 ```
+
+La CI de chaque PR joue en plus la couverture (`rust:coverage`), l'extrait (`rust:slow`) et
+les 16 cas de réglages (`rust:settings`) : `mise run check:ci` les enchaîne en local.
+Les règles du dépôt et la carte du code sont dans [CLAUDE.md](CLAUDE.md), la base de
+connaissances du projet dans [docs/](docs/README.md).
 
 ### Publier une version
 
-1. Monter `version` dans `pyproject.toml` (`uv version 0.2.0`), commit, fusion dans `main`.
-2. Attendre que la CI de `main` passe, puis poser le tag sur ce commit :
-   `git tag v0.2.0 && git push origin v0.2.0`.
-3. `release.yml` vérifie le tag (version de `pyproject.toml`, commit sur `main`, CI
-   réussie), construit le binaire sur `macos-latest` (`mise run package`), le contrôle
-   (`mise run package:check`) et publie la release avec `batdetect-darwin-arm64.tar.gz`.
-   Un tag posé avant la fin de la CI fait échouer la release : la relancer depuis
-   l'onglet Actions.
-4. Le tap `zaratan/homebrew-bat-tools` ouvre la PR de mise à jour de la formule le
-   lendemain (`bump-formulae.yml`, chaque jour à 6 h UTC).
-
-En local : `mise run package` construit `dist/batdetect/` et l'archive,
-`mise run package:check` la contrôle sur l'extrait (`git lfs pull` et ffmpeg requis).
-
-La base de connaissances du projet est dans [docs/](docs/README.md).
+Impossible avant #93 : `release.yml` refuse tout tag. Le CHANGELOG garde la section de la
+prochaine version, et `packaging/release-notes.sh` en tirera le texte de la release. Une fois
+la release publiée, le tap `zaratan/homebrew-bat-tools` ouvre la PR de mise à jour de la
+formule le lendemain (`bump-formulae.yml`, chaque jour à 6 h UTC).
 
 ## Licence
 
-Code sous MIT, voir [LICENSE](LICENSE). Le binaire distribué par Homebrew est sous GPL v3,
-voir [packaging/NOTICE](packaging/NOTICE).
+Code sous MIT, voir [LICENSE](LICENSE). Le binaire 0.1.1 distribué par Homebrew est sous GPL v3,
+voir [packaging/NOTICE](packaging/NOTICE). Le binaire Rust lie FFmpeg (LGPL) et openh264 (BSD) :
+sa licence se décidera à #93 ([docs/11](docs/11-migration-rust.md#licences)).

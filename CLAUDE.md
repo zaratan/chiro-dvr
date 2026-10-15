@@ -6,8 +6,8 @@ connaissances : [docs/](docs/README.md), à lire avant de toucher à un réglage
 ([docs/02-methode.md](docs/02-methode.md)).
 
 ```bash
-mise run check                    # rust:static et rust:test, environ 1 min : vert avant de rendre la main
-cargo run --release -p batdetect -- in/video_092_original.mp4 -o out # référence : 5 min, 14 pistes, ~20 s de calcul (docs/11)
+mise run check                    # rust:static et rust:test, 20 s à 1 min : vert avant de rendre la main
+cargo run --release -p batdetect -- in/video_092_original.mp4 -o out # référence : 5 min, 14 pistes, ~20 s de calcul (docs/09)
 ```
 
 ## Rôles
@@ -49,7 +49,8 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
 - **Les vidéos se copient depuis les jumelles en USB**, jamais par l'export Stream Vision 2,
   qui divise le débit par 12 ([docs/01-contexte.md](docs/01-contexte.md)).
 - **Docs synchronisées** : un changement de comportement met à jour `docs/` dans la même
-  série de changements.
+  série de changements, dans le document qui possède cette vérité (table de
+  [docs/README.md](docs/README.md#qui-tient-quoi)), et seulement là.
 
 ## Code
 
@@ -73,27 +74,29 @@ qu'un gros fichier à plusieurs rôles.
 
 ## Rust
 
-Le Python est retiré depuis #199 (dernier état au tag `python-final`) ; l'histoire de la
-migration est dans [docs/11](docs/11-migration-rust.md). docs/02 et docs/10 décrivent encore
-le Python jusqu'à #200.
+Le Python est retiré depuis #199 (dernier état au tag `python-final`). La chaîne de
+construction, la charte, les tests et l'histoire de la réécriture sont dans
+[docs/11](docs/11-migration-rust.md).
 
 ```bash
-lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:ffmpeg  # FFmpeg 7.1.1 + openh264, une fois par poste
+/Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:ffmpeg  # FFmpeg 7.1.1 + openh264, une fois par poste
 mise run rust:static      # fmt, clippy, règles de la charte, cargo deny, cargo shear
 mise run rust:test        # tests rapides, sans couverture (dans check)
 mise run rust:coverage    # tests rapides, couverture ≥ 95 % (dans check:ci)
 /Users/zaratan/Projects/dvr-wt/verrou lourd mise run check:ci  # rust:coverage, rust:slow, rust:settings : joué par la CI
 # git push : le hook pre-push de lefthook lance mise run check (pre-commit : rustfmt seul)
-lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:slow       # l'extrait LFS, le test de mémoire (hors couverture)
-lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:settings   # les 16 cas de réglages, sous Linux seulement en CI
-lockf /Users/zaratan/Projects/dvr-wt/mesure.lock mise run rust:reference  # la 092 entière
-lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --profile ci -p compare -- local  # écarts à la référence (extract, 092, settings, local)
-lockf /Users/zaratan/Projects/dvr-wt/mesure.lock cargo run --release -p bench -- VIDÉO --against DOSSIER  # garde du banc contre un banc de la v0.1.1
+/Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:slow       # l'extrait LFS, le test de mémoire (hors couverture)
+/Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:settings   # les 16 cas de réglages, sous Linux seulement en CI
+/Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:reference  # la 092 entière
+/Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --profile ci -p compare -- local  # écarts à la référence (extract, 092, 092-1440, settings, local)
+/Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --release -p bench -- VIDÉO --against DOSSIER  # garde du banc contre un banc de la v0.1.1
 BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… mise run rust:data  # référence et 26 vidéos sur une autre machine (seau, sommes dans tests/fixtures/reference/SHA256SUMS)
 ```
 
 Avant de rendre : `mise run check`. Le lourd (`check:ci`, `rust:reference`, `local_*`) une seule
-fois, seulement si le diff peut changer son résultat : la CI joue `check:ci` sur chaque PR.
+fois, seulement si le diff peut changer son résultat : la CI en joue les morceaux sur chaque PR.
+Un temps ou une mémoire publiés passent par `verrou chrono /usr/bin/time -l` au calme
+(`/Users/zaratan/Projects/dvr-wt/MESURES.md`).
 Le hook pre-push de `lefthook.yml` lance `mise run check` (pre-commit : rustfmt seul) ; sans cache
 FFmpeg pour la branche, `LEFTHOOK=0 git push` le saute. Ne pas lancer `lefthook run` ni
 `lefthook install` : ils réécrivent les hooks du dossier git commun à tous les worktrees.
@@ -111,8 +114,10 @@ crates depuis #100, dépendances à sens unique :
 - `media` → `types` : seule frontière avec FFmpeg et seule crate avec `unsafe`
   (`frame`, `decode`, `encode`, `convert`, `library`) ; `convert` passe du YUV au RGBA, et retour, en BT.709 ;
   `decode::placed` se place sur une image-clé par `pts` ; `payload` (feature `testing`) abîme un mp4 pour les tests ;
-  `fingerprint` (même feature) est la seule empreinte d'image des tests.
-- `reference` → `types` : chemins des fixtures et garde LFS, lecture et écriture de la
+  `fingerprint` (même feature) est la seule empreinte d'image des tests, stable d'un système et d'une
+  version de Rust à l'autre : les tests figés l'enregistrent.
+- `reference` → `types` : chemins des fixtures et garde LFS, emplacements hors dépôt
+  (`location`, dont `reference_video` pour les vidéos de la référence), lecture et écriture de la
   référence v0.1.1 et de ses bancs (`bench`), appariement des détections et des pistes.
 - `engine` → `media`, `types` (#116), avec la couture du banc (`detect_injected`) ;
   `tracking` → `types` (#120) ; `files` → `types` (#122).
@@ -121,7 +126,8 @@ crates depuis #100, dépendances à sens unique :
   (`source`), reprise sur la dernière image-clé saine, un seul fil de décodage sur une plage abîmée ;
   fenêtres et groupes (`windows`), boîtes, `#N` et traces (`overlay`, `picture`),
   un encodeur par groupe (`media::encode::fanout`), groupes en parallèle (`clips`,
-  `schedule`, `group`, `ahead`, `encoders`) ; zooms ralentis en openh264 (`zoom`, `work`, #103) ; vidéo annotée aux `pts` de la source, lue par tronçons (#103).
+  `schedule`, `group`, `ahead`, `encoders`) ; zooms ralentis en openh264 (`zoom`, `work`, #103) ; vidéo annotée aux `pts` de la source, lue par tronçons (#103) ;
+  `drawn` (feature `testing`) rend les images dessinées sans encodeur, pour les tests figés (#198).
 - `summary` → `draw`, `types`, `files` (#104) : l'image résumé (tranches, couleurs,
   flèches, pastilles, bandeau, frise du temps, PNG), sans FFmpeg.
 - `compare` → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
@@ -131,7 +137,10 @@ crates depuis #100, dépendances à sens unique :
   sa feature `testing` porte la vidéo bruitée et la cible lente de ses tests (`noisy`) ;
   `cli` (paquet `batdetect`, binaire `batdetect`) → `engine`, `tracking`, `files`,
   `summary`, `render`, `draw`, `media`, `types`, et `compare` pour ses tests (#184) ;
-  `options` (réglages de la commande),
+  `options` (réglages de la commande), `process` (une vidéo de bout en bout ; `tracked` en
+  est le suivi, partagé avec les tests figés), `consent` (question avant de traiter les vidéos
+  valides quand des entrées sont refusées, `--skip-refused`), `language`, `overview` (image
+  résumé), `settings` (réglages de `params.json`),
   `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), `writable`
   (sonde d'écriture de chaque dossier de sortie avant tout calcul, #86), `access` (table
   fermée des raisons d'un chemin refusé, sans texte, #55), `jobs` (vidéos et dossiers de
@@ -154,7 +163,8 @@ Charte (23 règles numérotées, lints et raisons dans
 - Aucun type de `ffmpeg_next` hors de `media`. Configurations validées à la
   construction.
 - Un module, ses tests dans `src/<module>/tests.rs`. Le niveau d'un test se choisit par
-  le nom de son fichier : `tests/slow_*.rs`, `tests/settings_*.rs`, `tests/reference_*.rs`.
+  le nom de son fichier : `tests/slow_*.rs`, `tests/settings_*.rs`, `tests/reference_*.rs`,
+  `tests/local_*.rs` (les 26 vidéos, jamais en CI), `tests/hardware_*.rs` (VideoToolbox).
 - Une dépendance se déclare une fois dans `[workspace.dependencies]`.
 - **Commentaires** : la règle du zéro commentaire vaut aussi en Rust, avec deux
   exceptions. Chaque bloc `unsafe` contient une seule opération et porte une ligne
