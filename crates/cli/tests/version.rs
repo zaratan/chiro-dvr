@@ -33,14 +33,28 @@ fn version_names_the_lgpl_ffmpeg_it_links() {
 }
 
 #[test]
-fn without_arguments_the_help_goes_to_stderr_with_a_usage_code() {
+fn without_arguments_the_common_uses_go_to_the_standard_output_with_a_success_code() {
     let output = english().output().unwrap();
-    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(output.status.code(), Some(0));
+    let uses = String::from_utf8(output.stdout).unwrap();
+    assert!(uses.starts_with("Detects and tracks bats"), "{uses}");
+    assert!(uses.lines().any(|line| line == "Common uses:"), "{uses}");
     assert!(
-        String::from_utf8(output.stderr)
-            .unwrap()
-            .contains("Usage: batdetect-rs")
+        uses.lines().any(|line| line == "      batdetect-rs night-oct-12"),
+        "{uses}"
     );
+    assert!(
+        uses.trim_end()
+            .ends_with("All the options and the files produced: batdetect-rs --help"),
+        "{uses}"
+    );
+    assert!(!uses.contains("Usage: "), "{uses}");
+}
+
+#[test]
+fn an_output_folder_without_any_video_is_still_a_usage_error() {
+    let output = english().args(["-o", "out"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(2));
 }
 
 #[test]

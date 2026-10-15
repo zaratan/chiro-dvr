@@ -1,11 +1,14 @@
+use std::ffi::OsStr;
 use std::fmt;
+use std::ops::Range;
+use std::path::Path;
 use std::sync::OnceLock;
 
 use batdetect::outcome::Rank;
 use batdetect::process::Wording;
 use batdetect::progress::Step;
 use engine::settings::Bound;
-use files::names::Part;
+use files::names::{Names, Part, RESULTS_FOLDER, params_json, period_suffix};
 use fluent_bundle::concurrent::FluentBundle;
 use fluent_bundle::{FluentArgs, FluentError, FluentResource, FluentValue};
 use summary::header::{Band, HeaderLine, Labels, duration};
@@ -13,6 +16,7 @@ use types::language::Language;
 use unic_langid::LanguageIdentifier;
 
 use crate::numbers::{self, NARROW_NO_BREAK_SPACE, NO_BREAK_SPACE};
+use crate::style::{HELP, STYLES};
 
 #[cfg(test)]
 mod tests;
@@ -21,6 +25,11 @@ const FRENCH_SOURCE: &str = include_str!("../../../locales/fr.ftl");
 const ENGLISH_SOURCE: &str = include_str!("../../../locales/en.ftl");
 const YES: &str = "yes";
 const NO: &str = "no";
+const EXAMPLE_VIDEO: &str = "video_092.mp4";
+const EXAMPLE_START_S: f64 = 4.0;
+const EXAMPLE_PERIOD: Range<u32> = 0..10;
+const EXAMPLE_PART: Part = Part { number: 1, count: 3 };
+const GUIDE: &str = "https://github.com/zaratan/chiro-dvr#readme";
 
 static FRENCH: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
 static ENGLISH: OnceLock<FluentBundle<FluentResource>> = OnceLock::new();
@@ -68,6 +77,24 @@ pub(crate) enum Fixed {
     TallyCompute,
     TallyFailedCell,
     TallyTooManyHeading,
+    CommonUses,
+    UseNights,
+    UseVideo,
+    UseOutDir,
+    UseZoom,
+    UseAnnotated,
+    ExampleNight,
+    ExampleNextNight,
+    ExampleResults,
+    AllOptions,
+    FileVideo,
+    FileSummary,
+    FileTable,
+    FileClip,
+    FileZoom,
+    FileAnnotated,
+    FileParams,
+    Guide,
 }
 
 impl Fixed {
@@ -114,6 +141,24 @@ impl Fixed {
             Self::TallyCompute => "tally-compute",
             Self::TallyFailedCell => "tally-failed-cell",
             Self::TallyTooManyHeading => "tally-too-many-heading",
+            Self::CommonUses => "common-uses",
+            Self::UseNights => "use-nights",
+            Self::UseVideo => "use-video",
+            Self::UseOutDir => "use-out-dir",
+            Self::UseZoom => "use-zoom",
+            Self::UseAnnotated => "use-annotated",
+            Self::ExampleNight => "example-night",
+            Self::ExampleNextNight => "example-next-night",
+            Self::ExampleResults => "example-results",
+            Self::AllOptions => "all-options",
+            Self::FileVideo => "file-video",
+            Self::FileSummary => "file-summary",
+            Self::FileTable => "file-table",
+            Self::FileClip => "file-clip",
+            Self::FileZoom => "file-zoom",
+            Self::FileAnnotated => "file-annotated",
+            Self::FileParams => "file-params",
+            Self::Guide => "guide",
         }
     }
 }
@@ -199,6 +244,16 @@ pub(crate) enum Message {
     },
     TallyFailureTodo {
         cause: &'static str,
+    },
+    UseFolder {
+        folder: String,
+    },
+    FilesHeading {
+        folder: String,
+    },
+    FilesLong {
+        period: String,
+        part: String,
     },
     SummaryPart {
         number: usize,
@@ -314,6 +369,9 @@ impl Message {
             Self::TallyChanged { .. } => "tally-changed",
             Self::TallyRegions { .. } => "tally-regions",
             Self::TallyFailureTodo { .. } => "tally-failure-todo",
+            Self::UseFolder { .. } => "use-folder",
+            Self::FilesHeading { .. } => "files-heading",
+            Self::FilesLong { .. } => "files-long",
             Self::SummaryPart { .. } => "summary-part",
             Self::SummaryTracks { .. } => "summary-tracks",
             Self::SummaryNotAnalysed { .. } => "summary-not-analysed",
@@ -434,6 +492,11 @@ impl Message {
             }
             Self::TallyChanged { settings } => arguments.set("settings", settings.as_str()),
             Self::TallyFailureTodo { cause } => arguments.set("cause", *cause),
+            Self::UseFolder { folder } | Self::FilesHeading { folder } => arguments.set("folder", folder.as_str()),
+            Self::FilesLong { period, part } => {
+                arguments.set("period", period.as_str());
+                arguments.set("part", part.as_str());
+            }
             other => other.command_line_arguments(arguments),
         }
     }
@@ -500,6 +563,9 @@ impl Message {
             | Self::TallyChanged { .. }
             | Self::TallyRegions { .. }
             | Self::TallyFailureTodo { .. }
+            | Self::UseFolder { .. }
+            | Self::FilesHeading { .. }
+            | Self::FilesLong { .. }
             | Self::SummaryPart { .. }
             | Self::SummaryTracks { .. }
             | Self::SummaryNotAnalysed { .. }
@@ -557,6 +623,85 @@ impl Texts {
             Language::French => numbers::french(&value.to_string()),
             Language::English => numbers::english(&value.to_string()),
         }
+    }
+
+    pub(crate) fn common_uses(self, program: &str) -> String {
+        let (header, literal) = (STYLES.get_header(), STYLES.get_literal());
+        let night = self.text(Fixed::ExampleNight);
+        let folder = Message::UseFolder {
+            folder: format!("{night}/{RESULTS_FOLDER}"),
+        };
+        let examples = [
+            (self.say(&folder), format!("{program} {night}")),
+            (
+                self.text(Fixed::UseNights),
+                format!("{program} {night} {}", self.text(Fixed::ExampleNextNight)),
+            ),
+            (self.text(Fixed::UseVideo), format!("{program} {night}/{EXAMPLE_VIDEO}")),
+            (
+                self.text(Fixed::UseOutDir),
+                format!("{program} {night} -o {}", self.text(Fixed::ExampleResults)),
+            ),
+            (self.text(Fixed::UseZoom), format!("{program} {night} --zoom all")),
+            (self.text(Fixed::UseAnnotated), format!("{program} {night} --annotated")),
+        ];
+        let lines: Vec<String> = examples
+            .into_iter()
+            .map(|(purpose, command)| format!("\n\n  - {purpose}\n      {literal}{command}{literal:#}"))
+            .collect();
+        format!("{header}{}{header:#}{}", self.text(Fixed::CommonUses), lines.concat())
+    }
+
+    pub(crate) fn all_options(self, program: &str) -> String {
+        let literal = STYLES.get_literal();
+        format!(
+            "{} {literal}{program} --{HELP}{literal:#}",
+            self.text(Fixed::AllOptions)
+        )
+    }
+
+    pub(crate) fn files_produced(self) -> String {
+        let (header, placeholder) = (STYLES.get_header(), STYLES.get_placeholder());
+        let names = Names::new(self.language);
+        let video = self.text(Fixed::FileVideo);
+        let (here, stem) = (Path::new(""), OsStr::new(&video));
+        let clips = names.clips_dir(here).display().to_string();
+        let rows = [
+            (
+                names.summary_png(here, stem, None, None).display().to_string(),
+                Fixed::FileSummary,
+            ),
+            (names.tracks_csv(here, stem).display().to_string(), Fixed::FileTable),
+            (
+                format!("{clips}/{}", names.numbered_clip(1, EXAMPLE_START_S, 1)),
+                Fixed::FileClip,
+            ),
+            (
+                format!("{clips}/{}", names.numbered_zoomed_clip(1, EXAMPLE_START_S, 1)),
+                Fixed::FileZoom,
+            ),
+            (
+                names.annotated_video(here, stem).display().to_string(),
+                Fixed::FileAnnotated,
+            ),
+            (params_json(here).display().to_string(), Fixed::FileParams),
+        ];
+        let lines: Vec<String> = rows
+            .iter()
+            .map(|(name, meaning)| format!("\n  {placeholder}{name}{placeholder:#}\n      {}", self.text(*meaning)))
+            .collect();
+        format!(
+            "{header}{}{header:#}{}\n\n{}\n\n{} {GUIDE}",
+            self.say(&Message::FilesHeading {
+                folder: RESULTS_FOLDER.to_owned(),
+            }),
+            lines.concat(),
+            self.say(&Message::FilesLong {
+                period: period_suffix(EXAMPLE_PERIOD),
+                part: names.part_suffix(EXAMPLE_PART),
+            }),
+            self.text(Fixed::Guide)
+        )
     }
 
     pub(crate) fn text(self, fixed: Fixed) -> String {

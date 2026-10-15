@@ -4,13 +4,12 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use files::names::composed;
+use files::names::{RESULTS_FOLDER, composed};
 
 #[cfg(test)]
 mod tests;
 
 const VIDEO_EXTENSIONS: [&str; 5] = ["mp4", "mov", "avi", "mkv", "m4v"];
-const RESULTS_FOLDER: &str = "batdetect";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Job {

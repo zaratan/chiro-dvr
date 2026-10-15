@@ -165,3 +165,26 @@ tally-failure-todo = {"  "}à faire : { $cause ->
         [encoding] relancer ; si cela recommence, le signaler avec le détail écrit pendant le traitement
        *[unexpected] le signaler avec le détail écrit pendant le traitement
     }
+common-uses = Usages courants :
+use-folder = Traiter tout un dossier de soirée, avec les résultats dans { $folder }/ :
+use-nights = Traiter plusieurs soirées d'un coup :
+use-video = Traiter une seule vidéo :
+use-out-dir = Écrire les résultats dans un autre dossier :
+use-zoom = Faire un extrait ralenti et agrandi de chaque piste :
+use-annotated = Écrire aussi la vidéo entière, avec toutes les pistes dessinées :
+example-night = nuit-12-oct
+example-next-night = nuit-13-oct
+example-results = resultats
+all-options = Toutes les options et les fichiers produits :
+files-heading = Fichiers produits, dans { $folder }/<vidéo>/ à côté des vidéos, ou dans <dossier de -o>/<vidéo>/ :
+file-video = <vidéo>
+file-summary = l'image résumé : toutes les pistes de la vidéo sur une image
+file-table = une ligne par piste (début, fin, durée, vitesse, taille), pour un tableur
+file-clip = l'extrait de chaque piste, nommé par son numéro et son début
+file-zoom = le même, ralenti et agrandi, pour les pistes petites ou faibles
+file-annotated = la vidéo entière avec les pistes dessinées, avec --annotated
+file-params = les réglages employés, pour refaire le même calcul
+files-long =
+    Une vidéo longue ou chargée a plusieurs images résumé, par tranche de 10 min ({ $period })
+    ou par partie ({ $part }).
+guide = Mode d'emploi complet :

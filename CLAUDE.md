@@ -201,7 +201,7 @@ crates depuis #100, dépendances à sens unique :
   `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), `writable`
   (sonde d'écriture de chaque dossier de sortie avant tout calcul, #86), `progress` (étapes
   d'une vidéo annoncées par `process`, #63), `failure` (cause d'un échec, sans texte, #64), `tally` (modèle du bilan de fin de soirée, #65), dans le binaire `status` (vidéo et étape en
-  cours sur la sortie d'erreur, redessinée sur un terminal, #63) et `board` (mise en forme du bilan, #65), version gravée par
+  cours sur la sortie d'erreur, redessinée sur un terminal, #63), `board` (mise en forme du bilan, #65) et `style` (couleurs et nom de l'option d'aide, #56) ; usages courants en tête de l'aide et sans argument (#56), version gravée par
   `build.rs` ; textes en Fluent dans `locales/{fr,en}.ftl`, langue de l'aide, des erreurs,
   des lignes et du bandeau (#114).
 

@@ -8,7 +8,7 @@ use clap::builder::styling::Style;
 use clap::error::{ContextKind, ContextValue, Error, ErrorFormatter, ErrorKind};
 use types::language::Language;
 
-use crate::arguments::{HELP, STYLES};
+use crate::style::{HELP, STYLES};
 use crate::texts::{Fixed, Message, Texts};
 
 #[cfg(test)]

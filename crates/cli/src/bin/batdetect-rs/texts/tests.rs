@@ -12,10 +12,11 @@ use summary::legend::{column_width, fit_text, legend_width};
 use types::language::Language;
 
 use super::{ENGLISH_SOURCE, FRENCH_SOURCE, Fixed, Message, Texts, resolved};
+use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 46;
-const FIXED: [Fixed; 41] = [
+const VARIANTS: usize = 49;
+const FIXED: [Fixed; 59] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -57,6 +58,24 @@ const FIXED: [Fixed; 41] = [
     Fixed::TallyCompute,
     Fixed::TallyFailedCell,
     Fixed::TallyTooManyHeading,
+    Fixed::CommonUses,
+    Fixed::UseNights,
+    Fixed::UseVideo,
+    Fixed::UseOutDir,
+    Fixed::UseZoom,
+    Fixed::UseAnnotated,
+    Fixed::ExampleNight,
+    Fixed::ExampleNextNight,
+    Fixed::ExampleResults,
+    Fixed::AllOptions,
+    Fixed::FileVideo,
+    Fixed::FileSummary,
+    Fixed::FileTable,
+    Fixed::FileClip,
+    Fixed::FileZoom,
+    Fixed::FileAnnotated,
+    Fixed::FileParams,
+    Fixed::Guide,
 ];
 
 fn rank(message: &Message) -> usize {
@@ -107,6 +126,9 @@ fn rank(message: &Message) -> usize {
         Message::TallyChanged { .. } => 43,
         Message::TallyRegions { .. } => 44,
         Message::TallyFailureTodo { .. } => 45,
+        Message::UseFolder { .. } => 46,
+        Message::FilesHeading { .. } => 47,
+        Message::FilesLong { .. } => 48,
     }
 }
 
@@ -153,6 +175,24 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::TallyCompute => 38,
         Fixed::TallyFailedCell => 39,
         Fixed::TallyTooManyHeading => 40,
+        Fixed::CommonUses => 41,
+        Fixed::UseNights => 42,
+        Fixed::UseVideo => 43,
+        Fixed::UseOutDir => 44,
+        Fixed::UseZoom => 45,
+        Fixed::UseAnnotated => 46,
+        Fixed::ExampleNight => 47,
+        Fixed::ExampleNextNight => 48,
+        Fixed::ExampleResults => 49,
+        Fixed::AllOptions => 50,
+        Fixed::FileVideo => 51,
+        Fixed::FileSummary => 52,
+        Fixed::FileTable => 53,
+        Fixed::FileClip => 54,
+        Fixed::FileZoom => 55,
+        Fixed::FileAnnotated => 56,
+        Fixed::FileParams => 57,
+        Fixed::Guide => 58,
     }
 }
 
@@ -190,6 +230,16 @@ fn lines() -> Vec<Message> {
         },
         Message::TallyRegions { count: 2 },
         Message::TallyFailureTodo { cause: "encoding" },
+        Message::UseFolder {
+            folder: text("nuit-12-oct/batdetect"),
+        },
+        Message::FilesHeading {
+            folder: text("batdetect"),
+        },
+        Message::FilesLong {
+            period: text("_000m-010m"),
+            part: text("_1_sur_3"),
+        },
         Message::TooManyTracks {
             video: text("nuit/video_092.mp4"),
             count: 301,
@@ -632,6 +682,51 @@ fn every_help_text_starts_with_a_capital_letter_in_both_languages() {
                 help.starts_with(char::is_uppercase),
                 "{language:?} {}: {help}",
                 fixed.id()
+            );
+        }
+    }
+}
+
+#[test]
+fn the_common_uses_give_six_commands_that_each_start_with_the_name_of_the_program() {
+    for language in LANGUAGES {
+        let uses = Texts::new(language).common_uses("prog");
+        let commands = uses.matches("\u{1b}[1m\u{1b}[36mprog ").count();
+        assert_eq!(commands, 6, "{language:?}: {uses}");
+        assert_eq!(
+            uses.lines().filter(|line| line.starts_with("  - ")).count(),
+            6,
+            "{uses}"
+        );
+        let night = Texts::new(language).text(Fixed::ExampleNight);
+        assert!(uses.contains(&format!("{night}/{RESULTS_FOLDER}/")), "{uses}");
+    }
+}
+
+#[test]
+fn the_files_produced_are_named_as_the_command_writes_them_in_each_language() {
+    for language in LANGUAGES {
+        let texts = Texts::new(language);
+        let files = texts.files_produced();
+        let names = files::names::Names::new(language);
+        let video = texts.text(Fixed::FileVideo);
+        let (here, stem) = (std::path::Path::new(""), std::ffi::OsStr::new(&video));
+        let expected = [
+            names.summary_png(here, stem, None, None).display().to_string(),
+            names.tracks_csv(here, stem).display().to_string(),
+            format!("{}/{}", names.clips_dir(here).display(), names.numbered_clip(1, 4.0, 1)),
+            format!(
+                "{}/{}",
+                names.clips_dir(here).display(),
+                names.numbered_zoomed_clip(1, 4.0, 1)
+            ),
+            names.annotated_video(here, stem).display().to_string(),
+            "params.json".to_owned(),
+        ];
+        for name in expected {
+            assert!(
+                files.contains(&format!("\u{1b}[33m{name}\u{1b}[0m")),
+                "{language:?} {name}: {files}"
             );
         }
     }

@@ -1610,6 +1610,30 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     (« [par défaut : batdetect/ à côté de chaque vidéo] »). `--output` n'existe plus.
     Les anciennes sorties de la v0.1.1 (`out/`, relatif au dossier de lancement) restent où
     elles sont, sans migration.
+  - Usages courants en tête de l'aide (#56), au format de `tldr` : « - description : », puis
+    la commande en retrait. Six exemples : un dossier de soirée, plusieurs soirées, une
+    vidéo, `-o`, `--zoom all`, `--annotated`. Le nom de la commande est
+    `env!("CARGO_BIN_NAME")` (`arguments::PROGRAM`), si bien que le renommage de #106 ne
+    touche qu'un endroit. Textes dans `texts.rs` (`common_uses`, `all_options`,
+    `files_produced`) et les `.ftl`, sans module à part.
+    - Sans aucun argument : la phrase d'en-tête, les usages et « Toutes les options et les
+      fichiers produits : batdetect-rs --help », sur la sortie standard, code 0.
+      `arg_required_else_help` est retiré. `-o` sans vidéo reste une erreur d'usage (code 2).
+    - `-h` : la phrase, les usages (`before_help`), l'essentiel, et le même pied
+      (`after_help`).
+    - `--help` : la phrase, les usages, tout, puis « Fichiers produits » et « Mode d'emploi
+      complet : https://github.com/zaratan/chiro-dvr#readme ».
+      - Les noms des fichiers sont ceux de `files::names`, dans la langue de l'aide :
+        `Names::numbered_clip` donne un nom d'extrait sans `Track`, `period_suffix` et
+        `Names::part_suffix` les suffixes de l'image résumé, et `RESULTS_FOLDER`
+        (`batdetect`, déplacé de `jobs`) le dossier de résultats. Aucun nom n'est écrit en
+        dur dans les textes de l'aide.
+    - `style` (binaire) porte `STYLES` et `HELP`, que `arguments`, `errors` et `texts`
+      importent : plus de cycle entre ces modules.
+      - Chaque nom est sur sa ligne, en jaune, et son rôle en retrait dessous : clap replie
+        `before_help` et `after_help` à la largeur du terminal, et deux colonnes s'y
+        casseraient.
+    - Commandes des exemples en cyan gras, titres en bleu gras, comme le reste de l'aide.
   - Options décidées le 10 octobre (#113), en builder `clap`, deux niveaux d'aide :
     - `-h` : l'essentiel, `VIDÉO…`, `-o/--out-dir`, `--zoom`, `-h`, `--version` ;
     - `--help` : tout, avec l'utile (`--annotated`, `--max-tracks`, `--clip-margin`,
