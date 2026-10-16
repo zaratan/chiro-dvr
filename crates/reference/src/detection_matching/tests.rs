@@ -1,5 +1,5 @@
 use proptest::prelude::*;
-use types::detection::{Detection, FrameDetections};
+use types::detection::{Detection, FrameDetections, Measures};
 use types::frame::FrameIndex;
 
 use super::{DETECTION_DISTANCE_PX, match_detections};
@@ -29,12 +29,16 @@ fn detection(frame: usize, x: f64, y: f64) -> Detection {
 }
 
 fn frames(frames: Vec<Vec<Detection>>) -> FrameDetections {
-    FrameDetections::new(frames).unwrap()
+    let mut placed = FrameDetections::default();
+    for found in frames {
+        placed.push(found.iter().map(Measures::of));
+    }
+    placed
 }
 
 fn shifted_first_detection(detections: &FrameDetections, dx: f64) -> (FrameDetections, Detection, Detection) {
     let mut moved = None;
-    let frames: Vec<Vec<Detection>> = detections
+    let rows: Vec<Vec<Detection>> = detections
         .iter()
         .map(|(_, found)| {
             found
@@ -54,7 +58,7 @@ fn shifted_first_detection(detections: &FrameDetections, dx: f64) -> (FrameDetec
         })
         .collect();
     let (original, shifted) = moved.unwrap();
-    (FrameDetections::new(frames).unwrap(), original, shifted)
+    (frames(rows), original, shifted)
 }
 
 #[test]

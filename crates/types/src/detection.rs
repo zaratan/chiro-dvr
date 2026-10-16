@@ -71,26 +71,7 @@ pub struct FrameDetections {
     frames: Vec<Vec<Detection>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum Error {
-    #[error("a detection of frame {found} is listed under frame {slot}")]
-    Misplaced { slot: FrameIndex, found: FrameIndex },
-}
-
 impl FrameDetections {
-    pub fn new(frames: Vec<Vec<Detection>>) -> Result<Self, Error> {
-        for (slot, found) in frames.iter().enumerate() {
-            let slot = FrameIndex::new(slot);
-            if let Some(misplaced) = found.iter().find(|detection| detection.frame != slot) {
-                return Err(Error::Misplaced {
-                    slot,
-                    found: misplaced.frame,
-                });
-            }
-        }
-        Ok(Self { frames })
-    }
-
     pub fn push(&mut self, found: impl IntoIterator<Item = Measures>) {
         let frame = FrameIndex::new(self.frames.len());
         self.frames

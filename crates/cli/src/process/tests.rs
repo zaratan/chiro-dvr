@@ -513,8 +513,12 @@ fn timeline_from(first_pts: i64, frames: usize) -> Timeline {
 }
 
 fn excluding(frames: usize, ignored_frame_count: usize) -> Exclusion {
+    let mut detections = FrameDetections::default();
+    for _ in 0..frames {
+        detections.push([]);
+    }
     Exclusion {
-        detections: FrameDetections::new(vec![Vec::new(); frames]).unwrap(),
+        detections,
         damaged: Vec::new(),
         unstable: Vec::new(),
         reported_frames: 0,

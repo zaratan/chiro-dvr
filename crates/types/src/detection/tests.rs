@@ -1,4 +1,4 @@
-use super::{Detection, Error, FrameDetections, Measures};
+use super::{Detection, FrameDetections, Measures};
 use crate::frame::FrameIndex;
 use crate::span::Span;
 
@@ -16,6 +16,19 @@ fn detection(frame: usize, x: f64, y: f64) -> Detection {
     }
 }
 
+fn measures(x: f64) -> Measures {
+    Measures {
+        x,
+        y: 10.0,
+        left: x - 1.0,
+        top: 9.0,
+        width: 3.0,
+        height: 3.0,
+        area: 4.5,
+        amplitude: 13.0,
+    }
+}
+
 #[test]
 fn the_distance_between_detections_is_euclidean() {
     assert!((detection(0, 0.0, 0.0).distance(&detection(0, 3.0, 4.0)) - 5.0).abs() < 1e-12);
@@ -23,7 +36,10 @@ fn the_distance_between_detections_is_euclidean() {
 
 #[test]
 fn empty_frames_keep_their_place() {
-    let frames = FrameDetections::new(vec![vec![], vec![detection(1, 5.0, 5.0)], vec![]]).unwrap();
+    let mut frames = FrameDetections::default();
+    frames.push([]);
+    frames.push([measures(5.0)]);
+    frames.push([]);
     assert_eq!((frames.frame_count(), frames.detection_count()), (3, 1));
     assert_eq!(frames.get(FrameIndex::new(2)), Some([].as_slice()));
     assert_eq!(frames.get(FrameIndex::new(3)), None);
@@ -31,34 +47,29 @@ fn empty_frames_keep_their_place() {
 
 #[test]
 fn detections_of_a_frame_keep_their_order() {
-    let first = detection(0, 900.0, 10.0);
-    let second = detection(0, 10.0, 10.0);
-    let frames = FrameDetections::new(vec![vec![first, second]]).unwrap();
-    assert_eq!(frames.get(FrameIndex::new(0)), Some([first, second].as_slice()));
-}
-
-#[test]
-fn a_detection_listed_under_another_frame_is_refused() {
-    let error = FrameDetections::new(vec![vec![], vec![detection(0, 1.0, 1.0)]]).unwrap_err();
+    let mut frames = FrameDetections::default();
+    frames.push([measures(900.0), measures(10.0)]);
     assert_eq!(
-        error,
-        Error::Misplaced {
-            slot: FrameIndex::new(1),
-            found: FrameIndex::new(0)
-        }
+        frames.get(FrameIndex::new(0)),
+        Some([detection(0, 900.0, 10.0), detection(0, 10.0, 10.0)].as_slice())
     );
-    assert_eq!(error.to_string(), "a detection of frame 0 is listed under frame 1");
 }
 
 #[test]
 fn iteration_walks_every_frame_in_order() {
-    let frames = FrameDetections::new(vec![vec![detection(0, 1.0, 1.0)], vec![]]).unwrap();
+    let mut frames = FrameDetections::default();
+    frames.push([measures(1.0)]);
+    frames.push([]);
     let counts: Vec<_> = frames.iter().map(|(frame, found)| (frame.get(), found.len())).collect();
     assert_eq!(counts, [(0, 1), (1, 0)]);
 }
 
 fn one_per_frame(count: usize) -> FrameDetections {
-    FrameDetections::new((0..count).map(|frame| vec![detection(frame, 1.0, 1.0)]).collect()).unwrap()
+    let mut frames = FrameDetections::default();
+    for _ in 0..count {
+        frames.push([measures(1.0)]);
+    }
+    frames
 }
 
 fn counts(frames: &FrameDetections) -> Vec<usize> {
@@ -107,19 +118,6 @@ fn many_short_spans_empty_exactly_their_frames() {
         .collect();
     assert_eq!(first_left, [2, 3, 6, 7]);
     assert_eq!(counts(&left).iter().filter(|&&count| count == 0).count(), 5_000);
-}
-
-fn measures(x: f64) -> Measures {
-    Measures {
-        x,
-        y: 10.0,
-        left: x - 1.0,
-        top: 9.0,
-        width: 3.0,
-        height: 3.0,
-        area: 4.5,
-        amplitude: 13.0,
-    }
 }
 
 #[test]

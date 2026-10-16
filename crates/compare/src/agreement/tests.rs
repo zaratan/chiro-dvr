@@ -1,6 +1,6 @@
 use reference::location::committed;
 use reference::recording::Recording;
-use types::detection::{Detection, FrameDetections};
+use types::detection::{Detection, FrameDetections, Measures};
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
@@ -8,6 +8,7 @@ use types::span::Span;
 
 use super::{Agreement, Gap, SAME_POINT_PX, clock, counts};
 use crate::case::EXTRACT;
+use crate::testing::nothing_detected;
 
 const EXTRACT_VIDEO: &str = "video_092_original_3m24-4m05.mp4";
 
@@ -20,17 +21,13 @@ fn rate() -> FrameRate {
 }
 
 fn edited(detections: &FrameDetections, edit: impl Fn(&mut Vec<Detection>)) -> FrameDetections {
-    FrameDetections::new(
-        detections
-            .iter()
-            .map(|(_, found)| {
-                let mut found = found.to_vec();
-                edit(&mut found);
-                found
-            })
-            .collect(),
-    )
-    .unwrap()
+    let mut edited = FrameDetections::default();
+    for (_, found) in detections.iter() {
+        let mut found = found.to_vec();
+        edit(&mut found);
+        edited.push(found.iter().map(Measures::of));
+    }
+    edited
 }
 
 fn first_frame_with_detections(recording: &Recording) -> FrameIndex {
@@ -144,7 +141,7 @@ fn detections_inside_the_ignored_spans_of_the_reference_count_on_neither_side() 
 #[test]
 fn nothing_to_find_on_either_side_agrees_fully() {
     let mut recording = extract();
-    let empty = edited(recording.frames.detections(), Vec::clear);
+    let empty = nothing_detected(&recording);
     recording.frames = reference::frames::Frames::new(recording.frames.entries().to_vec(), empty.clone()).unwrap();
     recording.tracks.clear();
 

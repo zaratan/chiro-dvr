@@ -2,7 +2,7 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use std::path::{Path, PathBuf};
 
 use engine::settings::DetectSettings;
-use types::detection::{Detection, FrameDetections};
+use types::detection::{Detection, FrameDetections, Measures};
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
@@ -85,11 +85,15 @@ pub(crate) fn slow_target(id: usize, start: usize, frames: usize) -> Target {
 pub(crate) const RUN_FRAMES: usize = 100;
 
 pub(crate) fn frames(detections: impl IntoIterator<Item = Detection>) -> FrameDetections {
-    let mut frames = vec![Vec::new(); RUN_FRAMES];
+    let mut placed = vec![Vec::new(); RUN_FRAMES];
     for detection in detections {
-        frames[detection.frame.get()].push(detection);
+        placed[detection.frame.get()].push(Measures::of(&detection));
     }
-    FrameDetections::new(frames).unwrap()
+    let mut frames = FrameDetections::default();
+    for found in placed {
+        frames.push(found);
+    }
+    frames
 }
 
 pub(crate) fn run(
