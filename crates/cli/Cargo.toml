@@ -20,6 +20,7 @@ jiff.workspace = true
 media.workspace = true
 render.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 summary.workspace = true
 sys-locale.workspace = true
 tempfile.workspace = true
@@ -34,7 +35,6 @@ media = { workspace = true, features = ["testing"] }
 png.workspace = true
 reference.workspace = true
 render = { workspace = true, features = ["testing"] }
-serde_json.workspace = true
 
 [lints]
 workspace = true

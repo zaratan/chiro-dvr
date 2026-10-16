@@ -714,7 +714,7 @@ fn a_table_annotated_by_hand_is_left_and_named_in_the_summary_in_the_language_of
 }
 
 #[test]
-fn a_verdict_written_in_the_table_of_an_earlier_run_is_left_as_it_is_by_the_next_run() {
+fn a_verdict_written_in_the_table_of_an_earlier_run_is_left_as_it_is_when_the_video_is_redone() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let out = root.path().join("out");
     let table = out.join("flight").join("flight_pistes.csv");
@@ -722,7 +722,7 @@ fn a_verdict_written_in_the_table_of_an_earlier_run_is_left_as_it_is_by_the_next
     assert!(output.status.success(), "{}", text(&output.stderr));
     let annotated = fs::read_to_string(&table).unwrap().replacen(";;", ";oui;", 1);
     fs::write(&table, &annotated).unwrap();
-    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    let output = run(&[&videos, Path::new("-o"), &out, Path::new("--force")], "fr_FR.UTF-8");
     assert!(output.status.success(), "{}", text(&output.stderr));
     assert!(
         text(&output.stdout).contains("Tableau laissé tel quel\u{a0}:"),
@@ -964,4 +964,68 @@ fn a_video_damaged_in_a_folder_of_its_own_is_told_among_the_failures_without_a_t
         summary.lines().any(|line| line.starts_with("  abimee\u{a0}: ")),
         "{summary}"
     );
+}
+
+#[cfg(test)]
+fn reuses_earlier_results() -> bool {
+    !env!("BATDETECT_VERSION").ends_with("-dirty")
+}
+
+#[cfg(test)]
+fn modified(folder: &Path) -> Vec<(String, std::time::SystemTime)> {
+    tree::tree(folder)
+        .into_iter()
+        .filter(|name| !name.ends_with('/'))
+        .map(|name| {
+            let time = fs::metadata(folder.join(&name)).unwrap().modified().unwrap();
+            (name, time)
+        })
+        .collect()
+}
+
+#[test]
+fn the_same_command_again_skips_the_video_already_done_without_touching_its_folder_unless_forced_or_uncommitted() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    assert!(run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8").status.success());
+    let before = modified(&out.join("flight"));
+    let again = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    assert!(again.status.success(), "{}", text(&again.stderr));
+    let (title, line) = if reuses_earlier_results() {
+        (
+            "Bilan\u{a0}: 1 vidéo, 1 déjà faite\n",
+            "[1/1] flight — déjà faite, 1 piste",
+        )
+    } else {
+        ("Bilan\u{a0}: 1 vidéo, 1 réussie\n", "[1/1] flight — 1 piste")
+    };
+    assert!(text(&again.stdout).starts_with(title), "{}", text(&again.stdout));
+    assert!(text(&again.stderr).contains(line), "{}", text(&again.stderr));
+    assert_eq!(modified(&out.join("flight")) == before, reuses_earlier_results());
+    let forced = run(&[&videos, Path::new("-o"), &out, Path::new("--force")], "fr_FR.UTF-8");
+    assert!(
+        text(&forced.stdout).starts_with("Bilan\u{a0}: 1 vidéo, 1 réussie\n"),
+        "{}",
+        text(&forced.stdout)
+    );
+    assert_ne!(modified(&out.join("flight")), before);
+}
+
+#[test]
+fn a_lot_stopped_before_its_second_video_was_marked_finished_resumes_with_that_video_only() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4", "b.mp4"]);
+    let out = root.path().join("out");
+    assert!(run(&[&videos, Path::new("-o"), &out], "C").status.success());
+    fs::remove_file(out.join("b").join("params.json")).unwrap();
+    let first = modified(&out.join("a"));
+    let again = run(&[&videos, Path::new("-o"), &out], "C");
+    assert!(again.status.success(), "{}", text(&again.stderr));
+    let title = if reuses_earlier_results() {
+        "Summary: 2 videos, 1 done, 1 already done\n"
+    } else {
+        "Summary: 2 videos, 2 done\n"
+    };
+    assert!(text(&again.stdout).starts_with(title), "{}", text(&again.stdout));
+    assert_eq!(modified(&out.join("a")) == first, reuses_earlier_results());
+    assert!(out.join("b").join("params.json").is_file());
 }

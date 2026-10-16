@@ -15,8 +15,8 @@ use super::{ENGLISH_SOURCE, FRENCH_SOURCE, Fixed, Message, Shown, Texts, resolve
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 58;
-const FIXED: [Fixed; 77] = [
+const VARIANTS: usize = 60;
+const FIXED: [Fixed; 78] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -55,6 +55,7 @@ const FIXED: [Fixed; 77] = [
     Fixed::SkipRefusedHelp,
     Fixed::SkipRefusedDeclined,
     Fixed::NoNotifyHelp,
+    Fixed::ForceHelp,
     Fixed::InputsRefused,
     Fixed::TallyVideo,
     Fixed::TallyLength,
@@ -156,6 +157,8 @@ fn rank(message: &Message) -> usize {
         Message::TallyRefusedCount { .. } => 55,
         Message::TallyRefusedHeading { .. } => 56,
         Message::Interrupted { .. } => 57,
+        Message::VideoSkipped { .. } => 58,
+        Message::TallyAlreadyDone { .. } => 59,
     }
 }
 
@@ -238,6 +241,7 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::TableAmplitude => 74,
         Fixed::TableFilledFrames => 75,
         Fixed::TableStartSeconds => 76,
+        Fixed::ForceHelp => 77,
     }
 }
 
@@ -255,6 +259,7 @@ fn lines() -> Vec<Message> {
     vec![
         Message::TallyTitle { total: 12 },
         Message::TallyDone { count: 10 },
+        Message::TallyAlreadyDone { count: 2 },
         Message::TallyTooManyCount { count: 1 },
         Message::TallyFailedCount { count: 1 },
         Message::TallyTooManyCell { count: 412 },
@@ -307,8 +312,14 @@ fn lines() -> Vec<Message> {
             video: text("video_092"),
             tracks: 14,
         },
+        Message::VideoSkipped {
+            rank: Rank { position: 4, total: 12 },
+            video: text("video_093"),
+            tracks: 1,
+        },
         Message::Interrupted {
             rank: Rank { position: 3, total: 12 },
+            resumes: true,
         },
         Message::VideoFailed {
             rank: Rank { position: 3, total: 12 },

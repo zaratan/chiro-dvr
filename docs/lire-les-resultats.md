@@ -77,6 +77,13 @@ trop de pistes, celles en échec avec ce qu'il faut faire, et les entrées refus
 lancée dans un terminal, elle annonce aussi la fin par une notification et ouvre chaque dossier de
 résultats dans le Finder (`--no-notify` pour s'en passer).
 
+Relancer la même commande ne refait pas une vidéo déjà faite avec les mêmes réglages : son
+dossier reste tel quel, et le bilan la compte « déjà faite » avec ses chiffres d'origine
+(`--force` refait tout). Si une vidéo de même nom mais d'une autre extension arrive plus tard
+dans le même dossier (`video_092.mov` à côté de `video_092.mp4`), chacune reçoit un dossier
+renommé (`video_092_mp4/`, `video_092_mov/`) : elles sont recalculées, et l'ancien dossier
+`video_092/` reste là, orphelin, à supprimer à la main.
+
 [techniques]: 10-logique-de-detection.md#les-techniques-en-simple
 [#9]: https://github.com/zaratan/chiro-dvr/issues/9
 [#11]: https://github.com/zaratan/chiro-dvr/issues/11

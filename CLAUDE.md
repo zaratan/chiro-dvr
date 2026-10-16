@@ -10,6 +10,9 @@ mise run check                    # rust:static et rust:test, 20 s à 1 min : ve
 cargo run --release -p batdetect -- in/video_092_original.mp4 -o out # référence : 5 min, 14 pistes, ~20 s de calcul (docs/09)
 ```
 
+Un binaire `-dirty` (changements non commités, `--version`) ne saute jamais une vidéo déjà faite :
+la relance de la référence mesure toujours le code courant (#70). Un binaire propre la saute.
+
 ## Rôles
 
 Manon, naturaliste, confirme les passages à l'œil. Son verdict sur la 092 (9 octobre 2026 :
@@ -145,7 +148,7 @@ crates depuis #100, dépendances à sens unique :
   `cli` (paquet `batdetect`, binaire `batdetect`) → `engine`, `tracking`, `files`,
   `summary`, `render`, `draw`, `media`, `types`, et `compare` pour ses tests (#184) ;
   `options` (réglages de la commande), `process` (une vidéo de bout en bout ; `tracked` en
-  est le suivi, partagé avec les tests figés), `consent` (question avant de traiter les vidéos
+  est le suivi, partagé avec les tests figés), `reuse` (vidéo déjà faite, sautée d'après son `params.json`, #70), `consent` (question avant de traiter les vidéos
   valides quand des entrées sont refusées, `--skip-refused`), `language`, `listing` (pistes de `params.json` : temps, couleur, extraits écrits, #66),
   `overview` (image résumé), `settings` (réglages de `params.json`),
   `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), `writable`
