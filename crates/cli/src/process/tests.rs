@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use engine::config::DetectConfig;
 use engine::detection::detect;
 use files::names::{Names, partial_path};
-use files::previous::Kept;
+use files::previous::{Kept, Reason};
 use files::table::{Column, Headings};
 use media::decode::{Decoder, Threads};
 use media::encode::fallback::{self, Fallback};
@@ -81,7 +81,7 @@ fn rendered_into_a_fresh_folder(
             ..Options::default()
         },
         extent: MEASURED,
-        kept: &[Kept {
+        kept: &[Kept::Left {
             path: PathBuf::from("out/flight_tracks.csv"),
             ours: true,
         }],
@@ -345,43 +345,50 @@ fn the_outputs_of_an_earlier_run_in_any_language_are_replaced_by_those_of_this_r
     assert_eq!(processed.kept, []);
 }
 
+fn dated_copy_of(kept: &[Kept], table: &Path) -> PathBuf {
+    let [Kept::SetAside { path, dated, reason }] = kept else {
+        panic!("{kept:?}");
+    };
+    assert_eq!((path.as_path(), *reason), (table, Reason::UnknownForm));
+    assert_eq!(fs::read_to_string(dated).unwrap(), ANNOTATED_HEADER);
+    dated.clone()
+}
+
 #[test]
-fn a_table_annotated_in_the_language_of_the_run_is_kept_as_it_is_and_no_table_is_written_over_it() {
+fn a_table_of_an_unknown_form_in_the_language_of_the_run_is_set_aside_under_a_dated_name_and_the_new_one_written() {
     let folder = tempfile::tempdir().unwrap();
     let job = flight_job(folder.path());
     let table = job.dest.join("flight_tracks.csv");
     fs::create_dir_all(&job.dest).unwrap();
     fs::write(&table, ANNOTATED_HEADER).unwrap();
     let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
-    assert_eq!(processed.csv, None);
-    assert_eq!(
-        processed.kept,
-        [Kept {
-            path: table.clone(),
-            ours: true,
-        }]
-    );
-    assert_eq!(fs::read_to_string(&table).unwrap(), ANNOTATED_HEADER);
+    let dated = dated_copy_of(&processed.kept, &table);
+    let name = dated.file_name().unwrap().to_string_lossy().into_owned();
+    assert!(name.starts_with("flight_tracks_20"), "{name}");
+    assert!(dated.extension().is_some_and(|extension| extension == "csv"), "{name}");
+    assert_ne!(fs::read_to_string(&table).unwrap(), ANNOTATED_HEADER);
+    assert_eq!(processed.csv, Some(table));
     assert!(job.dest.join("flight_summary.png").is_file());
 }
 
 #[test]
-fn a_table_annotated_in_the_other_language_is_kept_beside_the_new_table() {
+fn a_table_of_an_unknown_form_in_the_other_language_is_set_aside_beside_the_new_table() {
     let folder = tempfile::tempdir().unwrap();
     let job = flight_job(folder.path());
     let table = job.dest.join("flight_pistes.csv");
     fs::create_dir_all(&job.dest).unwrap();
     fs::write(&table, ANNOTATED_HEADER).unwrap();
     let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
-    assert_eq!(processed.csv, Some(job.dest.join("flight_tracks.csv")));
-    assert_eq!(
-        processed.kept,
-        [Kept {
-            path: table.clone(),
-            ours: false,
-        }]
+    let dated = dated_copy_of(&processed.kept, &table);
+    assert!(
+        dated
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with("flight_pistes_20")
     );
-    assert_eq!(fs::read_to_string(&table).unwrap(), ANNOTATED_HEADER);
+    assert!(!table.exists());
+    assert_eq!(processed.csv, Some(job.dest.join("flight_tracks.csv")));
     assert!(job.dest.join("flight_tracks.csv").is_file());
 }
 
@@ -542,7 +549,7 @@ fn a_processed_video_reports_its_length() {
 }
 
 #[test]
-fn a_video_with_too_many_tracks_brings_back_its_measures_and_the_table_left_as_it_is() {
+fn a_video_with_too_many_tracks_brings_back_its_measures_and_sets_aside_the_earlier_table_before_writing_its_own() {
     let folder = tempfile::tempdir().unwrap();
     let video = folder.path().join("flight.mp4");
     flight::write_flight_of(&video, LONG_FLIGHT, NonZeroU32::new(KEY_INTERVAL));
@@ -566,11 +573,5 @@ fn a_video_with_too_many_tracks_brings_back_its_measures_and_the_table_left_as_i
     };
     assert_eq!(count, 2);
     assert!(extent.length_s > 0.0 && extent.not_analysed_s > 0.0, "{extent:?}");
-    assert_eq!(
-        kept,
-        [Kept {
-            path: job.dest.join("flight_tracks.csv"),
-            ours: true,
-        }]
-    );
+    dated_copy_of(&kept, &job.dest.join("flight_tracks.csv"));
 }

@@ -25,7 +25,7 @@ fn row(dest: &str, state: State) -> Row {
 }
 
 fn kept(path: &str) -> Vec<Kept> {
-    vec![Kept {
+    vec![Kept::Left {
         path: PathBuf::from(path),
         ours: false,
     }]
@@ -112,7 +112,12 @@ fn each_state_is_found_apart_and_too_many_tracks_is_not_a_failure() {
 #[test]
 fn the_tables_left_as_they_are_come_from_done_videos_and_from_videos_with_too_many_tracks() {
     let tally = evening();
-    let kept: Vec<&Path> = tally.kept().map(|(_, table)| table.path.as_path()).collect();
+    let kept: Vec<&Path> = tally
+        .kept()
+        .map(|(_, table)| match table {
+            Kept::Left { path, .. } | Kept::SetAside { path, .. } => path.as_path(),
+        })
+        .collect();
     assert_eq!(
         kept,
         [

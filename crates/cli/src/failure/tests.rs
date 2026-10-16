@@ -234,3 +234,12 @@ fn a_read_only_destination_is_a_write_refusal_but_a_broken_progress_line_is_unex
     let progress = Error::Progress(io::Error::from(io::ErrorKind::StorageFull));
     assert_eq!(cause(&progress, &Options::default()), Cause::Unexpected);
 }
+
+#[test]
+fn a_table_that_cannot_be_set_aside_in_a_read_only_folder_is_a_write_refusal() {
+    let error = Error::Previous(files::error::Error::SetAside {
+        path: PathBuf::from("out/v/v_pistes.csv"),
+        source: io::Error::from(io::ErrorKind::PermissionDenied),
+    });
+    assert_eq!(cause(&error, &Options::default()), Cause::Forbidden);
+}

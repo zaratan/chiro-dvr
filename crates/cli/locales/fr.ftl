@@ -185,6 +185,14 @@ tally-kept = { $video } : { $table } n'a pas la forme d'un tableau des pistes{ 
         [no] {"\u00A0"}; le nouveau tableau n'est pas écrit
        *[yes] {""}
     }
+tally-set-aside-heading = { $count ->
+        [one] Tableau mis de côté :
+       *[other] Tableaux mis de côté :
+    }
+tally-set-aside = { $video } : { $table } { $reason ->
+        [verdicts] porte des verdicts
+       *[unknown] n'a pas la forme d'un tableau des pistes
+    }, mis de côté sous { $dated }
 tally-changed = Réglages changés : { $settings }
 tally-regions = { $count ->
         [one] { $count } zone

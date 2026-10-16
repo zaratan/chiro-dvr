@@ -29,6 +29,12 @@ pub enum Error {
         #[source]
         source: io::Error,
     },
+    #[error("cannot set aside {}", path.display())]
+    SetAside {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
     #[error("cannot encode {}", path.display())]
     Encode {
         path: PathBuf,

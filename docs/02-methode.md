@@ -337,7 +337,8 @@ soirée compte ces vidéos à part, avec leur nombre de pistes.
 
 Colonnes du CSV, dans cet ordre : `piste` (numéro), `début` et `fin` (`h:mm:ss`, tronqués
 à la seconde comme le nom de l'extrait), `durée (s)`, `verdict` (vide, rempli à l'œil ;
-l'outil n'en tire rien, mais un verdict rempli garde le tableau à la relance), `points`
+l'outil n'en tire rien, mais un tableau qui en porte est mis de côté sous un nom daté au
+recalcul), `points`
 (nombre de détections), `corde (px)` (distance de bout en bout), `chemin (px)` (chemin parcouru), `vitesse (px/s)` (chemin ÷ durée), `surface max (px)`
 (plus grande tache, en pixels d'origine), `amplitude (niveaux de gris)` (plus fort écart au
 fond ; avec le filtre à la taille de la cible, écart mesuré sur l'image filtrée, donc plus

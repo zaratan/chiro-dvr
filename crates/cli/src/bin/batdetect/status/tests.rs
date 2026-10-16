@@ -91,7 +91,7 @@ fn on_a_terminal_the_step_is_erased_before_the_last_line_of_the_video() {
             not_analysed_s: 0.0,
         },
         csv: None,
-        kept: vec![Kept {
+        kept: vec![Kept::Left {
             path: PathBuf::from("out/flight/flight_pistes.csv"),
             ours: true,
         }],

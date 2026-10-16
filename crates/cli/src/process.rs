@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use engine::detection::{self, Detected, detect};
 use engine::input::Video;
+use files::aside::Stamp;
 use files::names::{Names, params_json};
 use files::params::{Params, spans_in_seconds, write_params};
 use files::previous::{Kept, remove_previous_outputs};
@@ -49,7 +50,7 @@ pub enum Error {
         #[source]
         source: io::Error,
     },
-    #[error("the results of an earlier run cannot be removed")]
+    #[error("the results of an earlier run cannot be removed or set aside")]
     Previous(#[source] files::error::Error),
     #[error("the results cannot be written")]
     Files(#[source] files::error::Error),
@@ -172,7 +173,7 @@ pub fn process_detected(
     })?;
     let names = Names::new(wording.language());
     let stem = job.video.file_stem().unwrap_or_default();
-    let mut kept = remove_previous_outputs(&job.dest, stem, names, wording).map_err(Error::Previous)?;
+    let mut kept = remove_previous_outputs(&job.dest, stem, names, wording, Stamp::now()).map_err(Error::Previous)?;
     let csv = write_table(
         names.tracks_csv(&job.dest, stem),
         &tracks,
@@ -243,13 +244,13 @@ fn write_table(
     wording: &dyn Wording,
     kept: &mut Vec<Kept>,
 ) -> Result<Option<PathBuf>, Error> {
-    if kept.iter().any(|table| table.ours) {
+    if kept.iter().any(Kept::blocks_our_table) {
         return Ok(None);
     }
     match write_tracks_csv(&csv, tracks, timeline, wording.language(), wording) {
         Ok(()) => Ok(Some(csv)),
         Err(files::error::Error::Taken { path }) => {
-            kept.push(Kept { path, ours: true });
+            kept.push(Kept::Left { path, ours: true });
             Ok(None)
         }
         Err(error) => Err(Error::Files(error)),

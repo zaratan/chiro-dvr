@@ -214,11 +214,19 @@ distance et du contraste de l'animal autant que de sa taille.
 
 Le jugement de Manon, à l'œil sur l'extrait : cette piste est-elle une chauve-souris ?
 L'outil n'en tire rien ; il se note dans la colonne `verdict` du tableau des pistes, sur
-la ligne de la piste. Un verdict écrit garde le tableau tel quel à la relance, qui n'écrit
-alors pas de nouveau tableau ; seule cette colonne le protège : un tableau trié, ou dont des
-lignes ont été retirées, sans aucun verdict, est remplacé. Hors du tableau, on le note avec le temps de début de la piste plutôt
-qu'avec son numéro, qui peut changer (ceux de la 092 sont dans
-[docs/03](03-resultats-092.md#verdict-de-manon-9-octobre-2026)).
+la ligne de la piste, en texte libre.
+
+Au recalcul de la vidéo, un tableau qui porte au moins un verdict est mis de côté, identique,
+sous un nom daté du jour et de la minute du calcul (`<vidéo>_pistes_2026-10-16_1430.csv`),
+puis un tableau neuf, sans verdict, s'écrit à côté ; le bilan le dit. Le recalcul ne touche
+jamais à un tableau mis de côté : il n'est ni retiré, ni renommé. Les numéros des pistes peuvent changer d'un calcul à l'autre :
+les verdicts se reportent à la main, d'après le temps de début de chaque piste, plutôt que
+d'après son numéro (ceux de la 092 sont dans
+[docs/03](03-resultats-092.md#verdict-de-manon-9-octobre-2026)). Un tableau changé autrement
+(colonne ajoutée, autre séparateur) est mis de côté de la même façon. Un tableau qui a
+encore le même en-tête et le même nombre de colonnes, colonne `verdict` vide, est remplacé
+sans être gardé, même trié ou raccourci : une note écrite dans une autre colonne que
+`verdict` est alors perdue.
 
 ### Vitesse
 

@@ -15,7 +15,7 @@ use super::{ENGLISH_SOURCE, FRENCH_SOURCE, Fixed, Message, Shown, Texts, resolve
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 58;
+const VARIANTS: usize = 60;
 const FIXED: [Fixed; 76] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
@@ -155,6 +155,8 @@ fn rank(message: &Message) -> usize {
         Message::TallyRefusedCount { .. } => 55,
         Message::TallyRefusedHeading { .. } => 56,
         Message::Interrupted { .. } => 57,
+        Message::TallySetAsideHeading { .. } => 58,
+        Message::TallySetAside { .. } => 59,
     }
 }
 
@@ -267,6 +269,13 @@ fn lines() -> Vec<Message> {
             video: text("video_092"),
             table: text("video_092_pistes.csv"),
             written: false,
+        },
+        Message::TallySetAsideHeading { count: 1 },
+        Message::TallySetAside {
+            video: text("video_092"),
+            table: text("video_092_pistes.csv"),
+            dated: text("video_092_pistes_2026-10-16_1430.csv"),
+            reason: "verdicts",
         },
         Message::TallyChanged {
             settings: text("--threshold 11"),

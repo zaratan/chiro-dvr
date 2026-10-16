@@ -170,6 +170,14 @@ tally-kept = { $video }: { $table } does not have the form of a tracks table{ $w
         [no] ; the new table is not written
        *[yes] {""}
     }
+tally-set-aside-heading = { $count ->
+        [one] Table set aside:
+       *[other] Tables set aside:
+    }
+tally-set-aside = { $video }: { $table } { $reason ->
+        [verdicts] holds verdicts
+       *[unknown] does not have the form of a tracks table
+    }, set aside as { $dated }
 tally-changed = Changed settings: { $settings }
 tally-regions = { $count ->
         [one] { $count } region

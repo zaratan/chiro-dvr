@@ -59,10 +59,17 @@ fn damaged() -> State {
 }
 
 fn evening() -> Tally {
-    let kept = vec![Kept {
-        path: PathBuf::from("nuit/batdetect/video_092/video_092_pistes.csv"),
-        ours: true,
-    }];
+    let kept = vec![
+        Kept::SetAside {
+            path: PathBuf::from("nuit/batdetect/video_092/video_092_pistes.csv"),
+            dated: PathBuf::from("nuit/batdetect/video_092/video_092_pistes_2026-10-16_1430.csv"),
+            reason: files::previous::Reason::Verdicts,
+        },
+        Kept::Left {
+            path: PathBuf::from("nuit/batdetect/video_092/video_092_tracks.csv"),
+            ours: false,
+        },
+    ];
     Tally {
         refused: Vec::new(),
         rows: vec![
@@ -135,8 +142,11 @@ Trop de pistes (tableau et image résumé écrits, pas d'extraits)\u{a0}:
     à faire\u{a0}: la recopier depuis les jumelles par le câble USB, sans passer par Stream Vision 2, puis relancer\u{a0}; si \
 elle reste abîmée, le signaler
 
+Tableau mis de côté\u{a0}:
+  video_092\u{a0}: video_092_pistes.csv porte des verdicts, mis de côté sous video_092_pistes_2026-10-16_1430.csv
+
 Tableau laissé tel quel\u{a0}:
-  video_092\u{a0}: video_092_pistes.csv n'a pas la forme d'un tableau des pistes\u{a0}; le nouveau tableau n'est pas écrit
+  video_092\u{a0}: video_092_tracks.csv n'a pas la forme d'un tableau des pistes
 
 Réglages changés\u{a0}: --threshold 11
 ";
@@ -159,6 +169,12 @@ fn the_english_summary_has_the_same_shape() {
     assert!(lines.contains(&"1 video of 5 failed:"), "{summary}");
     assert!(lines.contains(&"Changed settings: --threshold 11"), "{summary}");
     assert!(lines.contains(&"Table left as it is:"), "{summary}");
+    assert!(
+        lines.contains(
+            &"  video_092: video_092_pistes.csv holds verdicts, set aside as video_092_pistes_2026-10-16_1430.csv"
+        ),
+        "{summary}"
+    );
 }
 
 #[test]
@@ -212,7 +228,7 @@ fn several_failures_and_several_tables_left_as_they_are_are_counted_in_the_plura
     let kept = |name: &str| State::Done {
         tracks: 1,
         extent: extent(1.0, 0.0),
-        kept: vec![Kept {
+        kept: vec![Kept::Left {
             path: PathBuf::from(format!("nuit/batdetect/{name}/{name}_tracks.csv")),
             ours: false,
         }],

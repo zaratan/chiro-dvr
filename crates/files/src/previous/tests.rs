@@ -2,9 +2,11 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::Path;
 
+use jiff::civil::date;
 use types::language::Language;
 
-use super::{Kept, remove_previous_outputs};
+use super::{Kept, Reason, remove_previous_outputs};
+use crate::aside::Stamp;
 use crate::names::Names;
 use crate::table::{Column, Headings};
 
@@ -31,8 +33,19 @@ fn folder_with(files: &[&str], folders: &[&str]) -> tempfile::TempDir {
     dest
 }
 
+fn half_past_two() -> Stamp {
+    Stamp::at(date(2026, 10, 16).at(14, 30, 0, 0))
+}
+
 fn cleaned(dest: &Path) -> Vec<Kept> {
-    remove_previous_outputs(dest, OsStr::new("v"), Names::new(Language::French), &Debugged).unwrap()
+    remove_previous_outputs(
+        dest,
+        OsStr::new("v"),
+        Names::new(Language::French),
+        &Debugged,
+        half_past_two(),
+    )
+    .unwrap()
 }
 
 fn left_in(dest: &Path) -> Vec<String> {
@@ -83,30 +96,41 @@ fn the_rest_of_the_folder_is_left() {
 }
 
 #[test]
-fn a_table_whose_header_was_changed_is_kept_and_said_to_take_our_name_only_in_our_language() {
+fn a_table_with_verdicts_is_set_aside_under_a_dated_name_whatever_its_language_and_the_rest_is_removed() {
     let dest = folder_with(&["v_resume.png"], &[]);
-    let annotated = LEGACY_TABLE.replacen("filled_frames", "filled_frames,verdict", 1);
+    let annotated = LEGACY_TABLE
+        .replacen("filled_frames", "filled_frames,verdict", 1)
+        .replacen(",0\r\n", ",0,oui\r\n", 1);
     for name in ["v_pistes.csv", "v_tracks.csv"] {
         fs::write(dest.path().join(name), &annotated).unwrap();
     }
     assert_eq!(
         cleaned(dest.path()),
         [
-            Kept {
+            Kept::SetAside {
                 path: dest.path().join("v_pistes.csv"),
-                ours: true,
+                dated: dest.path().join("v_pistes_2026-10-16_1430.csv"),
+                reason: Reason::Verdicts,
             },
-            Kept {
+            Kept::SetAside {
                 path: dest.path().join("v_tracks.csv"),
-                ours: false,
+                dated: dest.path().join("v_tracks_2026-10-16_1430.csv"),
+                reason: Reason::Verdicts,
             },
         ]
     );
-    assert_eq!(left_in(dest.path()), ["v_pistes.csv", "v_tracks.csv"]);
+    assert_eq!(
+        left_in(dest.path()),
+        ["v_pistes_2026-10-16_1430.csv", "v_tracks_2026-10-16_1430.csv"]
+    );
+    assert_eq!(
+        fs::read_to_string(dest.path().join("v_pistes_2026-10-16_1430.csv")).unwrap(),
+        annotated
+    );
 }
 
 #[test]
-fn a_table_with_semicolons_an_extra_cell_latin_text_or_nothing_is_kept() {
+fn a_table_with_semicolons_an_extra_cell_latin_text_or_nothing_is_set_aside_as_of_an_unknown_form() {
     let semicolons = LEGACY_TABLE.replace(',', ";").into_bytes();
     let extra_cell = LEGACY_TABLE.replacen(",0\r\n", ",0,yes\r\n", 1).into_bytes();
     let mut latin = LEGACY_TABLE.as_bytes().to_vec();
@@ -114,9 +138,31 @@ fn a_table_with_semicolons_an_extra_cell_latin_text_or_nothing_is_kept() {
     for content in [semicolons, extra_cell, latin, Vec::new()] {
         let dest = tempfile::tempdir().unwrap();
         fs::write(dest.path().join("v.tracks.csv"), &content).unwrap();
-        assert_eq!(cleaned(dest.path()).len(), 1, "{}", String::from_utf8_lossy(&content));
-        assert_eq!(left_in(dest.path()), ["v.tracks.csv"]);
+        assert_eq!(
+            cleaned(dest.path()),
+            [Kept::SetAside {
+                path: dest.path().join("v.tracks.csv"),
+                dated: dest.path().join("v.tracks_2026-10-16_1430.csv"),
+                reason: Reason::UnknownForm,
+            }],
+            "{}",
+            String::from_utf8_lossy(&content)
+        );
+        assert_eq!(
+            fs::read(dest.path().join("v.tracks_2026-10-16_1430.csv")).unwrap(),
+            content
+        );
     }
+}
+
+#[test]
+fn a_table_set_aside_is_left_alone_by_the_next_cleanup() {
+    let dest = folder_with(&[], &[]);
+    fs::write(dest.path().join("v_pistes.csv"), "piste;verdict\r\n1;oui\r\n").unwrap();
+    cleaned(dest.path());
+    fs::write(dest.path().join("v_pistes.csv"), LEGACY_TABLE).unwrap();
+    assert_eq!(cleaned(dest.path()), []);
+    assert_eq!(left_in(dest.path()), ["v_pistes_2026-10-16_1430.csv"]);
 }
 
 #[test]
@@ -140,6 +186,7 @@ fn a_video_name_decomposed_by_the_file_system_still_matches_its_outputs() {
         OsStr::new(composed),
         Names::new(Language::French),
         &Debugged,
+        half_past_two(),
     )
     .unwrap();
     assert_eq!(left_in(dest.path()), Vec::<String>::new());
@@ -152,10 +199,16 @@ fn a_missing_folder_has_nothing_to_remove() {
 }
 
 #[test]
-fn a_folder_named_like_a_table_is_kept_and_the_rest_is_removed() {
+fn a_folder_named_like_a_table_is_left_where_it_is_and_the_rest_is_removed() {
     let dest = folder_with(&["v_resume.png"], &["clips"]);
     fs::create_dir(dest.path().join("v_pistes.csv")).unwrap();
-    assert_eq!(cleaned(dest.path()).len(), 1);
+    assert_eq!(
+        cleaned(dest.path()),
+        [Kept::Left {
+            path: dest.path().join("v_pistes.csv"),
+            ours: true,
+        }]
+    );
     assert_eq!(left_in(dest.path()), ["v_pistes.csv"]);
 }
 
@@ -180,8 +233,14 @@ fn a_table_that_cannot_be_read_stops_the_cleanup_before_anything_is_removed() {
     let dest = folder_with(&["v_pistes.csv", "v_resume.png"], &["clips"]);
     let table = dest.path().join("v_pistes.csv");
     fs::set_permissions(&table, fs::Permissions::from_mode(0o000)).unwrap();
-    let error =
-        remove_previous_outputs(dest.path(), OsStr::new("v"), Names::new(Language::French), &Debugged).unwrap_err();
+    let error = remove_previous_outputs(
+        dest.path(),
+        OsStr::new("v"),
+        Names::new(Language::French),
+        &Debugged,
+        half_past_two(),
+    )
+    .unwrap_err();
     fs::set_permissions(&table, fs::Permissions::from_mode(0o644)).unwrap();
     assert!(matches!(&error, Error::Read { path, .. } if *path == table), "{error}");
     assert_eq!(left_in(dest.path()), ["clips", "v_pistes.csv", "v_resume.png"]);
