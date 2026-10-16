@@ -20,20 +20,21 @@ fn span(first: usize, last: usize) -> Span {
 }
 
 #[test]
-fn a_clock_shows_minutes_seconds_and_hundredths() {
-    assert_eq!(clock(7.39), "0:07.39");
-    assert_eq!(clock(237.18), "3:57.18");
-    assert_eq!(clock(3725.0), "62:05.00");
+fn a_clock_shows_hours_minutes_and_seconds_so_a_spreadsheet_never_reads_minutes_as_hours() {
+    assert_eq!(clock(7.39), "0:00:07");
+    assert_eq!(clock(237.18), "0:03:57");
+    assert_eq!(clock(3725.0), "1:02:05");
 }
 
 #[test]
-fn hundredths_that_round_up_carry_into_the_next_minute() {
-    assert_eq!(clock(59.996), "1:00.00");
+fn a_clock_drops_the_hundredths_like_the_name_of_the_clip_instead_of_rounding_up() {
+    assert_eq!(clock(4.8), "0:00:04");
+    assert_eq!(clock(59.996), "0:00:59");
 }
 
 #[test]
 fn a_negative_time_shows_as_zero() {
-    assert_eq!(clock(-0.2), "0:00.00");
+    assert_eq!(clock(-0.2), "0:00:00");
 }
 
 #[test]

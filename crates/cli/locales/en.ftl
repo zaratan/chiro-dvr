@@ -222,3 +222,16 @@ tally-refused-heading = { $count ->
        *[other] Refused inputs, not processed
     }:
 interrupted = batch interrupted at video { $position }/{ $total }; running the same command again redoes the batch
+table-track = track
+table-start = start
+table-end = end
+table-duration = duration (s)
+table-verdict = verdict
+table-hits = points
+table-chord = chord (px)
+table-path = path (px)
+table-speed = speed (px/s)
+table-max-area = max area (px)
+table-amplitude = amplitude (grey levels)
+table-filled-frames = filled frames
+table-start-seconds = start (s)

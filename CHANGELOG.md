@@ -20,6 +20,10 @@ le workflow de release échouera sans elle.
 - `batdetect` et `batdetect-bench` sont réécrits en Rust, FFmpeg lié en statique (#106). Sur la
   092, la commande prend 19 s au lieu de 135 s. Sur 26 vidéos, 963 des 966 pistes de la 0.1.1 se
   retrouvent, 3 sont perdues et 9 apparaissent ; les écarts sont listés dans docs/11.
+- Le tableau des pistes se lit dans un tableur : en français, BOM UTF-8, point-virgule, virgule
+  décimale et en-têtes français ; en anglais, virgule et point. Une colonne `verdict` vide suit
+  la durée, début et fin s'écrivent `0:00:04`, le début en secondes passe en dernière colonne.
+  Un tableau dont le verdict est rempli est laissé tel quel à la relance (#84).
 - Sans `-o`/`--out-dir`, les résultats vont dans `batdetect/` à côté de chaque vidéo, et non plus
   dans `out/` du dossier de lancement (#86).
 - Encodage par VideoToolbox puis openh264 sous macOS, openh264 ailleurs, au lieu de libx264 ;
