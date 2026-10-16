@@ -1938,6 +1938,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       sinon inaccessible) ;
     - plusieurs vidéos vers le même dossier de résultats : une ligne par dossier, qui
       nomme toutes ses vidéos, après les refus d'entrées puisque ce sont des sorties.
+    - vidéo qui ne s'ouvre pas (`Reason::Unopened`, #62), vue par l'inventaire, après les précédentes : sa ligne est la phrase de l'échec équivalent et son « à faire » celui de cet échec (`failure::reading_cause`, la classification d'une lecture ratée), suivi du détail anglais quand ce « à faire » y renvoie (`unsupported`). Le bilan reprend les mêmes lignes, détail compris, puisque ce « à faire » y renvoie ; un échec à son tour, lui, y perd son détail.
 
     Si toutes les entrées sont des dossiers sans vidéo, le refus devient « aucune vidéo
     (mp4, mov, avi, mkv ou m4v) trouvée dans ce dossier : », suivi des dossiers, chacun
@@ -1961,8 +1962,13 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       « à faire ».
     - Le chemin avec question se teste dans `consent`, sur une entrée fabriquée. Un test
       de commande ne peut pas fabriquer de terminal sans pseudo-terminal.
-    `failure::Missing` et `NotAVideo` restent pour un fichier qui disparaît ou change
-    entre le départ et son tour.
+    Les causes d'une lecture ratée restent pour un fichier qui disparaît ou change entre le départ et son tour.
+  - Inventaire au départ (`inventory::take_stock`, #62), après `jobs::plan` et avant la question des refus.
+    - La reprise se décide là, une fois pour toutes (`reuse::earlier`, sauf `--force`), et non plus dans la boucle : une vidéo déjà faite n'est pas ouverte, sa durée est celle de son `params.json`.
+    - Chaque autre vidéo est ouverte par `engine::input::Input::open`, en un seul fil, puis refermée aussitôt : sa durée est le nombre d'images annoncé divisé par la cadence.
+    - Une vidéo qui ne s'ouvre pas rejoint les refus d'entrées, avec la même question, le même `--skip-refused` et le même code 2.
+    - Coût, mesuré le 16 octobre 2026 sur lumiel (binaire release, fichiers en cache, `-o` vers un dossier en lecture seule pour s'arrêter juste après l'inventaire) : 0,39 à 0,44 s pour les 26 vidéos de `BATDETECT_VIDEOS_DIR`, dont 0,39 s de CPU, pic de mémoire 15,6 Mo.
+    - Une vidéo fausse, tronquée ou au flux effacé échoue toujours à l'ouverture (essai sur la vidéo fabriquée) : un échec à son tour vient désormais surtout de l'écriture. Les tests de commande le provoquent par un fichier ordinaire posé à la place de `<racine>/<vidéo>/`, qui fait échouer la vidéo sur tous les systèmes, Windows et root compris (« erreur inattendue »).
   - Une vidéo donnée deux fois, sous n'importe quelle écriture (son dossier et son nom,
     `./`, un lien), n'est traitée qu'une fois, sous sa première écriture (#194). La clé est
     son chemin réel (`fs::canonicalize`), ou, pour un fichier absent, le dossier réel suivi
@@ -2087,6 +2093,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       (`Error::Progress`). Le rapport de cette vidéo échoue ensuite sur la même sortie
       d'erreur, et le lot s'arrête là, en code 1. Avant #63, le lot ne s'arrêtait qu'à
       la première ligne d'événement ou d'échec.
+    - Avant le premier rang, une ligne annonce le lot sur la sortie d'erreur (#62) : « 12 vidéos, 1 h 2 min 5 s de vidéo, dont 3 déjà faites », la fin seulement s'il y en a ; la durée s'écrit comme la colonne « durée » du bilan (`clock`), vidéos déjà faites comprises.
     - Le binaire (`status.rs`) écrit « [3/12] video_092 — détection », puis « — suivi »,
       « — image résumé », « — extraits ». La vidéo est nommée sans extension, et son rang
       compte dans le lot.

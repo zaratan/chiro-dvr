@@ -1,5 +1,6 @@
 mod arguments;
 mod board;
+mod clock;
 mod errors;
 mod messages;
 mod notify;
@@ -11,13 +12,14 @@ mod style;
 mod texts;
 
 use std::env;
-use std::io::{self, IsTerminal};
+use std::io::{self, IsTerminal, Write as _};
 use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
 use std::sync::Arc;
 
 use batdetect::consent::{Asking, Choice};
-use batdetect::jobs::{self, Job, Refused, plan};
+use batdetect::inventory::{Stock, take_stock};
+use batdetect::jobs::{self, Job, plan};
 use batdetect::language::system_language;
 use batdetect::ledger::Ledger;
 use batdetect::outcome::{self, Ran, run_all};
@@ -51,10 +53,11 @@ fn main() -> ExitCode {
         Ok(request) => request,
         Err(error) => return report(texts, error),
     };
-    let (jobs, skipped) = match admitted(&request, texts) {
+    let stock = match admitted(&request, texts) {
         Ok(admitted) => admitted,
         Err(code) => return code,
     };
+    let jobs = stock.jobs();
     let refused = unwritable_folders(&jobs);
     if !refused.is_empty() {
         let (heading, lines) = messages::folders_refused(texts, &refused);
@@ -73,34 +76,52 @@ fn main() -> ExitCode {
     if watching.is_err() {
         return ExitCode::FAILURE;
     }
-    run(&jobs, skipped, &status, &request)
+    if writeln!(io::stderr(), "{}", texts.say(&messages::announcement(&stock))).is_err() {
+        return ExitCode::FAILURE;
+    }
+    run(stock, &jobs, &status, &request)
 }
 
-fn admitted(request: &Request, texts: Texts) -> Result<(Vec<Job>, Vec<Refused>), ExitCode> {
-    let error = match plan(&request.inputs, request.out_dir.as_deref()) {
-        Ok(jobs) => return Ok((jobs, Vec::new())),
-        Err(error) => error,
-    };
-    let asking = Asking {
-        skip_refused: request.skip_refused,
-        terminal: io::stdin().is_terminal(),
-    };
-    let (refused, valid) = match error {
-        jobs::Error::Refused { refused, valid } if !valid.is_empty() && asking.shows_the_refusals_first() => {
-            (refused, valid)
-        }
-        error => {
+fn admitted(request: &Request, texts: Texts) -> Result<Stock, ExitCode> {
+    let (jobs, mut refused) = match plan(&request.inputs, request.out_dir.as_deref()) {
+        Ok(jobs) => (jobs, Vec::new()),
+        Err(jobs::Error::Refused { refused, valid }) => (valid, refused),
+        Err(error) => {
             let (heading, lines) = messages::inputs_refused(texts, &error);
             return Err(report(texts, arguments::rejection(texts, &heading, &lines)));
         }
     };
-    let (heading, lines) = messages::inputs_skipped(texts, &refused);
+    let run = Run {
+        options: &request.options,
+        version: messages::version(),
+        language: texts.language(),
+    };
+    let mut stock = take_stock(jobs, |job| if request.force { None } else { reuse::earlier(job, run) });
+    refused.append(&mut stock.refused);
+    stock.refused = refused;
+    if stock.refused.is_empty() {
+        return Ok(stock);
+    }
+    let asking = Asking {
+        skip_refused: request.skip_refused,
+        terminal: io::stdin().is_terminal(),
+    };
+    if stock.listed.is_empty() || !asking.shows_the_refusals_first() {
+        let error = jobs::Error::Refused {
+            valid: stock.jobs(),
+            refused: stock.refused,
+        };
+        let (heading, lines) = messages::inputs_refused(texts, &error);
+        return Err(report(texts, arguments::rejection(texts, &heading, &lines)));
+    }
+    let valid = stock.listed.len();
+    let (heading, lines) = messages::inputs_skipped(texts, &stock.refused);
     if errors::show(texts, arguments::rejection(texts, &heading, &lines)).is_err() {
         return Err(ExitCode::FAILURE);
     }
-    let question = texts.say(&Message::SkipRefusedQuestion { count: valid.len() });
+    let question = texts.say(&Message::SkipRefusedQuestion { count: valid });
     match asking.choose(&question, &mut io::stdin().lock(), &mut io::stderr().lock()) {
-        Ok(Choice::Process) => Ok((valid, refused)),
+        Ok(Choice::Process) => Ok(stock),
         Ok(Choice::Refuse) | Err(_) => {
             let declined = Message::Fixed(Fixed::SkipRefusedDeclined);
             Err(report(texts, arguments::rejection(texts, &declined, &[])))
@@ -108,7 +129,7 @@ fn admitted(request: &Request, texts: Texts) -> Result<(Vec<Job>, Vec<Refused>),
     }
 }
 
-fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, request: &Request) -> ExitCode {
+fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request) -> ExitCode {
     let texts = status.texts();
     let options = &request.options;
     let ffmpeg = media::library::version();
@@ -130,13 +151,7 @@ fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, request: &Request) 
         jobs,
         |job, rank| {
             status.enter(rank);
-            let run = Run {
-                options,
-                version: versions.program,
-                language: texts.language(),
-            };
-            let earlier = if request.force { None } else { reuse::earlier(job, run) };
-            if let Some(earlier) = earlier {
+            if let Some(earlier) = stock.earlier(job) {
                 return Ok(Ran::Skipped(earlier));
             }
             let video = Video { status, rank, job };
@@ -155,7 +170,7 @@ fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, request: &Request) 
     };
     let tally = Tally {
         rows,
-        refused: skipped,
+        refused: stock.refused,
         unwritten,
     };
     let written = board::write(&mut io::stdout().lock(), &tally, options, texts);

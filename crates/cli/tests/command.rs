@@ -14,6 +14,8 @@ use std::sync::OnceLock;
 use serde_json::Value;
 
 const BINARY: &str = env!("CARGO_BIN_EXE_batdetect");
+const NOT_A_VIDEO_TODO: &str = "    à faire\u{a0}: s'il vient des jumelles, le recopier par le câble USB, sans passer par \
+                                Stream Vision 2\u{a0}; sinon, le retirer du dossier";
 const MISSING_TODO: &str =
     "    à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé";
 const MISSING_TODO_EN: &str = "    what to do: check the path; the folder or the video may have been moved or renamed";
@@ -67,6 +69,12 @@ fn videos_with_a_flight(names: &[&str]) -> (tempfile::TempDir, PathBuf) {
 #[cfg(test)]
 fn text(bytes: &[u8]) -> String {
     String::from_utf8(bytes.to_vec()).unwrap()
+}
+
+#[cfg(test)]
+fn occupied(folder: &Path) {
+    fs::create_dir_all(folder.parent().unwrap()).unwrap();
+    fs::write(folder, "").unwrap();
 }
 
 fn lines_naming<'a>(errors: &'a str, video: &str) -> Vec<&'a str> {
@@ -199,49 +207,58 @@ fn params_json_records_the_settings_by_configuration_and_the_threads_really_used
 }
 
 #[test]
-fn an_unreadable_video_fails_without_stopping_the_others_and_is_named() {
-    let (root, videos) = videos_with_a_flight(&["ok.mp4"]);
-    fs::write(videos.join("broken.mp4"), "not a video").unwrap();
+fn a_file_named_like_a_video_that_cannot_be_opened_stops_the_others_before_any_work_with_what_to_do() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4"]);
+    let fake = videos.join("zz_faux.mp4");
+    fs::write(&fake, "not a video").unwrap();
     let out = root.path().join("out");
-    let output = run(&[&videos, Path::new("-o"), &out], "C");
-    assert_eq!(output.status.code(), Some(1));
-    assert!(out.join("ok").join("ok_tracks.csv").is_file());
-    assert!(!out.join("broken").exists());
-    let errors = text(&output.stderr);
-    let failures: Vec<&str> = errors
-        .lines()
-        .filter(|line| !line.starts_with(' ') && line.contains(".mp4: "))
-        .collect();
-    assert_eq!(failures.len(), 1, "{errors}");
-    assert!(
-        failures[0].ends_with("broken.mp4: this file is not a readable video, or its copy is incomplete"),
-        "{errors}"
-    );
+    for (lang, expected) in [
+        (
+            "fr_FR.UTF-8",
+            format!(
+                "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:\n  {}\u{a0}: ce fichier n'est pas une vidéo lisible, ou \
+                 sa copie est incomplète\n{NOT_A_VIDEO_TODO}\n",
+                fake.display()
+            ),
+        ),
+        (
+            "C",
+            format!(
+                "error: no video is processed:\n  {}: this file is not a readable video, or its copy is incomplete\n    \
+                 what to do: if it comes from the binoculars, copy it again over the USB cable, not through Stream \
+                 Vision 2; otherwise, move it out of the folder\n",
+                fake.display()
+            ),
+        ),
+    ] {
+        let output = run(&[&videos, Path::new("-o"), &out], lang);
+        assert_eq!(output.status.code(), Some(2));
+        assert_eq!(text(&output.stderr), expected);
+        assert!(!out.exists());
+    }
 }
 
 #[test]
 fn under_a_french_locale_a_failure_gives_its_cause_and_what_to_do_in_french_and_the_detail_in_english() {
-    let (root, videos) = videos_with_a_flight(&[]);
-    fs::write(videos.join("broken.mp4"), "not a video").unwrap();
-    let output = run(
-        &[&videos.join("broken.mp4"), Path::new("-o"), &root.path().join("out")],
-        "fr_FR.UTF-8",
-    );
+    let (root, videos) = videos_with_a_flight(&["broken.mp4"]);
+    let out = root.path().join("out");
+    let dest = out.join("broken");
+    occupied(&dest);
+    let output = run(&[&videos.join("broken.mp4"), Path::new("-o"), &out], "fr_FR.UTF-8");
     assert_eq!(output.status.code(), Some(1));
     let errors = text(&output.stderr);
     let lines: Vec<&str> = errors.lines().collect();
     let cause = lines
         .iter()
-        .position(|line| {
-            line.ends_with("broken.mp4\u{a0}: ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète")
-        })
+        .position(|line| line.ends_with("broken.mp4\u{a0}: erreur inattendue"))
         .unwrap_or_else(|| panic!("{errors}"));
-    assert!(
-        lines[cause + 1].starts_with("  à faire\u{a0}: s'il vient des jumelles, le recopier"),
+    assert_eq!(
+        lines[cause + 1],
+        "  à faire\u{a0}: le signaler avec le détail ci-dessous",
         "{errors}"
     );
     assert!(
-        lines[cause + 2].starts_with("  détail\u{a0}: the detection failed: cannot decode "),
+        lines[cause + 2].starts_with(&format!("  détail\u{a0}: cannot create {}", dest.display())),
         "{errors}"
     );
 }
@@ -898,9 +915,10 @@ fn video_lines(errors: &str, total: usize) -> Vec<&str> {
 
 #[test]
 fn redirected_each_video_shows_its_steps_in_order_then_its_track_count_or_its_failure() {
-    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
-    fs::write(videos.join("zz_broken.mp4"), "not a video").unwrap();
-    let output = run(&[&videos, Path::new("-o"), &root.path().join("out")], "fr_FR.UTF-8");
+    let (root, videos) = videos_with_a_flight(&["flight.mp4", "zz_broken.mp4"]);
+    let out = root.path().join("out");
+    occupied(&out.join("zz_broken"));
+    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
     assert_eq!(output.status.code(), Some(1));
     let errors = text(&output.stderr);
     assert_eq!(
@@ -912,13 +930,14 @@ fn redirected_each_video_shows_its_steps_in_order_then_its_track_count_or_its_fa
             "[1/2] flight — extraits",
             "[1/2] flight — 1 piste",
             "[2/2] zz_broken — détection",
+            "[2/2] zz_broken — suivi",
             "[2/2] zz_broken — échec",
         ]
     );
     let lines: Vec<&str> = errors.lines().collect();
     let cause = lines
         .iter()
-        .position(|line| line.contains("zz_broken.mp4\u{a0}: ce fichier n'est pas une vidéo lisible"))
+        .position(|line| line.contains("zz_broken.mp4\u{a0}: erreur inattendue"))
         .unwrap();
     let failed = lines
         .iter()
@@ -929,9 +948,9 @@ fn redirected_each_video_shows_its_steps_in_order_then_its_track_count_or_its_fa
 
 #[test]
 fn the_summary_alone_goes_to_the_standard_output_with_a_row_per_video_and_the_failures_below() {
-    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
-    fs::write(videos.join("zz_broken.mp4"), "not a video").unwrap();
+    let (root, videos) = videos_with_a_flight(&["flight.mp4", "zz_broken.mp4"]);
     let out = root.path().join("out");
+    occupied(&out.join("zz_broken"));
     let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
     assert_eq!(output.status.code(), Some(1));
     let summary = text(&output.stdout);
@@ -948,11 +967,8 @@ fn the_summary_alone_goes_to_the_standard_output_with_a_row_per_video_and_the_fa
         "{summary}"
     );
     assert!(lines.contains(&"1 vidéo sur 2 en échec\u{a0}:"), "{summary}");
-    assert!(
-        lines.contains(&"  zz_broken\u{a0}: ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète"),
-        "{summary}"
-    );
-    assert!(!summary.contains("détail"), "{summary}");
+    assert!(lines.contains(&"  zz_broken\u{a0}: erreur inattendue"), "{summary}");
+    assert!(!summary.contains("détail\u{a0}:"), "{summary}");
     assert!(!summary.contains("[1/2]"), "{summary}");
     let errors = text(&output.stderr);
     assert!(errors.lines().any(|line| line == "[1/2] flight — 1 piste"), "{errors}");
@@ -1087,37 +1103,83 @@ fn skip_refused_does_not_turn_inputs_that_are_all_faulty_into_an_empty_run() {
 }
 
 #[test]
-fn a_damaged_video_met_before_a_good_one_leaves_its_failure_beside_the_results() {
-    let (_root, videos) = videos_with_a_flight(&["flight.mp4"]);
-    fs::write(videos.join("abimee.mp4"), "not a video").unwrap();
+fn a_video_that_fails_at_its_turn_before_a_good_one_leaves_its_failure_beside_the_results() {
+    let (_root, videos) = videos_with_a_flight(&["abimee.mp4", "flight.mp4"]);
+    let dest = videos.join("batdetect").join("abimee");
+    occupied(&dest);
     let output = run(&[&videos], "fr_FR.UTF-8");
     assert_eq!(output.status.code(), Some(1));
     let record = fs::read(videos.join("batdetect/.batdetect/echecs/abimee.json")).unwrap();
     let record: serde_json::Value = serde_json::from_slice(&record).unwrap();
     assert_eq!(record["video"], "abimee.mp4");
-    assert_eq!(record["cause"], "not-a-video");
+    assert_eq!(record["cause"], "unexpected");
 }
 
 #[test]
-fn a_video_damaged_in_a_folder_of_its_own_is_told_among_the_failures_without_a_title_for_a_folder_never_written() {
+fn a_video_refused_at_the_start_in_a_folder_of_its_own_leaves_neither_a_folder_nor_a_title_there() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let traps = root.path().join("pieges");
     fs::create_dir(&traps).unwrap();
     fs::write(traps.join("abimee.mp4"), "not a video").unwrap();
-    let output = run(&[&videos, &traps], "fr_FR.UTF-8");
+    let output = run(&[&videos, &traps, Path::new("--skip-refused")], "fr_FR.UTF-8");
     assert_eq!(output.status.code(), Some(1));
     assert!(!traps.join("batdetect").exists());
     let summary = text(&output.stdout);
     let titles: Vec<&str> = summary.lines().filter(|line| line.ends_with("batdetect")).collect();
     assert_eq!(titles, [videos.join("batdetect").display().to_string()], "{summary}");
     assert!(
-        summary.lines().any(|line| line == "1 vidéo sur 2 en échec\u{a0}:"),
+        summary.lines().any(|line| line == "Entrée refusée, non traitée\u{a0}:"),
         "{summary}"
     );
-    assert!(
-        summary.lines().any(|line| line.starts_with("  abimee\u{a0}: ")),
+    let refusal = format!(
+        "  {}\u{a0}: ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète",
+        traps.join("abimee.mp4").display()
+    );
+    assert!(summary.lines().any(|line| line == refusal), "{summary}");
+}
+
+#[test]
+fn skip_refused_announces_and_processes_the_readable_video_and_counts_the_unreadable_one_among_the_refused() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4"]);
+    fs::write(videos.join("zz_faux.mp4"), "not a video").unwrap();
+    let out = root.path().join("out");
+    let output = run(
+        &[&videos, Path::new("--skip-refused"), Path::new("-o"), &out],
+        "fr_FR.UTF-8",
+    );
+    assert_eq!(output.status.code(), Some(1));
+    let errors = text(&output.stderr);
+    let lines: Vec<&str> = errors.lines().collect();
+    let announced = lines.iter().position(|line| *line == "1 vidéo, 2 s de vidéo");
+    let first = lines.iter().position(|line| line.starts_with("[1/1] a — "));
+    assert!(announced.is_some() && announced < first, "{errors}");
+    assert!(out.join("a").join("a_pistes.csv").is_file());
+    let summary = text(&output.stdout);
+    assert_eq!(
+        summary.lines().next(),
+        Some("Bilan\u{a0}: 1 vidéo, 1 réussie, 1 entrée refusée"),
         "{summary}"
     );
+}
+
+#[test]
+fn the_announcement_comes_once_before_the_first_video_and_counts_on_a_second_run_those_already_done() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4", "b.mp4", "c.mp4"]);
+    let out = root.path().join("out");
+    let arguments: [&Path; 3] = [&videos, Path::new("-o"), &out];
+    let first = text(&run(&arguments, "fr_FR.UTF-8").stderr);
+    let announcements: Vec<&str> = first.lines().filter(|line| line.contains(" de vidéo")).collect();
+    assert_eq!(announcements, ["3 vidéos, 6 s de vidéo"], "{first}");
+    assert!(first.starts_with("3 vidéos, 6 s de vidéo\n[1/3] "), "{first}");
+    let again = text(&run(&arguments, "fr_FR.UTF-8").stderr);
+    let announced = again.lines().next().unwrap_or_default();
+    if reuses_earlier_results() {
+        assert_eq!(announced, "3 vidéos, 6 s de vidéo, dont 3 déjà faites", "{again}");
+    } else {
+        assert_eq!(announced, "3 vidéos, 6 s de vidéo", "{again}");
+    }
+    let forced = text(&run(&[&videos, Path::new("-o"), &out, Path::new("--force")], "fr_FR.UTF-8").stderr);
+    assert_eq!(forced.lines().next(), Some("3 vidéos, 6 s de vidéo"), "{forced}");
 }
 
 #[cfg(test)]

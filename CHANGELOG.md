@@ -10,6 +10,11 @@ release échoue sans elle.
 
 - Chaque entrée refusée au départ, et chaque dossier de résultats où l'on ne peut pas écrire,
   est suivi d'une ligne « à faire », comme une vidéo en échec (#239, #82).
+- Une ligne annonce la soirée avant la première vidéo : nombre de vidéos, durée totale, et combien sont déjà faites (#62).
+
+### Modifié
+
+- Chaque vidéo est ouverte avant tout calcul : une vidéo illisible ou mal copiée est refusée au départ avec les autres entrées fautives, au lieu d'échouer à son tour. Hors d'un terminal, depuis un script par exemple, une seule vidéo mal copiée arrête donc tout le lot avant le calcul, en code 2, sauf avec `--skip-refused` ; avant, les autres vidéos étaient faites et le code valait 1 (#62).
 
 ### Corrigé
 
