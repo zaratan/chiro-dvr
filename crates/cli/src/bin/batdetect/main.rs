@@ -19,12 +19,13 @@ use std::sync::Arc;
 
 use batdetect::consent::{Asking, Choice};
 use batdetect::inventory::{Stock, take_stock};
-use batdetect::jobs::{self, Job, plan};
+use batdetect::jobs::{self, Job, Refused, plan};
 use batdetect::language::system_language;
 use batdetect::ledger::Ledger;
 use batdetect::outcome::{self, Ran, run_all};
 use batdetect::process::Wording as _;
 use batdetect::process::{Versions, process};
+use batdetect::refusals::Refusals;
 use batdetect::reuse::{self, Run};
 use batdetect::tally::Tally;
 use batdetect::writable::unwritable_folders;
@@ -66,8 +67,10 @@ fn main() -> ExitCode {
     let status = Arc::new(Status::new(texts, io::stderr().is_terminal(), jobs.len()).redoing_all(request.force));
     let watched = Arc::clone(&status);
     let stopped = jobs.clone();
+    let launched = Timestamp::now();
+    let refused = stock.refused.clone();
     let watching = ctrlc::set_handler(move || {
-        settle(&stopped, watched.texts());
+        settle(&stopped, &refused, launched, watched.texts());
         let mut err = io::stderr().lock();
         match watched.interrupted(&mut err) {
             Ok(()) | Err(_) => process::exit(INTERRUPTED),
@@ -79,7 +82,7 @@ fn main() -> ExitCode {
     if writeln!(io::stderr(), "{}", texts.say(&messages::announcement(&stock))).is_err() {
         return ExitCode::FAILURE;
     }
-    run(stock, &jobs, &status, &request)
+    run(stock, &jobs, &status, &request, launched)
 }
 
 fn admitted(request: &Request, texts: Texts) -> Result<Stock, ExitCode> {
@@ -129,7 +132,7 @@ fn admitted(request: &Request, texts: Texts) -> Result<Stock, ExitCode> {
     }
 }
 
-fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request) -> ExitCode {
+fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request, launched: Timestamp) -> ExitCode {
     let texts = status.texts();
     let options = &request.options;
     let ffmpeg = media::library::version();
@@ -142,10 +145,14 @@ fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request) -> ExitCo
         headings: &texts,
         language: texts.language(),
     };
-    let mut unwritten: Vec<files::error::Error> = written::roots(jobs)
-        .iter()
-        .filter_map(|root| written::write_page(root, jobs, 0, wording).err())
-        .collect();
+    let roots = written::roots(jobs);
+    let mut refusals = Refusals::new(roots.clone(), &stock.refused, launched);
+    let mut unwritten = refusals.note();
+    unwritten.extend(
+        roots
+            .iter()
+            .filter_map(|root| written::write_page(root, jobs, 0, wording).err()),
+    );
     let mut ledger = Ledger::default();
     let rows = run_all(
         jobs,
@@ -159,13 +166,14 @@ fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request) -> ExitCo
         },
         |job, rank, result| {
             unwritten.extend(ledger.note(job, result.as_ref().err(), options, Timestamp::now()));
+            unwritten.extend(refusals.note());
             unwritten.extend(written::write_page(&written::root_of(job), jobs, rank.position, wording).err());
             let video = Video { status, rank, job };
             video.tell(&mut io::stderr().lock(), result, options)
         },
     );
     let Ok(rows) = rows else {
-        settle(jobs, texts);
+        settle(jobs, &stock.refused, launched, texts);
         return ExitCode::FAILURE;
     };
     let tally = Tally {
@@ -194,13 +202,15 @@ fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request) -> ExitCo
     }
 }
 
-fn settle(jobs: &[Job], texts: Texts) {
+fn settle(jobs: &[Job], refused: &[Refused], launched: Timestamp, texts: Texts) {
     let wording = Wording {
         labels: &texts,
         headings: &texts,
         language: texts.language(),
     };
-    for root in written::roots(jobs) {
+    let roots = written::roots(jobs);
+    Refusals::new(roots.clone(), refused, launched).note();
+    for root in roots {
         match written::write_page(&root, jobs, jobs.len(), wording) {
             Ok(()) | Err(_) => {}
         }

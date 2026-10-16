@@ -2047,6 +2047,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
         qu'une autre vidéo du lot la crée ; sinon rien n'est créé pour lui.
       - Le détail technique n'est montré que pour les causes dont le conseil y renvoie
         (`failure::REFERS_TO_DETAIL`).
+      - `refusals::Refusals::note` (#267), avant les pages et dans le même rappel : les entrées refusées au départ (`jobs::Refused`, de `plan` puis de `inventory`) s'écrivent dans `.batdetect/refus.json` de chaque racine du lancement, dès qu'elle existe, une fois par racine ; un lancement sans refus efface ce fichier. Chaque entrée garde son chemin, la clé de sa raison (`Reason::key`), celle de son conseil (`Reason::todo`), la cause d'une vidéo qui ne s'ouvre pas et son détail quand le conseil y renvoie (`failure::REFERS_TO_DETAIL`), les vidéos d'un dossier de résultats commun. Une interruption (Ctrl-C) ou un arrêt de la boucle les écrit aussi avant les pages. Ces deux clés sont la seule table entre raison et texte, partagée par le terminal (`messages`) et la page (`sheet`) ; le texte de la raison est encore produit deux fois, par `messages::input_refused` pour le terminal et `sheet::refused_input` pour la page : un test de `sheet` vérifie, pour chaque raison, chaque accès et chaque cause d'ouverture, dans les deux langues, que la page dit les mêmes lignes que le terminal, détail compris. La page les montre dans une carte avant les vidéos, liée depuis le total.
     - `notify` (#69) ouvre, après le bilan, la page de chaque racine dans la langue du
       lancement (`written::page_to_open`), et rien pour une racine sans page à nous.
     - Titre : « Bilan : 12 vidéos, 10 réussies, 1 avec trop de pistes, 1 en échec » (les
@@ -2573,6 +2574,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       d'un autre calcul ne donne donc rien.
     - `failures` : un fichier par vidéo en échec dans `.batdetect/echecs/`, écrit par
       `.partial` et renommage ; un fichier illisible ne cache que lui-même.
+    - `refusals` (#267) : `.batdetect/refus.json`, les entrées refusées au dernier lancement, écrit par `.partial` et renommage ; illisible ou vide, il ne donne rien.
     - `names::results_page` : `resultats.html` / `results.html`.
 - **`render`** → `media`, `draw`, `types` (#110, #112) : les extraits, du choix
   des images à l'écriture. `clips::render(source, pistes, Outputs { clips, zooms },

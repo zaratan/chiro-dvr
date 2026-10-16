@@ -1,4 +1,5 @@
 use batdetect::failure::TOO_MANY_TRACKS;
+use batdetect::jobs::{NO_VIDEO, NOT_A_VIDEO, SHARED_FOLDER, UNOPENED};
 use batdetect::process::Wording;
 use files::params::language_code;
 use fluent_bundle::{FluentArgs, FluentValue};
@@ -6,6 +7,7 @@ use page::labels::{Label, Labels};
 use page::model::Date;
 use summary::header::duration;
 
+use crate::messages::extensions;
 use crate::numbers::NO_BREAK_SPACE;
 use crate::texts::Texts;
 
@@ -60,6 +62,16 @@ impl Texts {
             Label::WaitingCount(count) => message("page-waiting-count", [("count", count.into())]),
             Label::Tracks(count) => message("summary-tracks", [("count", count.into())]),
             Label::Failure { video, cause, place } => failure(video, cause, place),
+            Label::RefusedInput {
+                path,
+                reason,
+                cause,
+                videos,
+            } => refused_input(path, reason, cause, videos),
+            Label::RefusedCount(count) => message("tally-refused-count", [("count", count.into())]),
+            Label::RefusedHeading(count) => message("page-refused-heading", [("count", count.into())]),
+            Label::RefusedWhen(date) => message("page-refused-when", [("date", self.date(date).into())]),
+            Label::RefusedConsequence(count) => message("page-refused-consequence", [("count", count.into())]),
             Label::TooMany { video, count, limit } => too_many(video, count, limit),
             Label::SummaryAlt { video, tracks } => summary_alt(video, tracks),
             Label::PartAlt {
@@ -163,6 +175,27 @@ fn failure<'a>(video: &'a str, cause: &'a str, place: &'a str) -> Spoken<'a> {
             ("place", place.into()),
         ],
     )
+}
+
+fn refused_input<'a>(path: &'a str, reason: &'a str, cause: Option<&'a str>, videos: &'a str) -> Spoken<'a> {
+    match (reason, cause) {
+        (NOT_A_VIDEO | NO_VIDEO, _) => {
+            let (listed, last) = extensions();
+            let folder = if reason == NO_VIDEO { YES } else { NO };
+            message(
+                "input-without-video",
+                [
+                    ("path", path.into()),
+                    ("folder", folder.into()),
+                    ("listed", listed.into()),
+                    ("last", last.into()),
+                ],
+            )
+        }
+        (SHARED_FOLDER, _) => message("shared-folder", [("path", path.into()), ("videos", videos.into())]),
+        (UNOPENED, Some(cause)) => failure(path, cause, path),
+        _ => message("input-refused", [("path", path.into()), ("reason", reason.into())]),
+    }
 }
 
 fn too_many(video: &str, count: usize, limit: usize) -> Spoken<'_> {
