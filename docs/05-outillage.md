@@ -11,7 +11,9 @@ et [CLAUDE.md](../CLAUDE.md).
 - **mise** fixe la version de chaque outil (`mise.toml`) : lefthook, `cargo-llvm-cov`,
   `cargo-deny`, `cargo-shear`, et Python 3.14.8, qui ne sert qu'aux scripts en ligne de
   `rust:rules` (règles de la charte) et de `rust:data` (récupération de la référence). La
-  toolchain Rust vient de `rust-toolchain.toml`, installée par rustup.
+  toolchain Rust vient de `rust-toolchain.toml`, installée par rustup. Sur une tâche à
+  plusieurs commandes, `mise run TÂCHE -- ARGS` ne passe les arguments qu'à la dernière, et
+  jamais à une sous-tâche `{ task = … }` : `rust:static -- X` les donne à `cargo shear` seul.
 - **lefthook** (`lefthook.yml`) : `rustfmt` sur les fichiers indexés avant chaque commit,
   `mise run check` avant chaque push. Les hooks s'installent une fois, dans le dossier git
   commun à tous les worktrees ; `LEFTHOOK=0 git push` saute le hook d'un push.
@@ -20,11 +22,13 @@ et [CLAUDE.md](../CLAUDE.md).
 
 ## CI
 
-`.github/workflows/ci.yml` : sept tâches, toutes sur le Rust. Avec la matrice, les six
-premières font huit exécutions, et `package` six de plus, celles de `package.yml`.
+`.github/workflows/ci.yml` : sept tâches sur le Rust, entre `changes` et `verdict`. Avec la
+matrice, les six tâches `rust*` font huit exécutions, et `package` six de plus, celles de
+`package.yml`.
 
 | Tâche | Systèmes | Ce qu'elle joue |
 | --- | --- | --- |
+| `changes` | Linux | liste les fichiers de la PR, dit si les sept tâches du Rust tournent |
 | `rust` | macOS, Linux | `rust:static`, `rust:coverage` |
 | `rust-slow` | macOS, Linux | `rust:slow`, `hardware_*` sous macOS |
 | `rust-reference` | Linux | `rust:reference` |
@@ -32,15 +36,28 @@ premières font huit exécutions, et `package` six de plus, celles de `package.y
 | `rust-windows` | Windows | construction MSVC, tests rapides, clippy |
 | `rust-windows-slow` | Windows | tests `slow_*` |
 | `package` | macOS 26, Ubuntu 22.04, Windows 2025 | `package.yml` : les trois archives `release`, `check.sh`, les sources LGPL, `SHA256SUMS` |
+| `verdict` | Linux | rouge si une tâche a échoué ou a été annulée, vert sinon |
 
+- **PR de docs seules.** Une PR dont chaque fichier finit en `.md` ou est sous `docs/images/`
+  (`git diff --name-only --no-renames` contre la branche de base, sur le commit de fusion que
+  prépare GitHub ; un renommage compte ses deux chemins) saute les sept tâches du Rust,
+  `package` compris. Aucune tâche ne lit ces fichiers : un test qui en lirait un devra
+  resserrer le filtre. Un `push` sur `main` n'est jamais filtré :
+  `packaging/release-guards.sh` exige une CI complète sur le commit du tag.
+- **`verdict` est le seul contrôle exigé** par le ruleset `main PR`. Il dépend de toutes les
+  autres tâches : une tâche ajoutée à `ci.yml` s'ajoute à ses `needs`, sinon elle n'est pas
+  exigée. Il tourne par `if: always()`, même quand une tâche échoue ou que la série est
+  annulée : GitHub compte comme réussi un contrôle exigé qui a été sauté.
 - Les actions sont épinglées par SHA. L'installation commune est dans
   `.github/actions/setup` (mise, rustup) ; `.github/actions/ffmpeg-key` calcule les clés des
   caches de FFmpeg et de `target/`, `.github/actions/windows` prépare MSYS2.
 - Les vidéos LFS sont mises en cache (`.git/lfs`) pour ménager le quota : chaque tâche ne
   récupère que ce qu'elle lit.
-- zizmor ne tourne pas en CI : il se lance à la main sur les workflows. Au dernier passage
-  noté, il ne signalait que l'appel des actions locales (`self-repository`, niveau le plus
-  bas).
+- zizmor ne tourne pas en CI : quand un workflow ou une action change, il se lance à la main
+  par `uvx zizmor --offline .github/`, sans appliquer ses corrections automatiques. Au
+  16 octobre 2026, il ne signale que les 16 appels locaux `uses: ./…` (`self-repository`,
+  niveau le plus bas). Ils restent : la forme `$/…` qu'il propose est refusée par
+  actionlint 1.7.12.
 - **Trois workflows pour la publication**, parce qu'un workflow appelé ne peut pas
   recevoir plus de droits que celui qui l'appelle (`ci.yml` n'a que `contents: read`) :
   - `package.yml` (`workflow_call` et `workflow_dispatch`, lecture seule) :

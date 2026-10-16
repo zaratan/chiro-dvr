@@ -34,9 +34,10 @@ cargo run --release -p bench -- tests/fixtures/video_092_original.mp4   # banc d
 ```
 
 La CI de chaque PR joue en plus la couverture (`rust:coverage`), l'extrait (`rust:slow`) et
-les 16 cas de réglages (`rust:settings`) : `mise run check:ci` les enchaîne en local. La
-commande renvoie un code non nul dès qu'une entrée est refusée ou qu'une vidéo échoue ; hors
-d'un terminal, elle ne traite rien quand une entrée est refusée, sauf avec `--skip-refused`. Les
+les 16 cas de réglages (`rust:settings`) : `mise run check:ci` les enchaîne en local ; une PR
+de docs seules saute tout le Rust ([05](docs/05-outillage.md#ci)). La commande renvoie un code
+non nul dès qu'une entrée est refusée ou qu'une vidéo échoue ; hors d'un terminal, elle ne traite
+rien quand une entrée est refusée, sauf avec `--skip-refused`. Les
 images des docs se refont par `tools/docs-images.sh` ([docs/images/](docs/images/README.md)).
 
 ## Publier une version
