@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use draw::canvas::{self, Canvas, PixelBox};
 use draw::color::PANEL;
+use draw::color::Rgb;
 use engine::detection::Detected;
 use engine::settings::Region;
 use files::names::Names;
@@ -37,11 +38,24 @@ pub(crate) struct Overview<'a> {
     pub(crate) regions: &'a [Region],
 }
 
+#[derive(Debug, Default)]
+pub(crate) struct Drawn {
+    pub(crate) pages: Vec<PathBuf>,
+    pub(crate) painted: Vec<Drawing>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Drawing {
+    pub(crate) track: usize,
+    pub(crate) color: Rgb,
+    pub(crate) page: PathBuf,
+}
+
 pub(crate) fn write_overview(
     overview: Overview<'_>,
     detected: &Detected,
     summary: &Summary<'_>,
-) -> Result<Vec<PathBuf>, Error> {
+) -> Result<Drawn, Error> {
     let background = detected.background().ok_or_else(|| Error::NoBackground {
         video: overview.video.to_path_buf(),
     })?;
@@ -51,14 +65,19 @@ pub(crate) fn write_overview(
         .and_then(|mut converter| converter.yuv_to_rgba(background, canvas.rgba_mut()))
         .map_err(Error::Convert)?;
     let stem = overview.video.file_stem().unwrap_or_default();
-    let mut written = Vec::new();
+    let mut drawn = Drawn::default();
     let masks = display_boxes(overview.regions, width, height);
     for page in pages(summary, canvas, &masks, overview.labels)? {
         let path = overview.names.summary_png(overview.dest, stem, page.minutes, page.part);
         write_png(&path, &page.canvas)?;
-        written.push(path);
+        drawn.painted.extend(page.painted.iter().map(|painted| Drawing {
+            track: painted.track,
+            color: painted.color,
+            page: path.clone(),
+        }));
+        drawn.pages.push(path);
     }
-    Ok(written)
+    Ok(drawn)
 }
 
 fn display_boxes(regions: &[Region], width: u32, height: u32) -> Vec<PixelBox> {

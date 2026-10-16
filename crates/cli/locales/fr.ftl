@@ -221,7 +221,7 @@ file-table = Une ligne par piste (début, fin, durée, vitesse, taille), pour un
 file-clip = L'extrait de chaque piste, nommé par son numéro et son début
 file-zoom = Le même, ralenti et agrandi, pour les pistes petites ou faibles
 file-annotated = La vidéo entière avec les pistes dessinées, avec --annotated
-file-params = Les réglages employés, pour refaire le même calcul
+file-params = Les réglages et le bilan de la vidéo, écrit en dernier : sans lui, le dossier n'est pas fini
 files-long =
     Une vidéo longue ou chargée a plusieurs images résumé, par tranche de 10 min ({ $period })
     ou par partie ({ $part }).

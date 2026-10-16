@@ -63,7 +63,9 @@ Pour chaque vidéo, un dossier à son nom, dans `batdetect/` à côté des vidé
 dossier choisi au lancement (`-o`). Sous une locale française : l'image résumé
 `<vidéo>_resume.png`, le tableau des pistes `<vidéo>_pistes.csv`, les extraits dans
 `extraits/` (`piste_01_0m04s.mp4`, et `piste_01_0m04s_zoom.mp4` pour l'extrait zoomé), et
-`params.json`, les réglages du calcul. Sous une autre locale, les mêmes fichiers en anglais
+`params.json`, les réglages et le bilan du calcul. `params.json` s'écrit en dernier : un
+dossier sans lui n'est pas terminé (calcul interrompu, ou vidéo en échec autrement qu'au-delà
+de `--max-tracks`). Sous une autre locale, les mêmes fichiers en anglais
 (`_summary.png`, `_tracks.csv`, `clips/track_01_0m04s.mp4`). La liste complète est dans le
 [README](../README.md#fichiers-produits). Un tableur réglé en anglais affiche le début
 `0:00:04` comme `12:00:04 AM` : la valeur est juste (4 s), et un format Durée la montre en
@@ -124,7 +126,8 @@ dessine pas.
    la tranche. L'extrait n'en a aucune : ces lignes manquent sur la capture.
 4. **La légende** : la pastille de chaque piste et son début, à la seconde inférieure, sur
    plusieurs colonnes s'il le faut. Le numéro est celui du tableau des pistes et du nom de
-   l'extrait (`piste_01_0m04s.mp4`) ; le début au centième est dans le tableau.
+   l'extrait (`piste_01_0m04s.mp4`) ; le début au centième est dans la colonne `début (s)` du
+   tableau.
 
 ### L'image
 
@@ -176,7 +179,8 @@ et à égalité la moins employée. Les 12 premières pistes d'une image ont cha
 13ᵉ, une couleur revient, sur une piste éloignée si possible. Deux traits de même couleur
 sont donc deux pistes, et la même couleur sur deux images ne désigne pas la même piste. Elle ne
 dit rien de l'animal, de sa vitesse ni de la confiance de l'outil, et les extraits ne la
-reprennent pas : leur boîte est toujours rouge et la trace du vol toujours jaune. Seul le numéro identifie une piste.
+reprennent pas : leur boîte est toujours rouge et la trace du vol toujours jaune orangé.
+Seul le numéro identifie une piste.
 
 ### Refaire les captures
 
@@ -225,7 +229,146 @@ magick "$resume" -crop 1440x135+0+1080 +repage -background 'rgb(32,32,32)' \
   docs/images/resume-frise.png
 ```
 
+Les captures des extraits se tirent ensuite, dans le même shell (`repere` vient du bloc
+précédent). Les numéros d'image et les coordonnées valent pour les extraits de l'extrait de
+test, 1440 × 1080 pixels.
+
+```bash
+LANGUAGE=fr cargo run --release -p batdetect -- \
+  tests/fixtures/video_092_original_3m24-4m05.mp4 --zoom all -o out/extraits
+clips=out/extraits/video_092_original_3m24-4m05/extraits
+image() { ffmpeg -v error -y -i "$clips/$1.mp4" -vf "select=eq(n\,$2)" -frames:v 1 "out/$1_$2.png"; }
+image piste_01_0m04s 250
+image piste_01_0m04s_zoom 250
+image piste_02_0m23s 56
+for n in 52 53 54; do image piste_02_0m23s $n; done
+magick out/piste_01_0m04s_250.png -resize 1200x -quality 80 docs/images/extrait-lente.jpg
+magick out/piste_01_0m04s_zoom_250.png -resize 1200x -quality 80 docs/images/extrait-zoom.jpg
+reperes=() width=1440 height=1080
+repere 1 1160 720 1083 660
+repere 2 960 580 1040 610
+repere 3 1320 470 1236 440
+repere 4 240 110 290 58
+magick out/piste_02_0m23s_56.png -font crates/draw/fonts/Roboto.ttf -pointsize 32 "${reperes[@]}" \
+  -resize 1200x -quality 80 docs/images/extrait-chauve-souris.jpg
+magick \( out/piste_02_0m23s_52.png -crop 130x120+1160+390 \) \
+  \( out/piste_02_0m23s_53.png -crop 130x120+1115+445 \) \
+  \( out/piste_02_0m23s_54.png -crop 130x120+1075+500 \) \
+  +repage -filter point -resize 300% -bordercolor black -border 3 +append docs/images/extrait-boites.png
+```
+
 </details>
+
+## Juger un extrait
+
+L'image résumé dit où regarder ; le verdict se donne sur l'extrait, à l'œil. L'outil ne juge
+pas : il montre ce qui a bougé, et Manon décide si c'est une chauve-souris.
+
+### Regarder l'extrait, puis le zoom
+
+Chaque piste a son extrait, `extraits/piste_01_0m04s.mp4`, sauf au-delà du
+[garde-fou](#garde-fou-du-nombre-de-pistes) : la vidéo en pleine taille et à vitesse réelle,
+par défaut de 1,5 s avant le début de la piste à 1,5 s après sa fin. Le regarder d'abord en
+entier, puis image par image là où la cible passe.
+
+Si la cible est petite ou faible, un second fichier l'accompagne, `piste_01_0m04s_zoom.mp4` :
+la même scène recadrée autour du trajet, agrandie jusqu'à quatre fois et ralentie quatre fois.
+Par défaut, il n'existe que pour les pistes dont la plus grande tache fait moins de 100 px
+ou dont l'amplitude est sous 40 ; `--zoom all` en fait un pour chaque piste, `--zoom none` aucun
+([docs/02](02-methode.md#extrait-zoomé-et-ralenti)). Le regarder après l'extrait normal : une
+cible de 3:42 sur la 092, jugée fausse à vitesse normale, s'est révélée un objet réel une fois
+agrandie et ralentie dans un lecteur ; c'est de là que vient le zoom.
+
+### Ce que l'extrait dessine
+
+![Extrait de la piste 2, une chauve-souris, avec les repères 1 à 4](images/extrait-chauve-souris.jpg)
+
+*Extrait de la piste 2 de l'extrait de test (0:00:23), à 1,9 s du début de l'extrait : une
+chauve-souris qui descend de droite à gauche.*
+
+1. **La boîte** rouge entoure la cible, avec par défaut une marge de 12 pixels de chaque
+   côté.
+2. **Le numéro** `#2`, au-dessus de la boîte, est celui de la piste : dans le tableau, la
+   légende de l'image résumé et le nom du fichier.
+3. **La trace** jaune orangé suit le trajet de la dernière seconde (par défaut), jusqu'à la
+   cible. Pour un vol rapide comme celui-ci, elle montre presque tout le passage.
+4. **L'affichage des jumelles** (chrono d'enregistrement en rouge, heure, date, batterie)
+   reste tel qu'il a été filmé : ce rouge-là n'est pas celui de l'outil.
+
+Les autres pistes présentes au même moment sont dessinées aussi, chacune avec sa boîte, son
+numéro et sa trace. Les réglages du dessin sont dans [docs/02](02-methode.md#rendu).
+
+![Trois images successives de la piste 2 agrandies trois fois : boîte épaisse, boîte fine, boîte épaisse](images/extrait-boites.png)
+
+*Trois images successives du même extrait, vers 1,8 s, agrandies trois fois.*
+
+**Boîte épaisse ou fine.** La boîte est épaisse (2 pixels) sur une image où l'outil a vu la
+cible, fine (1 pixel) sur une image où il ne l'a pas vue : sa place y est estimée entre les
+deux images les plus proches où l'outil l'a vue, et l'animal peut ne pas y être tout à fait.
+L'image du milieu est de celles-là ; le tableau des pistes en donne le nombre par piste
+(`images comblées`).
+
+![Extrait zoomé de la piste 1 : la trace seule, sans boîte ni numéro](images/extrait-zoom.jpg)
+
+*Zoom de la piste 1 (0:00:04), au même moment, à 8,3 s du début de l'extrait normal, produit
+avec `--zoom all` : cette piste est assez grande et contrastée pour ne pas en avoir par défaut.
+Agrandie environ ×1,6 ici, parce que son trajet couvre une grande partie de l'image.*
+
+**Sur le zoom**, seule la trace est dessinée, en trait fin : ni boîte, ni numéro, ni autres
+pistes, pour ne rien cacher d'une cible ténue. La trace s'arrête un peu avant la cible. Le
+cadre ne bouge pas pendant tout le zoom.
+
+### Désigner une piste
+
+Le numéro d'une piste change quand un réglage ou une nouvelle version ajoute ou retire une
+piste plus tôt dans la vidéo. Pour parler d'une piste, dans une note ou un message, donner
+**la vidéo, le début et le numéro** : « video_092_original_3m24-4m05, 0:00:04, piste 1 ». Le
+début est celui de la colonne `début` du tableau des pistes ; le numéro départage deux pistes
+qui commencent dans la même seconde.
+
+### Noter le verdict
+
+Le tableau des pistes, `<vidéo>_pistes.csv`, s'ouvre dans un tableur réglé en français. La
+colonne `verdict` y est vide : écrire le verdict sur la ligne de la piste, dans les mots qu'on
+veut (« oui », « non », « ? »), puis enregistrer en gardant le format CSV. L'outil ne tient
+jamais compte de ce qui y est écrit : la colonne sert à cocher les pistes vues et à compter
+les passages.
+
+Quand la vidéo est recalculée dans le même dossier, un tableau dont au moins une case
+`verdict` est remplie est mis de côté tel quel, sous un nom daté
+(`<vidéo>_pistes_2026-10-16_2130.csv`), et le nouveau tableau s'écrit à côté ; le bilan de la
+soirée le dit ; un recalcul suivant n'y touche plus. Un tableau que l'outil ne reconnaît plus
+est mis de côté de la même façon ; un tableau sans aucun verdict est remplacé, même trié, et
+une note écrite hors de la colonne `verdict` est alors perdue. Les numéros ont pu changer : reporter les
+verdicts par le début de la piste, à une seconde près, et à l'extrait en cas de doute.
+
+### Une piste de trop vaut mieux qu'un passage manqué
+
+L'outil est réglé ainsi depuis le verdict de Manon sur la 092 (9 octobre 2026) : mieux vaut un
+faux positif facile à écarter à l'extrait qu'un passage manqué. Quand il hésite, l'outil penche
+vers la sensibilité ; c'est à l'œil, sur l'extrait, qu'on écarte.
+
+### Les faux positifs déjà vus
+
+Les cas ci-dessous ont été vus sur de vraies vidéos ; chacun renvoie à l'endroit où il est
+décrit. La liste vient des relectures, pas d'un jugement de l'outil, et elle est soumise à la
+relecture de Manon.
+
+| Ce que vous voyez | Où ça a été vu | Source |
+| --- | --- | --- |
+| Un objet qui se déplace lentement et régulièrement, sur plusieurs secondes | La piste de 3:29 sur la 092, que Manon a écartée. C'est la piste 1 de l'extrait de test (0:00:04, 95 px/s, contre 1 383 à 1 926 px/s pour les trois chauves-souris) : voir l'image ci-dessous | [docs/03](03-resultats-092.md#verdict-de-manon-9-octobre-2026) |
+| Une piste courte qui change de direction au hasard, sur une vidéo au grain fort | Le scintillement de pixels isolés que le suivi enchaîne : 96 pistes sur la 089 avant les deux filtres qui le visent, qui en écartent 92 | [docs/02](02-methode.md#7-filtres-finaux) |
+| Une piste sur une image abîmée (blocs, morceaux d'image décalés) | Sur la 122, avant la marge autour des images abîmées : 4 pistes collées aux plages illisibles | [docs/10](10-logique-de-detection.md#5-bis-écarter-les-images-que-le-décodeur-a-réparées), [Ce que l'outil ne voit pas](#ce-que-loutil-ne-voit-pas) |
+
+D'autres cas sont possibles, sans qu'aucun ait encore été relevé sur ces vidéos : un insecte,
+un oiseau, ou une feuille agitée par le vent, dont un pixel passe encore parfois le seuil
+([docs/10](10-logique-de-detection.md#4-décider-pixel-par-pixel--le-seuil)).
+
+![Extrait de la piste 1, la piste lente de 3:29 sur la 092](images/extrait-lente.jpg)
+
+*Extrait de la piste 1 de l'extrait de test (0:00:04), à 8,3 s du début de l'extrait : la
+piste lente, qui n'est pas une chauve-souris. La trace d'une seconde y est courte : l'objet
+avance peu.*
 
 ## Glossaire
 
@@ -352,20 +495,10 @@ distance et du contraste de l'animal autant que de sa taille.
 ### Verdict
 
 Le jugement de Manon, à l'œil sur l'extrait : cette piste est-elle une chauve-souris ?
-L'outil n'en tire rien ; il se note dans la colonne `verdict` du tableau des pistes, sur
-la ligne de la piste, en texte libre.
-
-Au recalcul de la vidéo, un tableau qui porte au moins un verdict est mis de côté, identique,
-sous un nom daté du jour et de la minute du calcul (`<vidéo>_pistes_2026-10-16_1430.csv`),
-puis un tableau neuf, sans verdict, s'écrit à côté ; le bilan le dit. Le recalcul ne touche
-jamais à un tableau mis de côté : il n'est ni retiré, ni renommé. Les numéros des pistes peuvent changer d'un calcul à l'autre :
-les verdicts se reportent à la main, d'après le temps de début de chaque piste, plutôt que
-d'après son numéro (ceux de la 092 sont dans
-[docs/03](03-resultats-092.md#verdict-de-manon-9-octobre-2026)). Un tableau changé autrement
-(colonne ajoutée, autre séparateur) est mis de côté de la même façon. Un tableau qui a
-encore le même en-tête et le même nombre de colonnes, colonne `verdict` vide, est remplacé
-sans être gardé, même trié ou raccourci : une note écrite dans une autre colonne que
-`verdict` est alors perdue.
+L'outil ne s'en sert pas ; il se note dans la colonne `verdict` du tableau des pistes, sur la
+ligne de la piste ([Noter le verdict](#noter-le-verdict)). Ailleurs, on désigne la piste par
+la vidéo, son début et son numéro, car le numéro seul peut changer (ceux de la 092 sont dans
+[docs/03](03-resultats-092.md#verdict-de-manon-9-octobre-2026)).
 
 ### Vitesse
 

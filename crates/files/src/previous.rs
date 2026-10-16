@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use crate::annotation::carries_verdicts;
 use crate::aside::{Stamp, set_aside};
 use crate::error::Error;
-use crate::names::{Names, Output, composed, previous_output};
+use crate::names::{Names, Output, composed, params_json, partial_path, previous_output};
 use crate::table::{Headings, is_tracks_table};
 
 #[cfg(test)]
@@ -52,6 +52,10 @@ pub fn remove_previous_outputs(
     headings: &dyn Headings,
     stamp: Stamp,
 ) -> Result<Vec<Kept>, Error> {
+    let finished = params_json(dest);
+    for mark in [partial_path(&finished), finished] {
+        remove_if_there(&mark)?;
+    }
     let (mut kept, mut aside, mut removed) = (Vec::new(), Vec::new(), Vec::new());
     for found in previous_outputs(dest, stem)? {
         if found.output != Output::TracksTable {
@@ -135,6 +139,16 @@ fn remove(found: &Found) -> Result<(), Error> {
         path: found.path.clone(),
         source,
     })
+}
+
+fn remove_if_there(path: &Path) -> Result<(), Error> {
+    match fs::remove_file(path) {
+        Err(source) if source.kind() != io::ErrorKind::NotFound => Err(Error::Remove {
+            path: path.to_path_buf(),
+            source,
+        }),
+        _ => Ok(()),
+    }
 }
 
 fn normalized(name: &OsStr) -> Vec<u8> {

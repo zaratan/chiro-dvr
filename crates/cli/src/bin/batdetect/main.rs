@@ -33,14 +33,14 @@ const INTERRUPTED: i32 = 130;
 fn main() -> ExitCode {
     outcome::quiet_panics();
     let texts = Texts::new(system_language());
-    if std::env::args_os().len() <= 1 {
+    if env::args_os().len() <= 1 {
         return if arguments::print_common_uses(texts).is_ok() {
             ExitCode::SUCCESS
         } else {
             ExitCode::FAILURE
         };
     }
-    let request = match arguments::parse(std::env::args_os(), texts) {
+    let request = match arguments::parse(env::args_os(), texts) {
         Ok(request) => request,
         Err(error) => return report(texts, error),
     };

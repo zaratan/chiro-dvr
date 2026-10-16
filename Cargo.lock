@@ -120,6 +120,7 @@ dependencies = [
  "engine",
  "files",
  "fluent-bundle",
+ "jiff",
  "media",
  "png",
  "reference",
