@@ -10,7 +10,9 @@ use types::rational::Rational;
 use types::span::Span;
 use types::timeline::Timeline;
 
-use super::{Finish, Params, TrackEntry, language_code, local_date, spans_in_seconds, write_params};
+use super::{
+    Finish, Params, Recorded, TrackEntry, language_code, local_date, read_params, spans_in_seconds, write_params,
+};
 use crate::error::Error;
 
 fn timeline() -> Timeline {
@@ -215,4 +217,50 @@ fn each_track_is_listed_with_its_exact_times_its_colour_its_summary_image_and_th
             {"id": 2, "start_s": 209.5, "duration_s": 1.25, "color": null, "summary": null, "clip": null, "zoom": null}
         ])
     );
+}
+
+fn read_back(edit: impl FnOnce(&mut Value)) -> Option<Recorded> {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("params.json");
+    let (_, mut value) = written(&params(&settings(), &evening()));
+    edit(&mut value);
+    fs::write(&path, value.to_string()).unwrap();
+    read_params(&path)
+}
+
+#[test]
+fn a_params_file_written_by_this_version_is_read_back_with_its_state_its_figures_and_its_settings() {
+    let recorded = read_back(|_| {}).unwrap();
+    assert_eq!(recorded.state, Finish::Done);
+    assert_eq!(
+        (
+            recorded.version.as_str(),
+            recorded.video_bytes,
+            recorded.language.as_str()
+        ),
+        ("0.2.0", 1_073_741_824, "fr")
+    );
+    assert_eq!(
+        (recorded.track_count, recorded.length_s, recorded.not_analysed_s),
+        (2, 300.067, 2.5)
+    );
+    assert_eq!(recorded.rest["TrackConfig"]["max_gap"], 6);
+}
+
+#[test]
+fn a_params_file_without_state_from_an_earlier_version_reads_as_unfinished() {
+    let recorded = read_back(|value| {
+        value.as_object_mut().unwrap().remove("state");
+    });
+    assert_eq!(recorded, None);
+}
+
+#[test]
+fn a_params_file_with_an_unknown_state_cut_short_or_absent_reads_as_unfinished() {
+    assert_eq!(read_back(|value| value["state"] = json!("started")), None);
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("params.json");
+    assert_eq!(read_params(&path), None);
+    fs::write(&path, "{\"state\": \"done\", \"vers").unwrap();
+    assert_eq!(read_params(&path), None);
 }

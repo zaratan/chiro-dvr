@@ -9,6 +9,7 @@ use files::previous::Kept;
 
 use crate::jobs::Job;
 use crate::process::{self, Extent, Processed};
+use crate::reuse::Earlier;
 
 #[cfg(test)]
 mod tests;
@@ -44,7 +45,14 @@ pub enum State {
         extent: Extent,
         kept: Vec<Kept>,
     },
+    Skipped(Earlier),
     Failed(Failure),
+}
+
+#[derive(Debug)]
+pub enum Ran {
+    Processed(Processed),
+    Skipped(Earlier),
 }
 
 #[derive(Debug)]
@@ -62,8 +70,8 @@ pub struct Rank {
 
 pub fn run_all(
     jobs: &[Job],
-    work: impl Fn(&Job, Rank) -> Result<Processed, process::Error> + RefUnwindSafe,
-    mut report: impl FnMut(&Job, Rank, &Result<Processed, Failure>) -> io::Result<()>,
+    work: impl Fn(&Job, Rank) -> Result<Ran, process::Error> + RefUnwindSafe,
+    mut report: impl FnMut(&Job, Rank, &Result<Ran, Failure>) -> io::Result<()>,
 ) -> io::Result<Vec<Row>> {
     let mut rows = Vec::with_capacity(jobs.len());
     for (job, position) in jobs.iter().zip(1..) {
@@ -78,7 +86,7 @@ pub fn run_all(
         IN_VIDEO.store(false, Ordering::SeqCst);
         let elapsed = started.elapsed();
         let result = match caught {
-            Ok(Ok(processed)) => Ok(processed),
+            Ok(Ok(ran)) => Ok(ran),
             Ok(Err(error)) => Err(Failure::Error(error)),
             Err(payload) => Err(Failure::Panic(first_panic().unwrap_or_else(|| Panic {
                 message: message(payload.as_ref()),
@@ -95,9 +103,10 @@ pub fn run_all(
     Ok(rows)
 }
 
-fn state(result: Result<Processed, Failure>) -> State {
+fn state(result: Result<Ran, Failure>) -> State {
     match result {
-        Ok(processed) => State::Done {
+        Ok(Ran::Skipped(earlier)) => State::Skipped(earlier),
+        Ok(Ran::Processed(processed)) => State::Done {
             tracks: processed.tracks.len(),
             extent: processed.extent,
             kept: processed.kept,

@@ -25,6 +25,7 @@ pub(crate) const MAX_BLOBS: &str = "max-blobs";
 pub(crate) const OSD_REGION: &str = "osd-region";
 const SKIP_REFUSED: &str = "skip-refused";
 const NO_NOTIFY: &str = "no-notify";
+const FORCE: &str = "force";
 
 #[cfg(test)]
 mod tests;
@@ -36,6 +37,7 @@ pub(crate) struct Request {
     pub(crate) options: Options,
     pub(crate) skip_refused: bool,
     pub(crate) no_notify: bool,
+    pub(crate) force: bool,
 }
 
 fn number(id: &'static str, value: &impl ToString, name: Fixed, help: Fixed, texts: Texts) -> Arg {
@@ -150,6 +152,10 @@ fn useful_arguments(level: Level, texts: Texts) -> Vec<Arg> {
             .long(NO_NOTIFY)
             .action(ArgAction::SetTrue)
             .help(texts.text(Fixed::NoNotifyHelp)),
+        Arg::new(FORCE)
+            .long(FORCE)
+            .action(ArgAction::SetTrue)
+            .help(texts.text(Fixed::ForceHelp)),
     ]
     .into_iter()
     .map(|argument| argument.hide(level == Level::Essential))
@@ -283,6 +289,7 @@ pub(crate) fn parse(
         options,
         skip_refused: matches.get_flag(SKIP_REFUSED),
         no_notify: matches.get_flag(NO_NOTIFY),
+        force: matches.get_flag(FORCE),
     })
 }
 
