@@ -109,12 +109,10 @@ d'abord, puis les sorties des deux langues et celles des versions précédentes 
 La langue du dernier calcul fait foi. Un CSV qui n'a pas la forme d'un tableau des pistes est
 laissé tel quel, et le bilan le dit.
 
-- `<nom>_resume.png` : toutes les trajectoires sur le fond médian de la vidéo, une couleur,
-  une flèche (sens du vol) et une pastille numérotée par piste, avec une légende à droite
-  (numéro et début) et une frise du temps en bas. Au-delà de 10 min, une image par tranche de
-  10 min (`<nom>_resume_000m-010m.png`, …) ; au-delà de 20 pistes, l'image est coupée en
-  parties (`<nom>_resume_1_sur_3.png`, …). `--osd-region 0,0,1,0.07` y cache l'affichage des
-  jumelles Symbion ;
+- `<nom>_resume.png` : l'image résumé, toutes les trajectoires sur le fond médian de la
+  vidéo. Au-delà de 10 min, une image par tranche de 10 min (`<nom>_resume_000m-010m.png`,
+  …) ; au-delà de 20 pistes, l'image est coupée en parties (`<nom>_resume_1_sur_3.png`, …).
+  Comment la lire : [lire l'image résumé](docs/lire-les-resultats.md#lire-limage-résumé) ;
 - `<nom>_pistes.csv` : une ligne par piste, avec `id`, `start`, `end`, `start_s`,
   `duration_s`, `hits`, `chord_px`, `path_px`, `speed_px_s`, `max_area_px`,
   `peak_amplitude` et `filled_frames` ([lire les résultats](docs/lire-les-resultats.md)) ;

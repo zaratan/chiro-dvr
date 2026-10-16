@@ -89,6 +89,144 @@ résultats dans le Finder (`--no-notify` pour s'en passer).
 [#28]: https://github.com/zaratan/chiro-dvr/issues/28
 [#42]: https://github.com/zaratan/chiro-dvr/issues/42
 
+## Lire l'image résumé
+
+L'image résumé montre d'un coup d'œil toutes les pistes d'une vidéo sur la scène sans animal :
+où elles passent, dans quel sens, quand elles commencent, et quels moments l'outil n'a pas
+regardés. Elle sert à choisir les extraits à ouvrir ; elle ne dit pas ce qu'est une piste.
+Une zone sans trait n'est pas une zone sans passage : voir
+[Ce que l'outil ne voit pas](#ce-que-loutil-ne-voit-pas).
+
+Les repères numérotés (carrés blancs) ont été ajoutés pour ce document : l'outil ne les
+dessine pas.
+
+![Image résumé de l'extrait de test de la 092, avec les repères 1 à 9](images/resume-extrait.jpg)
+
+*L'extrait de test de la 092 (40 s, de 3:24 à 4:05), affichage des jumelles masqué : 4 pistes.*
+
+### Le bandeau, à droite
+
+1. **Le nom de la vidéo**, terminé par « ... » s'il est trop long.
+2. **Le nombre de pistes de l'image.** Au-delà de 20 pistes dans une même tranche de 10 min,
+   l'image est coupée en parties d'au plus 20 pistes : une ligne `partie 1 / 3` s'ajoute alors
+   entre le nom et ce nombre, qui est celui de la partie.
+3. **L'intervalle couvert**, compté depuis le début de la vidéo, à la seconde inférieure :
+   la vidéo entière jusqu'à 10 min, sinon la tranche (`10:00 - 20:00`) ; pour une partie, du
+   début de sa première piste à la fin de la dernière à finir, arrondie au-dessus. Une piste
+   à cheval sur deux tranches n'est dessinée que sur l'image de celle où elle commence : son
+   trait peut continuer au-delà de l'intervalle.
+
+   Viennent ensuite, quand il y en a, les périodes où rien n'a été cherché dans la tranche,
+   arrondies vers l'extérieur à la seconde, celles qui se touchent réunies ; chaque partie
+   de la tranche les répète. On lit jusqu'à trois lignes `hors analyse 1:02 - 1:15`, puis
+   `+ 4 autres`, et jusqu'à trois lignes `illisible 2:10 - 2:12`, puis
+   `+ 4 autres, 45 s illisibles en tout`, la durée comptant toutes les périodes illisibles de
+   la tranche. L'extrait n'en a aucune : ces lignes manquent sur la capture.
+4. **La légende** : la pastille de chaque piste et son début, à la seconde inférieure, sur
+   plusieurs colonnes s'il le faut. Le numéro est celui du tableau des pistes et du nom de
+   l'extrait (`piste_01_0m04s.mp4`) ; le début au centième est dans le tableau.
+
+### L'image
+
+5. **Le trait** : le trajet de la piste, qui relie ses points, bordé de noir pour rester
+   visible sur un fond clair.
+6. **La flèche** : posée au bout du trait, à la fin de la piste, elle pointe dans le sens du
+   vol à ce moment-là. Le départ est l'autre bout du trait, sans marque.
+7. **La pastille** : le disque numéroté de la piste. Elle est posée vers le quart du trajet,
+   puis glissée le long du trait pour s'écarter des autres pastilles, des pointes de flèche et
+   des endroits où un autre trait passe tout près. Elle ne marque donc **pas le départ** :
+   pour le trouver, suivre le trait à l'opposé de la flèche.
+
+   Quand aucune place sur le trait n'évite une autre pastille, la pastille est décalée à
+   côté ; si elle ne touche plus son trait, un **trait de rappel** de sa couleur la relie au
+   point le plus proche de son trajet. Les quatre pastilles de l'extrait sont sur leur trait :
+   il n'y en a aucun.
+8. **La zone masquée** par `--osd-region` : un gris très foncé uni, plus sombre que le
+   bandeau, à la place de l'affichage des jumelles (heure, date, batterie, chrono ;
+   `--osd-region 0,0,1,0.07` pour les Symbion). L'outil n'y cherche rien. Sans cette
+   option, l'affichage reste visible dans le fond, et les inscriptions fixes que l'option ne
+   couvre pas restent aussi : ici les grossissements « 2.0x » et « 6.5x », à peine visibles
+   en bas de l'image.
+
+Le fond est la scène sans animal de toute la vidéo ([fond médian](#fond-médian)), assombrie
+pour que les traits ressortent.
+
+### La frise du temps, sous l'image
+
+9. **La frise** couvre toute la vidéo, ou toute la tranche de 10 min, même sur une partie.
+
+![Gros plan de la frise du temps de l'extrait, avec les repères 10 à 13](images/resume-frise.png)
+
+10. **La bande « hors analyse »** : un rectangle gris par période hors analyse, toutes et pas
+    seulement les trois du bandeau, large d'au moins 2 pixels même pour un instant. Vide sur
+    l'extrait : aucune image n'y a été écartée.
+11. **La bande « illisible »** : de même, un rectangle blanc cassé par période illisible.
+    Vide aussi sur l'extrait.
+12. **Les départs des pistes** : un petit trait de la couleur de la piste, au-dessus de
+    l'axe, à son début. Sur une partie, les départs des autres parties de la même tranche y
+    sont aussi, en gris.
+13. **La graduation** : les minutes, tous les 1, 2, 5 ou 10 min selon la place ; une seule
+    ici, 0:00, puisque l'extrait dure 40 s.
+
+### La couleur ne veut rien dire
+
+La couleur sert seulement à distinguer une piste de ses voisines sur la même image. Il y en a
+12 : chaque piste prend la couleur la moins présente parmi les traits proches déjà dessinés,
+et à égalité la moins employée. Les 12 premières pistes d'une image ont chacune la sienne ; à partir de la
+13ᵉ, une couleur revient, sur une piste éloignée si possible. Deux traits de même couleur
+sont donc deux pistes, et la même couleur sur deux images ne désigne pas la même piste. Elle ne
+dit rien de l'animal, de sa vitesse ni de la confiance de l'outil, et les extraits ne la
+reprennent pas : leur boîte est toujours rouge et la trace du vol toujours jaune. Seul le numéro identifie une piste.
+
+### Refaire les captures
+
+<details>
+<summary>Commandes, depuis la racine du dépôt</summary>
+
+Les coordonnées des repères valent pour l'image résumé de l'extrait, 1879 × 1215 pixels :
+si elle change, les replacer.
+
+```bash
+LANGUAGE=fr cargo run --release -p batdetect -- \
+  tests/fixtures/video_092_original_3m24-4m05.mp4 --osd-region 0,0,1,0.07 -o out/resume
+resume=out/resume/video_092_original_3m24-4m05/video_092_original_3m24-4m05_resume.png
+reperes=()
+repere() {
+  local n=$1 x=$2 y=$3 tx=$4 ty=$5
+  reperes+=(-stroke black -strokewidth 8 -draw "line $x,$y $tx,$ty"
+    -stroke white -strokewidth 3 -draw "line $x,$y $tx,$ty"
+    -stroke black -strokewidth 3 -fill white
+    -draw "roundrectangle $((x - 22)),$((y - 22)) $((x + 22)),$((y + 22)) 6,6"
+    -stroke none -fill black -gravity Center
+    -annotate "$(printf '%+d%+d' $((x - width / 2)) $((y - height / 2)))" "$n" -gravity NorthWest)
+}
+width=1949 height=1215
+repere 1 1915 44 1866 44
+repere 2 1635 82 1562 82
+repere 3 1650 120 1594 120
+repere 4 1660 250 1612 250
+repere 5 560 560 600 628
+repere 6 170 700 106 772
+repere 7 990 375 918 428
+repere 8 720 38 720 38
+repere 9 1500 1140 1426 1130
+magick "$resume" -background 'rgb(32,32,32)' -gravity East -splice 70x0 -gravity NorthWest \
+  -stroke white -strokewidth 3 -draw 'line 1612,148 1612,352' \
+  -font crates/draw/fonts/Roboto.ttf -pointsize 32 "${reperes[@]}" \
+  -resize 1200x -quality 80 docs/images/resume-extrait.jpg
+reperes=() width=1520 height=215
+repere 10 800 30 800 76
+repere 11 1480 115 1424 115
+repere 12 1040 172 977 137
+repere 13 290 170 226 168
+magick "$resume" -crop 1440x135+0+1080 +repage -background 'rgb(32,32,32)' \
+  -gravity North -splice 0x60 -gravity South -splice 0x20 -gravity East -splice 80x0 \
+  -gravity NorthWest -font crates/draw/fonts/Roboto.ttf -pointsize 32 "${reperes[@]}" \
+  docs/images/resume-frise.png
+```
+
+</details>
+
 ## Glossaire
 
 ### Amplitude
@@ -135,14 +273,11 @@ sont traitées normalement.
 
 ### Image résumé
 
-Une image qui montre les pistes sur le fond médian, chacune avec une couleur qui la
-distingue de ses voisines, une flèche dans le sens du vol et sa pastille. Le bandeau à droite
-donne le nom de la vidéo, le nombre de pistes, le début et la fin de la tranche couverte, les
-périodes hors analyse ou illisibles, puis la légende (numéro et début de chaque piste, à la
-seconde). Une frise du temps sous l'image montre la tranche, les départs des pistes et toutes
-les périodes ignorées. Une vidéo de plus de 10 min donne une image par tranche de 10 min ;
-une tranche de plus de 20 pistes est coupée en parties (`_1_sur_3`, « partie 1 / 3 » dans le
-bandeau), et la frise d'une partie montre aussi, en gris, les départs des autres parties.
+Une image qui montre toutes les pistes sur le fond médian : un trait, une flèche au bout
+(sens du vol) et une pastille numérotée par piste, un bandeau à droite et une frise du temps
+dessous. Une vidéo de plus de 10 min donne une image par tranche de 10 min, et une tranche de
+plus de 20 pistes est coupée en parties. Comment la lire, repère par repère :
+[Lire l'image résumé](#lire-limage-résumé).
 
 ### Images estimées
 
@@ -157,10 +292,12 @@ passages viennent des verdicts.
 
 ### Pastille
 
-Le disque numéroté posé sur chaque trajectoire de l'image résumé ; son numéro est celui de
-la piste dans la légende, dans le tableau des pistes et dans le nom de l'extrait. Les
-numéros suivent l'ordre chronologique et changent dès qu'un réglage ajoute ou retire une
-piste plus tôt dans la vidéo.
+Le disque numéroté posé sur chaque trajectoire de l'image résumé, vers le quart du trajet et
+à l'écart des croisements : elle ne marque pas le départ de la piste. Quand elle a dû être
+décalée au point de ne plus toucher son trait, un trait de rappel de sa couleur l'y relie
+([repère 7](#limage)). Son numéro est celui de la piste dans la légende, dans le tableau des
+pistes et dans le nom de l'extrait. Les numéros suivent l'ordre chronologique et changent dès
+qu'un réglage ajoute ou retire une piste plus tôt dans la vidéo.
 
 ### Période hors analyse
 

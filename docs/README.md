@@ -6,7 +6,7 @@ Vous relisez les résultats d'une soirée : commencez ici.
 
 | Document | Contenu |
 | --- | --- |
-| [lire-les-resultats.md](lire-les-resultats.md) | Ce que l'outil ne voit pas, conseils de prise de vue, et les mots de l'image résumé, du tableau des pistes et des extraits |
+| [lire-les-resultats.md](lire-les-resultats.md) | Ce que l'outil ne voit pas, conseils de prise de vue, comment lire l'image résumé, et les mots de l'image résumé, du tableau des pistes et des extraits |
 
 ## Pour comprendre ou modifier l'outil
 
@@ -43,4 +43,5 @@ de comportement du code met à jour ce document-là, dans la même série de cha
 | Temps de calcul actuels | [09](09-profilage.md) | les autres citent ses chiffres |
 | Questions ouvertes | [06](06-questions-ouvertes.md) | — |
 | Utilisation, fichiers produits | [README](../README.md) et [lire-les-resultats](lire-les-resultats.md) | — |
+| Lecture de l'image résumé : bandeau, trait, flèche, pastille, zone masquée, frise du temps, couleurs | [lire-les-resultats](lire-les-resultats.md#lire-limage-résumé) | le README y renvoie |
 | Histoire et mesures datées | 11 et les sections datées de 03, 07, 08, 09 | — |

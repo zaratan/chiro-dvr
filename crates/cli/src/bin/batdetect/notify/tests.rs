@@ -63,7 +63,16 @@ fn each_folder_of_the_board_is_opened_once_after_the_notification_in_its_order()
 fn a_relative_folder_whose_name_starts_with_a_dash_is_not_read_as_an_option_of_open() {
     let roots = [Path::new("-R"), Path::new("out")];
     let opened: Vec<Call> = calls("Summary", &roots).into_iter().skip(1).collect();
-    assert_eq!(opened, [opening_of("./-R"), opening_of("./out")]);
+    let expected = roots.map(|root| Call {
+        program: "open",
+        arguments: vec![Path::new(".").join(root).into_os_string()],
+    });
+    assert_eq!(opened, expected);
+    assert!(
+        opened
+            .iter()
+            .all(|call| !call.arguments[0].to_string_lossy().starts_with('-'))
+    );
 }
 
 #[cfg(unix)]
