@@ -145,9 +145,9 @@ calcul efface les fichiers de l'autre langue.
 
 À la fin du calcul, la commande écrit un bilan de la soirée : pour chaque vidéo sa durée, son
 nombre de pistes, le temps non analysé et le temps de calcul, puis à part les vidéos qui ont
-trop de pistes, celles en échec avec ce qu'il faut faire, et les entrées refusées. Sous macOS,
-lancée dans un terminal, elle annonce aussi la fin par une notification et ouvre la page des
-résultats de chaque dossier (`--no-notify` pour s'en passer).
+trop de pistes, celles en échec et les entrées refusées, chacune avec ce qu'il faut faire. Sous
+macOS, lancée dans un terminal, elle annonce aussi la fin par une notification et ouvre la page
+des résultats de chaque dossier (`--no-notify` pour s'en passer).
 
 Relancer la même commande ne refait pas une vidéo déjà faite avec les mêmes réglages : son
 dossier reste tel quel, et le bilan la compte « déjà faite » avec ses chiffres d'origine

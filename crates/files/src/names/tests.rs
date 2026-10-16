@@ -6,7 +6,7 @@ use types::frame::FrameIndex;
 use types::language::Language;
 use types::track::Track;
 
-use super::{Names, Output, Part, composed, params_json, partial_path, previous_output};
+use super::{Names, Output, Part, composed, is_hidden, params_json, partial_path, previous_output};
 
 fn track(id: usize) -> Track {
     let point = Detection {
@@ -256,5 +256,20 @@ fn a_dated_name_escapes_the_cleanup_so_a_table_set_aside_is_never_removed_nor_se
         ".v_pistes_2026-10-16_1430.csv.partial",
     ] {
         assert_eq!(previous_output(dated.as_bytes(), b"v"), None, "{dated}");
+    }
+}
+
+#[test]
+fn a_name_is_hidden_when_it_starts_with_a_dot_like_the_appledouble_copies_and_our_partial_files() {
+    let partial = partial_path(Path::new("out/v/v_pistes.csv"));
+    for hidden in [
+        OsStr::new("._v.mp4"),
+        OsStr::new(".DS_Store"),
+        partial.file_name().unwrap(),
+    ] {
+        assert!(is_hidden(hidden), "{hidden:?}");
+    }
+    for shown in ["v.mp4", "nuit.12", ""] {
+        assert!(!is_hidden(OsStr::new(shown)), "{shown:?}");
     }
 }

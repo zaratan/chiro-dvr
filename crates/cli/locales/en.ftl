@@ -49,6 +49,13 @@ failure-todo = {"  "}what to do: { $cause ->
         [in-use] close it, then run again
         [encoding] run again; if it happens again, report it with the detail below
         [too-many-tracks] look at the summary image; if these are real passes, run again with a larger --max-tracks
+        [input-missing] check the path; the folder or the video may have been moved or renamed
+        [unreachable] check that the disk is still connected, then run again; if it happens again, report it
+        [not-a-video-name] give only videos, or folders of videos
+        [no-video] check it is the right folder: only the videos directly inside it are processed, not those of its subfolders
+        [shared-folder] rename one of these videos, or process them in two runs with a different -o
+        [read-only] copy the videos to the Mac, or choose another folder with -o
+        [other-folder] choose another folder with -o
        *[unexpected] report it with the detail below
     }
 failure-detail = {"  "}detail: { $detail }

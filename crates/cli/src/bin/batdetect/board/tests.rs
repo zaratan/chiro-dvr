@@ -339,7 +339,7 @@ fn missing(path: &str) -> Refused {
 }
 
 #[test]
-fn the_inputs_refused_before_the_valid_videos_were_processed_are_counted_and_listed_under_their_own_title() {
+fn the_inputs_refused_before_the_valid_videos_ran_are_counted_and_listed_with_what_to_do_under_their_own_title() {
     let two = with_refused(vec![
         missing("absente.mp4"),
         Refused {
@@ -351,18 +351,21 @@ fn the_inputs_refused_before_the_valid_videos_were_processed_are_counted_and_lis
         written(&two, &Options::default(), Language::French),
         "Bilan\u{a0}: 1 vidéo, 1 réussie, 2 entrées refusées\n\nnuit/batdetect\n  vidéo           durée   pistes   non \
          analysé   calcul\n  video_092   5 min 1 s        1           0 s     17 s\n\nEntrées refusées, non \
-         traitées\u{a0}:\n  absente.mp4\u{a0}: introuvable\n  README.md\u{a0}: pas une vidéo (mp4, mov, avi, mkv ou \
-         m4v)\n"
+         traitées\u{a0}:\n  absente.mp4\u{a0}: introuvable\n    à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la \
+         vidéo a peut-être été déplacé ou renommé\n  README.md\u{a0}: pas une vidéo (mp4, mov, avi, mkv ou m4v)\n    à \
+         faire\u{a0}: ne donner que des vidéos, ou des dossiers de vidéos\n"
     );
     let english = written(&two, &Options::default(), Language::English);
     let lines: Vec<&str> = english.lines().collect();
     assert_eq!(lines[0], "Summary: 1 video, 1 done, 2 inputs refused", "{english}");
     assert_eq!(
-        lines[lines.len() - 3..],
+        lines[lines.len() - 5..],
         [
             "Refused inputs, not processed:",
             "  absente.mp4: not found",
-            "  README.md: not a video (mp4, mov, avi, mkv or m4v)"
+            "    what to do: check the path; the folder or the video may have been moved or renamed",
+            "  README.md: not a video (mp4, mov, avi, mkv or m4v)",
+            "    what to do: give only videos, or folders of videos"
         ]
     );
     assert!(!two.all_done());
