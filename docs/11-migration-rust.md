@@ -2035,7 +2035,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       pistes » (le mot du bilan, #196) ou « — échec ».
     - Ctrl-C (#196) : un gestionnaire `ctrlc`, posé par `main` une fois le lot admis,
       efface la ligne d'étape sur un terminal, écrit « lot interrompu à la vidéo 3/12 ;
-      relancer la même commande refait le lot » sur la sortie d'erreur et sort en 130,
+      relancer la même commande reprend là où le lot s'est arrêté » (« refait le lot »
+      sous `--force`, #70) sur la sortie d'erreur et sort en 130,
       même si la ligne ne s'écrit pas, en gardant la sortie d'erreur jusqu'à la sortie.
       `Status` retient la vidéo en cours. Rien
       d'autre ne se fait : un `.partial` laissé par l'interruption est retiré par le

@@ -334,7 +334,8 @@ pistes, 097) et en dessous de la plus petite explosion connue (374 pistes, seuil
 facteur de bruit). Le
 seuil est fixe, pas un taux par minute : il suppose des clips d'environ 5 min, comme ceux
 des jumelles, et se monte avec `--max-tracks` pour une vidéo plus longue. Le bilan de la
-soirée compte ces vidéos à part, avec leur nombre de pistes.
+soirée compte ces vidéos à part, avec leur nombre de pistes ; une relance identique ne les refait
+pas et les compte encore ainsi.
 
 Colonnes du CSV, dans cet ordre : `piste` (numéro), `début` et `fin` (`h:mm:ss`, tronqués
 à la seconde comme le nom de l'extrait), `durée (s)`, `verdict` (vide, rempli à l'œil ;

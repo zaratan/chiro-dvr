@@ -9,6 +9,10 @@ video-step = [{ $position }/{ $total }] { $video } — { $step ->
         [summary] summary image
        *[clips] clips
     }
+video-skipped = [{ $position }/{ $total }] { $video } — already done, { $tracks ->
+        [one] { $tracks } track
+       *[other] { $tracks } tracks
+    }
 video-done = [{ $position }/{ $total }] { $video } — { $tracks ->
         [one] { $tracks } track
        *[other] { $tracks } tracks
@@ -146,6 +150,7 @@ tally-title = Summary: { $total ->
         [one] { $total } video
        *[other] { $total } videos
     }
+tally-already-done = { $count } already done
 tally-done = { $count } done
 tally-too-many-count = { $count } with too many tracks
 tally-failed-count = { $count } failed
@@ -206,7 +211,7 @@ file-table = One row per track (start, end, length, speed, size), for a spreadsh
 file-clip = The clip of every track, named by its number and its start
 file-zoom = The same, slowed and magnified, for small or faint tracks
 file-annotated = The whole video with the tracks drawn, with --annotated
-file-params = The settings and the outcome of the video, written last: without it, the folder is not finished
+file-params = The settings and the outcome, written last: without it, the video is redone on the next run
 files-long =
     A long or crowded video has several summary images, per 10 min slice ({ $period })
     or per part ({ $part }).
@@ -222,6 +227,7 @@ skip-refused-question = Process { $count ->
 skip-refused-declined = no video is processed
 skip-refused-help = Processes the valid videos without asking when some inputs are refused
 no-notify-help = Neither notifies the end of the batch nor opens the result folders in the Finder (macOS)
+force-help = Redoes every video, even those already done with the same settings
 tally-refused-count = { $count ->
         [one] { $count } input refused
        *[other] { $count } inputs refused
@@ -230,7 +236,10 @@ tally-refused-heading = { $count ->
         [one] Refused input, not processed
        *[other] Refused inputs, not processed
     }:
-interrupted = batch interrupted at video { $position }/{ $total }; running the same command again redoes the batch
+interrupted = batch interrupted at video { $position }/{ $total }; running the same command again { $resumes ->
+        [yes] resumes where the batch stopped
+       *[no] redoes the batch
+    }
 table-track = track
 table-start = start
 table-end = end

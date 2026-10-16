@@ -14,6 +14,9 @@ le workflow de release échouera sans elle.
 - Une ligne par étape pendant le calcul, et un bilan de la soirée à la fin (#63, #65).
 - Sous macOS, dans un terminal : notification de fin de lot et dossiers de résultats ouverts dans
   le Finder ; `--no-notify` les éteint (#69).
+- Relancer la même commande saute les vidéos déjà faites avec la même version, la même langue et
+  les mêmes réglages, sans toucher à leur dossier ; le bilan les compte « déjà faites ».
+  `--force` refait tout (#70).
 - Image résumé : frise du temps et plages illisibles datées (#127), coupée en parties au-delà
   de 20 pistes (#157). Extraits zoomés en pleine taille (#103).
 - Archives du binaire pour macOS arm64, Linux x86_64 (glibc 2.35 au moins) et Windows

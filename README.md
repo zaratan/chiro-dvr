@@ -3,6 +3,8 @@
 Repère et suit les chauves-souris dans les vidéos de jumelles thermiques, puis sort un
 extrait par passage pour validation par une naturaliste.
 
+Première fois ? Le guide [première soirée](docs/premiere-soiree.md) va des jumelles aux résultats, pas à pas.
+
 ## Installation
 
 Homebrew installe pour l'instant la 0.1.1, la dernière version publiée, sur un Mac Apple Silicon
@@ -51,7 +53,7 @@ Depuis les sources, la commande se lance par `target/release/batdetect` ou par
 `batdetect --help` toutes les options avec leur valeur par défaut : c'est lui qui fait foi.
 
 - `-o`/`--out-dir`, `--zoom auto|all|none`, `--annotated`, `--max-tracks`, `--clip-margin`,
-  `--osd-region` (à répéter pour plusieurs zones), `--skip-refused` et `--no-notify`.
+  `--osd-region` (à répéter pour plusieurs zones), `--skip-refused`, `--no-notify` et `--force`.
 - Quatre réglages changent la détection : `--threshold`, `--min-hits`, `--max-blobs` et
   `--work-width`. Les autres réglages sont fixés et écrits dans `params.json`
   ([docs/02](docs/02-methode.md)).
@@ -64,8 +66,14 @@ sauf avec `--skip-refused`.
 Pendant le calcul, une ligne par étape sur la sortie d'erreur (`[2/5] video_092 — détection`),
 puis un bilan de la soirée : pour chaque vidéo sa durée, ses pistes, le temps non analysé et le
 temps de calcul, puis les vidéos en échec avec ce qu'il faut faire. Le code de sortie n'est pas
-nul dès qu'une entrée est refusée ou qu'une vidéo échoue. Un lot interrompu (Ctrl-C) se refait
-en relançant la même commande.
+nul dès qu'une entrée est refusée ou qu'une vidéo échoue. Après un Ctrl-C, relancer la même
+commande reprend là où le lot s'est arrêté (avec `--force`, elle refait tout le lot).
+
+Une vidéo déjà faite est sautée : son dossier a un `params.json` terminé, et la vidéo, la version
+de batdetect, la langue des noms et les réglages (sauf la liste des encodeurs) n'ont pas changé.
+Rien n'est écrit ni effacé dans son dossier ; le bilan reprend sa durée, ses pistes et son temps
+non analysé, affiche « — » en calcul et compte « N déjà faites ». Une vidéo laissée avec trop de
+pistes reste comptée ainsi. `--force` refait toutes les vidéos.
 
 Sous macOS, quand la commande est lancée dans un terminal, la fin du lot s'annonce par une
 notification qui reprend la première ligne du bilan, et chaque dossier de résultats s'ouvre dans
@@ -103,8 +111,8 @@ jamais d'accent.
 | Vidéo annotée | `<nom>_annotee.mp4` | `<nom>_annotated.mp4` |
 | Réglages | `params.json` | `params.json` |
 
-Une fois la détection finie, chaque calcul efface, dans le dossier de la vidéo, `params.json`
-d'abord, puis les sorties des deux langues et celles des versions précédentes (`split/`,
+Une fois la détection finie, chaque calcul (pas une vidéo sautée parce que déjà faite) efface,
+dans le dossier de la vidéo, `params.json` d'abord, puis les sorties des deux langues et celles des versions précédentes (`split/`,
 `<nom>.tracks.*`, `<nom>_boxes.mp4`).
 La langue du dernier calcul fait foi. Un tableau qui porte des verdicts, ou qui n'a plus la forme
 écrite par l'outil, est mis de côté tel quel sous un nom daté (`<nom>_pistes_2026-10-16_1430.csv`)

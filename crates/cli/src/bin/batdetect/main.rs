@@ -17,8 +17,9 @@ use std::sync::Arc;
 use batdetect::consent::{Asking, Choice};
 use batdetect::jobs::{self, Job, Refused, plan};
 use batdetect::language::system_language;
-use batdetect::outcome::{self, run_all};
-use batdetect::process::{Versions, process};
+use batdetect::outcome::{self, Ran, run_all};
+use batdetect::process::{Versions, Wording, process};
+use batdetect::reuse::{self, Run};
 use batdetect::tally::Tally;
 use batdetect::writable::unwritable_folders;
 use media::decode::Threads;
@@ -53,7 +54,7 @@ fn main() -> ExitCode {
         let (heading, lines) = messages::folders_refused(texts, &refused);
         return report(texts, arguments::rejection(texts, &heading, &lines));
     }
-    let status = Arc::new(Status::new(texts, io::stderr().is_terminal(), jobs.len()));
+    let status = Arc::new(Status::new(texts, io::stderr().is_terminal(), jobs.len()).redoing_all(request.force));
     let watched = Arc::clone(&status);
     let watching = ctrlc::set_handler(move || {
         let mut err = io::stderr().lock();
@@ -111,8 +112,17 @@ fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, request: &Request) 
         jobs,
         |job, rank| {
             status.enter(rank);
+            let run = Run {
+                options,
+                version: versions.program,
+                language: texts.language(),
+            };
+            let earlier = if request.force { None } else { reuse::earlier(job, run) };
+            if let Some(earlier) = earlier {
+                return Ok(Ran::Skipped(earlier));
+            }
             let video = Video { status, rank, job };
-            process(job, &texts, &video, Threads::Automatic, versions, options)
+            process(job, &texts, &video, Threads::Automatic, versions, options).map(Ran::Processed)
         },
         |job, rank, result| {
             let video = Video { status, rank, job };

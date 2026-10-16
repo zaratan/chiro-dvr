@@ -51,6 +51,7 @@ fn several_videos_and_the_long_out_dir_option_are_read_with_the_v0_1_1_settings(
             options: Options::default(),
             skip_refused: false,
             no_notify: false,
+            force: false,
         }
     );
 }
@@ -189,6 +190,21 @@ fn the_short_help_shows_only_the_essential_options_and_points_to_the_long_help()
         assert!(!options.contains(hidden), "{hidden}: {short}");
     }
     assert!(short.contains("--help all of them"), "{short}");
+}
+
+#[test]
+fn redoing_every_video_is_asked_by_an_option_of_the_long_help_only() {
+    assert!(parse(["batdetect", "a.mp4", "--force"], ENGLISH).unwrap().force);
+    for (texts, heading, described) in [
+        (ENGLISH, "Options:", "Redoes every video"),
+        (FRENCH, "Options\u{a0}:", "Refait toutes les vidéos"),
+    ] {
+        let long = help_in(Level::Full, texts);
+        let line = long.lines().find(|line| line.contains("--force")).unwrap();
+        assert!(line.contains(described), "{line}");
+        let short = help_in(Level::Essential, texts);
+        assert!(!short.split(heading).nth(1).unwrap().contains("--force"), "{short}");
+    }
 }
 
 #[test]

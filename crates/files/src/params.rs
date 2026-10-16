@@ -1,9 +1,10 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use jiff::Zoned;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use tempfile::TempPath;
 use types::language::Language;
 use types::span::Span;
@@ -18,7 +19,7 @@ mod tests;
 
 const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%:z";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Finish {
     Done,
@@ -56,6 +57,24 @@ pub struct TrackEntry {
     pub summary: Option<String>,
     pub clip: Option<String>,
     pub zoom: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct Recorded {
+    pub state: Finish,
+    pub version: String,
+    pub video_bytes: u64,
+    pub language: String,
+    pub track_count: usize,
+    pub length_s: f64,
+    pub not_analysed_s: f64,
+    #[serde(flatten)]
+    pub rest: Map<String, Value>,
+}
+
+pub fn read_params(path: &Path) -> Option<Recorded> {
+    let text = fs::read_to_string(path).ok()?;
+    serde_json::from_str(&text).ok()
 }
 
 pub fn spans_in_seconds(spans: &[Span], timeline: &Timeline) -> Vec<[f64; 2]> {

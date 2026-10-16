@@ -6,9 +6,11 @@ use std::time::Duration;
 use batdetect::options::{Change, Options};
 use batdetect::outcome::{Failure, Row, State};
 use batdetect::process::Extent;
+use batdetect::reuse::Earlier;
 use batdetect::tally::Tally;
 use engine::settings::Setting;
 use files::names::composed;
+use files::params::Finish;
 use files::previous::{Kept, Reason};
 
 use crate::arguments::{MAX_BLOBS, MIN_HITS, OSD_REGION};
@@ -51,8 +53,10 @@ pub(crate) fn write(out: &mut impl Write, tally: &Tally, options: &Options, text
 
 pub(crate) fn title(tally: &Tally, texts: Texts) -> String {
     let (done, too_many, failed) = (tally.done().count(), tally.too_many().count(), tally.failed().count());
+    let already = tally.already_done().count();
     let counted = [
         (done, Message::TallyDone { count: done }),
+        (already, Message::TallyAlreadyDone { count: already }),
         (too_many, Message::TallyTooManyCount { count: too_many }),
         (failed, Message::TallyFailedCount { count: failed }),
         (
@@ -119,6 +123,16 @@ fn cells_of(row: &Row, texts: Texts) -> [String; 5] {
             let (length, not_analysed) = measured(*extent);
             let tracks = texts.say(&Message::TallyTooManyCell { count: *count });
             [name(row), length, tracks, not_analysed, compute]
+        }
+        State::Skipped(Earlier {
+            finish, tracks, extent, ..
+        }) => {
+            let (length, not_analysed) = measured(*extent);
+            let tracks = match finish {
+                Finish::Done => texts.count(*tracks),
+                Finish::TooManyTracks => texts.say(&Message::TallyTooManyCell { count: *tracks }),
+            };
+            [name(row), length, tracks, not_analysed, UNKNOWN.to_owned()]
         }
         State::Failed(_) => [
             name(row),

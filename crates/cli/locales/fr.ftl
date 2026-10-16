@@ -12,6 +12,10 @@ video-step = [{ $position }/{ $total }] { $video } — { $step ->
         [summary] image résumé
        *[clips] extraits
     }
+video-skipped = [{ $position }/{ $total }] { $video } — déjà faite, { $tracks ->
+        [one] { $tracks } piste
+       *[other] { $tracks } pistes
+    }
 video-done = [{ $position }/{ $total }] { $video } — { $tracks ->
         [one] { $tracks } piste
        *[other] { $tracks } pistes
@@ -158,6 +162,10 @@ tally-title = Bilan : { $total ->
         [one] { $total } vidéo
        *[other] { $total } vidéos
     }
+tally-already-done = { $count ->
+        [one] { $count } déjà faite
+       *[other] { $count } déjà faites
+    }
 tally-done = { $count ->
         [one] { $count } réussie
        *[other] { $count } réussies
@@ -221,7 +229,7 @@ file-table = Une ligne par piste (début, fin, durée, vitesse, taille), pour un
 file-clip = L'extrait de chaque piste, nommé par son numéro et son début
 file-zoom = Le même, ralenti et agrandi, pour les pistes petites ou faibles
 file-annotated = La vidéo entière avec les pistes dessinées, avec --annotated
-file-params = Les réglages et le bilan de la vidéo, écrit en dernier : sans lui, le dossier n'est pas fini
+file-params = Les réglages et le bilan, écrit en dernier : sans lui, la vidéo est refaite à la relance
 files-long =
     Une vidéo longue ou chargée a plusieurs images résumé, par tranche de 10 min ({ $period })
     ou par partie ({ $part }).
@@ -237,6 +245,7 @@ skip-refused-question = Traiter quand même { $count ->
 skip-refused-declined = aucune vidéo n'est traitée
 skip-refused-help = Traite les vidéos valides sans poser la question quand des entrées sont refusées
 no-notify-help = Ne signale pas la fin du lot et n'ouvre pas les dossiers de résultats dans le Finder (macOS)
+force-help = Refait toutes les vidéos, même celles déjà faites avec les mêmes réglages
 tally-refused-count = { $count ->
         [one] { $count } entrée refusée
        *[other] { $count } entrées refusées
@@ -245,7 +254,10 @@ tally-refused-heading = { $count ->
         [one] Entrée refusée, non traitée
        *[other] Entrées refusées, non traitées
     } :
-interrupted = lot interrompu à la vidéo { $position }/{ $total } ; relancer la même commande refait le lot
+interrupted = lot interrompu à la vidéo { $position }/{ $total } ; relancer la même commande { $resumes ->
+        [yes] reprend là où le lot s'est arrêté
+       *[no] refait le lot
+    }
 table-track = piste
 table-start = début
 table-end = fin
