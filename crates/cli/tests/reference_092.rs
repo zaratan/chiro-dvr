@@ -19,7 +19,7 @@ use batdetect::options::Options;
 use batdetect::process::{Processed, process_detected};
 use batdetect::progress::Silent;
 use compare::case::{Case, WHOLE, WHOLE_AT_1440};
-use compare::comparison::{Comparison, compare, compared};
+use compare::comparison::{Comparison, Folders, compare, compared};
 use compare::report::write_report;
 use compare::tracks::TrackCounts;
 use engine::config::DetectConfig;
@@ -125,7 +125,7 @@ fn command(video: &Path, detected: &Detected, options: &Options) -> Result<Comma
 }
 
 fn at_1440() -> Result<Comparison, Box<dyn Error>> {
-    Ok(compare(&Case::setting(committed(WHOLE_AT_1440)), None)?)
+    Ok(compare(&Case::setting(committed(WHOLE_AT_1440)), &Folders::default())?)
 }
 
 #[test]
