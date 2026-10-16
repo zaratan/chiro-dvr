@@ -583,7 +583,7 @@ Forme et tests :
 | Niveau | Fichiers | Commande | Contenu |
 |---|---|---|---|
 | rapide | `src/<module>/tests.rs`, `tests/*.rs` | `mise run rust:test` (sans couverture), `mise run rust:coverage` (couverture) | vidéos fabriquées par openh264, binaire lancé pour de vrai |
-| slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv` ; les tests de mémoire `slow_memory_flash`, `slow_memory_flash_wide` et `slow_memory_flash_long` (`dhat`, 960 et 1440 pixels de travail, 61 échantillons), hors de la couverture |
+| slow | `tests/slow_*.rs`, `#[ignore = "slow"]` | `mise run rust:slow` | l'extrait LFS : 1 230 images, 10000/333, 1440×1080, plage `tv` ; les tests de mémoire `slow_memory_flash`, `slow_memory_flash_wide` et `slow_memory_flash_long` (`dhat`, 960 et 1440 pixels de travail, 61 échantillons), hors de la couverture ; sous macOS, une image exFAT montée par `hdiutil` (`files/tests/slow_exfat.rs`, #236) |
 | settings | `tests/settings_*.rs`, `#[ignore = "settings"]` | `mise run rust:settings` | les 16 cas du banc d'essai sur l'extrait et sa 720×540 (`settings_agreement`), sous Linux seulement en CI (#167) |
 | reference | `tests/reference_*.rs`, `#[ignore = "reference"]` | `mise run rust:reference` | la 092 : 9 011 images, cadence moyenne 90110000/3000927, aux défauts et à 1440 pixels de travail (#151), en un seul binaire depuis #184 (`cli/tests/reference_092.rs`) |
 | matériel | `tests/hardware_*.rs`, `#[ignore = "hardware"]` | étape d'essai de la CI macOS | VideoToolbox sans repli logiciel |
@@ -2436,11 +2436,12 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       `<nom>_<AAAA-MM-JJ>_<HHMM>.csv` à l'heure locale du calcul (`aside::Stamp`, crate
       `jiff`), puis `_2`, `_3`… dans la même minute ; `v.tracks.csv` devient
       `v.tracks_<AAAA-MM-JJ>_<HHMM>.csv`. Le nom daté est d'abord réservé par une
-      création exclusive (`create_new`), puis le fichier est renommé par-dessus : rien
-      n'est écrasé, et cela marche aussi sur exFAT, où le renommage exclusif de macOS
-      (`renamex_np`, celui de `persist_noclobber`) échoue. En cas d'échec, le fichier
-      reste à sa place et la réservation vide est retirée (`Error::SetAside`). Le nom daté échappe au motif du ménage : il n'est jamais retiré
-      ni remis de côté. Rendu dans `Kept::SetAside`, avec sa raison.
+      création exclusive (`exclusive::reserve`, `create_new`), puis le fichier est
+      renommé par-dessus : rien n'est écrasé, et cela marche aussi sur exFAT, où le
+      renommage exclusif de macOS (`renameatx_np`, celui de `persist_noclobber`)
+      échoue. En cas d'échec, le fichier reste à sa place et la réservation vide est
+      retirée (`Error::SetAside`). Le nom daté échappe au motif du ménage : il n'est
+      jamais retiré ni remis de côté. Rendu dans `Kept::SetAside`, avec sa raison.
     - Raison (`annotation::carries_verdicts`) : lecture tolérante, qui ne sert qu'au
       message. Décodage « lossy » (MacRoman, Windows-1252), fins de ligne CR, LF ou CRLF,
       BOM ignoré, séparateur deviné parmi `;`, `,` et tabulation par la cellule d'en-tête
@@ -2459,9 +2460,20 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     `table` et `summary::image_file` l'emploient ; celle de `media::path` lui est liée
     par un test de `cli`.
   - `table::write_tracks_csv` écrit dans `.<nom>.partial`, puis le renomme sans jamais
-    écraser un fichier présent (`TempPath::persist_noclobber`, sinon `Error::Taken`).
-    - Un arrêt brutal ne laisse donc qu'un partiel, que le ménage retire, et jamais un
-      CSV tronqué qui passerait pour étranger.
+    écraser un fichier présent (`exclusive::rename`, sinon `Error::Taken`).
+    - Le renommage exclusif (`TempPath::persist_noclobber`) passe en premier. Sur toute
+      autre erreur que « nom déjà pris », dont le refus de macOS sur exFAT (#236), le nom
+      final est réservé (`exclusive::reserve`) puis le partiel renommé par-dessus, comme
+      pour la mise de côté. Si la réservation échoue, c'est son erreur qui remonte ; si
+      le renommage échoue, la réservation vide est retirée, et si ce retrait échoue,
+      c'est son erreur qui remonte.
+    - Un arrêt brutal pendant l'écriture ne laisse qu'un partiel, que le ménage retire,
+      et jamais un CSV tronqué qui passerait pour étranger.
+    - La réservation ne sert qu'en repli : un arrêt brutal entre elle et le renommage
+      laisserait un CSV vide, que le ménage mettrait de côté comme étranger.
+    - `tests/slow_exfat.rs`, sous macOS seulement : une image exFAT montée par `hdiutil`
+      sans `sudo` ; `persist_noclobber` y est refusé, le tableau s'y écrit, refuse
+      d'écraser un tableau annoté, se met de côté avec son verdict et se réécrit à côté.
     - Sur un disque insensible à la casse (APFS, NTFS), un `vol_pistes.csv` annoté et la
       vidéo `VOL.mp4` ont le même chemin. Le ménage, qui compare les octets, ne
       reconnaît pas ce fichier ; le renommage refuse de l'écraser.

@@ -1,5 +1,5 @@
 use std::ffi::OsString;
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -7,6 +7,7 @@ use jiff::Zoned;
 use jiff::civil::DateTime;
 
 use crate::error::Error;
+use crate::exclusive::reserve;
 
 #[cfg(test)]
 mod tests;
@@ -45,8 +46,8 @@ pub(crate) fn set_aside(path: &Path, stamp: Stamp) -> Result<PathBuf, Error> {
 fn reserved(path: &Path, stamp: Stamp) -> io::Result<PathBuf> {
     for rank in 1..=MOST_IN_ONE_MINUTE {
         let dated = dated_path(path, stamp, rank);
-        match OpenOptions::new().write(true).create_new(true).open(&dated) {
-            Ok(_) => return Ok(dated),
+        match reserve(&dated) {
+            Ok(()) => return Ok(dated),
             Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
             Err(error) => return Err(error),
         }

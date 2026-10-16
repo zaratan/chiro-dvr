@@ -2,6 +2,7 @@ pub(crate) mod annotation;
 pub mod aside;
 pub(crate) mod dialect;
 pub mod error;
+pub(crate) mod exclusive;
 pub mod failures;
 pub mod names;
 pub mod params;
