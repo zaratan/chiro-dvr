@@ -53,6 +53,7 @@ pub struct TrackEntry {
     pub start_s: f64,
     pub duration_s: f64,
     pub color: Option<[u8; 3]>,
+    pub summary: Option<String>,
     pub clip: Option<String>,
     pub zoom: Option<String>,
 }

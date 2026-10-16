@@ -79,3 +79,27 @@ fn each_track_is_painted_once_under_its_number_in_a_palette_colour_found_on_the_
         );
     }
 }
+
+#[test]
+fn a_crowded_video_paints_each_track_on_exactly_one_of_its_parts() {
+    let tracks: Vec<types::track::Track> = (1..=45)
+        .map(|id| {
+            let y = 10.0 + 4.5 * id as f64;
+            track(id, id * 5, &[[40.0, y], [120.0, y], [200.0, y]])
+        })
+        .collect();
+    let timeline = timeline(400);
+    let written = pages(&summary("v", &tracks, &timeline), gray(), &[], &DebugLabels).unwrap();
+    assert_eq!(written.len(), 3);
+    let mut painted: Vec<usize> = written
+        .iter()
+        .flat_map(|page| page.painted.iter().map(|one| one.track))
+        .collect();
+    assert!(
+        written
+            .iter()
+            .all(|page| page.part.is_some() && !page.painted.is_empty())
+    );
+    painted.sort_unstable();
+    assert_eq!(painted, (1..=45).collect::<Vec<_>>());
+}

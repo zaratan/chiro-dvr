@@ -84,7 +84,7 @@ fn a_video_gives_its_tracks_table_and_params_in_a_folder_named_after_it() {
 }
 
 #[test]
-fn outside_a_french_locale_the_table_and_the_clips_are_named_in_english_with_the_same_bytes_and_settings() {
+fn outside_a_french_locale_the_table_clips_and_summary_are_named_in_english_with_the_same_bytes_and_settings() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let (english, french) = (root.path().join("en"), root.path().join("fr"));
     let output = run(&[&videos.join("flight.mp4"), Path::new("-o"), &english], "C");
@@ -108,19 +108,17 @@ fn outside_a_french_locale_the_table_and_the_clips_are_named_in_english_with_the
         assert!(object.remove("date").is_some_and(|date| date.is_string()));
         assert!(object.remove("elapsed_s").is_some_and(|elapsed| elapsed.is_f64()));
         let language = object.remove("language");
-        let clip = params["tracks"][0].as_object_mut().unwrap().remove("clip");
-        (params, [language, clip])
+        let track = params["tracks"][0].as_object_mut().unwrap();
+        let named = [language, track.remove("clip"), track.remove("summary")];
+        (params, named)
     };
     let (english, french) = (settings(&english), settings(&french));
     assert_eq!(english.0, french.0);
     assert_eq!(
         [english.1, french.1],
         [
-            [Some(Value::from("en")), Some(Value::from("clips/track_01_0m00s.mp4"))],
-            [
-                Some(Value::from("fr")),
-                Some(Value::from("extraits/piste_01_0m00s.mp4"))
-            ]
+            ["en", "clips/track_01_0m00s.mp4", "flight_summary.png"].map(|name| Some(Value::from(name))),
+            ["fr", "extraits/piste_01_0m00s.mp4", "flight_resume.png"].map(|name| Some(Value::from(name)))
         ]
     );
 }

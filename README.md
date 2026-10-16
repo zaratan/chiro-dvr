@@ -124,8 +124,9 @@ laissé tel quel, et le bilan le dit.
   secondes non arrondies), la taille de la vidéo en octets (`video_bytes`), la langue des noms
   (`language`, `fr` ou `en`) et l'heure locale de la fin du calcul (`date`). `tracks` liste les
   pistes : numéro (`id`), début et durée non arrondis (`start_s`, `duration_s`), couleur de la
-  trajectoire sur l'image résumé en RVB (`color`), et chemins de l'extrait et du zoom écrits,
-  relatifs au dossier de la vidéo (`clip`, `zoom`, `null` quand il n'y en a pas) ;
+  trajectoire sur l'image résumé en RVB (`color`), image résumé qui la dessine (`summary`, par
+  exemple `video_097_resume_3_sur_8.png`), et chemins de l'extrait et du zoom écrits, tous
+  relatifs au dossier de la vidéo (`null` quand il n'y en a pas) ;
 - `extraits/` : un extrait par piste, nommé par numéro de piste et temps de début à la
   seconde (le numéro départage deux pistes de la même seconde ; deux chiffres, trois dès
   100 pistes, pour que le Finder les range dans l'ordre), avec une boîte, un numéro et la

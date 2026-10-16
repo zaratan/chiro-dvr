@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use draw::canvas::{self, Canvas, PixelBox};
 use draw::color::PANEL;
+use draw::color::Rgb;
 use engine::detection::Detected;
 use engine::settings::Region;
 use files::names::Names;
@@ -9,7 +10,7 @@ use media::convert::{self, Converter, SourceRange};
 use summary::header::Labels;
 use summary::image_file::{self, write_png};
 use summary::layout::Summary;
-use summary::{Painted, pages};
+use summary::pages;
 
 #[cfg(test)]
 mod tests;
@@ -40,7 +41,14 @@ pub(crate) struct Overview<'a> {
 #[derive(Debug, Default)]
 pub(crate) struct Drawn {
     pub(crate) pages: Vec<PathBuf>,
-    pub(crate) painted: Vec<Painted>,
+    pub(crate) painted: Vec<Drawing>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Drawing {
+    pub(crate) track: usize,
+    pub(crate) color: Rgb,
+    pub(crate) page: PathBuf,
 }
 
 pub(crate) fn write_overview(
@@ -62,8 +70,12 @@ pub(crate) fn write_overview(
     for page in pages(summary, canvas, &masks, overview.labels)? {
         let path = overview.names.summary_png(overview.dest, stem, page.minutes, page.part);
         write_png(&path, &page.canvas)?;
+        drawn.painted.extend(page.painted.iter().map(|painted| Drawing {
+            track: painted.track,
+            color: painted.color,
+            page: path.clone(),
+        }));
         drawn.pages.push(path);
-        drawn.painted.extend(page.painted);
     }
     Ok(drawn)
 }

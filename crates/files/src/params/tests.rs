@@ -54,6 +54,7 @@ fn params<'a>(settings: &'a Value, date: &Zoned) -> Params<'a, Value> {
                 start_s: 4.137_5,
                 duration_s: 0.033_3,
                 color: Some([255, 214, 10]),
+                summary: Some("nuit_1_resume_3_sur_8.png".to_owned()),
                 clip: Some("extraits/piste_01_0m04s.mp4".to_owned()),
                 zoom: Some("extraits/piste_01_0m04s_zoom.mp4".to_owned()),
             },
@@ -62,6 +63,7 @@ fn params<'a>(settings: &'a Value, date: &Zoned) -> Params<'a, Value> {
                 start_s: 209.5,
                 duration_s: 1.25,
                 color: None,
+                summary: None,
                 clip: None,
                 zoom: None,
             },
@@ -196,7 +198,7 @@ fn an_earlier_params_file_is_replaced_whole_and_no_partial_file_is_left() {
 }
 
 #[test]
-fn each_track_is_listed_with_its_exact_times_its_colour_and_the_names_of_its_clips_or_null() {
+fn each_track_is_listed_with_its_exact_times_its_colour_its_summary_image_and_the_names_of_its_clips_or_null() {
     let (_, value) = written(&params(&settings(), &evening()));
     assert_eq!(
         value["tracks"],
@@ -206,10 +208,11 @@ fn each_track_is_listed_with_its_exact_times_its_colour_and_the_names_of_its_cli
                 "start_s": 4.137_5,
                 "duration_s": 0.033_3,
                 "color": [255, 214, 10],
+                "summary": "nuit_1_resume_3_sur_8.png",
                 "clip": "extraits/piste_01_0m04s.mp4",
                 "zoom": "extraits/piste_01_0m04s_zoom.mp4"
             },
-            {"id": 2, "start_s": 209.5, "duration_s": 1.25, "color": null, "clip": null, "zoom": null}
+            {"id": 2, "start_s": 209.5, "duration_s": 1.25, "color": null, "summary": null, "clip": null, "zoom": null}
         ])
     );
 }
