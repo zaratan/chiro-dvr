@@ -240,3 +240,9 @@ fn a_partial_file_hides_beside_its_final_name() {
 fn a_name_decomposed_by_the_file_system_is_composed_again() {
     assert_eq!(composed("nuit_e\u{301}te\u{301}"), "nuit_\u{e9}t\u{e9}");
 }
+
+#[test]
+fn the_results_page_is_named_in_the_language_of_the_run() {
+    assert_eq!(super::results_page(Language::French), "resultats.html");
+    assert_eq!(super::results_page(Language::English), "results.html");
+}

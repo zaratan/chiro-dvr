@@ -1,7 +1,11 @@
 pub(crate) mod dialect;
 pub mod error;
+pub mod failures;
 pub mod names;
 pub mod params;
+pub mod picture;
 pub mod previous;
+pub mod results;
 pub mod table;
 pub mod time;
+pub mod verdicts;

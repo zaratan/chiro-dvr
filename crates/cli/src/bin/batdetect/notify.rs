@@ -25,9 +25,9 @@ pub(crate) struct Call {
     pub(crate) arguments: Vec<OsString>,
 }
 
-pub(crate) fn calls(title: &str, roots: &[&Path]) -> Vec<Call> {
+pub(crate) fn calls(title: &str, pages: &[&Path]) -> Vec<Call> {
     std::iter::once(notification(title))
-        .chain(roots.iter().map(|root| opening(root)))
+        .chain(pages.iter().map(|page| opening(page)))
         .collect()
 }
 
@@ -39,10 +39,10 @@ fn notification(text: &str) -> Call {
     }
 }
 
-fn opening(root: &Path) -> Call {
+fn opening(page: &Path) -> Call {
     Call {
         program: OPENER,
-        arguments: vec![Path::new(CURRENT_FOLDER).join(root).into_os_string()],
+        arguments: vec![Path::new(CURRENT_FOLDER).join(page).into_os_string()],
     }
 }
 

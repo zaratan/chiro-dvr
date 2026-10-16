@@ -37,6 +37,7 @@ pub(crate) fn write(out: &mut impl Write, tally: &Tally, options: &Options, text
     failed(out, tally, options, texts)?;
     refused(out, tally, texts)?;
     kept(out, tally, texts)?;
+    unwritten(out, tally, texts)?;
     let changed = options.changed();
     if !changed.is_empty() {
         let settings: Vec<String> = changed.iter().map(|change| setting(*change, texts)).collect();
@@ -229,6 +230,21 @@ fn kept(out: &mut impl Write, tally: &Tally, texts: Texts) -> io::Result<()> {
             written: !table.ours,
         };
         writeln!(out, "{INDENT}{}", texts.say(&message))?;
+    }
+    Ok(())
+}
+
+fn unwritten(out: &mut impl Write, tally: &Tally, texts: Texts) -> io::Result<()> {
+    if tally.unwritten.is_empty() {
+        return Ok(());
+    }
+    writeln!(out)?;
+    let heading = Message::TallyUnwrittenHeading {
+        count: tally.unwritten.len(),
+    };
+    writeln!(out, "{}", texts.say(&heading))?;
+    for error in &tally.unwritten {
+        writeln!(out, "{INDENT}{}", messages::causes(error))?;
     }
     Ok(())
 }

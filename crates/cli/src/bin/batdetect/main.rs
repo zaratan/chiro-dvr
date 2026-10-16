@@ -5,22 +5,28 @@ mod messages;
 mod notify;
 mod numbers;
 mod parsing;
+mod sheet;
 mod status;
 mod style;
 mod texts;
 
 use std::env;
 use std::io::{self, IsTerminal};
+use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
 use std::sync::Arc;
 
 use batdetect::consent::{Asking, Choice};
 use batdetect::jobs::{self, Job, Refused, plan};
 use batdetect::language::system_language;
+use batdetect::ledger::Ledger;
 use batdetect::outcome::{self, run_all};
+use batdetect::process::Wording as _;
 use batdetect::process::{Versions, process};
 use batdetect::tally::Tally;
 use batdetect::writable::unwritable_folders;
+use batdetect::written::{self, Wording};
+use jiff::Timestamp;
 use media::decode::Threads;
 
 use crate::arguments::Request;
@@ -107,6 +113,16 @@ fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, request: &Request) 
         program: messages::version(),
         ffmpeg: &ffmpeg,
     };
+    let wording = Wording {
+        labels: &texts,
+        headings: &texts,
+        language: texts.language(),
+    };
+    let mut unwritten: Vec<files::error::Error> = written::roots(jobs)
+        .iter()
+        .filter_map(|root| written::write_page(root, jobs, 0, wording).err())
+        .collect();
+    let mut ledger = Ledger::default();
     let rows = run_all(
         jobs,
         |job, rank| {
@@ -115,6 +131,8 @@ fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, request: &Request) 
             process(job, &texts, &video, Threads::Automatic, versions, options)
         },
         |job, rank, result| {
+            unwritten.extend(ledger.note(job, result.as_ref().err(), options, Timestamp::now()));
+            unwritten.extend(written::write_page(&written::root_of(job), jobs, rank.position, wording).err());
             let video = Video { status, rank, job };
             video.tell(&mut io::stderr().lock(), result, options)
         },
@@ -122,14 +140,24 @@ fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, request: &Request) 
     let Ok(rows) = rows else {
         return ExitCode::FAILURE;
     };
-    let tally = Tally { rows, refused: skipped };
+    let tally = Tally {
+        rows,
+        refused: skipped,
+        unwritten,
+    };
     let written = board::write(&mut io::stdout().lock(), &tally, options, texts);
     if cfg!(target_os = "macos")
         && !request.no_notify
         && io::stdout().is_terminal()
         && let Some(path) = env::var_os("PATH")
     {
-        let calls = notify::calls(&board::title(&tally, texts), &tally.roots());
+        let pages: Vec<PathBuf> = tally
+            .roots()
+            .iter()
+            .filter_map(|root| written::page_to_open(root, texts.language()))
+            .collect();
+        let pages: Vec<&Path> = pages.iter().map(PathBuf::as_path).collect();
+        let calls = notify::calls(&board::title(&tally, texts), &pages);
         notify::run(&calls, &path);
     }
     match written {

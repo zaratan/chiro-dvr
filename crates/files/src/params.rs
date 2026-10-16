@@ -3,7 +3,7 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use jiff::Zoned;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tempfile::TempPath;
 use types::language::Language;
 use types::span::Span;
@@ -18,7 +18,7 @@ mod tests;
 
 const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%:z";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Finish {
     Done,
@@ -47,7 +47,7 @@ pub struct Params<'a, S> {
     pub tracks: Vec<TrackEntry>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TrackEntry {
     pub id: usize,
     pub start_s: f64,

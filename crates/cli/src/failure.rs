@@ -14,6 +14,14 @@ use crate::process::Error;
 #[cfg(test)]
 mod tests;
 
+pub const UNSUPPORTED: &str = "unsupported";
+pub const ENCODING: &str = "encoding";
+pub const UNEXPECTED: &str = "unexpected";
+pub const TOO_MANY_TRACKS: &str = "too-many-tracks";
+pub const INTERNAL: &str = "internal";
+pub const REFERS_TO_DETAIL: [&str; 4] = [UNSUPPORTED, ENCODING, UNEXPECTED, INTERNAL];
+const CAUSE_SEPARATOR: &str = ": ";
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Cause {
     Missing,
@@ -35,6 +43,37 @@ pub enum Cause {
         annotated: bool,
     },
     Unexpected,
+}
+
+impl Cause {
+    pub const fn key(&self) -> &'static str {
+        match self {
+            Self::Missing => "missing",
+            Self::ReadRefused => "read-refused",
+            Self::NotAVideo => "not-a-video",
+            Self::UnusableName => "unusable-name",
+            Self::Damaged => "damaged",
+            Self::Unsupported => UNSUPPORTED,
+            Self::Settings => "settings",
+            Self::DiskFull => "disk-full",
+            Self::Forbidden => "forbidden",
+            Self::InUse { .. } => "in-use",
+            Self::Encoding => ENCODING,
+            Self::TooManyTracks { .. } => TOO_MANY_TRACKS,
+            Self::Unexpected => UNEXPECTED,
+        }
+    }
+}
+
+pub fn chain(error: &dyn std::error::Error) -> String {
+    let mut text = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        text.push_str(CAUSE_SEPARATOR);
+        text.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    text
 }
 
 pub fn cause(error: &Error, options: &Options) -> Cause {

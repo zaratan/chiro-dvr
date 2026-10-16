@@ -20,7 +20,7 @@ const LEGACY_HEADER: &str =
     "id,start,end,start_s,duration_s,hits,chord_px,path_px,speed_px_s,max_area_px,peak_amplitude,filled_frames";
 const LEGACY_SEPARATOR: char = ',';
 const LINE_END: &str = "\r\n";
-const LANGUAGES: [Language; 2] = [Language::French, Language::English];
+pub(crate) const LANGUAGES: [Language; 2] = [Language::French, Language::English];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Column {

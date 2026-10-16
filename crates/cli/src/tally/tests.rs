@@ -38,6 +38,7 @@ fn evening() -> Tally {
     };
     Tally {
         refused: Vec::new(),
+        unwritten: Vec::new(),
         rows: vec![
             row(
                 "a/batdetect/1",
@@ -75,6 +76,7 @@ fn the_folders_come_in_the_order_they_first_appear_and_a_folder_of_failures_neve
     };
     let night = Tally {
         refused: Vec::new(),
+        unwritten: Vec::new(),
         rows: vec![
             row("c/batdetect/1", done()),
             row("a/batdetect/1", done()),
@@ -126,6 +128,7 @@ fn the_tables_left_as_they_are_come_from_done_videos_and_from_videos_with_too_ma
 fn a_lot_without_failure_nor_too_many_tracks_is_all_done() {
     let tally = Tally {
         refused: Vec::new(),
+        unwritten: Vec::new(),
         rows: vec![row(
             "a/batdetect/1",
             State::Done {
@@ -147,6 +150,7 @@ fn a_refused_input_keeps_the_evening_from_counting_as_all_done() {
     assert!(
         Tally {
             refused: Vec::new(),
+            unwritten: Vec::new(),
             rows: Vec::new()
         }
         .all_done()
@@ -154,6 +158,7 @@ fn a_refused_input_keeps_the_evening_from_counting_as_all_done() {
     assert!(
         !Tally {
             refused: vec![refused],
+            unwritten: Vec::new(),
             rows: Vec::new()
         }
         .all_done()
@@ -178,6 +183,7 @@ fn a_folder_of_failed_videos_only_is_titled_only_if_it_exists() {
     };
     let tally = Tally {
         refused: Vec::new(),
+        unwritten: Vec::new(),
         rows: vec![
             failed(night.path().join("jamais/batdetect/1")),
             failed(written.join("2")),

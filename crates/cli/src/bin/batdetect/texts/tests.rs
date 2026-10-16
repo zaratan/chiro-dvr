@@ -12,10 +12,11 @@ use summary::legend::{column_width, fit_text, legend_width};
 use types::language::Language;
 
 use super::{ENGLISH_SOURCE, FRENCH_SOURCE, Fixed, Message, Shown, Texts, resolved};
+use crate::sheet::{self, Spoken};
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 58;
+const VARIANTS: usize = 59;
 const FIXED: [Fixed; 77] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
@@ -156,6 +157,7 @@ fn rank(message: &Message) -> usize {
         Message::TallyRefusedCount { .. } => 55,
         Message::TallyRefusedHeading { .. } => 56,
         Message::Interrupted { .. } => 57,
+        Message::TallyUnwrittenHeading { .. } => 58,
     }
 }
 
@@ -265,6 +267,7 @@ fn lines() -> Vec<Message> {
         },
         Message::TallyFailedHeading { failed: 1, total: 12 },
         Message::TallyKeptHeading { count: 1 },
+        Message::TallyUnwrittenHeading { count: 1 },
         Message::TallyKept {
             video: text("video_092"),
             table: text("video_092_pistes.csv"),
@@ -509,8 +512,17 @@ fn every_argument_of_a_message_is_used_by_at_least_one_language() {
 }
 
 #[test]
-fn every_key_of_both_catalogs_belongs_to_a_message() {
-    let ids: BTreeSet<&str> = samples().iter().map(Message::id).collect();
+fn every_key_of_both_catalogs_belongs_to_a_message_or_a_label_of_the_page() {
+    let mut ids: BTreeSet<&str> = samples().iter().map(Message::id).collect();
+    ids.extend(
+        sheet::tests::samples()
+            .iter()
+            .filter_map(|label| match Texts::new(Language::French).spoken(label) {
+                Spoken::Message(id, _) => Some(id),
+                Spoken::Direct(_) => None,
+            }),
+    );
+    ids.insert(sheet::DATE);
     for language in LANGUAGES {
         assert_eq!(keys(source(language)), ids, "{language:?}");
     }

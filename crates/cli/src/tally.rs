@@ -12,6 +12,7 @@ mod tests;
 pub struct Tally {
     pub rows: Vec<Row>,
     pub refused: Vec<Refused>,
+    pub unwritten: Vec<files::error::Error>,
 }
 
 impl Tally {
@@ -62,7 +63,7 @@ impl Tally {
     }
 
     pub fn all_done(&self) -> bool {
-        self.refused.is_empty() && self.done().count() == self.rows.len()
+        self.refused.is_empty() && self.unwritten.is_empty() && self.done().count() == self.rows.len()
     }
 }
 

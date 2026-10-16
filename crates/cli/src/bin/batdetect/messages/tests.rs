@@ -18,7 +18,7 @@ use engine::lost::Losses;
 use types::language::Language;
 
 use super::{
-    detection_refused, failure_lines, folders_refused, inputs_refused, inputs_skipped, named, option_refused, redone,
+    detection_refused, failure_lines, folders_refused, inputs_refused, inputs_skipped, option_refused, redone,
     render_refused, tracking_refused, video_done, video_failed, video_step,
 };
 use crate::texts::{Fixed, Message, Texts};
@@ -195,16 +195,17 @@ fn every_cause_has_its_own_sentence_and_its_own_advice_in_both_languages() {
                 },
             )
         };
-        let (fallback, fallback_advice) = (phrase(named(&Cause::Unexpected)), advice(named(&Cause::Unexpected)));
+        let (fallback, fallback_advice) = (phrase(Cause::Unexpected.key()), advice(Cause::Unexpected.key()));
         for cause in &causes {
-            assert_ne!(phrase(named(cause)), fallback, "{language:?} {cause:?}");
-            assert_ne!(advice(named(cause)), fallback_advice, "{language:?} {cause:?}");
+            assert_ne!(phrase(cause.key()), fallback, "{language:?} {cause:?}");
+            assert_ne!(advice(cause.key()), fallback_advice, "{language:?} {cause:?}");
         }
-        let too_many = named(&Cause::TooManyTracks {
+        let too_many = Cause::TooManyTracks {
             count: 2,
             limit: 1,
             annotated: false,
-        });
+        }
+        .key();
         assert_ne!(advice(too_many), fallback_advice, "{language:?}");
     }
 }

@@ -269,6 +269,9 @@ pub(crate) enum Message {
     TallyKeptHeading {
         count: usize,
     },
+    TallyUnwrittenHeading {
+        count: usize,
+    },
     TallyKept {
         video: String,
         table: String,
@@ -436,6 +439,7 @@ impl Message {
             Self::TallyTooMany { .. } => "tally-too-many",
             Self::TallyFailedHeading { .. } => "tally-failed-heading",
             Self::TallyKeptHeading { .. } => "tally-kept-heading",
+            Self::TallyUnwrittenHeading { .. } => "tally-unwritten-heading",
             Self::TallyKept { .. } => "tally-kept",
             Self::TallyChanged { .. } => "tally-changed",
             Self::TallyRegions { .. } => "tally-regions",
@@ -562,6 +566,7 @@ impl Message {
             | Self::TallyFailedCount { count }
             | Self::TallyTooManyCell { count }
             | Self::TallyKeptHeading { count }
+            | Self::TallyUnwrittenHeading { count }
             | Self::TallyRegions { count } => arguments.set("count", *count),
             Self::TallyTooMany { video, count, limit } => {
                 arguments.set("video", video.as_str());
@@ -672,6 +677,7 @@ impl Message {
             | Self::TallyTooMany { .. }
             | Self::TallyFailedHeading { .. }
             | Self::TallyKeptHeading { .. }
+            | Self::TallyUnwrittenHeading { .. }
             | Self::TallyKept { .. }
             | Self::TallyChanged { .. }
             | Self::TallyRegions { .. }
@@ -832,6 +838,21 @@ impl Texts {
         )
     }
 
+    pub(crate) fn said(self, id: &'static str, arguments: &FluentArgs<'_>) -> String {
+        match resolved_id(self.language, id, arguments) {
+            Ok(text) | Err(Unresolved::Format { text, .. }) => text,
+            Err(Unresolved::Missing(id)) => id.to_owned(),
+        }
+    }
+
+    pub(crate) fn fixed(self, value: f64, places: usize) -> String {
+        self.grouped(format!("{value:.places$}"))
+    }
+
+    pub(crate) fn decimal(self, written: &str) -> String {
+        self.grouped(written)
+    }
+
     pub(crate) fn text(self, fixed: Fixed) -> String {
         self.say(&Message::Fixed(fixed))
     }
@@ -925,15 +946,22 @@ pub(crate) enum Unresolved {
 }
 
 pub(crate) fn resolved(language: Language, message: &Message) -> Result<String, Unresolved> {
+    resolved_id(language, message.id(), &message.arguments())
+}
+
+pub(crate) fn resolved_id(
+    language: Language,
+    id: &'static str,
+    arguments: &FluentArgs<'_>,
+) -> Result<String, Unresolved> {
     let bundle = bundle(language);
-    let id = message.id();
     let pattern = bundle
         .get_message(id)
         .and_then(|found| found.value())
         .ok_or(Unresolved::Missing(id))?;
     let mut errors = Vec::new();
     let text = bundle
-        .format_pattern(pattern, Some(&message.arguments()), &mut errors)
+        .format_pattern(pattern, Some(arguments), &mut errors)
         .into_owned();
     if errors.is_empty() {
         Ok(text)

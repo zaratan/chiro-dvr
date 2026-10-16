@@ -185,6 +185,10 @@ tally-kept = { $video } : { $table } n'a pas la forme d'un tableau des pistes{ 
         [no] {"\u00A0"}; le nouveau tableau n'est pas écrit
        *[yes] {""}
     }
+tally-unwritten-heading = { $count ->
+        [one] Fichier non écrit, la page de résultats peut être incomplète :
+       *[other] Fichiers non écrits, la page de résultats peut être incomplète :
+    }
 tally-changed = Réglages changés : { $settings }
 tally-regions = { $count ->
         [one] { $count } zone
@@ -228,7 +232,7 @@ skip-refused-question = Traiter quand même { $count ->
     } ? (O/n)
 skip-refused-declined = aucune vidéo n'est traitée
 skip-refused-help = Traite les vidéos valides sans poser la question quand des entrées sont refusées
-no-notify-help = Ne signale pas la fin du lot et n'ouvre pas les dossiers de résultats dans le Finder (macOS)
+no-notify-help = Ne signale pas la fin du lot et n'ouvre pas la page de résultats (macOS)
 tally-refused-count = { $count ->
         [one] { $count } entrée refusée
        *[other] { $count } entrées refusées
@@ -251,3 +255,72 @@ table-max-area = surface max (px)
 table-amplitude = amplitude (niveaux de gris)
 table-filled-frames = images comblées
 table-start-seconds = début (s)
+page-heading = Résultats de batdetect
+page-folder = Dossier { $name }
+page-videos = { $count ->
+        [one] { $count } vidéo
+       *[other] { $count } vidéos
+    }
+page-unfinished-count = { $count ->
+        [one] { $count } inachevée
+       *[other] { $count } inachevées
+    }
+page-waiting-count = { $count } en attente
+page-reminder = Une piste est ce que l'outil a trouvé ; c'est à l'œil, sur l'extrait, que vous dites si c'est une chauve-souris.
+page-expand = Tout déplier
+page-collapse = Tout replier
+page-date = { $day } { $month ->
+        [1] janvier
+        [2] février
+        [3] mars
+        [4] avril
+        [5] mai
+        [6] juin
+        [7] juillet
+        [8] août
+        [9] septembre
+        [10] octobre
+        [11] novembre
+       *[12] décembre
+    } { $year }, { $hour }:{ $minute }
+page-computed = calculée le { $date }
+page-tried = essayée le { $date }
+page-not-analysed = { $duration } non analysées
+page-unfinished-badge = inachevée
+page-waiting-badge = en attente
+page-unfinished = le calcul s'est arrêté avant la fin de cette vidéo ; relancer la même commande la refait
+page-waiting = pas encore traitée par le calcul en cours
+page-previous-results = résultats du calcul précédent
+page-summary-alt = Image résumé de { $video } : { $tracks ->
+        [one] { $tracks } piste
+       *[other] { $tracks } pistes
+    }, chaque trajectoire numérotée et colorée comme dans le tableau. Ouvrir en taille réelle (nouvel onglet)
+page-part-alt = Image résumé de { $video }, partie { $part } sur { $parts } : pistes { $first } à { $last }, chaque trajectoire numérotée et colorée comme dans le tableau. Ouvrir en taille réelle (nouvel onglet)
+page-part = Partie
+page-parts = Parties de l'image résumé de { $video }
+page-part-tab = Partie { $part } sur { $parts }, pistes { $first } à { $last }
+page-column-track = Piste
+page-column-start = Début
+page-column-length = Durée
+page-column-verdict = Verdict
+page-column-watch = Voir
+page-table-caption = Pistes de { $video }
+page-no-verdict = à noter
+page-clip = Extrait
+page-zoom = Zoom
+page-play-clip = Lire l'extrait de la piste { $track }
+page-play-zoom = Lire le zoom ralenti de la piste { $track }
+page-show-track = Montrer la piste { $track } sur l'image résumé
+page-playing = Piste { $track } sur { $total } · début { $start } · { $zoom ->
+        [yes] zoom ralenti
+       *[no] extrait
+    }
+page-unreadable = extrait illisible
+page-back = Revenir à l'image résumé
+page-previous = Précédente
+page-next = Suivante
+page-previous-clip = Extrait de la piste précédente
+page-next-clip = Extrait de la piste suivante
+page-player = Lecteur des extraits de { $video }
+page-table-link = Tableau des pistes, pour un tableur
+page-annotated-link = Vidéo entière avec les pistes dessinées

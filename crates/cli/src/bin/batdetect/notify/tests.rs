@@ -25,10 +25,10 @@ fn notification_of(title: &str) -> Call {
     }
 }
 
-fn opening_of(folder: &str) -> Call {
+fn opening_of(page: &str) -> Call {
     Call {
         program: "open",
-        arguments: strings(&[folder]),
+        arguments: strings(&[page]),
     }
 }
 
@@ -47,25 +47,28 @@ fn a_title_with_quotes_and_script_words_stays_one_argument_outside_the_fixed_scr
 }
 
 #[test]
-fn each_folder_of_the_board_is_opened_once_after_the_notification_in_its_order() {
-    let roots = [Path::new("/nuit-12-oct/batdetect"), Path::new("/resultats")];
+fn the_results_page_of_each_folder_of_the_board_is_opened_once_after_the_notification_in_its_order() {
+    let pages = [
+        Path::new("/nuit-12-oct/batdetect/resultats.html"),
+        Path::new("/resultats/resultats.html"),
+    ];
     assert_eq!(
-        calls("Summary: 3 videos", &roots),
+        calls("Summary: 3 videos", &pages),
         [
             notification_of("Summary: 3 videos"),
-            opening_of("/nuit-12-oct/batdetect"),
-            opening_of("/resultats"),
+            opening_of("/nuit-12-oct/batdetect/resultats.html"),
+            opening_of("/resultats/resultats.html"),
         ]
     );
 }
 
 #[test]
-fn a_relative_folder_whose_name_starts_with_a_dash_is_not_read_as_an_option_of_open() {
-    let roots = [Path::new("-R"), Path::new("out")];
-    let opened: Vec<Call> = calls("Summary", &roots).into_iter().skip(1).collect();
-    let expected = roots.map(|root| Call {
+fn a_relative_page_whose_folder_starts_with_a_dash_is_not_read_as_an_option_of_open() {
+    let pages = [Path::new("-R/results.html"), Path::new("out/results.html")];
+    let opened: Vec<Call> = calls("Summary", &pages).into_iter().skip(1).collect();
+    let expected = pages.map(|page| Call {
         program: "open",
-        arguments: vec![Path::new(".").join(root).into_os_string()],
+        arguments: vec![Path::new(".").join(page).into_os_string()],
     });
     assert_eq!(opened, expected);
     assert!(
@@ -101,14 +104,17 @@ fn logged(log: &Path) -> Vec<String> {
 
 #[cfg(unix)]
 #[test]
-fn the_tools_are_looked_up_on_the_given_path_and_receive_the_notification_then_each_folder() {
+fn the_tools_are_looked_up_on_the_given_path_and_receive_the_notification_then_each_page() {
     let _spawning = SPAWNING.lock().unwrap();
     let folder = tempfile::tempdir().unwrap();
     let log = folder.path().join("calls.log");
     fake(folder.path(), "osascript", &log, 0);
     fake(folder.path(), "open", &log, 0);
-    let roots = [Path::new("/nuit-12-oct/batdetect"), Path::new("/resultats")];
-    let succeeded = super::run(&calls("Bilan : 2 vidéos", &roots), folder.path().as_os_str());
+    let pages = [
+        Path::new("/nuit-12-oct/batdetect/resultats.html"),
+        Path::new("/resultats/resultats.html"),
+    ];
+    let succeeded = super::run(&calls("Bilan : 2 vidéos", &pages), folder.path().as_os_str());
     assert_eq!(succeeded, [true, true, true]);
     let mut expected = vec!["osascript".to_owned()];
     expected.extend(SCRIPT_ARGUMENTS.map(str::to_owned));
@@ -116,9 +122,9 @@ fn the_tools_are_looked_up_on_the_given_path_and_receive_the_notification_then_e
         [
             "Bilan : 2 vidéos",
             "open",
-            "/nuit-12-oct/batdetect",
+            "/nuit-12-oct/batdetect/resultats.html",
             "open",
-            "/resultats",
+            "/resultats/resultats.html",
         ]
         .map(str::to_owned),
     );
@@ -127,18 +133,18 @@ fn the_tools_are_looked_up_on_the_given_path_and_receive_the_notification_then_e
 
 #[cfg(unix)]
 #[test]
-fn a_failing_or_missing_tool_does_not_stop_the_folders_from_opening() {
+fn a_failing_or_missing_tool_does_not_stop_the_pages_from_opening() {
     let _spawning = SPAWNING.lock().unwrap();
     let folder = tempfile::tempdir().unwrap();
     let log = folder.path().join("calls.log");
     fake(folder.path(), "osascript", &log, 1);
     fake(folder.path(), "open", &log, 0);
-    let roots = [Path::new("/resultats")];
-    let failing = super::run(&calls("Summary", &roots), folder.path().as_os_str());
+    let pages = [Path::new("/resultats/results.html")];
+    let failing = super::run(&calls("Summary", &pages), folder.path().as_os_str());
     assert_eq!(failing, [false, true]);
     let empty = tempfile::tempdir().unwrap();
-    let missing = super::run(&calls("Summary", &roots), empty.path().as_os_str());
+    let missing = super::run(&calls("Summary", &pages), empty.path().as_os_str());
     assert_eq!(missing, [false, false]);
     let opened: Vec<String> = logged(&log).into_iter().skip_while(|line| line != "open").collect();
-    assert_eq!(opened, ["open", "/resultats"]);
+    assert_eq!(opened, ["open", "/resultats/results.html"]);
 }
