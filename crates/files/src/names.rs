@@ -233,6 +233,11 @@ pub fn composed(name: &str) -> String {
     name.nfc().collect()
 }
 
+pub fn name_key(name: &OsStr) -> Vec<u8> {
+    name.to_str()
+        .map_or_else(|| name.as_encoded_bytes().to_vec(), |text| composed(text).into_bytes())
+}
+
 pub fn is_hidden(name: &OsStr) -> bool {
     name.as_encoded_bytes().starts_with(HIDDEN_PREFIX)
 }

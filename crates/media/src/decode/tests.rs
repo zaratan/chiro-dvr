@@ -121,6 +121,17 @@ fn a_path_ffmpeg_cannot_take_is_refused_without_panic() {
     ));
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn a_video_whose_path_is_not_utf8_is_opened_by_its_bytes_and_read_whole() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+    let folder = tempfile::tempdir().unwrap();
+    let renamed = folder.path().join(OsStr::from_bytes(b"vol_\xe9.mp4"));
+    fs::rename(testing::encode(folder.path(), Codec::OpenH264, 3), &renamed).unwrap();
+    assert_eq!(frames(&mut open(&renamed)), (3, 0));
+}
+
 #[test]
 fn the_stream_describes_what_was_encoded() {
     let folder = tempfile::tempdir().unwrap();

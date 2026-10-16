@@ -1,7 +1,9 @@
+use std::ffi::CStr;
 use std::fmt;
 use std::mem;
 use std::num::{NonZeroU32, NonZeroU64, NonZeroUsize};
 use std::path::{Path, PathBuf};
+use std::ptr;
 
 use ffmpeg::codec::packet::Mut as _;
 use ffmpeg::codec::threading;
@@ -261,12 +263,12 @@ impl Decoder {
         let unusable = || Error::UnusablePath {
             path: path.to_path_buf(),
         };
-        let location = path::for_ffmpeg(path).ok_or_else(unusable)?;
+        let location = path::location(path).ok_or_else(unusable)?;
         let failed = |source| Error::Open {
             path: path.to_path_buf(),
             source: LibraryError::new(source),
         };
-        let input = ffmpeg::format::input(location).map_err(failed)?;
+        let input = opened(&location).map_err(failed)?;
         let best = input.streams().best(ffmpeg::media::Type::Video);
         let stream = best.ok_or_else(|| Error::NoVideoStream(path.to_path_buf()))?;
         let index = stream.index();
@@ -457,4 +459,24 @@ fn unpack(sources: [(&[u8], usize); 3], into: &mut YuvFrame) -> Result<(), Error
             planes::copy_rows(source, stride, plane, row, row, rows)
         });
     copied.then_some(()).ok_or(Error::TruncatedFrame)
+}
+
+fn opened(location: &CStr) -> Result<ffmpeg::format::context::Input, ffmpeg::Error> {
+    let mut context = ptr::null_mut();
+    // SAFETY: `context` is a valid out pointer, and `location` is NUL-terminated and outlives the call.
+    let status =
+        unsafe { ffmpeg::ffi::avformat_open_input(&raw mut context, location.as_ptr(), ptr::null(), ptr::null_mut()) };
+    if status < 0 {
+        return Err(ffmpeg::Error::from(status));
+    }
+    // SAFETY: on success `context` is a fresh AVFormatContext owned by nothing else; `Input` closes it.
+    let mut input = unsafe { ffmpeg::format::context::Input::wrap(context) };
+    // SAFETY: `input` owns its live context, and nothing else borrows it here.
+    let pointer = unsafe { input.as_mut_ptr() };
+    // SAFETY: `pointer` is the live context above, and no options are passed.
+    let status = unsafe { ffmpeg::ffi::avformat_find_stream_info(pointer, ptr::null_mut()) };
+    if status < 0 {
+        return Err(ffmpeg::Error::from(status));
+    }
+    Ok(input)
 }

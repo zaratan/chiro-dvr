@@ -7,7 +7,9 @@ use types::frame::FrameIndex;
 use types::language::Language;
 use types::track::Track;
 
-use super::{Names, Output, Part, composed, is_hidden, is_partial_params, params_json, partial_file, previous_output};
+use super::{
+    Names, Output, Part, composed, is_hidden, is_partial_params, name_key, params_json, partial_file, previous_output,
+};
 
 fn track(id: usize) -> Track {
     let point = Detection {
@@ -291,6 +293,29 @@ fn the_partial_files_of_the_params_file_are_recognised_under_both_names_and_noth
     for name in ["params.json", ".params.json.bak.partial", ".v_pistes.csv.partial"] {
         assert!(!is_partial_params(name.as_bytes()), "{name}");
     }
+}
+
+#[test]
+fn the_key_of_a_name_is_its_composed_form_so_both_writings_of_an_accent_meet() {
+    assert_eq!(
+        name_key(OsStr::new("nuit_e\u{301}te\u{301}")),
+        "nuit_\u{e9}t\u{e9}".as_bytes()
+    );
+    assert_eq!(
+        name_key(OsStr::new("nuit_\u{e9}t\u{e9}")),
+        "nuit_\u{e9}t\u{e9}".as_bytes()
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn the_key_of_a_name_that_is_not_utf8_keeps_its_bytes_so_two_such_names_stay_apart() {
+    use std::os::unix::ffi::OsStrExt;
+    assert_eq!(name_key(OsStr::from_bytes(b"vol_\xe9")), b"vol_\xe9");
+    assert_ne!(
+        name_key(OsStr::from_bytes(b"vol_\xe9")),
+        name_key(OsStr::from_bytes(b"vol_\xe8"))
+    );
 }
 
 #[test]
