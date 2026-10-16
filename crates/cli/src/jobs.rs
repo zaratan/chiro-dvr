@@ -4,7 +4,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use files::names::{RESULTS_FOLDER, composed};
+use files::names::{RESULTS_FOLDER, composed, is_hidden};
 
 use crate::access::Access;
 
@@ -114,7 +114,11 @@ fn collect_videos(inputs: &[PathBuf]) -> Collected {
 fn videos_of(folder: &Path) -> io::Result<Vec<PathBuf>> {
     let mut videos = Vec::new();
     for entry in fs::read_dir(folder)? {
-        let path = entry?.path();
+        let entry = entry?;
+        if is_hidden(&entry.file_name()) {
+            continue;
+        }
+        let path = entry.path();
         if path.is_file() && is_video(&path) {
             videos.push(path);
         }

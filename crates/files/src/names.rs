@@ -19,6 +19,7 @@ const TABLE_EXTENSION: &str = ".csv";
 const IMAGE_EXTENSION: &str = ".png";
 const PARTIAL_PREFIX: &str = ".";
 const PARTIAL_SUFFIX: &str = ".partial";
+const HIDDEN_PREFIX: &[u8] = b".";
 const PERIOD_DIGITS: usize = 3;
 const MIN_TRACK_DIGITS: usize = 2;
 const SECONDS_PER_MINUTE: u64 = 60;
@@ -210,6 +211,10 @@ fn after_digits(text: &[u8], at_least: usize) -> Option<&[u8]> {
 
 pub fn composed(name: &str) -> String {
     name.nfc().collect()
+}
+
+pub fn is_hidden(name: &OsStr) -> bool {
+    name.as_encoded_bytes().starts_with(HIDDEN_PREFIX)
 }
 
 pub fn partial_path(path: &Path) -> PathBuf {

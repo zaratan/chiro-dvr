@@ -52,6 +52,13 @@ failure-todo = {"  "}à faire : { $cause ->
         [in-use] le fermer, puis relancer
         [encoding] relancer ; si cela recommence, le signaler avec le détail ci-dessous
         [too-many-tracks] regarder l'image résumé ; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
+        [input-missing] vérifier le chemin ; le dossier ou la vidéo a peut-être été déplacé ou renommé
+        [unreachable] vérifier que le disque est toujours branché, puis relancer ; si cela recommence, le signaler
+        [not-a-video-name] ne donner que des vidéos, ou des dossiers de vidéos
+        [no-video] vérifier que c'est le bon dossier : seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers
+        [shared-folder] renommer l'une de ces vidéos, ou les traiter en deux fois avec un -o différent
+        [read-only] copier les vidéos sur le Mac, ou choisir un autre dossier avec -o
+        [other-folder] choisir un autre dossier avec -o
        *[unexpected] le signaler avec le détail ci-dessous
     }
 failure-detail = {"  "}détail : { $detail }

@@ -14,6 +14,13 @@ use std::sync::OnceLock;
 use serde_json::Value;
 
 const BINARY: &str = env!("CARGO_BIN_EXE_batdetect");
+const MISSING_TODO: &str =
+    "    à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé";
+const MISSING_TODO_EN: &str = "    what to do: check the path; the folder or the video may have been moved or renamed";
+const NO_VIDEO_TODO: &str = "    à faire\u{a0}: vérifier que c'est le bon dossier\u{a0}: seules les vidéos posées directement \
+                             dedans sont traitées, pas celles de ses sous-dossiers";
+const NO_VIDEO_TODO_EN: &str = "    what to do: check it is the right folder: only the videos directly inside it are \
+                                processed, not those of its subfolders";
 
 #[cfg(test)]
 fn command(arguments: &[&Path], lang: &str) -> Command {
@@ -240,7 +247,7 @@ fn under_a_french_locale_a_failure_gives_its_cause_and_what_to_do_in_french_and_
 }
 
 #[test]
-fn every_faulty_input_is_refused_at_once_before_any_work_one_line_each_without_the_usage_line() {
+fn every_faulty_input_is_refused_at_once_before_any_work_one_line_each_with_what_to_do_without_the_usage_line() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let empty = videos.join("vide");
     fs::create_dir(&empty).unwrap();
@@ -256,17 +263,19 @@ fn every_faulty_input_is_refused_at_once_before_any_work_one_line_each_without_t
         (
             "fr_FR.UTF-8",
             format!(
-                "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:\n  {missing_name}\u{a0}: introuvable\n  \
-                 {readme_name}\u{a0}: pas une vidéo (mp4, mov, avi, mkv ou m4v)\n  \
-                 {empty_name}\u{a0}: aucune vidéo (mp4, mov, avi, mkv ou m4v) dans ce dossier\n"
+                "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:\n  {missing_name}\u{a0}: introuvable\n{MISSING_TODO}\n  \
+                 {readme_name}\u{a0}: pas une vidéo (mp4, mov, avi, mkv ou m4v)\n    \
+                 à faire\u{a0}: ne donner que des vidéos, ou des dossiers de vidéos\n  \
+                 {empty_name}\u{a0}: aucune vidéo (mp4, mov, avi, mkv ou m4v) dans ce dossier\n{NO_VIDEO_TODO}\n"
             ),
         ),
         (
             "C",
             format!(
-                "error: no video is processed:\n  {missing_name}: not found\n  \
-                 {readme_name}: not a video (mp4, mov, avi, mkv or m4v)\n  \
-                 {empty_name}: no video (mp4, mov, avi, mkv or m4v) in this folder\n"
+                "error: no video is processed:\n  {missing_name}: not found\n{MISSING_TODO_EN}\n  \
+                 {readme_name}: not a video (mp4, mov, avi, mkv or m4v)\n    \
+                 what to do: give only videos, or folders of videos\n  \
+                 {empty_name}: no video (mp4, mov, avi, mkv or m4v) in this folder\n{NO_VIDEO_TODO_EN}\n"
             ),
         ),
     ] {
@@ -383,14 +392,14 @@ fn two_videos_whose_names_differ_only_by_case_keep_their_own_clips_in_one_output
 }
 
 #[test]
-fn a_folder_without_any_video_is_refused_by_name_with_the_extensions_looked_for() {
+fn a_folder_without_any_video_is_refused_by_name_with_the_extensions_looked_for_and_what_to_do() {
     let (root, videos) = videos_with_a_flight(&[]);
     let output = run(&[&videos, Path::new("-o"), &root.path().join("out")], "C");
     assert_eq!(output.status.code(), Some(2));
     assert_eq!(
         text(&output.stderr),
         format!(
-            "error: no video (mp4, mov, avi, mkv or m4v) found in this folder:\n  {}\n",
+            "error: no video (mp4, mov, avi, mkv or m4v) found in this folder:\n  {}\n{NO_VIDEO_TODO_EN}\n",
             videos.display()
         )
     );
@@ -475,6 +484,72 @@ fn two_videos_that_would_share_an_output_folder_are_refused_by_that_folder_befor
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn a_folder_refused_to_read_is_refused_before_any_work_with_the_advice_given_for_a_video_refused_to_read() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    fs::set_permissions(&videos, fs::Permissions::from_mode(0o000)).unwrap();
+    let french = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    let english = run(&[&videos, Path::new("-o"), &out], "C");
+    fs::set_permissions(&videos, fs::Permissions::from_mode(0o755)).unwrap();
+    for (output, refusal) in [
+        (
+            french,
+            format!(
+                "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:\n  {}\u{a0}: lecture refusée\n    à faire\u{a0}: \
+                 vérifier ses droits\u{a0}; sur Mac, autoriser le Terminal dans Réglages Système, Confidentialité et \
+                 sécurité, Fichiers et dossiers\n",
+                videos.display()
+            ),
+        ),
+        (
+            english,
+            format!(
+                "error: no video is processed:\n  {}: reading refused\n    what to do: check its rights; on a Mac, \
+                 allow the Terminal in System Settings, Privacy & Security, Files and Folders\n",
+                videos.display()
+            ),
+        ),
+    ] {
+        assert_eq!(output.status.code(), Some(2));
+        assert_eq!(text(&output.stderr), refusal);
+    }
+    assert!(!out.exists());
+}
+
+#[test]
+fn a_folder_with_a_video_and_the_hidden_copy_macos_drops_beside_it_on_exfat_processes_the_video_alone() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    fs::write(videos.join("._flight.mp4"), "AppleDouble").unwrap();
+    let out = root.path().join("out");
+    let output = run(&[&videos, Path::new("-o"), &out], "C");
+    assert_eq!(output.status.code(), Some(0), "{}", text(&output.stderr));
+    let summary = text(&output.stdout);
+    assert_eq!(summary.lines().next(), Some("Summary: 1 video, 1 done"), "{summary}");
+    assert!(out.join("flight").join("flight_tracks.csv").is_file());
+    assert!(!out.join(".batdetect").exists());
+}
+
+#[test]
+fn a_folder_holding_only_hidden_copies_of_videos_is_refused_as_holding_no_video() {
+    let (root, videos) = videos_with_a_flight(&[]);
+    fs::write(videos.join("._flight.mp4"), "AppleDouble").unwrap();
+    let out = root.path().join("out");
+    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(
+        text(&output.stderr),
+        format!(
+            "erreur\u{a0}: aucune vidéo (mp4, mov, avi, mkv ou m4v) trouvée dans ce dossier\u{a0}:\n  {}\n{NO_VIDEO_TODO}\n",
+            videos.display()
+        )
+    );
+    assert!(!out.exists());
+}
+
 #[test]
 fn a_video_that_does_not_exist_stops_the_others_before_any_work() {
     let (root, videos) = videos_with_a_flight(&["ok.mp4"]);
@@ -491,7 +566,7 @@ fn a_video_that_does_not_exist_stops_the_others_before_any_work() {
 }
 
 #[test]
-fn an_output_that_is_a_file_is_refused_by_name_before_any_work() {
+fn an_output_that_is_a_file_is_refused_by_name_before_any_work_with_another_folder_to_choose() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let file = root.path().join("out");
     fs::write(&file, "").unwrap();
@@ -500,7 +575,8 @@ fn an_output_that_is_a_file_is_refused_by_name_before_any_work() {
     assert_eq!(
         text(&output.stderr),
         format!(
-            "error: no video is processed, the results cannot be written in this folder:\n  {}: not a folder\n",
+            "error: no video is processed, the results cannot be written in this folder:\n  {}: not a folder\n    \
+             what to do: choose another folder with -o\n",
             file.display()
         )
     );
@@ -775,7 +851,7 @@ fn a_verdict_written_in_the_table_of_an_earlier_run_is_set_aside_once_and_a_blan
 
 #[cfg(unix)]
 #[test]
-fn a_folder_where_nothing_can_be_written_stops_every_video_before_any_work_in_either_language() {
+fn a_folder_where_nothing_can_be_written_stops_every_video_before_any_work_and_says_what_to_do_in_either_language() {
     use std::os::unix::fs::PermissionsExt;
 
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
@@ -792,14 +868,16 @@ fn a_folder_where_nothing_can_be_written_stops_every_video_before_any_work_in_ei
             french,
             format!(
                 "erreur\u{a0}: aucune vidéo n'est traitée, les résultats ne peuvent pas s'écrire dans ce dossier\u{a0}:\n  \
-                 {}\u{a0}: écriture refusée\n",
+                 {}\u{a0}: écriture refusée\n    à faire\u{a0}: vérifier les droits de ce dossier, ou en choisir un \
+                 autre avec -o\n",
                 refused.display()
             ),
         ),
         (
             english,
             format!(
-                "error: no video is processed, the results cannot be written in this folder:\n  {}: writing refused\n",
+                "error: no video is processed, the results cannot be written in this folder:\n  {}: writing refused\n    \
+                 what to do: check the rights of this folder, or choose another one with -o\n",
                 refused.display()
             ),
         ),
@@ -925,7 +1003,7 @@ fn without_a_terminal_valid_videos_among_refused_inputs_are_not_processed_and_no
     assert_eq!(
         text(&output.stderr),
         format!(
-            "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:\n  {}\u{a0}: introuvable\n",
+            "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:\n  {}\u{a0}: introuvable\n{MISSING_TODO}\n",
             missing.display()
         )
     );
@@ -951,7 +1029,7 @@ fn skip_refused_processes_the_valid_videos_without_asking_and_lists_the_refused_
     let errors = text(&output.stderr);
     assert!(
         errors.starts_with(&format!(
-            "erreur\u{a0}: une entrée est refusée\u{a0}:\n  {}\u{a0}: introuvable\n",
+            "erreur\u{a0}: une entrée est refusée\u{a0}:\n  {}\u{a0}: introuvable\n{MISSING_TODO}\n",
             missing.display()
         )),
         "{errors}"
@@ -966,8 +1044,8 @@ fn skip_refused_processes_the_valid_videos_without_asking_and_lists_the_refused_
     );
     let refusal = format!("  {}\u{a0}: introuvable", missing.display());
     assert_eq!(
-        lines[lines.len() - 2..],
-        ["Entrée refusée, non traitée\u{a0}:", refusal.as_str()],
+        lines[lines.len() - 3..],
+        ["Entrée refusée, non traitée\u{a0}:", refusal.as_str(), MISSING_TODO],
         "{summary}"
     );
 }
@@ -980,7 +1058,10 @@ fn skip_refused_does_not_turn_inputs_that_are_all_faulty_into_an_empty_run() {
     assert_eq!(output.status.code(), Some(2));
     assert_eq!(
         text(&output.stderr),
-        format!("error: no video is processed:\n  {}: not found\n", missing.display())
+        format!(
+            "error: no video is processed:\n  {}: not found\n{MISSING_TODO_EN}\n",
+            missing.display()
+        )
     );
     assert!(!out.exists());
 }

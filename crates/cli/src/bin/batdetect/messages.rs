@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use batdetect::access::Access;
 use batdetect::failure::{self, Cause, INTERNAL, REFERS_TO_DETAIL, TOO_MANY_TRACKS};
@@ -17,6 +17,14 @@ use crate::texts::{Fixed, Message, Shown, Texts};
 
 #[cfg(test)]
 mod tests;
+
+const INPUT_MISSING: &str = "input-missing";
+const UNREACHABLE: &str = "unreachable";
+const NOT_A_VIDEO_NAME: &str = "not-a-video-name";
+const NO_VIDEO: &str = "no-video";
+const SHARED_FOLDER: &str = "shared-folder";
+const READ_ONLY: &str = "read-only";
+const OTHER_FOLDER: &str = "other-folder";
 
 pub(crate) fn detection_refused(error: &settings::Error) -> Message {
     match *error {
@@ -85,7 +93,10 @@ pub(crate) fn inputs_refused(texts: Texts, error: &jobs::Error) -> (Message, Vec
                 listed,
                 last,
             },
-            folders.iter().map(|folder| folder.display().to_string()).collect(),
+            folders
+                .iter()
+                .flat_map(|folder| [folder.display().to_string(), texts.say(&todo_in(NO_VIDEO, folder))])
+                .collect(),
         ),
         jobs::Error::Refused { refused, .. } => (Message::Fixed(Fixed::InputsRefused), refused_lines(texts, refused)),
     }
@@ -102,7 +113,12 @@ pub(crate) fn refused_lines(texts: Texts, refused: &[Refused]) -> Vec<String> {
     let (listed, last) = extensions();
     refused
         .iter()
-        .map(|refusal| texts.say(&input_refused(refusal, &listed, &last)))
+        .flat_map(|refusal| {
+            [
+                texts.say(&input_refused(refusal, &listed, &last)),
+                texts.say(&todo_in(input_todo(&refusal.reason), &refusal.path)),
+            ]
+        })
         .collect()
 }
 
@@ -137,6 +153,17 @@ fn input_refused(refusal: &Refused, listed: &str, last: &str) -> Message {
     Message::InputRefused { path, reason }
 }
 
+const fn input_todo(reason: &Reason) -> &'static str {
+    match reason {
+        Reason::Missing | Reason::Unreadable(Access::Missing | Access::NotAFolder) => INPUT_MISSING,
+        Reason::Unreadable(Access::Refused) => Cause::ReadRefused.key(),
+        Reason::Unreadable(Access::ReadOnly | Access::DiskFull | Access::Unavailable) => UNREACHABLE,
+        Reason::NotAVideo => NOT_A_VIDEO_NAME,
+        Reason::NoVideo => NO_VIDEO,
+        Reason::SharedFolder { .. } => SHARED_FOLDER,
+    }
+}
+
 const fn read_access(access: Access) -> &'static str {
     match access {
         Access::Missing => "missing",
@@ -149,11 +176,14 @@ const fn read_access(access: Access) -> &'static str {
 pub(crate) fn folders_refused(texts: Texts, refused: &[Unwritable]) -> (Message, Vec<String>) {
     let lines = refused
         .iter()
-        .map(|refusal| {
-            texts.say(&Message::FolderRefused {
-                path: refusal.folder.display().to_string(),
-                access: write_access(refusal.access),
-            })
+        .flat_map(|refusal| {
+            [
+                texts.say(&Message::FolderRefused {
+                    path: refusal.folder.display().to_string(),
+                    access: write_access(refusal.access),
+                }),
+                texts.say(&todo_in(write_todo(refusal.access), &refusal.folder)),
+            ]
         })
         .collect();
     (Message::FoldersRefused { count: refused.len() }, lines)
@@ -167,6 +197,23 @@ const fn write_access(access: Access) -> &'static str {
         Access::ReadOnly => "read-only",
         Access::DiskFull => "disk-full",
         Access::Unavailable => "unavailable",
+    }
+}
+
+const fn write_todo(access: Access) -> &'static str {
+    match access {
+        Access::Refused => Cause::Forbidden.key(),
+        Access::ReadOnly => READ_ONLY,
+        Access::DiskFull => Cause::DiskFull.key(),
+        Access::NotAFolder | Access::Missing => OTHER_FOLDER,
+        Access::Unavailable => UNREACHABLE,
+    }
+}
+
+fn todo_in(cause: &'static str, folder: &Path) -> Message {
+    Message::FailureTodo {
+        cause,
+        folder: folder.display().to_string(),
     }
 }
 
@@ -294,10 +341,7 @@ fn place_of(cause: Cause, job: &Job) -> PathBuf {
 }
 
 fn todo(cause: &'static str, job: &Job) -> Message {
-    Message::FailureTodo {
-        cause,
-        folder: job.dest.display().to_string(),
-    }
+    todo_in(cause, &job.dest)
 }
 
 pub(crate) fn causes(error: &dyn Error) -> String {

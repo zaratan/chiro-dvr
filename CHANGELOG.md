@@ -4,6 +4,18 @@ Les versions suivent [SemVer](https://semver.org/lang/fr/). Chaque version publi
 ici ; la release GitHub en reprend le texte (`packaging/release-notes.sh`), et le workflow de
 release échoue sans elle.
 
+## [Non publiée]
+
+### Ajouté
+
+- Chaque entrée refusée au départ, et chaque dossier de résultats où l'on ne peut pas écrire,
+  est suivi d'une ligne « à faire », comme une vidéo en échec (#239, #82).
+
+### Corrigé
+
+- Les fichiers cachés d'un dossier, comme les `._x.mp4` que macOS dépose sur une clé exFAT, ne
+  sont plus pris pour des vidéos (#204).
+
 ## [0.2.0] - 2026-10-16
 
 ### Ajouté
