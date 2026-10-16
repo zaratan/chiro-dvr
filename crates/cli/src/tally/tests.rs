@@ -246,3 +246,32 @@ fn an_evening_of_videos_all_already_done_ends_well() {
     assert!(tally.all_done());
     assert_eq!(tally.roots().len(), 2);
 }
+
+#[test]
+fn a_file_that_could_not_be_written_at_each_video_is_named_once_and_in_the_order_it_first_failed() {
+    let taken = || files::error::Error::Taken {
+        path: PathBuf::from("nuit/batdetect/resultats.html"),
+    };
+    let ledger = files::error::Error::Write {
+        path: PathBuf::from("nuit/batdetect/.batdetect/echecs/v.json"),
+        source: std::io::Error::other("disk full"),
+    };
+    let tally = Tally {
+        refused: Vec::new(),
+        unwritten: vec![taken(), ledger, taken(), taken()],
+        rows: Vec::new(),
+    };
+    let paths: Vec<&Path> = tally
+        .unwritten_files()
+        .into_iter()
+        .map(files::error::Error::path)
+        .collect();
+    assert_eq!(
+        paths,
+        [
+            Path::new("nuit/batdetect/resultats.html"),
+            Path::new("nuit/batdetect/.batdetect/echecs/v.json")
+        ]
+    );
+    assert!(!tally.all_done());
+}

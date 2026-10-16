@@ -117,3 +117,21 @@ fn a_verdict_noted_in_the_table_shows_in_the_page_once_it_is_written_again() {
     let page = fs::read_to_string(night.join("batdetect/resultats.html")).unwrap();
     assert!(page.contains(r#"<td class="verdict">chauve-souris</td>"#), "{page}");
 }
+
+#[test]
+fn a_page_of_someone_else_in_the_way_of_two_videos_is_named_once_at_the_end() {
+    let (_root, night) = evening("nuit", &["vol.mp4", "autre.mp4"]);
+    let results = night.join("batdetect");
+    fs::create_dir(&results).unwrap();
+    let page = results.join("resultats.html");
+    fs::write(&page, "<html>mes notes</html>").unwrap();
+    let output = run(&[&night], "fr_FR.UTF-8");
+    let summary = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        summary.contains("\nFichier non écrit, la page de résultats peut être incomplète\u{a0}:\n"),
+        "{summary}"
+    );
+    assert_eq!(summary.matches("resultats.html existe déjà").count(), 1, "{summary}");
+    assert_eq!(fs::read_to_string(&page).unwrap(), "<html>mes notes</html>");
+    assert!(results.join("vol").is_dir() && results.join("autre").is_dir());
+}

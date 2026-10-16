@@ -281,15 +281,14 @@ fn left(out: &mut impl Write, tally: &Tally, texts: Texts) -> io::Result<()> {
 }
 
 fn unwritten(out: &mut impl Write, tally: &Tally, texts: Texts) -> io::Result<()> {
-    if tally.unwritten.is_empty() {
+    let errors = tally.unwritten_files();
+    if errors.is_empty() {
         return Ok(());
     }
     writeln!(out)?;
-    let heading = Message::TallyUnwrittenHeading {
-        count: tally.unwritten.len(),
-    };
+    let heading = Message::TallyUnwrittenHeading { count: errors.len() };
     writeln!(out, "{}", texts.say(&heading))?;
-    for error in &tally.unwritten {
+    for error in errors {
         let message = Message::TallyUnwritten {
             path: error.path().display().to_string(),
             taken: matches!(error, files::error::Error::Taken { .. }),
