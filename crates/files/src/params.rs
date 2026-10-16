@@ -3,7 +3,7 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use jiff::Zoned;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
 use types::language::Language;
 use types::span::Span;
@@ -27,6 +27,7 @@ pub enum Finish {
 
 #[derive(Debug, Serialize)]
 pub struct Params<'a, S> {
+    #[serde(serialize_with = "lossy")]
     pub video: &'a Path,
     pub fps: f64,
     #[serde(flatten)]
@@ -69,6 +70,10 @@ pub struct Recorded {
     pub not_analysed_s: f64,
     #[serde(flatten)]
     pub rest: Map<String, Value>,
+}
+
+fn lossy<S: Serializer>(path: &&Path, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(&path.to_string_lossy())
 }
 
 pub fn read_params(path: &Path) -> Option<Recorded> {

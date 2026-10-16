@@ -90,6 +90,18 @@ fn params_are_written_as_readable_utf8_json_ending_with_a_newline() {
     assert!(text.ends_with("}\n"));
 }
 
+#[cfg(unix)]
+#[test]
+fn a_video_path_that_is_not_utf8_is_written_readable_with_its_unreadable_bytes_replaced() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+    let settings = settings();
+    let mut not_utf8 = params(&settings, &evening());
+    not_utf8.video = Path::new(OsStr::from_bytes(b"/nuit/vol_\xe9.mp4"));
+    let (_, value) = written(&not_utf8);
+    assert_eq!(value["video"], "/nuit/vol_\u{fffd}.mp4");
+}
+
 #[test]
 fn settings_keep_the_keys_given_by_the_caller_beside_the_run_facts() {
     let (_, value) = written(&params(&settings(), &evening()));

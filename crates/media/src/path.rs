@@ -13,10 +13,6 @@ const PARTIAL_SUFFIX: &str = ".partial";
 const UNIQUE_SEPARATOR: &str = ".";
 const UNIQUE_LENGTH: usize = 6;
 
-pub(crate) fn for_ffmpeg(path: &Path) -> Option<&str> {
-    path.to_str().filter(|text| !text.contains('\0'))
-}
-
 #[cfg(unix)]
 pub(crate) fn location(path: &Path) -> Option<CString> {
     use std::os::unix::ffi::OsStrExt;
@@ -25,7 +21,7 @@ pub(crate) fn location(path: &Path) -> Option<CString> {
 
 #[cfg(not(unix))]
 pub(crate) fn location(path: &Path) -> Option<CString> {
-    for_ffmpeg(path).and_then(|text| CString::new(text).ok())
+    path.to_str().and_then(|text| CString::new(text).ok())
 }
 
 pub(crate) fn partial(path: &Path) -> Option<io::Result<TempPath>> {

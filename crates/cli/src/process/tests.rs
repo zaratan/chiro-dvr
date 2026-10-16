@@ -309,6 +309,31 @@ fn flight_job(folder: &Path) -> Job {
     }
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn a_video_whose_name_is_not_utf8_is_processed_and_found_done_by_the_next_run() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    use crate::reuse::{Run, earlier};
+    let folder = tempfile::tempdir().unwrap();
+    let flight = flight_job(folder.path());
+    let job = Job {
+        video: folder.path().join(OsStr::from_bytes(b"vol_\xe9.mp4")),
+        dest: folder.path().join(OsStr::from_bytes(b"vol_\xe9")),
+    };
+    fs::rename(&flight.video, &job.video).unwrap();
+    let options = Options::default();
+    let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &options).unwrap();
+    assert_eq!(processed.tracks.len(), 1);
+    let run = Run {
+        options: &options,
+        version: VERSIONS.program,
+        language: Language::English,
+    };
+    assert_eq!(earlier(&job, run).map(|done| done.tracks), Some(1));
+}
+
 fn left_in(dest: &Path) -> Vec<String> {
     let mut names: Vec<String> = fs::read_dir(dest)
         .unwrap()

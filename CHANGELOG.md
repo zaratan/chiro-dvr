@@ -22,6 +22,7 @@ release échoue sans elle.
   sont plus pris pour des vidéos (#204).
 - Sous macOS, le premier calcul n'échoue plus quand le dossier de résultats est sur une clé exFAT (#236).
 - Deux lancements sur le même dossier, ou un Ctrl-C pendant l'écriture de la page de résultats, ne mélangent plus deux versions d'un même fichier (#245).
+- Sous Linux, une vidéo dont le nom n'est pas en UTF-8 est traitée, et une relance la reconnaît comme déjà faite. Dans la page de résultats, son tableau et ses verdicts s'affichent, mais ni son image résumé ni sa vidéo annotée, et les liens vers son tableau, ses extraits et son dossier sont cassés (#227).
 
 ## [0.2.0] - 2026-10-16
 

@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use crate::annotation::carries_verdicts;
 use crate::aside::{Stamp, set_aside};
 use crate::error::Error;
-use crate::names::{Names, Output, composed, is_partial_params, params_json, previous_output};
+use crate::names::{Names, Output, is_partial_params, name_key, params_json, previous_output};
 use crate::table::{Headings, is_tracks_table};
 
 #[cfg(test)]
@@ -96,7 +96,7 @@ fn foreign(path: &Path, headings: &dyn Headings) -> Result<Option<Reason>, Error
 fn remove_params(dest: &Path) -> Result<(), Error> {
     remove_if_there(&params_json(dest))?;
     for entry in entries(dest)? {
-        if is_partial_params(&normalized(&entry.file_name())) {
+        if is_partial_params(&name_key(&entry.file_name())) {
             remove_if_there(&entry.path())?;
         }
     }
@@ -115,10 +115,10 @@ fn entries(dest: &Path) -> Result<Vec<DirEntry>, Error> {
 }
 
 fn previous_outputs(dest: &Path, stem: &OsStr) -> Result<Vec<Found>, Error> {
-    let stem = normalized(stem);
+    let stem = name_key(stem);
     let mut found = Vec::new();
     for entry in entries(dest)? {
-        if let Some((names, output)) = previous_output(&normalized(&entry.file_name()), &stem) {
+        if let Some((names, output)) = previous_output(&name_key(&entry.file_name()), &stem) {
             let path = entry.path();
             let kind = entry.file_type().map_err(|source| Error::List {
                 path: path.clone(),
@@ -158,11 +158,6 @@ fn remove_if_there(path: &Path) -> Result<(), Error> {
         }),
         _ => Ok(()),
     }
-}
-
-fn normalized(name: &OsStr) -> Vec<u8> {
-    name.to_str()
-        .map_or_else(|| name.as_encoded_bytes().to_vec(), |text| composed(text).into_bytes())
 }
 
 #[cfg(windows)]

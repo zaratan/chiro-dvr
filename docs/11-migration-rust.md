@@ -1069,6 +1069,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     (aucune allocation par image) et rend un `FrameInfo` : `FrameIndex`, `Option<Pts>`,
     image-clé (`is_key`), erreurs de décodage (`DecodeErrors`) et paquets illisibles
     depuis l'image précédente.
+    - Ouverture (#227) : le chemin passe en octets sous unix (`path::location`, comme l'encodeur), puis `avformat_open_input`, `avformat_find_stream_info` et `Input::wrap` (`opened`, un `unsafe` par opération), parce que `ffmpeg_next::format::input` ferait `to_str().unwrap()`. Une vidéo au nom non UTF-8 s'ouvre donc sous Linux, au départ (`engine::input`) comme pour les extraits (`render::source`). `UnusablePath` reste pour un NUL et, sous Windows, pour un nom qui n'est pas de l'Unicode valide.
     - `DecodeErrors` (module `decode_errors`) : les `decode_error_flags` de l'image, lus
       tels quels et nommés par les constantes `FF_DECODE_ERROR_*` de FFmpeg, et non par
       le `DecodeError` de ffmpeg-next, qui perd `CONCEALMENT_ACTIVE` et `DECODE_SLICES`
@@ -1367,6 +1368,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
   - `escape` : texte échappé (`& < > " '`) et chemins encodés en pourcents segment par segment,
     tout octet hors de `A-Z a-z 0-9 - . _ ~`, si bien qu'un `#`, un `%` ou un `?` dans un nom
     reste un nom de fichier. Rien n'est normalisé : le lien suit l'octet du disque.
+    - Limite (#227) : les noms arrivent au modèle en chaînes lossy. Pour une vidéo au nom non UTF-8 (Linux), la section montre le tableau et ses verdicts, mais ni l'image résumé ni la vidéo annotée (`results` ne les retrouve pas), et les liens vers le tableau, les extraits et le dossier pointent vers `�` et sont cassés.
   - `document` (page entière, total, marque `<meta name="generator" content="batdetect">` et
     `is_ours`, lue dans le premier Kio), `section` (une vidéo : onglets de parties, images
     avec `width` et `height` pour que l'onglet ne fasse pas sauter la page, lecteur),
@@ -2037,6 +2039,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
         page est réécrite sans entrée « en attente » avant la sortie.
       - Les clés des vidéos sont les noms de dossier composés en NFC : un dossier créé en NFD
         et la même vidéo tapée en NFC font une seule entrée.
+      - Un nom de dossier non UTF-8 garde ses octets pour la clé, comme dans le ménage et dans `jobs` (#227) : `vol_\xe9` et `vol_\xe8`, tous deux affichés `vol_�`, font deux entrées.
       - `ledger::Ledger::note`, dans le même rappel et avant la page : une vidéo en échec
         écrit `.batdetect/echecs/<dossier>.json` à la racine (clé stable de `Failure` :
         `Cause::key` ou `internal` pour un panic, place, détail, date UTC), une réussite ou
@@ -2296,6 +2299,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     commit d'un autre worktree ne le relancent pas ; « -dirty » ne voit pas une
     modification de `docs/` ou de `mise.toml`, et toute modification de source recompile
     `cli`, la crate feuille. `ffmpeg` est la version de FFmpeg liée.
+    - `video` est écrit par `to_string_lossy` (#227) : un nom non UTF-8 y garde ses caractères lisibles, ses octets illisibles devenant `�`, au lieu de faire échouer l'écriture. C'est un texte à lire, pas un chemin à rouvrir : la relance compare la taille, la version, la langue et les réglages, jamais ce nom, et la page retrouve le tableau par son nom lossy (`results`). Des octets échappés dans la chaîne auraient changé la forme du champ pour tous les noms et demandé un décodage à chaque lecteur.
     - `RenderConfig` (#112, #103) : `box_pad`, `trail_s`, `clip_margin_s`, `max_tracks`,
       `zoom` (`auto`, `all` ou `none`), `zoom_below_area` (`100.0`),
       `zoom_below_amplitude` (`40.0`), `annotated`, et `encoders`, la liste des encodeurs
@@ -2562,6 +2566,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       `.batdetect/echecs/` s'y ajoutent, avec ou sans dossier.
     - Les images résumé sont celles que nomment les pistes de `params.json`, dans leur ordre ;
       sans piste, l'image sans suffixe. Leur taille vient de l'en-tête PNG (`picture`).
+    - Le tableau des pistes se cherche sous le nom tiré de `video` ; absent et si ce nom contient `�`, sous le fichier du dossier dont le nom lossy est le même (`on_disk`, #227 ; à égalité, le premier que liste le système). Une vidéo au nom non UTF-8 retrouve ainsi son tableau et ses verdicts ; ses images résumé et sa vidéo annotée, cherchées sous le nom lossy, ne sont pas retrouvées.
     - `verdicts::read_verdicts` : colonne verdict du CSV, séparateur deviné (`;`, `,`,
       tabulation), guillemets, en-tête français ou anglais, virgule décimale ; un verdict
       n'est rendu qu'à la piste de même numéro et de même début (à 6 ms près). Un tableau
