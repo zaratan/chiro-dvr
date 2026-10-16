@@ -51,7 +51,7 @@ Depuis les sources, la commande se lance par `target/release/batdetect` ou par
 `batdetect --help` toutes les options avec leur valeur par défaut : c'est lui qui fait foi.
 
 - `-o`/`--out-dir`, `--zoom auto|all|none`, `--annotated`, `--max-tracks`, `--clip-margin`,
-  `--osd-region` (à répéter pour plusieurs zones) et `--skip-refused`.
+  `--osd-region` (à répéter pour plusieurs zones), `--skip-refused` et `--no-notify`.
 - Quatre réglages changent la détection : `--threshold`, `--min-hits`, `--max-blobs` et
   `--work-width`. Les autres réglages sont fixés et écrits dans `params.json`
   ([docs/02](docs/02-methode.md)).
@@ -66,6 +66,10 @@ puis un bilan de la soirée : pour chaque vidéo sa durée, ses pistes, le temps
 temps de calcul, puis les vidéos en échec avec ce qu'il faut faire. Le code de sortie n'est pas
 nul dès qu'une entrée est refusée ou qu'une vidéo échoue. Un lot interrompu (Ctrl-C) se refait
 en relançant la même commande.
+
+Sous macOS, quand la commande est lancée dans un terminal, la fin du lot s'annonce par une
+notification qui reprend la première ligne du bilan, et chaque dossier de résultats s'ouvre dans
+le Finder. `--no-notify` les éteint ; ni notification ni dossier ouvert quand la sortie est redirigée.
 
 Les jumelles doivent être fixes pendant l'enregistrement. Les moments où le cadre bouge
 sont repérés et ignorés (environ 1 s de part et d'autre du mouvement) : ils ne sont pas
@@ -105,12 +109,10 @@ La langue du dernier calcul fait foi. Un CSV qui n'a pas la forme d'un tableau d
 une case `verdict` est remplie, est laissé tel quel, et le bilan le dit ; le nouveau tableau n'est
 alors pas écrit.
 
-- `<nom>_resume.png` : toutes les trajectoires sur le fond médian de la vidéo, une couleur,
-  une flèche (sens du vol) et une pastille numérotée par piste, avec une légende à droite
-  (numéro et début) et une frise du temps en bas. Au-delà de 10 min, une image par tranche de
-  10 min (`<nom>_resume_000m-010m.png`, …) ; au-delà de 20 pistes, l'image est coupée en
-  parties (`<nom>_resume_1_sur_3.png`, …). `--osd-region 0,0,1,0.07` y cache l'affichage des
-  jumelles Symbion ;
+- `<nom>_resume.png` : l'image résumé, toutes les trajectoires sur le fond médian de la
+  vidéo. Au-delà de 10 min, une image par tranche de 10 min (`<nom>_resume_000m-010m.png`,
+  …) ; au-delà de 20 pistes, l'image est coupée en parties (`<nom>_resume_1_sur_3.png`, …).
+  Comment la lire : [lire l'image résumé](docs/lire-les-resultats.md#lire-limage-résumé) ;
 - `<nom>_pistes.csv` : une ligne par piste, pour un tableur réglé en français (point-virgule,
   virgule décimale), avec `piste`, `début`, `fin`, `durée (s)`, une colonne `verdict` vide à
   remplir, puis `points`, `corde (px)`, `chemin (px)`, `vitesse (px/s)`, `surface max (px)`,

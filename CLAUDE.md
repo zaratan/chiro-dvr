@@ -59,8 +59,9 @@ qu'un gros fichier à plusieurs rôles.
 
 - Code et identifiants en anglais, docs en français. Une valeur magique devient une constante
   nommée.
-- Tests sans commentaire, le nom du test porte le pourquoi. Pas de mock de FFmpeg ni d'un
-  processus : images fabriquées ou vraie vidéo.
+- Tests sans commentaire, le nom du test porte le pourquoi. Pas de mock de FFmpeg, ni de couture
+  qui remplace un processus dans le code : images fabriquées ou vraie vidéo. Un outil du système
+  se teste par un vrai exécutable factice (script `sh` sur le `PATH` passé au test).
 - `tests/fixtures/reference/` : la référence v0.1.1 de l'extrait et de la 092, la 092 à
   1440 pixels de travail (`video_092_original_width_1440/`, #151), et dans `settings/` ses
   16 cas à d'autres réglages de détection (`--detect`, docs/11), fichiers git ordinaires ;
@@ -146,7 +147,8 @@ crates depuis #100, dépendances à sens unique :
   fermée des raisons d'un chemin refusé, sans texte, #55), `jobs` (vidéos et dossiers de
   sortie, toutes les entrées fautives refusées ensemble avant tout calcul, #55), `progress` (étapes
   d'une vidéo annoncées par `process`, #63), `failure` (cause d'un échec, sans texte, #64), `tally` (modèle du bilan de fin de soirée, #65), dans le binaire `status` (vidéo et étape en
-  cours sur la sortie d'erreur, redessinée sur un terminal, #63), `board` (mise en forme du bilan, #65), `style` (couleurs et nom de l'option d'aide, #56) et `parsing` (lecture
+  cours sur la sortie d'erreur, redessinée sur un terminal, #63), `board` (mise en forme du bilan, #65), `notify` (sous macOS dans un terminal, notification par
+  `osascript` et dossiers ouverts par `open` après le bilan, seuls sous-processus du binaire, #69), `style` (couleurs et nom de l'option d'aide, #56) et `parsing` (lecture
   des valeurs d'options, erreur typée avec l'option et sa plage, #55) ; usages courants en tête de l'aide et sans argument (#56), version gravée par
   `build.rs` ; textes en Fluent dans `locales/{fr,en}.ftl`, langue de l'aide, des erreurs,
   des lignes et du bandeau (#114).

@@ -16,7 +16,7 @@ use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
 const VARIANTS: usize = 58;
-const FIXED: [Fixed; 76] = [
+const FIXED: [Fixed; 77] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -54,6 +54,7 @@ const FIXED: [Fixed; 76] = [
     Fixed::SettingsRefused,
     Fixed::SkipRefusedHelp,
     Fixed::SkipRefusedDeclined,
+    Fixed::NoNotifyHelp,
     Fixed::InputsRefused,
     Fixed::TallyVideo,
     Fixed::TallyLength,
@@ -223,19 +224,20 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::SettingsRefused => 60,
         Fixed::SkipRefusedHelp => 61,
         Fixed::SkipRefusedDeclined => 62,
-        Fixed::TableTrack => 63,
-        Fixed::TableStart => 64,
-        Fixed::TableEnd => 65,
-        Fixed::TableDuration => 66,
-        Fixed::TableVerdict => 67,
-        Fixed::TableHits => 68,
-        Fixed::TableChord => 69,
-        Fixed::TablePath => 70,
-        Fixed::TableSpeed => 71,
-        Fixed::TableMaxArea => 72,
-        Fixed::TableAmplitude => 73,
-        Fixed::TableFilledFrames => 74,
-        Fixed::TableStartSeconds => 75,
+        Fixed::NoNotifyHelp => 63,
+        Fixed::TableTrack => 64,
+        Fixed::TableStart => 65,
+        Fixed::TableEnd => 66,
+        Fixed::TableDuration => 67,
+        Fixed::TableVerdict => 68,
+        Fixed::TableHits => 69,
+        Fixed::TableChord => 70,
+        Fixed::TablePath => 71,
+        Fixed::TableSpeed => 72,
+        Fixed::TableMaxArea => 73,
+        Fixed::TableAmplitude => 74,
+        Fixed::TableFilledFrames => 75,
+        Fixed::TableStartSeconds => 76,
     }
 }
 
