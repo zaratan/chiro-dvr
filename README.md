@@ -167,6 +167,7 @@ construit et contrôle les trois archives et publie la release. Le détail est d
 
 ## Licence
 
-Code sous MIT, voir [LICENSE](LICENSE). Le binaire 0.1.1 distribué par Homebrew est sous GPL v3,
-voir [packaging/NOTICE](packaging/NOTICE). Le binaire Rust lie FFmpeg (LGPL) et openh264 (BSD) :
-sa licence se décidera à #93 ([docs/11](docs/11-migration-rust.md#licences)).
+Code sous MIT, voir [LICENSE](LICENSE). Le binaire publié lie en statique FFmpeg, sous LGPL 2.1
+ou ultérieure, openh264 (BSD-2), la police Roboto (OFL-1.1) et des crates Rust :
+[packaging/NOTICE](packaging/NOTICE) les décrit, leurs textes de licence sont dans
+[packaging/licenses/](packaging/licenses/) ([docs/11](docs/11-migration-rust.md#licences)).
