@@ -32,6 +32,16 @@ impl Tally {
         self.rows_in(folder).any(|row| !matches!(row.state, State::Failed(_))) || folder.is_dir()
     }
 
+    pub fn unwritten_files(&self) -> Vec<&files::error::Error> {
+        let mut once: Vec<&files::error::Error> = Vec::new();
+        for error in &self.unwritten {
+            if !once.iter().any(|named| named.path() == error.path()) {
+                once.push(error);
+            }
+        }
+        once
+    }
+
     pub fn rows_in<'a>(&'a self, folder: &'a Path) -> impl Iterator<Item = &'a Row> {
         self.rows.iter().filter(move |row| root(row) == folder)
     }
