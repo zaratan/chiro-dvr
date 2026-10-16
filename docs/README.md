@@ -6,7 +6,7 @@ Vous relisez les résultats d'une soirée : commencez ici.
 
 | Document | Contenu |
 | --- | --- |
-| [lire-les-resultats.md](lire-les-resultats.md) | Ce que l'outil ne voit pas, conseils de prise de vue, comment lire l'image résumé, et les mots de l'image résumé, du tableau des pistes et des extraits |
+| [lire-les-resultats.md](lire-les-resultats.md) | Ce que l'outil ne voit pas, conseils de prise de vue, comment lire l'image résumé, juger un extrait et noter son verdict, et les mots de l'image résumé, du tableau des pistes et des extraits |
 
 ## Pour comprendre ou modifier l'outil
 
@@ -44,4 +44,5 @@ de comportement du code met à jour ce document-là, dans la même série de cha
 | Questions ouvertes | [06](06-questions-ouvertes.md) | — |
 | Utilisation, fichiers produits | [README](../README.md) et [lire-les-resultats](lire-les-resultats.md) | — |
 | Lecture de l'image résumé : bandeau, trait, flèche, pastille, zone masquée, frise du temps, couleurs | [lire-les-resultats](lire-les-resultats.md#lire-limage-résumé) | le README y renvoie |
+| Lecture d'un extrait, façon de désigner une piste et de noter son verdict, faux positifs observés | [lire-les-resultats](lire-les-resultats.md#juger-un-extrait) | le dessin des extraits et ses réglages sont dans [02](02-methode.md#extrait-zoomé-et-ralenti) |
 | Histoire et mesures datées | 11 et les sections datées de 03, 07, 08, 09 | — |
