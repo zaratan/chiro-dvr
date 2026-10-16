@@ -1,0 +1,154 @@
+name: Package
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Version the binaries print, the one of Cargo.toml when empty.
+        type: string
+        default: ""
+      fresh:
+        description: Build FFmpeg from its sources, without any cache.
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version the binaries print, the one of Cargo.toml when empty.
+        type: string
+        default: ""
+      fresh:
+        description: Build FFmpeg from its sources, without any cache.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: Cargo.toml
+          sparse-checkout-cone-mode: false
+      - id: version
+        env:
+          GIVEN: ${{ inputs.version }}
+        run: |
+          version=${GIVEN:-$(python3 -I -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["workspace"]["package"]["version"])')}
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            name: darwin-arm64
+            shell: bash
+          - runner: ubuntu-22.04
+            name: linux-x86_64
+            shell: bash
+          - runner: windows-2025-vs2026
+            name: windows-x86_64
+            shell: msys2 {0}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    env:
+      EXTRACT: tests/fixtures/video_092_original_3m24-4m05.mp4
+      BATDETECT_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - if: runner.os == 'Windows'
+        uses: ./.github/actions/windows
+      - if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          printf '%s\n' 'VCPKGRS_DISABLE=1' 'LIBCLANG_PATH=C:\Program Files\LLVM\bin' >> "$GITHUB_ENV"
+      - if: runner.os != 'Windows'
+        run: rustup toolchain install && cargo --version
+      - run: git lfs ls-files --long --include="$EXTRACT" | cut -d ' ' -f 1 > .lfs-assets-id
+        shell: bash
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .git/lfs
+          key: lfs-extract-${{ hashFiles('.lfs-assets-id') }}
+          enableCrossOsArchive: true
+      - run: git lfs pull --include="$EXTRACT"
+        shell: bash
+      - id: ffmpeg-key
+        uses: ./.github/actions/ffmpeg-key
+      - if: ${{ !inputs.fresh }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.os == 'Windows' && format('{0}/batdetect/ffmpeg', env.XDG_CACHE_HOME) || '~/.cache/batdetect/ffmpeg' }}
+          key: ${{ steps.ffmpeg-key.outputs.key }}
+      - if: runner.os != 'Windows'
+        run: bash packaging/ffmpeg-unix.sh
+      - if: runner.os == 'Windows'
+        run: bash packaging/ffmpeg-windows.sh
+      - if: failure() && runner.os == 'Windows'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ffmpeg-windows-package-logs
+          path: ${{ env.XDG_CACHE_HOME }}/batdetect/ffmpeg/logs
+          if-no-files-found: ignore
+      - run: bash packaging/package.sh
+      - run: bash packaging/check.sh "$(bash packaging/package.sh --archive)" "$BATDETECT_VERSION"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: batdetect-${{ matrix.name }}
+          path: dist/batdetect-${{ matrix.name }}.*
+          if-no-files-found: error
+
+  sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: packaging
+      - run: bash packaging/sources.sh dist
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sources
+          path: dist/*
+          if-no-files-found: error
+
+  sums:
+    needs: [build, sources]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: batdetect-*
+          path: assets
+          merge-multiple: true
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: sources
+          path: assets
+      - run: |
+          cd assets
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+          test "$(wc -l < SHA256SUMS)" = 5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-assets
+          path: assets/*
+          if-no-files-found: error

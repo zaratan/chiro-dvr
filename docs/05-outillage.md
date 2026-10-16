@@ -20,17 +20,18 @@ et [CLAUDE.md](../CLAUDE.md).
 
 ## CI
 
-`.github/workflows/ci.yml` : six tâches, huit exécutions avec la matrice, toutes sur le
-Rust.
+`.github/workflows/ci.yml` : sept tâches, toutes sur le Rust. Avec la matrice, les six
+premières font huit exécutions, et `package` six de plus, celles de `package.yml`.
 
 | Tâche | Systèmes | Ce qu'elle joue |
 | --- | --- | --- |
 | `rust` | macOS, Linux | `rust:static`, `rust:coverage` |
-| `rust-slow` | macOS, Linux | `rust:slow`, contrôle du lien statique (`otool`, `ldd`), `hardware_*` sous macOS |
+| `rust-slow` | macOS, Linux | `rust:slow`, `hardware_*` sous macOS |
 | `rust-reference` | Linux | `rust:reference` |
 | `rust-settings` | Linux | `rust:settings` |
-| `rust-windows` | Windows | construction MSVC, tests rapides, clippy, contrôle des DLL |
+| `rust-windows` | Windows | construction MSVC, tests rapides, clippy |
 | `rust-windows-slow` | Windows | tests `slow_*` |
+| `package` | macOS 26, Ubuntu 22.04, Windows 2025 | `package.yml` : les trois archives `release`, `check.sh`, les sources LGPL, `SHA256SUMS` |
 
 - Les actions sont épinglées par SHA. L'installation commune est dans
   `.github/actions/setup` (mise, rustup) ; `.github/actions/ffmpeg-key` calcule les clés des
@@ -40,7 +41,29 @@ Rust.
 - zizmor ne tourne pas en CI : il se lance à la main sur les workflows. Au dernier passage
   noté, il ne signalait que l'appel des actions locales (`self-repository`, niveau le plus
   bas).
-- `release.yml` refuse tout tag avant #93.
+- **Trois workflows pour la publication**, parce qu'un workflow appelé ne peut pas
+  recevoir plus de droits que celui qui l'appelle (`ci.yml` n'a que `contents: read`) :
+  - `package.yml` (`workflow_call` et `workflow_dispatch`, lecture seule) :
+    - une tâche par système, aux étiquettes figées : `macos-26`, `ubuntu-22.04` (glibc
+      2.35) et `windows-2025-vs2026` ;
+    - chacune construit FFmpeg, puis l'archive (`packaging/package.sh`), la contrôle
+      (`packaging/check.sh`, [11](11-migration-rust.md#empaquetage)) et la téléverse ;
+    - `sources` télécharge `ffmpeg-7.1.1.tar.xz` et `openh264-2.6.0.tar.gz`, et vérifie
+      leurs sha256 épinglés (`packaging/sources.sh`) ;
+    - `sums` écrit `SHA256SUMS` des cinq fichiers et les réunit dans l'artefact
+      `release-assets` ;
+    - le cache FFmpeg sert sauf avec l'entrée `fresh`. `BATDETECT_VERSION` vaut l'entrée
+      `version`, sinon la version de `Cargo.toml`.
+  - `ci.yml` l'appelle sur chaque PR et sur `main`. Une PR qui change le suivi ou la
+    détection de l'extrait doit donc refaire `tests/fixtures/rust/…/tracks.csv`.
+  - `release.yml`, sur un tag `vX.Y.Z` seulement :
+    - `guard` lance `packaging/release-guards.sh` ;
+    - `package.yml` reconstruit, en `fresh`, sans aucun cache dans le livrable ;
+    - `publish` (`contents: write`) crée le brouillon avec les six fichiers et le texte
+      du CHANGELOG, puis le publie. Une relance complète un brouillon existant et refuse
+      une release déjà publiée.
+
+    Hors tag, rien ne peut publier.
 
 ## Langue des messages
 
@@ -61,10 +84,21 @@ et les noms des fichiers produits sont en français quand la locale l'est, en an
 - Homebrew installe la 0.1.1 (`brew install zaratan/bat-tools/batdetect`), formule du tap
   `zaratan/homebrew-bat-tools`, binaire de la v0.1.1 décrit par `packaging/NOTICE` et sous
   GPL v3. Son mode d'emploi est le README du tag `v0.1.1`.
-- Le binaire Rust se publiera à #93, qui décidera de sa licence (FFmpeg sous LGPL, openh264
-  sous BSD : [11](11-migration-rust.md#licences)) et de la formule. D'ici là, `release.yml`
-  refuse tout tag.
-- Ce qui reste prêt pour #93 : la section de la version dans `CHANGELOG.md`, que
-  `packaging/release-notes.sh` extrait pour le texte de la release, et `bump-formulae.yml`
-  du tap, qui ouvre chaque jour à 6 h UTC la PR de mise à jour de la formule après une
-  release.
+- Le binaire Rust se publie par un tag (#223). Sa licence et son `NOTICE` viennent de #224,
+  la formule de #225.
+- **Publier une version** :
+  1. `workspace.package.version` de `Cargo.toml` vaut la version, et `Cargo.lock` suit.
+  2. La section `[Non publiée]` de `CHANGELOG.md` devient `[X.Y.Z] - date`.
+  3. Une fois ce commit sur `main` et la CI verte, on pousse le tag `vX.Y.Z`.
+- `packaging/release-guards.sh` refuse le tag dans cinq cas, dans cet ordre :
+  - il ne vaut pas `v` + la version de `Cargo.toml` ;
+  - `packaging/NOTICE` décrit encore la v0.1.1 (il cite `opencv-python-headless`). Cette
+    garde est provisoire, et #224 la lève ;
+  - le CHANGELOG n'a pas sa section ;
+  - le commit n'est pas sur `main` ;
+  - `ci.yml` n'y est pas passé au vert.
+- La release porte les trois archives, les deux sources LGPL (FFmpeg et openh264) et
+  `SHA256SUMS`. Son texte est la section du CHANGELOG, extraite par
+  `packaging/release-notes.sh`.
+- `bump-formulae.yml`, dans le tap, ouvre chaque jour à 6 h UTC la PR de mise à jour de
+  la formule après une release.

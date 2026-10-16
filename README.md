@@ -154,10 +154,11 @@ connaissances du projet dans [docs/](docs/README.md).
 
 ### Publier une version
 
-Impossible avant #93 : `release.yml` refuse tout tag. Le CHANGELOG garde la section de la
-prochaine version, et `packaging/release-notes.sh` en tirera le texte de la release. Une fois
-la release publiée, le tap `zaratan/homebrew-bat-tools` ouvre la PR de mise à jour de la
-formule le lendemain (`bump-formulae.yml`, chaque jour à 6 h UTC).
+Mettre la version dans `Cargo.toml`, renommer la section `[Non publiée]` du CHANGELOG, puis
+pousser le tag `vX.Y.Z` sur `main` une fois la CI verte. `release.yml` contrôle le tag,
+construit et contrôle les trois archives et publie la release. Le détail est dans
+[docs/05](docs/05-outillage.md#distribution). Le lendemain, le tap
+`zaratan/homebrew-bat-tools` ouvre la PR de mise à jour de la formule.
 
 ## Licence
 

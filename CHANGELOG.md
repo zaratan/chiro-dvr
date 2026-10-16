@@ -14,6 +14,10 @@ le workflow de release échouera sans elle.
 - Une ligne par étape pendant le calcul, et un bilan de la soirée à la fin (#63, #65).
 - Image résumé : frise du temps et plages illisibles datées (#127), coupée en parties au-delà
   de 20 pistes (#157). Extraits zoomés en pleine taille (#103).
+- Archives du binaire pour macOS arm64, Linux x86_64 (glibc 2.35 au moins) et Windows
+  x86_64, avec `SHA256SUMS` et les sources de FFmpeg et d'openh264 jointes à la release.
+  Chaque archive est contrôlée avant publication : liens dynamiques, système minimal,
+  version et tableau de l'extrait (#223).
 
 ### Modifié
 
