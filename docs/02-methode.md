@@ -220,7 +220,7 @@ peu contrastée sortait en fragments écartés de 18 à 24 px, trop pour `merge_
 ## Rendu
 
 Entre deux détections d'une même piste, la boîte est interpolée linéairement à chaque
-image et dessinée en trait fin, pour qu'elle ne clignote pas ; la trace jaune de la
+image et dessinée en trait fin, pour qu'elle ne clignote pas ; la trace jaune orangé de la
 dernière seconde la suit jusqu'à cette position. Ces positions servent
 uniquement à l'affichage : le CSV et le banc ne comptent que les vraies détections, et la
 colonne `filled_frames` indique combien d'images ont été comblées.
