@@ -71,3 +71,4 @@
     - L'affichage des jumelles (heure, date, batterie, chrono flou) reste dans le fond
       médian, puisqu'il est fixe. `--osd-region` le masque (`0,0,1,0.07` pour les
       Symbion) ; sans option, rien n'est masqué, pour ne dépendre d'aucune caméra.
+

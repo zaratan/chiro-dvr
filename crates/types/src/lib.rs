@@ -1,4 +1,4 @@
-pub mod detection;
+pub mod detection  ;
 pub mod frame;
 pub mod language;
 pub mod rate;
