@@ -16,7 +16,7 @@ use crate::sheet::{self, Spoken};
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 65;
+const VARIANTS: usize = 66;
 const FIXED: [Fixed; 78] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
@@ -165,6 +165,7 @@ fn rank(message: &Message) -> usize {
         Message::TallyUnwrittenHeading { .. } => 62,
         Message::FilesPage { .. } => 63,
         Message::TallyUnwritten { .. } => 64,
+        Message::Announce { .. } => 65,
     }
 }
 
@@ -349,6 +350,11 @@ fn video_lines() -> Vec<Message> {
         Message::Interrupted {
             rank: Rank { position: 3, total: 12 },
             resumes: true,
+        },
+        Message::Announce {
+            videos: 12,
+            length: text("1 h 2 min 5 s"),
+            done: 3,
         },
         Message::VideoFailed {
             rank: Rank { position: 3, total: 12 },

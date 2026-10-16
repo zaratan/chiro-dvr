@@ -1,8 +1,10 @@
 use std::error::Error;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use batdetect::access::Access;
 use batdetect::failure::{self, Cause, INTERNAL, REFERS_TO_DETAIL, TOO_MANY_TRACKS};
+use batdetect::inventory::Stock;
 use batdetect::jobs::{self, Job, Reason, Refused};
 use batdetect::options::Options;
 use batdetect::outcome::{Failure, Rank};
@@ -12,6 +14,7 @@ use batdetect::writable::Unwritable;
 use engine::settings;
 use render::config;
 
+use crate::clock::clock;
 use crate::parsing::{Expected, Unreadable};
 use crate::texts::{Fixed, Message, Shown, Texts};
 
@@ -110,16 +113,25 @@ pub(crate) fn inputs_skipped(texts: Texts, refused: &[Refused]) -> (Message, Vec
 }
 
 pub(crate) fn refused_lines(texts: Texts, refused: &[Refused]) -> Vec<String> {
-    let (listed, last) = extensions();
-    refused
+    refusal_messages(refused)
         .iter()
-        .flat_map(|refusal| {
-            [
-                texts.say(&input_refused(refusal, &listed, &last)),
-                texts.say(&todo_in(input_todo(&refusal.reason), &refusal.path)),
-            ]
-        })
+        .map(|message| texts.say(message))
         .collect()
+}
+
+fn refusal_messages(refused: &[Refused]) -> Vec<Message> {
+    let (listed, last) = extensions();
+    let mut messages = Vec::with_capacity(refused.len() * 2);
+    for refusal in refused {
+        messages.push(input_refused(refusal, &listed, &last));
+        messages.push(todo_in(input_todo(&refusal.reason), &refusal.path));
+        if let Reason::Unopened { cause, detail } = &refusal.reason
+            && REFERS_TO_DETAIL.contains(&cause.key())
+        {
+            messages.push(Message::FailureDetail { detail: detail.clone() });
+        }
+    }
+    messages
 }
 
 fn extensions() -> (String, String) {
@@ -149,6 +161,13 @@ fn input_refused(refusal: &Refused, listed: &str, last: &str) -> Message {
                 videos: named.join(", "),
             };
         }
+        Reason::Unopened { cause, .. } => {
+            return Message::Failure {
+                video: path.clone(),
+                cause: cause.key(),
+                place: path,
+            };
+        }
     };
     Message::InputRefused { path, reason }
 }
@@ -161,6 +180,7 @@ const fn input_todo(reason: &Reason) -> &'static str {
         Reason::NotAVideo => NOT_A_VIDEO_NAME,
         Reason::NoVideo => NO_VIDEO,
         Reason::SharedFolder { .. } => SHARED_FOLDER,
+        Reason::Unopened { cause, .. } => cause.key(),
     }
 }
 
@@ -214,6 +234,15 @@ fn todo_in(cause: &'static str, folder: &Path) -> Message {
     Message::FailureTodo {
         cause,
         folder: folder.display().to_string(),
+    }
+}
+
+pub(crate) fn announcement(stock: &Stock) -> Message {
+    let length = Duration::try_from_secs_f64(stock.length_s()).unwrap_or_default();
+    Message::Announce {
+        videos: stock.listed.len(),
+        length: clock(length.as_secs()),
+        done: stock.already_done(),
     }
 }
 

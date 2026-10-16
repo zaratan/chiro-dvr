@@ -14,6 +14,7 @@ use files::params::Finish;
 use files::previous::{Kept, Reason};
 
 use crate::arguments::{MAX_BLOBS, MIN_HITS, OSD_REGION};
+use crate::clock::clock;
 use crate::messages;
 use crate::texts::{Fixed, Message, Texts};
 
@@ -23,8 +24,6 @@ mod tests;
 const INDENT: &str = "  ";
 const GAP: &str = "   ";
 const UNKNOWN: &str = "—";
-const SECONDS_PER_MINUTE: u64 = 60;
-const SECONDS_PER_HOUR: u64 = 3600;
 const LIST_SEPARATOR: &str = ", ";
 
 pub(crate) fn write(out: &mut impl Write, tally: &Tally, options: &Options, texts: Texts) -> io::Result<()> {
@@ -153,16 +152,6 @@ fn measured(extent: Extent) -> (String, String) {
         |lost| clock(lost.as_secs() + u64::from(lost.subsec_nanos() > 0)),
     );
     (length, lost)
-}
-
-fn clock(seconds: u64) -> String {
-    let (hours, rest) = (seconds / SECONDS_PER_HOUR, seconds % SECONDS_PER_HOUR);
-    let (minutes, seconds) = (rest / SECONDS_PER_MINUTE, rest % SECONDS_PER_MINUTE);
-    match (hours, minutes) {
-        (0, 0) => format!("{seconds} s"),
-        (0, _) => format!("{minutes} min {seconds} s"),
-        _ => format!("{hours} h {minutes} min {seconds} s"),
-    }
 }
 
 fn name(row: &Row) -> String {

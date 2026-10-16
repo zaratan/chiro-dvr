@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use files::names::{RESULTS_FOLDER, composed, is_hidden};
 
 use crate::access::Access;
+use crate::failure::Cause;
 
 #[cfg(test)]
 mod tests;
@@ -27,6 +28,7 @@ pub enum Reason {
     NoVideo,
     Unreadable(Access),
     SharedFolder { videos: Vec<PathBuf> },
+    Unopened { cause: Cause, detail: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

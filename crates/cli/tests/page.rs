@@ -59,15 +59,16 @@ fn decoded(link: &str) -> String {
 
 #[test]
 fn the_page_beside_an_evening_with_an_awkward_name_links_only_files_that_exist() {
-    let (_root, night) = evening("nuit 12 #1 été", &["vol été.mp4"]);
-    fs::write(night.join("abimée.mp4"), "not a video").unwrap();
+    let (_root, night) = evening("nuit 12 #1 été", &["vol été.mp4", "abimée.mp4"]);
+    let results = night.join("batdetect");
+    fs::create_dir_all(&results).unwrap();
+    fs::write(results.join("abimée"), "").unwrap();
     let output = run(&[&night], "fr_FR.UTF-8");
     assert_eq!(output.status.code(), Some(1));
-    let results = night.join("batdetect");
     let html = fs::read_to_string(results.join("resultats.html")).unwrap();
     assert!(html.contains("<title>Résultats de batdetect — nuit 12 #1 été</title>"));
     assert!(html.contains(r#"<section class="video failed""#));
-    assert!(html.contains("abimée\u{a0}: ce fichier n&#39;est pas une vidéo lisible"));
+    assert!(html.contains("abimée\u{a0}: erreur inattendue"));
     let linked = links(&html);
     assert!(linked.len() >= 3, "{linked:?}");
     for link in linked {
