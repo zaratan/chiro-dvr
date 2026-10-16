@@ -1,9 +1,9 @@
 # batdetect — guide pour Claude
 
 Détection et suivi de chauves-souris dans des vidéos de jumelles thermiques. Rust, FFmpeg
-lié en statique. Installation et commandes : [README.md](README.md). Base de
-connaissances : [docs/](docs/README.md), à lire avant de toucher à un réglage
-([docs/02-methode.md](docs/02-methode.md)).
+lié en statique. Mode d'emploi : [README.md](README.md) ; construire, vérifier, publier :
+[CONTRIBUTING.md](CONTRIBUTING.md). Base de connaissances : [docs/](docs/README.md), à lire
+avant de toucher à un réglage ([docs/02-methode.md](docs/02-methode.md)).
 
 ```bash
 mise run check                    # rust:static et rust:test, 20 s à 1 min : vert avant de rendre la main

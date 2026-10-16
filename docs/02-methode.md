@@ -324,7 +324,27 @@ utiliser son temps de début.
 
 ## Sorties
 
-La liste des fichiers produits est dans le [README](../README.md#fichiers-produits).
+La liste des fichiers produits est dans
+[lire les résultats](lire-les-resultats.md#où-sont-les-résultats). Ce qui suit ne sert qu'au
+développeur.
+
+`params.json` s'écrit en dernier, une fois les extraits finis. Il donne les réglages employés,
+la version et le FFmpeg lié, l'état (`done`, ou `too_many_tracks` au-delà de `--max-tracks`), le
+nombre de pistes, la durée, le temps non analysé et le temps de calcul (`track_count`,
+`length_s`, `not_analysed_s`, `elapsed_s`, en secondes non arrondies), la taille de la vidéo en
+octets (`video_bytes`), la langue des noms (`language`, `fr` ou `en`) et l'heure locale de la fin
+du calcul (`date`). `tracks` liste les pistes : numéro (`id`), début et durée non arrondis
+(`start_s`, `duration_s`), couleur de la trajectoire sur l'image résumé en RVB (`color`), image
+résumé qui la dessine (`summary`, par exemple `video_097_resume_3_sur_8.png`), et chemins de
+l'extrait et du zoom écrits, relatifs au dossier de la vidéo (`null` quand il n'y en a pas).
+Les périodes ignorées sont dans `ignored_s`, les illisibles dans `damaged_s`, avec
+`damaged_frames` (nombre d'images signalées par le décodeur ou qui suivent un trou dans les
+horodatages, pas le nombre d'images écartées).
+
+Une fois la détection finie, chaque calcul efface, dans le dossier de la vidéo, `params.json`
+d'abord, puis les sorties des deux langues et celles des versions précédentes (`split/`,
+`<nom>.tracks.*`, `<nom>_boxes.mp4`). Les sorties de la v0.1.1, écrites dans `out/` du dossier
+où la commande était lancée, restent où elles sont.
 
 Garde-fou : au-delà de `max_tracks` pistes (300 par défaut, 0 désactive), les extraits
 et la vidéo annotée ne sont pas produits, et la vidéo compte en échec. Le CSV,

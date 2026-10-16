@@ -3,7 +3,7 @@
 Ce qui n'est écrit nulle part ailleurs : outils du poste, hooks, CI, langue des messages et
 distribution. La chaîne de construction (toolchain, FFmpeg lié en statique, lints, charte,
 dépendances), les niveaux de tests, la couverture, les licences et l'encodage sont dans
-[11](11-migration-rust.md) ; les commandes de tous les jours dans le [README](../README.md)
+[11](11-migration-rust.md) ; les commandes de tous les jours dans [CONTRIBUTING.md](../CONTRIBUTING.md)
 et [CLAUDE.md](../CLAUDE.md).
 
 ## Outils du poste
