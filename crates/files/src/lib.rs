@@ -1,3 +1,4 @@
+pub(crate) mod dialect;
 pub mod error;
 pub mod names;
 pub mod params;

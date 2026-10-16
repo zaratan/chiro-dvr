@@ -2,6 +2,7 @@ use std::path::Path;
 
 use batdetect::jobs::Job;
 use batdetect::process::{Processed, Versions, Wording};
+use files::table::{Column, Headings};
 use reference::recording::Recording;
 use reference::track_matching::{Discrepancy, match_tracks};
 use summary::header::{Band, HeaderLine, Labels};
@@ -23,6 +24,12 @@ impl Labels for DebugLabels {
 
     fn band(&self, band: Band) -> String {
         format!("{band:?}")
+    }
+}
+
+impl Headings for DebugLabels {
+    fn heading(&self, column: Column, _language: Language) -> String {
+        format!("{column:?}")
     }
 }
 

@@ -65,7 +65,9 @@ dossier choisi au lancement (`-o`). Sous une locale française : l'image résum�
 `extraits/` (`piste_01_0m04s.mp4`, et `piste_01_0m04s_zoom.mp4` pour l'extrait zoomé), et
 `params.json`, les réglages du calcul. Sous une autre locale, les mêmes fichiers en anglais
 (`_summary.png`, `_tracks.csv`, `clips/track_01_0m04s.mp4`). La liste complète est dans le
-[README](../README.md#fichiers-produits).
+[README](../README.md#fichiers-produits). Un tableur réglé en anglais affiche le début
+`0:00:04` comme `12:00:04 AM` : la valeur est juste (4 s), et un format Durée la montre en
+`0:00:04`.
 
 À la fin du calcul, la commande écrit un bilan de la soirée : pour chaque vidéo sa durée, son
 nombre de pistes, le temps non analysé et le temps de calcul, puis à part les vidéos qui ont
@@ -237,7 +239,7 @@ le tableau des pistes : plus elle est faible, plus la cible se voit mal à l'œi
 ### Corde
 
 La distance en ligne droite entre le début et la fin de la piste, en pixels de la vidéo
-d'origine, dans le tableau des pistes (`chord_px`). Une piste longue à petite corde a tourné
+d'origine, dans le tableau des pistes (`corde (px)`). Une piste longue à petite corde a tourné
 ou est revenue sur ses pas.
 
 ### Extrait
@@ -280,7 +282,7 @@ plus de 20 pistes est coupée en parties. Comment la lire, repère par repère :
 ### Images estimées
 
 Les images d'une piste sans point, entre deux points : la boîte de l'extrait y passe en trait
-fin, à une position estimée. Le tableau des pistes en donne le nombre (`filled_frames`).
+fin, à une position estimée. Le tableau des pistes en donne le nombre (`images comblées`).
 
 ### Passage
 
@@ -350,9 +352,12 @@ distance et du contraste de l'animal autant que de sa taille.
 ### Verdict
 
 Le jugement de Manon, à l'œil sur l'extrait : cette piste est-elle une chauve-souris ?
-L'outil ne s'en sert pas ; on note chaque verdict avec le temps de début de la piste, au
-centième de seconde comme dans le tableau des pistes, car son numéro peut changer (ceux de
-la 092 sont dans [docs/03](03-resultats-092.md#verdict-de-manon-9-octobre-2026)).
+L'outil n'en tire rien ; il se note dans la colonne `verdict` du tableau des pistes, sur
+la ligne de la piste. Un verdict écrit garde le tableau tel quel à la relance, qui n'écrit
+alors pas de nouveau tableau ; seule cette colonne le protège : un tableau trié, ou dont des
+lignes ont été retirées, sans aucun verdict, est remplacé. Hors du tableau, on le note avec le temps de début de la piste plutôt
+qu'avec son numéro, qui peut changer (ceux de la 092 sont dans
+[docs/03](03-resultats-092.md#verdict-de-manon-9-octobre-2026)).
 
 ### Vitesse
 

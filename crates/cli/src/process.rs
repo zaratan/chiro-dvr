@@ -7,7 +7,7 @@ use engine::input::Video;
 use files::names::{Names, params_json};
 use files::params::{Params, spans_in_seconds, write_params};
 use files::previous::{Kept, remove_previous_outputs};
-use files::table::write_tracks_csv;
+use files::table::{Headings, write_tracks_csv};
 use files::time::frame_seconds;
 use media::decode::Threads;
 use media::encode::Codec;
@@ -71,7 +71,7 @@ pub enum Error {
     },
 }
 
-pub trait Wording: Labels {
+pub trait Wording: Labels + Headings {
     fn language(&self) -> Language;
 }
 
@@ -172,8 +172,14 @@ pub fn process_detected(
     })?;
     let names = Names::new(wording.language());
     let stem = job.video.file_stem().unwrap_or_default();
-    let mut kept = remove_previous_outputs(&job.dest, stem, names).map_err(Error::Previous)?;
-    let csv = write_table(names.tracks_csv(&job.dest, stem), &tracks, &timeline, &mut kept)?;
+    let mut kept = remove_previous_outputs(&job.dest, stem, names, wording).map_err(Error::Previous)?;
+    let csv = write_table(
+        names.tracks_csv(&job.dest, stem),
+        &tracks,
+        &timeline,
+        wording,
+        &mut kept,
+    )?;
     let trial = encoders(render, tracks.len(), reading.video());
     let settings = Settings::of(
         options,
@@ -234,12 +240,13 @@ fn write_table(
     csv: PathBuf,
     tracks: &[Track],
     timeline: &Timeline,
+    wording: &dyn Wording,
     kept: &mut Vec<Kept>,
 ) -> Result<Option<PathBuf>, Error> {
     if kept.iter().any(|table| table.ours) {
         return Ok(None);
     }
-    match write_tracks_csv(&csv, tracks, timeline) {
+    match write_tracks_csv(&csv, tracks, timeline, wording.language(), wording) {
         Ok(()) => Ok(Some(csv)),
         Err(files::error::Error::Taken { path }) => {
             kept.push(Kept { path, ours: true });

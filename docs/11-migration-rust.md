@@ -2243,18 +2243,21 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
         arrêt brutal.
 
       `params.json` est réécrit, pas retiré. Le reste du dossier n'est pas touché.
-    - Un CSV n'est retiré que s'il a exactement notre forme (`table::is_tracks_table`) :
-      l'en-tête de 12 colonnes, puis des lignes de 12 champs séparés par des virgules,
-      en UTF-8, fins de ligne CRLF ou LF. Sinon il est laissé et rendu (`Kept`, avec
+    - Un CSV n'est retiré que s'il a exactement l'une de nos trois formes
+      (`table::is_tracks_table`), en UTF-8, fins de ligne CRLF ou LF : l'en-tête
+      français (BOM compris) puis des lignes de 13 champs séparés par des points-virgules,
+      l'en-tête anglais puis 13 champs séparés par des virgules, ou l'en-tête de 12
+      colonnes de la v0.1.1 puis 12 champs séparés par des virgules. Dans les deux formes
+      d'aujourd'hui, la case `verdict` est vide. Sinon il est laissé et rendu (`Kept`, avec
       `ours` vrai s'il porte le nom de la langue courante). Suffisent à le garder :
-      - un tableur qui réenregistre en point-virgule ;
-      - une colonne ajoutée ;
-      - une case remplie au-delà de la 12ᵉ ;
+      - un verdict écrit ;
+      - un tableur qui change de séparateur ou retire le BOM ;
+      - une colonne ajoutée, une case remplie au-delà de la dernière ;
       - un fichier vide ou qui n'est pas en UTF-8.
 
       Une entrée à ce nom qui n'est pas un fichier ordinaire (dossier, lien) est gardée
-      aussi. Un tableur en locale anglaise qui garde les 12 colonnes et les virgules
-      donne un CSV à notre forme : il est retiré. La mise de côté datée reste à #83.
+      aussi. Un tableur qui réenregistre le fichier à l'identique, verdict vide, donne un
+      CSV à notre forme : il est retiré. La mise de côté datée reste à #83.
     - Toutes les entrées sont classées, CSV lus, avant la première suppression : un CSV
       illisible arrête le ménage sans rien avoir retiré (`Error::Read`).
     - Un lien porte le nom d'un dossier d'extraits : il est retiré, sa cible non (sous
@@ -2269,19 +2272,26 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     - Sur un disque insensible à la casse (APFS, NTFS), un `vol_pistes.csv` annoté et la
       vidéo `VOL.mp4` ont le même chemin. Le ménage, qui compare les octets, ne
       reconnaît pas ce fichier ; le renommage refuse de l'écraser.
-  - `time` : `clock` écrit `m:ss.cc` à partir de centièmes entiers.
+  - `time` : `clock` écrit `h:mm:ss`, tronqué à la seconde comme le nom de l'extrait.
     - Le temps d'une image vient de son `pts` (`Timeline::seconds_by_pts`). Une image
       sans `pts` reprend celui de la dernière image qui en a un, plus un pas de cadence
       par image ; la cadence seule ne sert qu'en l'absence de tout `pts`.
     - La fin d'une plage est le début de l'image suivante.
     - Le temps n'est pas rapporté au premier `pts` : les 26 vidéos de la référence
       commencent à `pts` 0. Un `pts` négatif reste à décider avec #116.
-  - `table` : CSV des pistes, mêmes 12 colonnes et même sens que la v0.1.1 (en-têtes
-    anglais, virgule, point décimal, CRLF, sans guillemets, même contenu dans les deux
-    langues). La forme définitive reste à #84.
+  - `table` : CSV des pistes pour un tableur (#84), 13 colonnes dans l'ordre de
+    `table::COLUMNS` ([docs/02](02-methode.md#sorties)). Les en-têtes sont des textes
+    Fluent, donnés par le binaire à travers le trait `table::Headings` ; `files` ne les
+    connaît pas. Le ménage reconnaît nos tableaux à ces en-têtes : changer un libellé
+    dans un `.ftl` demande d'ajouter l'ancien en-tête comme une forme de plus, comme
+    `LEGACY_HEADER`.
+    - `dialect` porte la forme d'une langue : BOM, point-virgule et virgule décimale en
+      français ; ni BOM, virgule et point en anglais. CRLF dans les deux.
+    - Une case qui contient le séparateur ou un guillemet est mise entre guillemets ; les
+      cases des nombres et des temps n'en ont jamais.
     - Les nombres sont arrondis, puis écrits sous leur forme la plus courte, avec `.0`
-      pour un entier (`12.0`) ; `-0.0` devient `0.0`.
-    - `max_area_px` est entier, arrondi à mi-chemin vers le haut.
+      pour un entier (`12.0`, `12,0`) ; `-0.0` devient `0.0`.
+    - La surface max est entière, arrondie à mi-chemin vers le haut.
     - Durée = fin − début, au moins une image.
   - `params` : `Params<S>` écrit `video` (un chemin), `fps`, les réglages de l'appelant
     aplatis, `ignored_s` et `damaged_s` (au centième), `damaged_frames`, `version`
@@ -2293,13 +2303,15 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       `RenderConfig`) revient à l'appelant : #123 porte le test des clés, #103 celui des
       seuils de zoom (`cli/src/settings/tests.rs`).
     - Une clé `video` ou `fps` venue des réglages serait écrite en double.
-  - Mesure (11 octobre 2026), CSV écrit depuis les pistes de la référence :
-    - extrait : identique à l'octet au `tracks.csv` de la v0.1.1, aux fins de ligne près
-      (le dépôt garde la fixture en LF) ;
-    - 092 : 14 lignes. `id`, `hits`, `chord_px`, `path_px`, `peak_amplitude`,
-      `filled_frames` et `duration_s` sont égaux.
+  - Mesure (11 octobre 2026, relue par valeurs le 16 octobre 2026 avec #84), CSV écrit
+    depuis les pistes de la référence (`files/tests/committed_table.rs`) :
+    - extrait : mêmes valeurs que le `tracks.csv` de la v0.1.1, début et fin tronqués à
+      la seconde ;
+    - 092 : 14 lignes. Numéro, points, corde, chemin, amplitude, images comblées et durée
+      sont égaux.
     - Les temps sont plus tôt d'un ou deux centièmes : débuts décalés sur 11 pistes sur
-      14 (de 0:33.94 → 0:33.93 à 3:57.18 → 3:57.16), fins sur 12. La v0.1.1 divisait le
+      14 (de 33,94 → 33,93 s à 237,18 → 237,16 s), fins sur 12 ; tronquée à la seconde,
+      seule la fin de la piste 6 change (1:50.00 → 1:49.99, soit `0:01:49`). La v0.1.1 divisait le
       numéro d'image par la cadence moyenne (30,027 i/s), alors que les `pts` avancent
       de 333/10 000 s par image (30,03 i/s).
     - `speed_px_s` est plus haute de 0,1 à 0,2 px/s sur 10 pistes, jamais plus basse.

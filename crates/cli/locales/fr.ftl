@@ -238,3 +238,16 @@ tally-refused-heading = { $count ->
        *[other] Entrées refusées, non traitées
     } :
 interrupted = lot interrompu à la vidéo { $position }/{ $total } ; relancer la même commande refait le lot
+table-track = piste
+table-start = début
+table-end = fin
+table-duration = durée (s)
+table-verdict = verdict
+table-hits = points
+table-chord = corde (px)
+table-path = chemin (px)
+table-speed = vitesse (px/s)
+table-max-area = surface max (px)
+table-amplitude = amplitude (niveaux de gris)
+table-filled-frames = images comblées
+table-start-seconds = début (s)

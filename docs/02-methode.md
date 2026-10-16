@@ -223,7 +223,7 @@ Entre deux détections d'une même piste, la boîte est interpolée linéairemen
 image et dessinée en trait fin, pour qu'elle ne clignote pas ; la trace jaune de la
 dernière seconde la suit jusqu'à cette position. Ces positions servent
 uniquement à l'affichage : le CSV et le banc ne comptent que les vraies détections, et la
-colonne `filled_frames` indique combien d'images ont été comblées.
+colonne `images comblées` indique combien d'images ont été comblées.
 
 Chaque côté de la boîte dessinée est borné à 4 fois la médiane du même côté sur les points
 détectés de la piste, et la boîte bornée est recentrée sur le barycentre : une tache étalée
@@ -254,8 +254,8 @@ ralentissant dans le lecteur, #37). Pour ces pistes, un second fichier
 `extraits/<nom>_zoom.mp4` (`clips/` en anglais) est écrit à côté de l'extrait normal.
 
 - **Quelles pistes** (`--zoom auto`, par défaut) : celles dont la plus grande tache fait
-  moins de 100 px² (`max_area_px`) **ou** dont le plus fort écart au fond est sous 40
-  (`peak_amplitude`), comparaisons strictes, mêmes grandeurs que le CSV. Sur la 092,
+  moins de 100 px² (`surface max (px)`) **ou** dont le plus fort écart au fond est sous 40
+  (`amplitude (niveaux de gris)`), comparaisons strictes, mêmes grandeurs que le CSV. Sur la 092,
   seule la piste 0:51.62 (36 px², 34,7) a son zoom ; le passage de 3:42.10, quand un
   réglage le trouve (1440 px sans seuil par pixel : 70 px², 22,0), l'aurait aussi. Sur
   le balayage du 7 octobre (14 vidéos, 848 pistes), 384 pistes ont leur zoom (45 %),
@@ -335,10 +335,21 @@ seuil est fixe, pas un taux par minute : il suppose des clips d'environ 5 min, c
 des jumelles, et se monte avec `--max-tracks` pour une vidéo plus longue. Le bilan de la
 soirée compte ces vidéos à part, avec leur nombre de pistes.
 
-Colonnes du CSV : `id`, `start`, `end`, `start_s` (début en secondes), `duration_s`, `hits` (nombre de détections),
-`chord_px` (distance de bout en bout), `path_px` (chemin parcouru), `speed_px_s`
-(chemin ÷ durée), `max_area_px` (plus grande tache, en pixels d'origine),
-`peak_amplitude` (plus fort écart au fond, en niveaux de gris ; avec le filtre à la taille
-de la cible, écart mesuré sur l'image filtrée, donc plus bas que l'écart brut pour une petite tache),
-`filled_frames` (images
-comblées par interpolation à l'affichage).
+Colonnes du CSV, dans cet ordre : `piste` (numéro), `début` et `fin` (`h:mm:ss`, tronqués
+à la seconde comme le nom de l'extrait), `durée (s)`, `verdict` (vide, rempli à l'œil ;
+l'outil n'en tire rien, mais un verdict rempli garde le tableau à la relance), `points`
+(nombre de détections), `corde (px)` (distance de bout en bout), `chemin (px)` (chemin parcouru), `vitesse (px/s)` (chemin ÷ durée), `surface max (px)`
+(plus grande tache, en pixels d'origine), `amplitude (niveaux de gris)` (plus fort écart au
+fond ; avec le filtre à la taille de la cible, écart mesuré sur l'image filtrée, donc plus
+bas que l'écart brut pour une petite tache), `images comblées` (images comblées par
+interpolation à l'affichage) et `début (s)` (début en secondes, au centième). Un début
+dans le dernier centième d'une seconde s'écrit `0:00:04` d'un côté et `5,0` de l'autre :
+`début` tronque, `début (s)` arrondit.
+
+Le CSV suit la langue des messages. En français, `_pistes.csv` commence par un BOM UTF-8
+(pour qu'Excel lise les accents), sépare par un point-virgule et écrit la virgule
+décimale. En anglais, `_tracks.csv` n'a pas de BOM, sépare par une virgule et écrit le
+point, avec les en-têtes `track`, `start`, `end`, `duration (s)`, `verdict`, `points`,
+`chord (px)`, `path (px)`, `speed (px/s)`, `max area (px)`, `amplitude (grey levels)`,
+`filled frames`, `start (s)`. Fins de ligne CRLF dans les deux langues. `0:04` serait lu
+par LibreOffice comme 0 h 04 min : d'où `0:00:04`.

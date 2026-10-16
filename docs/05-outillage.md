@@ -53,8 +53,9 @@ et les noms des fichiers produits sont en français quand la locale l'est, en an
   `LANGUAGE`, `LC_ALL`, `LC_MESSAGES` et `LANG`, sinon la langue du système ; dans une liste
   (`LANGUAGE=fr:en`), la première langue `fr…` ou `en…`. Français si c'est `fr…`, anglais
   sinon.
-- Virgule décimale dans les nombres français (« 1,5 s ») ; les temps des pistes (`0:04.80`)
-  et les noms des fichiers gardent le point et n'ont jamais d'accent.
+- Virgule décimale dans les nombres français (« 1,5 s »), tableau des pistes compris, qui
+  sépare alors ses colonnes par un point-virgule ([docs/02](02-methode.md#sorties)) ; les
+  noms des fichiers n'ont jamais d'accent.
 
 ## Distribution
 

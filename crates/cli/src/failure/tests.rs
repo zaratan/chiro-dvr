@@ -8,6 +8,7 @@ use engine::detection;
 use engine::input;
 use engine::lost::Losses;
 use engine::settings::{DetectSettings, Region};
+use files::table::{Column, Headings};
 use media::decode::Threads;
 use render::config::RenderConfig;
 use summary::header::{Band, HeaderLine, Labels};
@@ -41,6 +42,12 @@ impl Labels for Plain {
 
     fn band(&self, band: Band) -> String {
         format!("{band:?}")
+    }
+}
+
+impl Headings for Plain {
+    fn heading(&self, column: Column, _language: Language) -> String {
+        format!("{column:?}")
     }
 }
 
