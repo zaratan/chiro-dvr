@@ -9,6 +9,7 @@ glibc_floor=2.35
 glibcxx_floor=3.4.30
 cxxabi_floor=1.3.13
 gcc_floor=12.0.0
+windows_floor=10.00
 
 macos_libraries="/usr/lib/libSystem.B.dylib
 /usr/lib/libobjc.A.dylib
@@ -127,7 +128,7 @@ highest() {
 }
 
 check_floor() {
-  local minos symbols family floor top above=
+  local minos symbols family floor top headers os subsystem above=
   case $system in
     macos)
       minos=$(vtool -show-build "$program" | awk '$1 == "minos" { print $2 }' | sort -V | tail -1)
@@ -153,7 +154,17 @@ check_floor() {
         pass "C3-floor (GLIBC $(highest GLIBC "$symbols"), GLIBCXX $(highest GLIBCXX "$symbols"))"
       fi
       ;;
-    windows) pass "C3-floor (nothing to check)" ;;
+    windows)
+      headers=$(dumpbin -nologo -headers "$(cygpath -w "$program")" | tr -d '\r') \
+        || { flunk C3-floor "could not read the headers"; return; }
+      os=$(awk '/ operating system version$/ { print $1; exit }' <<< "$headers")
+      subsystem=$(awk '/ subsystem version$/ { print $1; exit }' <<< "$headers")
+      if [ -n "$os" ] && [ -n "$subsystem" ] && at_most "$os" "$windows_floor" && at_most "$subsystem" "$windows_floor"; then
+        pass "C3-floor (subsystem $subsystem, os $os)"
+      else
+        flunk C3-floor "subsystem ${subsystem:-missing}, os ${os:-missing}, above $windows_floor"
+      fi
+      ;;
   esac
 }
 

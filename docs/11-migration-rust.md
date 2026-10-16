@@ -202,7 +202,7 @@ mise run package:check    # contrôles du livrable sur cette archive
   |---|---|
   | C1 | l'archive contient le binaire, `LICENSE`, `NOTICE` et `licenses/`, rien d'autre |
   | C2 | aucun lien dynamique hors d'une liste mesurée par système : `otool -L`, `readelf -d` (lignes NEEDED), `dumpbin -dependents` |
-  | C3 | `minos` ≤ 14.0 sous macOS ; sous Linux, `GLIBC_` ≤ 2.35, `GLIBCXX_` ≤ 3.4.30, `CXXABI_` ≤ 1.3.13 et `GCC_` ≤ 12.0.0, la bibliothèque de l'Ubuntu 22.04 |
+  | C3 | `minos` ≤ 14.0 sous macOS ; sous Linux, `GLIBC_` ≤ 2.35, `GLIBCXX_` ≤ 3.4.30, `CXXABI_` ≤ 1.3.13 et `GCC_` ≤ 12.0.0, la bibliothèque de l'Ubuntu 22.04 ; sous Windows, versions du système et du sous-système de l'en-tête PE ≤ 10.0 (`dumpbin -headers`), celle de Windows 10, que Windows 11 annonce aussi |
   | C4 | `--version` donne `batdetect <VERSION>`, puis le FFmpeg épinglé, avec l'empreinte du script de construction et la LGPL |
   | C5 | le bloc `Rust crates:` de `NOTICE` égale `cargo tree -p batdetect -e normal,no-proc-macro` sur les trois cibles de `packaging/about.toml` ([Licences](#licences)) |
   | C6 | le CSV de l'extrait, en anglais, est identique à l'octet à `tests/fixtures/rust/video_092_original_3m24-4m05/tracks.csv` |

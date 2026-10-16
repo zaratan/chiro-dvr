@@ -41,7 +41,7 @@ images des docs se refont par `tools/docs-images.sh` ([docs/images/](docs/images
 
 ## Publier une version
 
-Mettre la version dans `Cargo.toml`, renommer la section `[Non publiée]` du CHANGELOG, puis
+Mettre la version dans `Cargo.toml`, renommer la section `[Non publiée]` du CHANGELOG et ajouter son lien `[X.Y.Z]` en bas, puis
 pousser le tag `vX.Y.Z` sur `main` une fois la CI verte. `release.yml` contrôle le tag,
 construit et contrôle les trois archives et publie la release. Le détail est dans
 [docs/05](docs/05-outillage.md#distribution). Au premier passage de 6 h UTC qui suit, le tap
