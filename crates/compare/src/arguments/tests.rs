@@ -4,21 +4,34 @@ use clap::error::ErrorKind;
 
 use super::{Request, command, parse};
 use crate::case::Target;
+use crate::comparison::Folders;
 
 #[test]
-fn the_videos_are_named_and_the_frames_folder_is_optional() {
+fn the_videos_are_named_and_the_frames_folders_are_optional() {
     assert_eq!(
         parse(["compare", "extract"]).unwrap(),
         Request {
             target: Target::Extract,
-            frames: None
+            folders: Folders::default()
         }
     );
     assert_eq!(
         parse(["compare", "local", "--frames", "out"]).unwrap(),
         Request {
             target: Target::Recorded,
-            frames: Some(PathBuf::from("out"))
+            folders: Folders {
+                frames: Some(PathBuf::from("out")),
+                same_as: None
+            }
+        }
+    );
+    assert_eq!(
+        parse(["compare", "local", "--frames", "second", "--same-as", "first"])
+            .unwrap()
+            .folders,
+        Folders {
+            frames: Some(PathBuf::from("second")),
+            same_as: Some(PathBuf::from("first"))
         }
     );
     assert_eq!(parse(["compare", "092"]).unwrap().target, Target::Whole);

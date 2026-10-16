@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 
 use compare::agreement::MIN_RATE;
 use compare::case::Target;
-use compare::comparison::{VIDEOS_AT_ONCE, compare_all, frames_path};
+use compare::comparison::{Folders, VIDEOS_AT_ONCE, compare_all, frames_path};
 use compare::outcome::Outcome;
 use compare::report::write_report;
 use compare::tracks::TrackCounts;
@@ -30,7 +30,11 @@ fn run() -> &'static Run {
     RUN.get_or_init(|| {
         let folder = TempDir::new_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
         let cases = Target::Settings.cases().unwrap();
-        let outcome = Outcome::of(&cases, compare_all(&cases, VIDEOS_AT_ONCE, Some(folder.path())));
+        let folders = Folders {
+            frames: Some(folder.path().to_path_buf()),
+            same_as: None,
+        };
+        let outcome = Outcome::of(&cases, compare_all(&cases, VIDEOS_AT_ONCE, &folders));
         let mut stdout = io::stdout().lock();
         write_report(&outcome.compared, &mut stdout).unwrap();
         Run {

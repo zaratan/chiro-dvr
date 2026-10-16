@@ -5,7 +5,7 @@ use reference::location::committed;
 use reference::recording::Recording;
 use tempfile::TempDir;
 
-use super::{FRAMES_FILE, compare, compare_all, compared, each_in_order, frames_path};
+use super::{FRAMES_FILE, Folders, compare, compare_all, compared, each_in_order, frames_path};
 use crate::case::{Case, EXTRACT};
 use crate::error::Error;
 
@@ -25,7 +25,7 @@ fn the_frames_of_a_video_go_to_a_folder_named_after_it() {
 fn a_recording_folder_without_a_summary_is_reported() {
     let folder = TempDir::new().unwrap();
 
-    let error = compare(&Case::recorded(folder.path().to_path_buf()), None).unwrap_err();
+    let error = compare(&Case::recorded(folder.path().to_path_buf()), &Folders::default()).unwrap_err();
 
     assert!(matches!(error, Error::Reference(_)));
 }
@@ -37,9 +37,30 @@ fn a_recording_whose_video_is_missing_is_reported_before_any_detection() {
     recording.summary.video.name = "no_such_video.mp4".to_owned();
     recording.write(folder.path()).unwrap();
 
-    let missing = compare(&Case::committed(folder.path().to_str().unwrap()), None).unwrap_err();
+    let missing = compare(&Case::committed(folder.path().to_str().unwrap()), &Folders::default()).unwrap_err();
 
     assert!(matches!(missing, Error::Fixture(_)));
+}
+
+#[test]
+fn an_earlier_folder_without_the_frames_of_the_video_is_reported_before_the_video_is_even_looked_for() {
+    let folder = TempDir::new().unwrap();
+    let earlier = TempDir::new().unwrap();
+    let mut recording = Recording::read(&committed(EXTRACT)).unwrap();
+    recording.summary.video.name = "no_such_video.mp4".to_owned();
+    recording.write(folder.path()).unwrap();
+    let folders = Folders {
+        frames: None,
+        same_as: Some(earlier.path().to_path_buf()),
+    };
+
+    let error = compare(&Case::committed(folder.path().to_str().unwrap()), &folders).unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::Reference(reference::error::Error::Read { path, .. })
+            if path == frames_path(earlier.path(), "no_such_video.mp4")
+    ));
 }
 
 #[test]
@@ -69,7 +90,7 @@ fn every_case_is_compared_and_answered() {
         .map(|folder| Case::recorded(folder.path().to_path_buf()))
         .collect();
 
-    let answers = compare_all(&cases, 2, None);
+    let answers = compare_all(&cases, 2, &Folders::default());
 
     assert_eq!(answers.len(), 3);
     assert!(answers.iter().all(|answer| matches!(answer, Err(Error::Reference(_)))));
@@ -77,7 +98,7 @@ fn every_case_is_compared_and_answered() {
 
 #[test]
 fn nothing_to_compare_gives_nothing_back() {
-    assert!(compare_all(&[], 6, None).is_empty());
+    assert!(compare_all(&[], 6, &Folders::default()).is_empty());
 }
 
 #[test]
@@ -119,7 +140,7 @@ fn the_detection_settings_come_from_the_recording_and_one_the_engine_refuses_sto
     assert_ne!(forged, text);
     std::fs::write(&summary, forged).unwrap();
 
-    let error = compare(&Case::setting(folder.path().to_path_buf()), None).unwrap_err();
+    let error = compare(&Case::setting(folder.path().to_path_buf()), &Folders::default()).unwrap_err();
 
     assert!(matches!(error, Error::Settings { .. }), "{error:?}");
 }

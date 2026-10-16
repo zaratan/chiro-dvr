@@ -6,6 +6,7 @@ use clap::error::ErrorKind;
 use clap::{Arg, Command, ValueEnum, value_parser};
 
 use crate::case::Target;
+use crate::comparison::Folders;
 
 #[cfg(test)]
 mod tests;
@@ -13,7 +14,7 @@ mod tests;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Request {
     pub target: Target,
-    pub frames: Option<PathBuf>,
+    pub folders: Folders,
 }
 
 impl ValueEnum for Target {
@@ -57,6 +58,15 @@ pub fn command() -> Command {
                 .value_parser(value_parser!(PathBuf))
                 .help("writes the detections of each video to FOLDER/<video>/frames.jsonl"),
         )
+        .arg(
+            Arg::new("same-as")
+                .long("same-as")
+                .value_name("FOLDER")
+                .value_parser(value_parser!(PathBuf))
+                .help(
+                    "checks that the detections equal those of FOLDER/<video>/frames.jsonl outside the damaged spans",
+                ),
+        )
 }
 
 pub fn parse(arguments: impl IntoIterator<Item = impl Into<OsString> + Clone>) -> Result<Request, clap::Error> {
@@ -66,6 +76,9 @@ pub fn parse(arguments: impl IntoIterator<Item = impl Into<OsString> + Clone>) -
         .ok_or_else(|| command().error(ErrorKind::MissingRequiredArgument, "the videos to compare"))?;
     Ok(Request {
         target,
-        frames: matches.remove_one::<PathBuf>("frames"),
+        folders: Folders {
+            frames: matches.remove_one::<PathBuf>("frames"),
+            same_as: matches.remove_one::<PathBuf>("same-as"),
+        },
     })
 }

@@ -5,9 +5,10 @@ use std::thread;
 use std::time::Instant;
 
 use engine::config::DetectConfig;
-use engine::detection::{Detected, detect};
+use engine::detection::detect;
 use engine::settings::DetectSettings;
 use media::decode::Threads;
+use reference::frames::Frames;
 use reference::recording::Recording;
 use types::detection::FrameDetections;
 use types::rate::FrameRate;
@@ -16,6 +17,7 @@ use crate::agreement::Agreement;
 use crate::case::Case;
 use crate::error::Error;
 use crate::frames::frames_of;
+use crate::sameness::Sameness;
 use crate::tracks::TrackAgreement;
 
 #[cfg(test)]
@@ -29,9 +31,16 @@ pub struct Comparison {
     pub detections: Agreement,
     pub tracks: TrackAgreement,
     pub seconds: f64,
+    pub same_as: Option<Sameness>,
 }
 
-pub fn compare(case: &Case, frames: Option<&Path>) -> Result<Comparison, Error> {
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Folders {
+    pub frames: Option<PathBuf>,
+    pub same_as: Option<PathBuf>,
+}
+
+pub fn compare(case: &Case, folders: &Folders) -> Result<Comparison, Error> {
     let recording = Recording::read(case.recording())?;
     let video = recording.summary.video.name.clone();
     let settings: DetectSettings = recording.summary.detect_settings()?;
@@ -39,6 +48,12 @@ pub fn compare(case: &Case, frames: Option<&Path>) -> Result<Comparison, Error> 
         video: video.clone(),
         source,
     })?;
+    let name = case.name(&video);
+    let previous = folders
+        .same_as
+        .as_deref()
+        .map(|folder| Frames::read(&frames_path(folder, &name)))
+        .transpose()?;
     let path = case.video(&video)?;
     let start = Instant::now();
     let detected = detect(&path, Threads::Automatic, &config)?;
@@ -51,15 +66,21 @@ pub fn compare(case: &Case, frames: Option<&Path>) -> Result<Comparison, Error> 
             found: detected.half_window().get(),
         });
     }
-    let name = case.name(&video);
-    if let Some(folder) = frames {
-        write_frames(&detected, &frames_path(folder, &name))?;
+    let current = (folders.frames.is_some() || previous.is_some())
+        .then(|| frames_of(&detected))
+        .transpose()?;
+    if let (Some(folder), Some(current)) = (&folders.frames, &current) {
+        write_frames(current, &frames_path(folder, &name))?;
     }
-    compared(&name, detected.detections(), &recording, seconds)
+    let mut comparison = compared(&name, detected.detections(), &recording, seconds)?;
+    comparison.same_as = previous
+        .zip(current)
+        .map(|(previous, current)| Sameness::of(&name, &previous, &current, detected.damage().spans()));
+    Ok(comparison)
 }
 
-pub fn compare_all(cases: &[Case], at_once: usize, frames: Option<&Path>) -> Vec<Result<Comparison, Error>> {
-    each_in_order(cases, at_once, |case| compare(case, frames))
+pub fn compare_all(cases: &[Case], at_once: usize, folders: &Folders) -> Vec<Result<Comparison, Error>> {
+    each_in_order(cases, at_once, |case| compare(case, folders))
 }
 
 pub fn compared(
@@ -80,6 +101,7 @@ pub fn compared(
             source,
         })?,
         seconds,
+        same_as: None,
     })
 }
 
@@ -112,12 +134,12 @@ pub(crate) fn each_in_order<T: Sync, R: Send>(items: &[T], at_once: usize, work:
     done.into_iter().map(|(_, result)| result).collect()
 }
 
-fn write_frames(detected: &Detected, path: &Path) -> Result<(), Error> {
+fn write_frames(frames: &Frames, path: &Path) -> Result<(), Error> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|source| Error::Folder {
             path: parent.to_path_buf(),
             source,
         })?;
     }
-    Ok(frames_of(detected)?.write(path)?)
+    Ok(frames.write(path)?)
 }

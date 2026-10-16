@@ -2838,8 +2838,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       dans la tolérance de l'appariement.
 - **`compare`** → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré. `media` n'y sert qu'à choisir les fils du
-  décodeur (`Threads::Automatic`).
-  - `compare extract|092|092-1440|settings|local [--frames DOSSIER]` lance
+  décodeur (`Threads::Automatic`), et, dans `slow_same_as`, à couper l'extrait (`payload::wipe`, #176).
+  - `compare extract|092|092-1440|settings|local [--frames DOSSIER] [--same-as DOSSIER]` lance
     `engine::detection::detect` sur l'extrait, la 092, la 092 à 1440 pixels de travail
     (#151, nommée par son dossier pour ne pas écraser la 092), les 16 cas de réglages
     ([Réglages](#réglages)) ou les 26 vidéos (`BATDETECT_REFERENCE_DIR`,
@@ -2865,7 +2865,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     Une vidéo en échec (vidéo absente, demi-fenêtre autre que celle de la référence…)
     est écrite sur la sortie d'erreur avec ses causes, sans effacer le rapport des
     autres. Code de sortie 1 si une vidéo échoue, si une vidéo est sous 98 % dans un
-    sens, ou si aucune vidéo n'est comparée (`Outcome::holds`). Les refus de #149 et
+    sens, si une vidéo diffère du passage de `--same-as`, ou si aucune vidéo n'est comparée (`Outcome::holds`). Les refus de #149 et
     #150 ont disparu avec #151 : tout réglage valide se compare. Avec `settings`,
     `--frames` écrit dans un dossier par cas (`DOSSIER/<cas>/frames.jsonl`), les cas
     partageant leur vidéo.
@@ -2884,6 +2884,13 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     erreur de décodage vus par le décodeur de `media` (par ffprobe dans la référence),
     détections brutes avant exclusion. Sur l'extrait, `pts`, images-clés et erreurs sont
     égaux à ceux de la référence sur les 1 230 images.
+  - `--same-as DOSSIER` (#176) dit si ce passage donne les mêmes détections qu'un passage précédent écrit par `--frames DOSSIER`, hors des plages abîmées. Les pixels que FFmpeg dissimule dans ces plages varient d'une lecture à l'autre : deux passages de `main` y différaient sur 17 vidéos et 2 351 images (#159), si bien que `cmp -r` entre deux dossiers `--frames` ne prouve rien.
+    - Avant la détection, `DOSSIER/<vidéo>/frames.jsonl` est relu ; absent ou illisible, la vidéo échoue sans être détectée.
+    - Après la détection, les entrées sont d'abord comparées : nombre d'images, puis `pts`, image-clé et erreur de décodage de chaque image. Si elles diffèrent, les détections ne sont pas comparées.
+    - Sinon, les détections le sont image par image, à l'égalité exacte, hors des plages abîmées que le moteur vient de trouver (`Detected::damage`, marge comprise). La comparaison se fait en direct plutôt qu'entre deux dossiers parce que `frames.jsonl` ne garde pas les pertes avant la première image et après la dernière, qui ouvrent aussi une plage. Les plages sont donc celles du seul nouveau passage : des pertes au bord vues par l'ancien seul donnent « differs », du côté prudent ; vues par le nouveau seul, elles écartent des images que l'ancien ne jugeait pas abîmées. Les plages instables ne sont pas écartées : elles se déduisent des détections, que l'on compare brutes.
+    - Sortie : une section à la fin du rapport, `same as DOSSIER, outside the damaged spans`, puis une ligne par vidéo : `identical`, `differs` (images hors plage, dix au plus puis `… and N more`) ou `inputs differ` (première image et champs qui diffèrent, ou nombres d'images de chaque côté), suivie du nombre de plages, de leurs images et des images qui diffèrent dedans ; enfin le bilan, `N videos: identical …, differing …, inputs differ …`.
+    - Le test lent `slow_same_as` coupe un vingtième de l'extrait par `media::payload::wipe`, le détecte à un fil puis en fils automatiques : identique hors de sa plage (sur lumiel : images 601 à 644, avec 27 images différentes dedans, un nombre que le test ne demande pas, parce qu'il varie d'une lecture et d'une machine à l'autre) ; une détection déplacée hors plage est listée avec sa vidéo et son image. Il exige que les fils automatiques décodent par images (`ActiveThreads::Frame`) : sinon ses deux passages liraient la vidéo de la même façon. `slow_extract` relance l'extrait avec `--same-as` sur le dossier qu'il vient d'écrire, par le chemin de la commande.
+    - Mesure (#176, lumiel, profil `ci`) : `compare local --frames A`, puis `compare local --frames B --same-as A`. Les 26 vidéos sont identiques hors plages ; 17 vidéos et 1 812 images diffèrent dans leurs plages, les 17 que `cmp -r` trouve entre A et B. Code de sortie 1 aux deux passages, par la seule 120 et la seule 123, sous 98 % côté Rust (0,9668 et 0,8039) : sur lumiel, le décodeur signale en erreur les images 4589 de la 120, 3986, 4902 et 5417 de la 123, que la référence (ffprobe, Mac) ne signale pas ; les groupes de détections ajoutées qui partent de ces images (10 à 13 images chacun) sont au bord bas de l'image (y = 1 078). Pistes : celles qu'attend `local_agreement`, 966, dont 963 appariées et 958 concordantes, 3 perdues, 9 ajoutées.
   - **Identité entre systèmes.** Une seule opération de la chaîne de détection
     (`engine`, et `WorkScale` dans `types`) dépend de la libm depuis #150 : `exp`, qui
     calcule le noyau du flou une fois par vidéo.
