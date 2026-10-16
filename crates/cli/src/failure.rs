@@ -41,6 +41,11 @@ pub fn cause(error: &Error, options: &Options) -> Cause {
     match error {
         Error::Detection(detection) => detecting(detection, options.tunes_the_frames()),
         Error::Folder { .. } | Error::Files(_) | Error::Overview(_) => writing(error).unwrap_or(Cause::Unexpected),
+        Error::Video { source, .. } => match source.kind() {
+            io::ErrorKind::NotFound => Cause::Missing,
+            io::ErrorKind::PermissionDenied => Cause::ReadRefused,
+            _ => Cause::Unexpected,
+        },
         Error::Previous(previous) => in_use(previous).or_else(|| writing(error)).unwrap_or(Cause::Unexpected),
         Error::Encoders(fallback::Error::Scratch(_)) | Error::Source(_) => Cause::Encoding,
         Error::Encoders(_) | Error::Clips(_) => writing(error).unwrap_or(Cause::Encoding),

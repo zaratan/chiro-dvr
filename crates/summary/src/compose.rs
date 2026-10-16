@@ -119,6 +119,6 @@ fn start_ticks(page: &PageLayout<'_>) -> Vec<StartTick> {
     others.chain(mine).collect()
 }
 
-fn palette_color(index: usize) -> Rgb {
+pub(crate) fn palette_color(index: usize) -> Rgb {
     PALETTE[index % PALETTE.len()]
 }

@@ -16,6 +16,7 @@ dhat = "0.3.3"
 ffmpeg-next = { version = "9.0.0", default-features = false, features = ["codec", "format", "software-scaling"] }
 flate2 = "1.1.10"
 fluent-bundle = "0.16.0"
+jiff = "0.2.38"
 png = "0.18.1"
 proptest = "1.11.0"
 rayon = "1.12.0"

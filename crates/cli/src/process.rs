@@ -1,14 +1,16 @@
 use std::fs;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use engine::detection::{self, Detected, detect};
 use engine::input::Video;
 use files::names::{Names, params_json};
-use files::params::{Params, spans_in_seconds, write_params};
+use files::params::{Finish, Params, language_code, local_date, spans_in_seconds, write_params};
 use files::previous::{Kept, remove_previous_outputs};
 use files::table::{Headings, write_tracks_csv};
 use files::time::frame_seconds;
+use jiff::Zoned;
 use media::decode::Threads;
 use media::encode::Codec;
 use media::encode::fallback::{self, Fallback};
@@ -25,6 +27,7 @@ use types::timeline::{self, Timeline};
 use types::track::Track;
 
 use crate::jobs::Job;
+use crate::listing::listed;
 use crate::options::Options;
 use crate::overview::{self, Overview, write_overview};
 use crate::progress::{Progress, Step};
@@ -43,6 +46,12 @@ pub enum Error {
     Timeline(#[source] timeline::Error),
     #[error("the tracking failed")]
     Tracking(#[source] tracking::error::Error),
+    #[error("cannot read the size of {}", path.display())]
+    Video {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
     #[error("cannot create {}", dest.display())]
     Folder {
         dest: PathBuf,
@@ -113,9 +122,10 @@ pub fn process(
     versions: Versions<'_>,
     options: &Options,
 ) -> Result<Processed, Error> {
+    let started = Instant::now();
     progress.step(Step::Detection).map_err(Error::Progress)?;
     let detected = detect(&job.video, threads, &options.detect).map_err(Error::Detection)?;
-    process_detected(job, &detected, wording, progress, versions, options)
+    processed_since(started, job, &detected, wording, progress, versions, options)
 }
 
 #[derive(Debug)]
@@ -155,6 +165,18 @@ pub fn process_detected(
     versions: Versions<'_>,
     options: &Options,
 ) -> Result<Processed, Error> {
+    processed_since(Instant::now(), job, detected, wording, progress, versions, options)
+}
+
+fn processed_since(
+    started: Instant,
+    job: &Job,
+    detected: &Detected,
+    wording: &dyn Wording,
+    progress: &dyn Progress,
+    versions: Versions<'_>,
+    options: &Options,
+) -> Result<Processed, Error> {
     let render = options.render;
     let config = &options.detect;
     let reading = detected.reading();
@@ -166,6 +188,7 @@ pub fn process_detected(
         exclusion,
         tracks,
     } = tracked(detected, options)?;
+    let video_bytes = video_bytes(&job.video)?;
     fs::create_dir_all(&job.dest).map_err(|source| Error::Folder {
         dest: job.dest.clone(),
         source,
@@ -187,17 +210,8 @@ pub fn process_detected(
         detected.active_threads(),
         detected.detection_threads(),
     );
-    let params = Params {
-        video: &job.video,
-        fps: rate.get().to_f64(),
-        settings: &settings,
-        ignored_s: spans_in_seconds(&exclusion.unstable, &timeline),
-        damaged_s: spans_in_seconds(&exclusion.damaged, &timeline),
-        damaged_frames: reported,
-        version: versions.program,
-        ffmpeg: versions.ffmpeg,
-    };
-    write_params(&params_json(&job.dest), &params).map_err(Error::Files)?;
+    let ignored_s = spans_in_seconds(&exclusion.unstable, &timeline);
+    let damaged_s = spans_in_seconds(&exclusion.damaged, &timeline);
     let overview = Overview {
         video: &job.video,
         dest: &job.dest,
@@ -210,11 +224,11 @@ pub fn process_detected(
         name: &name,
         tracks: &tracks,
         timeline: &timeline,
-        ignored: &params.ignored_s,
-        damaged: &params.damaged_s,
+        ignored: &ignored_s,
+        damaged: &damaged_s,
     };
     progress.step(Step::Summary).map_err(Error::Progress)?;
-    let summaries = write_overview(overview, detected, &summary).map_err(Error::Overview)?;
+    let drawn = write_overview(overview, detected, &summary).map_err(Error::Overview)?;
     let clips = Clips {
         job,
         names,
@@ -225,15 +239,61 @@ pub fn process_detected(
         kept: &kept,
     };
     progress.step(Step::Clips).map_err(Error::Progress)?;
-    let rendered = render_clips(&clips, &tracks, trial)?;
+    let written = render_clips(&clips, &tracks, trial);
+    if let Some(state) = finish(&written) {
+        let outputs = written.as_ref().ok().map(|written| &written.outputs);
+        let params = Params {
+            video: &job.video,
+            fps: rate.get().to_f64(),
+            settings: &settings,
+            ignored_s,
+            damaged_s,
+            damaged_frames: reported,
+            version: versions.program,
+            ffmpeg: versions.ffmpeg,
+            state,
+            track_count: tracks.len(),
+            length_s: clips.extent.length_s,
+            not_analysed_s: clips.extent.not_analysed_s,
+            elapsed_s: started.elapsed().as_secs_f64(),
+            video_bytes,
+            language: language_code(wording.language()),
+            date: local_date(&Zoned::now()),
+            tracks: listed(&job.dest, &tracks, &timeline, &drawn.painted, outputs),
+        };
+        write_params(&params_json(&job.dest), &params).map_err(Error::Files)?;
+    }
+    let Written { rendered, .. } = written?;
     Ok(Processed {
         tracks,
         extent: clips.extent,
         csv,
         kept,
-        summaries,
+        summaries: drawn.pages,
         rendered,
     })
+}
+
+#[derive(Debug)]
+struct Written {
+    rendered: Rendered,
+    outputs: Outputs,
+}
+
+fn finish(written: &Result<Written, Error>) -> Option<Finish> {
+    match written {
+        Ok(_) => Some(Finish::Done),
+        Err(Error::TooManyTracks { .. }) => Some(Finish::TooManyTracks),
+        Err(_) => None,
+    }
+}
+
+fn video_bytes(video: &Path) -> Result<u64, Error> {
+    let metadata = fs::metadata(video).map_err(|source| Error::Video {
+        path: video.to_path_buf(),
+        source,
+    })?;
+    Ok(metadata.len())
 }
 
 fn write_table(
@@ -278,7 +338,7 @@ struct Clips<'a> {
     kept: &'a [Kept],
 }
 
-fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, Error>) -> Result<Rendered, Error> {
+fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, Error>) -> Result<Written, Error> {
     let stem = clips.job.video.file_stem().unwrap_or_default();
     let annotated = clips.names.annotated_video(&clips.job.dest, stem);
     let render = clips.options.render;
@@ -323,5 +383,6 @@ fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, E
             source,
         })?;
     }
-    clips::render(&source, tracks, &outputs, render, &encoders).map_err(Error::Clips)
+    let rendered = clips::render(&source, tracks, &outputs, render, &encoders).map_err(Error::Clips)?;
+    Ok(Written { rendered, outputs })
 }

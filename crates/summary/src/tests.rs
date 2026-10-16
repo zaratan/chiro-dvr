@@ -1,7 +1,7 @@
 use draw::canvas::Canvas;
-use draw::color::Rgb;
+use draw::color::{PALETTE, Rgb};
 
-use super::pages;
+use super::{Painted, pages};
 use crate::layout::Summary;
 use crate::testing::{DebugLabels, timeline, track};
 
@@ -57,4 +57,49 @@ fn a_decomposed_accented_video_name_is_written_with_the_same_pixels_as_the_compo
     assert_eq!(composed, decomposed);
     let plain = pages(&summary("video_ete", &[], &timeline), gray(), &[], &DebugLabels).unwrap();
     assert_ne!(composed, plain);
+}
+
+#[test]
+fn each_track_is_painted_once_under_its_number_in_a_palette_colour_found_on_the_image() {
+    let tracks = [
+        track(3, 0, &[[40.0, 120.0], [120.0, 120.0], [200.0, 120.0]]),
+        track(7, 5, &[[40.0, 130.0], [120.0, 130.0], [200.0, 130.0]]),
+    ];
+    let timeline = timeline(40);
+    let written = pages(&summary("v", &tracks, &timeline), gray(), &[], &DebugLabels).unwrap();
+    let painted: Vec<Painted> = written.iter().flat_map(|page| page.painted.clone()).collect();
+    assert_eq!(painted.iter().map(|one| one.track).collect::<Vec<_>>(), [3, 7]);
+    assert_ne!(painted[0].color, painted[1].color);
+    for Painted { color, .. } in painted {
+        assert!(PALETTE.contains(&color), "{color:?}");
+        let pixel = [color.red, color.green, color.blue, 255];
+        assert!(
+            written[0].canvas.rgba().as_chunks::<4>().0.contains(&pixel),
+            "{color:?}"
+        );
+    }
+}
+
+#[test]
+fn a_crowded_video_paints_each_track_on_exactly_one_of_its_parts() {
+    let tracks: Vec<types::track::Track> = (1..=45)
+        .map(|id| {
+            let y = 10.0 + 4.5 * id as f64;
+            track(id, id * 5, &[[40.0, y], [120.0, y], [200.0, y]])
+        })
+        .collect();
+    let timeline = timeline(400);
+    let written = pages(&summary("v", &tracks, &timeline), gray(), &[], &DebugLabels).unwrap();
+    assert_eq!(written.len(), 3);
+    let mut painted: Vec<usize> = written
+        .iter()
+        .flat_map(|page| page.painted.iter().map(|one| one.track))
+        .collect();
+    assert!(
+        written
+            .iter()
+            .all(|page| page.part.is_some() && !page.painted.is_empty())
+    );
+    painted.sort_unstable();
+    assert_eq!(painted, (1..=45).collect::<Vec<_>>());
 }

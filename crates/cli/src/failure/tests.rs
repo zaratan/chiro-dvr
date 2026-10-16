@@ -234,3 +234,20 @@ fn a_read_only_destination_is_a_write_refusal_but_a_broken_progress_line_is_unex
     let progress = Error::Progress(io::Error::from(io::ErrorKind::StorageFull));
     assert_eq!(cause(&progress, &Options::default()), Cause::Unexpected);
 }
+
+#[test]
+fn a_video_whose_size_cannot_be_read_is_missing_or_refused_as_when_it_cannot_be_opened() {
+    let causes = [
+        io::ErrorKind::NotFound,
+        io::ErrorKind::PermissionDenied,
+        io::ErrorKind::Interrupted,
+    ]
+    .map(|kind| {
+        let error = Error::Video {
+            path: PathBuf::from("nuit/v.mp4"),
+            source: io::Error::from(kind),
+        };
+        cause(&error, &Options::default())
+    });
+    assert_eq!(causes, [Cause::Missing, Cause::ReadRefused, Cause::Unexpected]);
+}

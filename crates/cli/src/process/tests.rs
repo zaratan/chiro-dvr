@@ -6,15 +6,16 @@ use std::path::{Path, PathBuf};
 
 use engine::config::DetectConfig;
 use engine::detection::detect;
-use files::names::{Names, partial_path};
+use files::names::{Names, params_json, partial_path};
+use files::params::Finish;
 use files::previous::Kept;
 use files::table::{Column, Headings};
 use media::decode::{Decoder, Threads};
 use media::encode::fallback::{self, Fallback};
 use media::encode::{self, Codec};
 use media::frame::{ColorRange, YuvFrame};
-use render::clips::Rendered;
-use render::config::RenderConfig;
+use render::clips::{Outputs, Rendered};
+use render::config::{RenderConfig, Zoom, ZoomConfig};
 use render::windows::clip_windows;
 use summary::header::{Band, HeaderLine, Labels};
 use tracking::exclusion::Exclusion;
@@ -26,7 +27,9 @@ use types::rational::Rational;
 use types::timeline::Timeline;
 use types::track::Track;
 
-use super::{Clips, Error, Extent, Versions, Wording, extent, process, render_clips};
+use super::{
+    Clips, Error, Extent, Versions, Wording, Written, extent, finish, process, process_detected, render_clips,
+};
 use crate::flight;
 use crate::jobs::Job;
 use crate::options::Options;
@@ -86,7 +89,7 @@ fn rendered_into_a_fresh_folder(
             ours: true,
         }],
     };
-    let rendered = render_clips(&clips, &[still(1), still(2)], trial);
+    let rendered = render_clips(&clips, &[still(1), still(2)], trial).map(|written| written.rendered);
     (rendered, names.clips_dir(&job.dest))
 }
 
@@ -409,9 +412,10 @@ fn a_detection_that_fails_leaves_the_results_of_an_earlier_run() {
     fs::write(&job.video, "not a video").unwrap();
     fs::create_dir_all(job.dest.join("clips")).unwrap();
     fs::write(job.dest.join("flight_tracks.csv"), OUR_HEADER).unwrap();
+    fs::write(params_json(&job.dest), "{}").unwrap();
     let failed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default());
     assert!(matches!(failed, Err(Error::Detection(_))));
-    assert_eq!(left_in(&job.dest), ["clips", "flight_tracks.csv"]);
+    assert_eq!(left_in(&job.dest), ["clips", "flight_tracks.csv", "params.json"]);
 }
 
 #[test]
@@ -541,22 +545,31 @@ fn a_processed_video_reports_its_length() {
     );
 }
 
-#[test]
-fn a_video_with_too_many_tracks_brings_back_its_measures_and_the_table_left_as_it_is() {
-    let folder = tempfile::tempdir().unwrap();
-    let video = folder.path().join("flight.mp4");
+fn two_tracks_above_a_limit_of_one(folder: &Path) -> (Job, Options) {
+    let video = folder.join("flight.mp4");
     flight::write_flight_of(&video, LONG_FLIGHT, NonZeroU32::new(KEY_INTERVAL));
     media::payload::wipe(&video, LOST_PART..LOST_PART + 1, PARTS).unwrap();
     let job = Job {
         video,
-        dest: folder.path().join("out"),
+        dest: folder.join("out"),
     };
-    fs::create_dir_all(&job.dest).unwrap();
-    fs::write(job.dest.join("flight_tracks.csv"), ANNOTATED_HEADER).unwrap();
     let options = Options {
         render: RenderConfig::new(12, 1.0, 1.5, 1).unwrap(),
         ..Options::default()
     };
+    (job, options)
+}
+
+fn params_of(job: &Job) -> serde_json::Value {
+    serde_json::from_str(&fs::read_to_string(params_json(&job.dest)).unwrap()).unwrap()
+}
+
+#[test]
+fn a_video_with_too_many_tracks_brings_back_its_measures_and_the_table_left_as_it_is() {
+    let folder = tempfile::tempdir().unwrap();
+    let (job, options) = two_tracks_above_a_limit_of_one(folder.path());
+    fs::create_dir_all(&job.dest).unwrap();
+    fs::write(job.dest.join("flight_tracks.csv"), ANNOTATED_HEADER).unwrap();
     let failed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &options);
     let Err(Error::TooManyTracks {
         count, extent, kept, ..
@@ -573,4 +586,125 @@ fn a_video_with_too_many_tracks_brings_back_its_measures_and_the_table_left_as_i
             ours: true,
         }]
     );
+}
+
+#[test]
+fn a_video_with_too_many_tracks_is_marked_finished_with_that_state_its_measures_and_its_tracks_without_clips_before_it_fails()
+ {
+    let folder = tempfile::tempdir().unwrap();
+    let (job, options) = two_tracks_above_a_limit_of_one(folder.path());
+    let failed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &options);
+    let Err(Error::TooManyTracks { extent, .. }) = failed else {
+        panic!("{failed:?}");
+    };
+    let params = params_of(&job);
+    assert_eq!(params["state"], "too_many_tracks");
+    assert_eq!(params["track_count"], 2);
+    let listed = params["tracks"].as_array().unwrap();
+    assert_eq!(listed.len(), 2);
+    assert!(
+        listed
+            .iter()
+            .all(|track| track["clip"].is_null() && track["zoom"].is_null() && track["color"].is_array())
+    );
+    assert_eq!(params["length_s"], extent.length_s);
+    assert_eq!(params["not_analysed_s"], extent.not_analysed_s);
+}
+
+#[derive(Debug)]
+struct Watching {
+    params: PathBuf,
+    seen: RefCell<Vec<bool>>,
+}
+
+impl Progress for Watching {
+    fn step(&self, _step: Step) -> io::Result<()> {
+        self.seen.borrow_mut().push(self.params.exists());
+        Ok(())
+    }
+}
+
+#[test]
+fn an_earlier_params_json_is_gone_from_the_summary_on_and_the_new_one_says_done_with_the_board_figures() {
+    let folder = tempfile::tempdir().unwrap();
+    let job = flight_job(folder.path());
+    fs::create_dir_all(&job.dest).unwrap();
+    fs::write(params_json(&job.dest), "{}").unwrap();
+    let watching = Watching {
+        params: params_json(&job.dest),
+        seen: RefCell::new(Vec::new()),
+    };
+    let processed = process(
+        &job,
+        &Plain,
+        &watching,
+        Threads::Automatic,
+        VERSIONS,
+        &Options::default(),
+    )
+    .unwrap();
+    assert_eq!(*watching.seen.borrow(), [true, true, false, false]);
+    let params = params_of(&job);
+    assert_eq!(params["state"], "done");
+    assert_eq!(params["track_count"], processed.tracks.len());
+    assert!(params["elapsed_s"].as_f64().unwrap() > 0.0);
+    assert_eq!(params["length_s"], processed.extent.length_s);
+    assert_eq!(params["video_bytes"], fs::metadata(&job.video).unwrap().len());
+    assert_eq!(params["language"], "en");
+    assert!(!partial_path(&params_json(&job.dest)).exists());
+}
+
+#[test]
+fn only_a_video_done_or_with_too_many_tracks_is_marked_finished() {
+    let too_many = Err(Error::TooManyTracks {
+        count: 2,
+        limit: 1,
+        annotated: false,
+        extent: MEASURED,
+        kept: Vec::new(),
+    });
+    let closed = Err(Error::Progress(io::Error::other("closed")));
+    let done = Ok(Written {
+        rendered: Rendered::default(),
+        outputs: Outputs::default(),
+    });
+    assert_eq!(finish(&done), Some(Finish::Done));
+    assert_eq!(finish(&too_many), Some(Finish::TooManyTracks));
+    assert_eq!(finish(&closed), None);
+}
+
+#[test]
+fn clips_that_fail_after_the_summary_leave_the_folder_without_params_json() {
+    let folder = tempfile::tempdir().unwrap();
+    let job = flight_job(folder.path());
+    let detected = detect(&job.video, Threads::Automatic, &DetectConfig::default()).unwrap();
+    fs::write(&job.video, "not a video").unwrap();
+    let failed = process_detected(&job, &detected, &Plain, &Silent, VERSIONS, &Options::default());
+    assert!(matches!(failed, Err(Error::Clips(_))), "{failed:?}");
+    assert!(job.dest.join("flight_summary.png").is_file());
+    assert!(!params_json(&job.dest).exists());
+}
+
+#[test]
+fn each_listed_track_names_the_clip_and_zoom_really_written_beside_params_json() {
+    let folder = tempfile::tempdir().unwrap();
+    let job = flight_job(folder.path());
+    let options = Options {
+        render: RenderConfig::default().with_zoom(ZoomConfig::choosing(Zoom::All)),
+        ..Options::default()
+    };
+    let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &options).unwrap();
+    let params = params_of(&job);
+    let listed = params["tracks"].as_array().unwrap();
+    let ids: Vec<u64> = listed.iter().map(|track| track["id"].as_u64().unwrap()).collect();
+    let expected: Vec<u64> = processed.tracks.iter().map(|track| track.id() as u64).collect();
+    assert_eq!(ids, expected);
+    assert_ne!(listed.len(), 0);
+    for track in listed {
+        for kind in ["clip", "zoom"] {
+            let name = track[kind].as_str().unwrap();
+            assert!(job.dest.join(name).is_file(), "{name}");
+        }
+        assert_eq!(track["color"].as_array().unwrap().len(), 3);
+    }
 }

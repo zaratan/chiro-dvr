@@ -399,6 +399,9 @@ dans `packaging/licenses/`, et `package.sh` copie l'un et l'autre dans chaque ar
     0BSD (`adler2`), Unlicense (`memchr`) et LGPL-2.1-or-later (`r-efi`), à côté de MIT ;
     GPL-2.0-only (`self_cell`), à côté d'Apache-2.0 seulement.
   - `r-efi` ne vise qu'UEFI et n'est livré sur aucune des trois cibles.
+- **`jiff` et ses crates `jiff-*`** (#66, #83 : heure locale des noms datés et de `params.json`) :
+  Unlicense OU MIT, MIT retenu par `about.toml` ; sous Windows, `jiff-tzdb` embarque la base des
+  fuseaux horaires de l'IANA, du domaine public.
 
 ## Lints
 

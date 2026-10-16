@@ -80,6 +80,10 @@ Rust crates:
 - intl_pluralrules 7.0.2, MIT
 - is_terminal_polyfill 1.70.2, MIT
 - itoa 1.0.18, MIT
+- jiff 0.2.38, MIT
+- jiff-core 0.1.1, MIT
+- jiff-tzdb 0.1.9, MIT
+- jiff-tzdb-platform 0.1.3, MIT
 - libc 0.2.190, MIT
 - linux-raw-sys 0.12.1, MIT
 - log 0.4.34, MIT

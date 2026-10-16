@@ -198,7 +198,7 @@ file-table = One row per track (start, end, length, speed, size), for a spreadsh
 file-clip = The clip of every track, named by its number and its start
 file-zoom = The same, slowed and magnified, for small or faint tracks
 file-annotated = The whole video with the tracks drawn, with --annotated
-file-params = The settings used, to run the same computation again
+file-params = The settings and the outcome of the video, written last: without it, the folder is not finished
 files-long =
     A long or crowded video has several summary images, per 10 min slice ({ $period })
     or per part ({ $part }).

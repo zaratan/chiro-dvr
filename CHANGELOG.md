@@ -32,6 +32,10 @@ le workflow de release échouera sans elle.
   Un tableau dont le verdict est rempli est laissé tel quel à la relance (#84).
 - Sans `-o`/`--out-dir`, les résultats vont dans `batdetect/` à côté de chaque vidéo, et non plus
   dans `out/` du dossier de lancement (#86).
+- `params.json` s'écrit en dernier, après les extraits : un dossier sans lui n'est pas terminé. Il
+  gagne l'état (`done` ou `too_many_tracks`), le nombre de pistes, la durée, le temps non analysé,
+  le temps de calcul, la taille de la vidéo, la langue des noms, la date, et la liste des pistes
+  avec leur couleur sur l'image résumé et leurs extraits (#66).
 - Encodage par VideoToolbox puis openh264 sous macOS, openh264 ailleurs, au lieu de libx264 ;
   ffmpeg et ffprobe ne sont plus nécessaires.
 - Le binaire n'est plus sous GPL v3 : il est sous MIT pour le code et LGPL 2.1 ou ultérieure

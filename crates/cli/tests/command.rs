@@ -84,7 +84,7 @@ fn a_video_gives_its_tracks_table_and_params_in_a_folder_named_after_it() {
 }
 
 #[test]
-fn outside_a_french_locale_the_table_is_named_in_english_and_holds_the_same_values_with_commas_and_points() {
+fn outside_a_french_locale_the_table_clips_and_summary_are_named_in_english_with_the_same_values_and_settings() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let (english, french) = (root.path().join("en"), root.path().join("fr"));
     let output = run(&[&videos.join("flight.mp4"), Path::new("-o"), &english], "C");
@@ -112,9 +112,25 @@ fn outside_a_french_locale_the_table_is_named_in_english_and_holds_the_same_valu
         .collect();
     assert_eq!(rows(&english_table), french_rows);
     assert_eq!(rows(&english_table).len(), 1);
+    let settings = |folder: &Path| {
+        let mut params: Value =
+            serde_json::from_str(&fs::read_to_string(folder.join("flight").join("params.json")).unwrap()).unwrap();
+        let object = params.as_object_mut().unwrap();
+        assert!(object.remove("date").is_some_and(|date| date.is_string()));
+        assert!(object.remove("elapsed_s").is_some_and(|elapsed| elapsed.is_f64()));
+        let language = object.remove("language");
+        let track = params["tracks"][0].as_object_mut().unwrap();
+        let named = [language, track.remove("clip"), track.remove("summary")];
+        (params, named)
+    };
+    let (english, french) = (settings(&english), settings(&french));
+    assert_eq!(english.0, french.0);
     assert_eq!(
-        fs::read(english.join("flight").join("params.json")).unwrap(),
-        fs::read(french.join("flight").join("params.json")).unwrap()
+        [english.1, french.1],
+        [
+            ["en", "clips/track_01_0m00s.mp4", "flight_summary.png"].map(|name| Some(Value::from(name))),
+            ["fr", "extraits/piste_01_0m00s.mp4", "flight_resume.png"].map(|name| Some(Value::from(name)))
+        ]
     );
 }
 
@@ -150,6 +166,15 @@ fn params_json_records_the_settings_by_configuration_and_the_threads_really_used
         "threads",
         "ignored_s",
         "damaged_s",
+        "state",
+        "track_count",
+        "elapsed_s",
+        "tracks",
+        "length_s",
+        "not_analysed_s",
+        "video_bytes",
+        "language",
+        "date",
     ] {
         assert!(params.get(key).is_some(), "{key} missing");
     }
