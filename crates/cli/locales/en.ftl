@@ -213,6 +213,7 @@ skip-refused-question = Process { $count ->
     } anyway? (Y/n)
 skip-refused-declined = no video is processed
 skip-refused-help = Processes the valid videos without asking when some inputs are refused
+no-notify-help = Neither notifies the end of the batch nor opens the result folders in the Finder (macOS)
 tally-refused-count = { $count ->
         [one] { $count } input refused
        *[other] { $count } inputs refused
@@ -222,3 +223,16 @@ tally-refused-heading = { $count ->
        *[other] Refused inputs, not processed
     }:
 interrupted = batch interrupted at video { $position }/{ $total }; running the same command again redoes the batch
+table-track = track
+table-start = start
+table-end = end
+table-duration = duration (s)
+table-verdict = verdict
+table-hits = points
+table-chord = chord (px)
+table-path = path (px)
+table-speed = speed (px/s)
+table-max-area = max area (px)
+table-amplitude = amplitude (grey levels)
+table-filled-frames = filled frames
+table-start-seconds = start (s)

@@ -228,6 +228,7 @@ skip-refused-question = Traiter quand même { $count ->
     } ? (O/n)
 skip-refused-declined = aucune vidéo n'est traitée
 skip-refused-help = Traite les vidéos valides sans poser la question quand des entrées sont refusées
+no-notify-help = Ne signale pas la fin du lot et n'ouvre pas les dossiers de résultats dans le Finder (macOS)
 tally-refused-count = { $count ->
         [one] { $count } entrée refusée
        *[other] { $count } entrées refusées
@@ -237,3 +238,16 @@ tally-refused-heading = { $count ->
        *[other] Entrées refusées, non traitées
     } :
 interrupted = lot interrompu à la vidéo { $position }/{ $total } ; relancer la même commande refait le lot
+table-track = piste
+table-start = début
+table-end = fin
+table-duration = durée (s)
+table-verdict = verdict
+table-hits = points
+table-chord = corde (px)
+table-path = chemin (px)
+table-speed = vitesse (px/s)
+table-max-area = surface max (px)
+table-amplitude = amplitude (niveaux de gris)
+table-filled-frames = images comblées
+table-start-seconds = début (s)

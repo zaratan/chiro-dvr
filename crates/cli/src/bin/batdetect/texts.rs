@@ -9,6 +9,7 @@ use batdetect::process::Wording;
 use batdetect::progress::Step;
 use engine::settings::Bound;
 use files::names::{Names, Part, RESULTS_FOLDER, params_json, period_suffix};
+use files::table::{Column, Headings};
 use fluent_bundle::concurrent::FluentBundle;
 use fluent_bundle::{FluentArgs, FluentError, FluentResource, FluentValue};
 use summary::header::{Band, HeaderLine, Labels, duration};
@@ -73,6 +74,7 @@ pub(crate) enum Fixed {
     SettingsRefused,
     SkipRefusedHelp,
     SkipRefusedDeclined,
+    NoNotifyHelp,
     InputsRefused,
     TallyVideo,
     TallyLength,
@@ -99,6 +101,19 @@ pub(crate) enum Fixed {
     FileAnnotated,
     FileParams,
     Guide,
+    TableTrack,
+    TableStart,
+    TableEnd,
+    TableDuration,
+    TableVerdict,
+    TableHits,
+    TableChord,
+    TablePath,
+    TableSpeed,
+    TableMaxArea,
+    TableAmplitude,
+    TableFilledFrames,
+    TableStartSeconds,
 }
 
 impl Fixed {
@@ -141,6 +156,7 @@ impl Fixed {
             Self::SettingsRefused => "settings-refused",
             Self::SkipRefusedHelp => "skip-refused-help",
             Self::SkipRefusedDeclined => "skip-refused-declined",
+            Self::NoNotifyHelp => "no-notify-help",
             Self::InputsRefused => "inputs-refused",
             Self::TallyVideo => "tally-video",
             Self::TallyLength => "tally-length",
@@ -167,6 +183,19 @@ impl Fixed {
             Self::FileAnnotated => "file-annotated",
             Self::FileParams => "file-params",
             Self::Guide => "guide",
+            Self::TableTrack => "table-track",
+            Self::TableStart => "table-start",
+            Self::TableEnd => "table-end",
+            Self::TableDuration => "table-duration",
+            Self::TableVerdict => "table-verdict",
+            Self::TableHits => "table-hits",
+            Self::TableChord => "table-chord",
+            Self::TablePath => "table-path",
+            Self::TableSpeed => "table-speed",
+            Self::TableMaxArea => "table-max-area",
+            Self::TableAmplitude => "table-amplitude",
+            Self::TableFilledFrames => "table-filled-frames",
+            Self::TableStartSeconds => "table-start-seconds",
         }
     }
 }
@@ -849,6 +878,27 @@ impl Labels for Texts {
             Band::Unreadable => Fixed::BandUnreadable,
         };
         drawable(&self.text(message))
+    }
+}
+
+impl Headings for Texts {
+    fn heading(&self, column: Column, language: Language) -> String {
+        let fixed = match column {
+            Column::Track => Fixed::TableTrack,
+            Column::Start => Fixed::TableStart,
+            Column::End => Fixed::TableEnd,
+            Column::Duration => Fixed::TableDuration,
+            Column::Verdict => Fixed::TableVerdict,
+            Column::Hits => Fixed::TableHits,
+            Column::Chord => Fixed::TableChord,
+            Column::Path => Fixed::TablePath,
+            Column::Speed => Fixed::TableSpeed,
+            Column::MaxArea => Fixed::TableMaxArea,
+            Column::Amplitude => Fixed::TableAmplitude,
+            Column::FilledFrames => Fixed::TableFilledFrames,
+            Column::StartSeconds => Fixed::TableStartSeconds,
+        };
+        Self::new(language).text(fixed)
     }
 }
 

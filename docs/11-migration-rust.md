@@ -128,13 +128,14 @@ ailleurs, ces commandes se lancent sans lui.
   - Pas la feature `static` de ffmpeg-next non plus : elle ajoute 16 frameworks macOS
     figés, dont QTKit (absent en arm64, l'éditeur de liens le signale) et AppKit, OpenGL,
     OpenCL, inutiles.
-  - Ce que le binaire lie en dynamique :
+  - Ce que le binaire lie en dynamique (mesuré par `otool -L` le 16 octobre 2026) :
     - sur macOS : libc++, libSystem, libiconv (tirée par la bibliothèque standard de
-      Rust) et cinq frameworks (VideoToolbox, CoreFoundation, CoreMedia, CoreVideo,
-      CoreServices) ;
+      Rust), libobjc et six frameworks (Foundation, CoreFoundation, VideoToolbox,
+      CoreMedia, CoreVideo, CoreServices). libobjc et Foundation viennent de ctrlc, par
+      objc2 ;
     - sous Linux : libstdc++, libgcc_s, libc et libm.
-  - La CI vérifie par `otool -L` et `ldd` qu'aucune `libav*`, `libsw*` ni openh264
-    n'est liée en dynamique. La liste complète n'est pas contrôlée.
+  - `packaging/check.sh` contrôle cette liste sur le binaire livré (voir
+    [Empaquetage](#empaquetage)).
 - **Version liée vérifiable** : FFmpeg est construit avec `--extra-version=<empreinte>`.
   `batdetect --version` affiche donc `FFmpeg 7.1.1-<empreinte>`, et un test compare
   cette empreinte à la cible de `.ffmpeg`.
@@ -177,11 +178,50 @@ ailleurs, ces commandes se lancent sans lui.
   Le binaire `release` pèse 690 576 octets, mais il ne fait que `--version` et la LTO
   retire presque tout FFmpeg : ce chiffre ne prédit pas la taille de l'outil complet.
 
+### Empaquetage
+
+```bash
+mise run package          # binaire release, puis dist/batdetect-<cible>.tar.gz (zip sous Windows)
+mise run package:check    # contrôles du livrable sur cette archive
+```
+
+- **Archives** (#223) : `batdetect-darwin-arm64.tar.gz`, `batdetect-linux-x86_64.tar.gz`
+  et `batdetect-windows-x86_64.zip`.
+  - Contenu, à la racine : le binaire, `LICENSE`, `NOTICE` et `licenses/`.
+  - Sans numéro de version dans le nom, comme à la v0.1.1 : la formule Homebrew en
+    dépend.
+  - `packaging/package.sh` lit la cible dans la ligne `host:` de `rustc -vV`, pas dans
+    `uname`, qui vaut `UCRT64_NT-…` sous MSYS2. Les scripts sont en bash : `mise` ne
+    tourne pas sous Windows.
+- **Contrôles** : `packaging/check.sh ARCHIVE [VERSION]` joue tous les contrôles, puis
+  échoue à la fin si un seul a échoué.
+
+  | Contrôle | Ce qu'il mesure |
+  |---|---|
+  | C1 | l'archive contient le binaire, `LICENSE`, `NOTICE` et `licenses/`, rien d'autre |
+  | C2 | aucun lien dynamique hors d'une liste mesurée par système : `otool -L`, `readelf -d` (lignes NEEDED), `dumpbin -dependents` |
+  | C3 | `minos` ≤ 14.0 sous macOS ; sous Linux, `GLIBC_` ≤ 2.35, `GLIBCXX_` ≤ 3.4.30, `CXXABI_` ≤ 1.3.13 et `GCC_` ≤ 12.0.0, la bibliothèque de l'Ubuntu 22.04 |
+  | C4 | `--version` donne `batdetect <VERSION>`, puis le FFmpeg épinglé, avec l'empreinte du script de construction et la LGPL |
+  | C6 | le CSV de l'extrait, en anglais, est identique à l'octet à `tests/fixtures/rust/video_092_original_3m24-4m05/tracks.csv` |
+
+  La liste des crates de `NOTICE` contre `cargo tree` (C5) vient avec son format, à
+  #224.
+- **Preuves négatives** (16 octobre 2026, Mac) : chaque contrôle échoue seul sur une
+  archive altérée.
+  - Fichier en trop et `NOTICE` retiré : C1.
+  - Binaire remplacé par `/usr/bin/curl` : C2, C3, C4 et C6.
+  - Construction sans `BATDETECT_VERSION` : C4.
+  - Un octet changé dans le CSV : C6.
+- **Mesure** (16 octobre 2026, Mac, `release`) : l'archive macOS pèse 3 511 951 octets,
+  dont un binaire de 8 130 992 octets. Le CSV des profils `ci` et `release` est
+  identique à l'octet.
+
 ### Windows
 
 Cible `x86_64-pc-windows-msvc`, construite seulement par la CI (tâches `rust-windows` et
 `rust-windows-slow`) :
-`mise` n'y tourne pas, et la construction pour un poste Windows viendra avec #93.
+`mise` n'y tourne pas. Le binaire Windows se construit et s'empaquette dans `package.yml`
+([Empaquetage](#empaquetage)) ; la construction sur un poste Windows est l'objet de #226.
 
 - **Script** : `packaging/ffmpeg-windows.sh`, en bash sous MSYS2, avec MSVC dans le
   `PATH`.
@@ -235,8 +275,10 @@ Cible `x86_64-pc-windows-msvc`, construite seulement par la CI (tâches `rust-wi
   - aucune archive `.a` ne reste ;
   - chaque `.lib` demande `LIBCMT` et jamais `MSVCRT` (`dumpbin -directives`).
 - **Fins de ligne** : l'image Windows extrait le texte en CRLF (`core.autocrlf`).
-  `.gitattributes` force `eol=lf` pour les scripts `.sh`, `ffmpeg-versions` et
-  `tests/fixtures/reference/**`.
+  `.gitattributes` force `eol=lf` pour les scripts `.sh`, `ffmpeg-versions`,
+  `tests/fixtures/reference/**`, et pour `LICENSE`, `packaging/NOTICE` et
+  `packaging/licenses/**`. Les textes du zip sont ainsi les mêmes que ceux des archives
+  macOS et Linux.
 - **Construction suivie à l'essai.** Au plus 5 essais par méthode étaient permis :
   FFmpeg construit par nous, puis vcpkg, puis un BtbN lié en dynamique sur décision de
   l'utilisateur. La première méthode a abouti au 2ᵉ essai (PR #132) :
@@ -545,6 +587,17 @@ Forme et tests :
   (fichier git ordinaire, fin de ligne `\n` forcée par `.gitattributes`). Le test
   `slow_extract` de `compare` le redemande au bit près sur macOS, Linux et Windows ; un
   écart remonte à l'utilisateur (voir `compare`).
+- `tests/fixtures/rust/video_092_original_3m24-4m05/tracks.csv` : le tableau des pistes
+  de l'extrait, contrôlé à l'octet par `check.sh` (C6) sur les trois systèmes.
+  - Il se refait depuis la racine du dépôt, en anglais, par le binaire `release` :
+    `verrou lourd env -u LANGUAGE -u LC_ALL -u LC_MESSAGES LANG=C target/release/batdetect tests/fixtures/video_092_original_3m24-4m05.mp4 -o out/csv`.
+    On copie ensuite `out/csv/video_092_original_3m24-4m05/video_092_original_3m24-4m05_tracks.csv`
+    à sa place.
+  - Ses lignes finissent en CRLF, comme tout tableau produit. `.gitattributes` le marque
+    `-text` : git garde donc ces octets tels quels.
+  - Il diffère de la référence v0.1.1 sur trois cellules : `path_px` de la piste 1
+    (912.3 au lieu de 912.7) et `peak_amplitude` des pistes 1 et 3 (110.2 au lieu de
+    110.3, 99.0 au lieu de 99.1).
 - Cinq petites fixtures, hors LFS, faites une fois par le ffmpeg 9.0.2 de Homebrew
   (libx264) et commitées :
   - `full_range.mp4` (1,9 Ko, `yuvj420p`, plage `pc`, lue jusqu'au bout depuis #150) :
@@ -2243,18 +2296,21 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
         arrêt brutal.
 
       `params.json` est réécrit, pas retiré. Le reste du dossier n'est pas touché.
-    - Un CSV n'est retiré que s'il a exactement notre forme (`table::is_tracks_table`) :
-      l'en-tête de 12 colonnes, puis des lignes de 12 champs séparés par des virgules,
-      en UTF-8, fins de ligne CRLF ou LF. Sinon il est laissé et rendu (`Kept`, avec
+    - Un CSV n'est retiré que s'il a exactement l'une de nos trois formes
+      (`table::is_tracks_table`), en UTF-8, fins de ligne CRLF ou LF : l'en-tête
+      français (BOM compris) puis des lignes de 13 champs séparés par des points-virgules,
+      l'en-tête anglais puis 13 champs séparés par des virgules, ou l'en-tête de 12
+      colonnes de la v0.1.1 puis 12 champs séparés par des virgules. Dans les deux formes
+      d'aujourd'hui, la case `verdict` est vide. Sinon il est laissé et rendu (`Kept`, avec
       `ours` vrai s'il porte le nom de la langue courante). Suffisent à le garder :
-      - un tableur qui réenregistre en point-virgule ;
-      - une colonne ajoutée ;
-      - une case remplie au-delà de la 12ᵉ ;
+      - un verdict écrit ;
+      - un tableur qui change de séparateur ou retire le BOM ;
+      - une colonne ajoutée, une case remplie au-delà de la dernière ;
       - un fichier vide ou qui n'est pas en UTF-8.
 
       Une entrée à ce nom qui n'est pas un fichier ordinaire (dossier, lien) est gardée
-      aussi. Un tableur en locale anglaise qui garde les 12 colonnes et les virgules
-      donne un CSV à notre forme : il est retiré. La mise de côté datée reste à #83.
+      aussi. Un tableur qui réenregistre le fichier à l'identique, verdict vide, donne un
+      CSV à notre forme : il est retiré. La mise de côté datée reste à #83.
     - Toutes les entrées sont classées, CSV lus, avant la première suppression : un CSV
       illisible arrête le ménage sans rien avoir retiré (`Error::Read`).
     - Un lien porte le nom d'un dossier d'extraits : il est retiré, sa cible non (sous
@@ -2269,19 +2325,26 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     - Sur un disque insensible à la casse (APFS, NTFS), un `vol_pistes.csv` annoté et la
       vidéo `VOL.mp4` ont le même chemin. Le ménage, qui compare les octets, ne
       reconnaît pas ce fichier ; le renommage refuse de l'écraser.
-  - `time` : `clock` écrit `m:ss.cc` à partir de centièmes entiers.
+  - `time` : `clock` écrit `h:mm:ss`, tronqué à la seconde comme le nom de l'extrait.
     - Le temps d'une image vient de son `pts` (`Timeline::seconds_by_pts`). Une image
       sans `pts` reprend celui de la dernière image qui en a un, plus un pas de cadence
       par image ; la cadence seule ne sert qu'en l'absence de tout `pts`.
     - La fin d'une plage est le début de l'image suivante.
     - Le temps n'est pas rapporté au premier `pts` : les 26 vidéos de la référence
       commencent à `pts` 0. Un `pts` négatif reste à décider avec #116.
-  - `table` : CSV des pistes, mêmes 12 colonnes et même sens que la v0.1.1 (en-têtes
-    anglais, virgule, point décimal, CRLF, sans guillemets, même contenu dans les deux
-    langues). La forme définitive reste à #84.
+  - `table` : CSV des pistes pour un tableur (#84), 13 colonnes dans l'ordre de
+    `table::COLUMNS` ([docs/02](02-methode.md#sorties)). Les en-têtes sont des textes
+    Fluent, donnés par le binaire à travers le trait `table::Headings` ; `files` ne les
+    connaît pas. Le ménage reconnaît nos tableaux à ces en-têtes : changer un libellé
+    dans un `.ftl` demande d'ajouter l'ancien en-tête comme une forme de plus, comme
+    `LEGACY_HEADER`.
+    - `dialect` porte la forme d'une langue : BOM, point-virgule et virgule décimale en
+      français ; ni BOM, virgule et point en anglais. CRLF dans les deux.
+    - Une case qui contient le séparateur ou un guillemet est mise entre guillemets ; les
+      cases des nombres et des temps n'en ont jamais.
     - Les nombres sont arrondis, puis écrits sous leur forme la plus courte, avec `.0`
-      pour un entier (`12.0`) ; `-0.0` devient `0.0`.
-    - `max_area_px` est entier, arrondi à mi-chemin vers le haut.
+      pour un entier (`12.0`, `12,0`) ; `-0.0` devient `0.0`.
+    - La surface max est entière, arrondie à mi-chemin vers le haut.
     - Durée = fin − début, au moins une image.
   - `params` : `Params<S>` écrit `video` (un chemin), `fps`, les réglages de l'appelant
     aplatis, `ignored_s` et `damaged_s` (au centième), `damaged_frames`, `version`
@@ -2293,13 +2356,15 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       `RenderConfig`) revient à l'appelant : #123 porte le test des clés, #103 celui des
       seuils de zoom (`cli/src/settings/tests.rs`).
     - Une clé `video` ou `fps` venue des réglages serait écrite en double.
-  - Mesure (11 octobre 2026), CSV écrit depuis les pistes de la référence :
-    - extrait : identique à l'octet au `tracks.csv` de la v0.1.1, aux fins de ligne près
-      (le dépôt garde la fixture en LF) ;
-    - 092 : 14 lignes. `id`, `hits`, `chord_px`, `path_px`, `peak_amplitude`,
-      `filled_frames` et `duration_s` sont égaux.
+  - Mesure (11 octobre 2026, relue par valeurs le 16 octobre 2026 avec #84), CSV écrit
+    depuis les pistes de la référence (`files/tests/committed_table.rs`) :
+    - extrait : mêmes valeurs que le `tracks.csv` de la v0.1.1, début et fin tronqués à
+      la seconde ;
+    - 092 : 14 lignes. Numéro, points, corde, chemin, amplitude, images comblées et durée
+      sont égaux.
     - Les temps sont plus tôt d'un ou deux centièmes : débuts décalés sur 11 pistes sur
-      14 (de 0:33.94 → 0:33.93 à 3:57.18 → 3:57.16), fins sur 12. La v0.1.1 divisait le
+      14 (de 33,94 → 33,93 s à 237,18 → 237,16 s), fins sur 12 ; tronquée à la seconde,
+      seule la fin de la piste 6 change (1:50.00 → 1:49.99, soit `0:01:49`). La v0.1.1 divisait le
       numéro d'image par la cadence moyenne (30,027 i/s), alors que les `pts` avancent
       de 333/10 000 s par image (30,03 i/s).
     - `speed_px_s` est plus haute de 0,1 à 0,2 px/s sur 10 pistes, jamais plus basse.

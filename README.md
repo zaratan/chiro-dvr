@@ -51,7 +51,7 @@ Depuis les sources, la commande se lance par `target/release/batdetect` ou par
 `batdetect --help` toutes les options avec leur valeur par défaut : c'est lui qui fait foi.
 
 - `-o`/`--out-dir`, `--zoom auto|all|none`, `--annotated`, `--max-tracks`, `--clip-margin`,
-  `--osd-region` (à répéter pour plusieurs zones) et `--skip-refused`.
+  `--osd-region` (à répéter pour plusieurs zones), `--skip-refused` et `--no-notify`.
 - Quatre réglages changent la détection : `--threshold`, `--min-hits`, `--max-blobs` et
   `--work-width`. Les autres réglages sont fixés et écrits dans `params.json`
   ([docs/02](docs/02-methode.md)).
@@ -66,6 +66,10 @@ puis un bilan de la soirée : pour chaque vidéo sa durée, ses pistes, le temps
 temps de calcul, puis les vidéos en échec avec ce qu'il faut faire. Le code de sortie n'est pas
 nul dès qu'une entrée est refusée ou qu'une vidéo échoue. Un lot interrompu (Ctrl-C) se refait
 en relançant la même commande.
+
+Sous macOS, quand la commande est lancée dans un terminal, la fin du lot s'annonce par une
+notification qui reprend la première ligne du bilan, et chaque dossier de résultats s'ouvre dans
+le Finder. `--no-notify` les éteint ; ni notification ni dossier ouvert quand la sortie est redirigée.
 
 Les jumelles doivent être fixes pendant l'enregistrement. Les moments où le cadre bouge
 sont repérés et ignorés (environ 1 s de part et d'autre du mouvement) : ils ne sont pas
@@ -101,16 +105,19 @@ jamais d'accent.
 
 Une fois la détection finie, chaque calcul efface, dans le dossier de la vidéo, les sorties des
 deux langues et celles des versions précédentes (`split/`, `<nom>.tracks.*`, `<nom>_boxes.mp4`).
-La langue du dernier calcul fait foi. Un CSV qui n'a pas la forme d'un tableau des pistes est
-laissé tel quel, et le bilan le dit.
+La langue du dernier calcul fait foi. Un CSV qui n'a pas la forme d'un tableau des pistes, ou dont
+une case `verdict` est remplie, est laissé tel quel, et le bilan le dit ; le nouveau tableau n'est
+alors pas écrit.
 
 - `<nom>_resume.png` : l'image résumé, toutes les trajectoires sur le fond médian de la
   vidéo. Au-delà de 10 min, une image par tranche de 10 min (`<nom>_resume_000m-010m.png`,
   …) ; au-delà de 20 pistes, l'image est coupée en parties (`<nom>_resume_1_sur_3.png`, …).
   Comment la lire : [lire l'image résumé](docs/lire-les-resultats.md#lire-limage-résumé) ;
-- `<nom>_pistes.csv` : une ligne par piste, avec `id`, `start`, `end`, `start_s`,
-  `duration_s`, `hits`, `chord_px`, `path_px`, `speed_px_s`, `max_area_px`,
-  `peak_amplitude` et `filled_frames` ([lire les résultats](docs/lire-les-resultats.md)) ;
+- `<nom>_pistes.csv` : une ligne par piste, pour un tableur réglé en français (point-virgule,
+  virgule décimale), avec `piste`, `début`, `fin`, `durée (s)`, une colonne `verdict` vide à
+  remplir, puis `points`, `corde (px)`, `chemin (px)`, `vitesse (px/s)`, `surface max (px)`,
+  `amplitude (niveaux de gris)`, `images comblées` et `début (s)`
+  ([lire les résultats](docs/lire-les-resultats.md)) ;
 - `params.json` : les réglages employés, la version et le FFmpeg lié ;
 - `extraits/` : un extrait par piste, nommé par numéro de piste et temps de début à la
   seconde (le numéro départage deux pistes de la même seconde ; deux chiffres, trois dès
@@ -152,10 +159,11 @@ connaissances du projet dans [docs/](docs/README.md).
 
 ### Publier une version
 
-Impossible avant #93 : `release.yml` refuse tout tag. Le CHANGELOG garde la section de la
-prochaine version, et `packaging/release-notes.sh` en tirera le texte de la release. Une fois
-la release publiée, le tap `zaratan/homebrew-bat-tools` ouvre la PR de mise à jour de la
-formule le lendemain (`bump-formulae.yml`, chaque jour à 6 h UTC).
+Mettre la version dans `Cargo.toml`, renommer la section `[Non publiée]` du CHANGELOG, puis
+pousser le tag `vX.Y.Z` sur `main` une fois la CI verte. `release.yml` contrôle le tag,
+construit et contrôle les trois archives et publie la release. Le détail est dans
+[docs/05](docs/05-outillage.md#distribution). Le lendemain, le tap
+`zaratan/homebrew-bat-tools` ouvre la PR de mise à jour de la formule.
 
 ## Licence
 

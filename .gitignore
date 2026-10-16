@@ -9,4 +9,5 @@ tests/fixtures/**/batdetect/
 .claude/tower-control/
 
 /target/
+/dist/
 /.ffmpeg

@@ -65,11 +65,15 @@ dossier choisi au lancement (`-o`). Sous une locale française : l'image résum�
 `extraits/` (`piste_01_0m04s.mp4`, et `piste_01_0m04s_zoom.mp4` pour l'extrait zoomé), et
 `params.json`, les réglages du calcul. Sous une autre locale, les mêmes fichiers en anglais
 (`_summary.png`, `_tracks.csv`, `clips/track_01_0m04s.mp4`). La liste complète est dans le
-[README](../README.md#fichiers-produits).
+[README](../README.md#fichiers-produits). Un tableur réglé en anglais affiche le début
+`0:00:04` comme `12:00:04 AM` : la valeur est juste (4 s), et un format Durée la montre en
+`0:00:04`.
 
 À la fin du calcul, la commande écrit un bilan de la soirée : pour chaque vidéo sa durée, son
 nombre de pistes, le temps non analysé et le temps de calcul, puis à part les vidéos qui ont
-trop de pistes, celles en échec avec ce qu'il faut faire, et les entrées refusées.
+trop de pistes, celles en échec avec ce qu'il faut faire, et les entrées refusées. Sous macOS,
+lancée dans un terminal, elle annonce aussi la fin par une notification et ouvre chaque dossier de
+résultats dans le Finder (`--no-notify` pour s'en passer).
 
 [techniques]: 10-logique-de-detection.md#les-techniques-en-simple
 [#9]: https://github.com/zaratan/chiro-dvr/issues/9
@@ -120,7 +124,8 @@ dessine pas.
    la tranche. L'extrait n'en a aucune : ces lignes manquent sur la capture.
 4. **La légende** : la pastille de chaque piste et son début, à la seconde inférieure, sur
    plusieurs colonnes s'il le faut. Le numéro est celui du tableau des pistes et du nom de
-   l'extrait (`piste_01_0m04s.mp4`) ; le début au centième est dans le tableau.
+   l'extrait (`piste_01_0m04s.mp4`) ; le début au centième est dans la colonne `début (s)` du
+   tableau.
 
 ### L'image
 
@@ -374,7 +379,7 @@ le tableau des pistes : plus elle est faible, plus la cible se voit mal à l'œi
 ### Corde
 
 La distance en ligne droite entre le début et la fin de la piste, en pixels de la vidéo
-d'origine, dans le tableau des pistes (`chord_px`). Une piste longue à petite corde a tourné
+d'origine, dans le tableau des pistes (`corde (px)`). Une piste longue à petite corde a tourné
 ou est revenue sur ses pas.
 
 ### Extrait
@@ -417,7 +422,7 @@ plus de 20 pistes est coupée en parties. Comment la lire, repère par repère :
 ### Images estimées
 
 Les images d'une piste sans point, entre deux points : la boîte de l'extrait y passe en trait
-fin, à une position estimée. Le tableau des pistes en donne le nombre (`filled_frames`).
+fin, à une position estimée. Le tableau des pistes en donne le nombre (`images comblées`).
 
 ### Passage
 

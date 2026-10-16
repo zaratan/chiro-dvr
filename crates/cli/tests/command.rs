@@ -74,7 +74,7 @@ fn a_video_gives_its_tracks_table_and_params_in_a_folder_named_after_it() {
     assert!(output.status.success(), "{}", text(&output.stderr));
     let table = fs::read_to_string(out.join("flight").join("flight_pistes.csv")).unwrap();
     assert_eq!(table.lines().count(), 2, "{table}");
-    assert!(table.starts_with("id,start,end,start_s,duration_s,hits,"));
+    assert!(table.starts_with("\u{feff}piste;début;fin;durée (s);verdict;points;corde (px);"));
     assert!(out.join("flight").join("params.json").is_file());
     assert!(
         text(&output.stdout).starts_with("Bilan\u{a0}: 1 vidéo, 1 réussie\n"),
@@ -84,7 +84,7 @@ fn a_video_gives_its_tracks_table_and_params_in_a_folder_named_after_it() {
 }
 
 #[test]
-fn outside_a_french_locale_the_table_is_named_in_english_and_holds_the_same_bytes() {
+fn outside_a_french_locale_the_table_is_named_in_english_and_holds_the_same_values_with_commas_and_points() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let (english, french) = (root.path().join("en"), root.path().join("fr"));
     let output = run(&[&videos.join("flight.mp4"), Path::new("-o"), &english], "C");
@@ -96,14 +96,25 @@ fn outside_a_french_locale_the_table_is_named_in_english_and_holds_the_same_byte
     );
     let output = run(&[&videos.join("flight.mp4"), Path::new("-o"), &french], "fr_FR.UTF-8");
     assert!(output.status.success(), "{}", text(&output.stderr));
-    let read = |path: PathBuf| fs::read(path).unwrap();
-    assert_eq!(
+    let read = |path: PathBuf| fs::read_to_string(path).unwrap();
+    let (english_table, french_table) = (
         read(english.join("flight").join("flight_tracks.csv")),
-        read(french.join("flight").join("flight_pistes.csv"))
+        read(french.join("flight").join("flight_pistes.csv")),
     );
+    assert!(
+        english_table.starts_with("track,start,end,duration (s),verdict,points,"),
+        "{english_table}"
+    );
+    let rows = |table: &str| table.lines().skip(1).map(str::to_owned).collect::<Vec<_>>();
+    let french_rows: Vec<String> = rows(&french_table)
+        .iter()
+        .map(|row| row.replace(',', ".").replace(';', ","))
+        .collect();
+    assert_eq!(rows(&english_table), french_rows);
+    assert_eq!(rows(&english_table).len(), 1);
     assert_eq!(
-        read(english.join("flight").join("params.json")),
-        read(french.join("flight").join("params.json"))
+        fs::read(english.join("flight").join("params.json")).unwrap(),
+        fs::read(french.join("flight").join("params.json")).unwrap()
     );
 }
 
@@ -675,6 +686,25 @@ fn a_table_annotated_by_hand_is_left_and_named_in_the_summary_in_the_language_of
     );
     assert_eq!(fs::read_to_string(folder.join("flight_pistes.csv")).unwrap(), annotated);
     assert!(folder.join("flight_tracks.csv").is_file());
+}
+
+#[test]
+fn a_verdict_written_in_the_table_of_an_earlier_run_is_left_as_it_is_by_the_next_run() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    let table = out.join("flight").join("flight_pistes.csv");
+    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let annotated = fs::read_to_string(&table).unwrap().replacen(";;", ";oui;", 1);
+    fs::write(&table, &annotated).unwrap();
+    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    assert!(
+        text(&output.stdout).contains("Tableau laissé tel quel\u{a0}:"),
+        "{}",
+        text(&output.stdout)
+    );
+    assert_eq!(fs::read_to_string(&table).unwrap(), annotated);
 }
 
 #[cfg(unix)]
