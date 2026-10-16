@@ -212,6 +212,7 @@ mise run package:check    # contrôles du livrable sur cette archive
   - Binaire remplacé par `/usr/bin/curl` : C2, C3, C4 et C6.
   - Construction sans `BATDETECT_VERSION` : C4.
   - Un octet changé dans le CSV : C6.
+  - Sous-système 11.0 posé par `editbin` sur une copie de l'archive Windows (16 octobre 2026, CI de la PR #261) : `FAIL C3-floor: subsystem 11.00, os 6.00, above 10.00`, et C4 et C6, le chargeur refusant le binaire (`Exec format error`) ; l'archive intacte donne `ok C3-floor (subsystem 6.00, os 6.00)`.
 - **Mesure** (16 octobre 2026, Mac, `release`) : l'archive macOS pèse 3 511 951 octets,
   dont un binaire de 8 130 992 octets. Le CSV des profils `ci` et `release` est
   identique à l'octet.
