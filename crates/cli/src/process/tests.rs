@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use engine::config::DetectConfig;
 use engine::detection::detect;
-use files::names::{Names, params_json, partial_path};
+use files::names::{Names, names_the_video, params_json};
 use files::params::Finish;
 use files::previous::{Kept, Reason};
 use files::table::{Column, Headings};
@@ -338,7 +338,7 @@ fn the_outputs_of_an_earlier_run_in_any_language_are_replaced_by_those_of_this_r
         fs::write(job.dest.join(earlier), OUR_HEADER).unwrap();
     }
     let french = Names::new(Language::French).annotated_video(&job.dest, job.video.file_stem().unwrap());
-    fs::write(encode::partial_path(&french).unwrap(), "").unwrap();
+    encode::partial_file(&french).unwrap().unwrap().keep().unwrap();
     let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
     assert_eq!(
         left_in(&job.dest),
@@ -426,9 +426,13 @@ fn a_detection_that_fails_leaves_the_results_of_an_earlier_run() {
 }
 
 #[test]
-fn an_encoded_video_hides_its_partial_file_under_the_name_the_cleanup_removes() {
-    let video = Path::new("out/flight/flight_annotee.mp4");
-    assert_eq!(encode::partial_path(video), Some(partial_path(video)));
+fn an_encoded_video_hides_its_partial_file_under_a_name_the_cleanup_removes() {
+    let folder = tempfile::tempdir().unwrap();
+    let partial = encode::partial_file(&folder.path().join("flight_annotee.mp4"))
+        .unwrap()
+        .unwrap();
+    let name = partial.file_name().unwrap().to_str().unwrap();
+    assert!(names_the_video(name.as_bytes(), b"flight"), "{name}");
 }
 
 #[derive(Debug, Default)]
@@ -656,7 +660,7 @@ fn an_earlier_params_json_is_gone_from_the_summary_on_and_the_new_one_says_done_
     assert_eq!(params["length_s"], processed.extent.length_s);
     assert_eq!(params["video_bytes"], fs::metadata(&job.video).unwrap().len());
     assert_eq!(params["language"], "en");
-    assert!(!partial_path(&params_json(&job.dest)).exists());
+    assert!(left_in(&job.dest).iter().all(|name| !name.ends_with(".partial")));
 }
 
 #[test]

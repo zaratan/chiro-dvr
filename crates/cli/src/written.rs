@@ -6,8 +6,7 @@ use std::path::{Path, PathBuf};
 
 use files::error::Error;
 use files::failures::FailureRecord;
-use files::names::partial_path;
-use files::names::{RESULTS_FOLDER, composed, results_page};
+use files::names::{RESULTS_FOLDER, composed, partial_file, results_page};
 use files::params::Finish;
 use files::results::{Finished, Found, read_results};
 use files::table::Headings;
@@ -15,7 +14,6 @@ use jiff::Timestamp;
 use jiff::tz::TimeZone;
 use page::labels::Labels;
 use page::model::{Date, Entry, Failed, Page, Summary, TooMany, Track, Video};
-use tempfile::TempPath;
 use types::language::Language;
 
 use crate::failure::REFERS_TO_DETAIL;
@@ -80,7 +78,7 @@ fn replace(target: &Path, html: &str) -> Result<(), Error> {
         path: target.to_path_buf(),
         source,
     };
-    let partial = TempPath::try_from_path(partial_path(target)).map_err(failed)?;
+    let partial = partial_file(target).map_err(failed)?;
     File::create(&partial)
         .and_then(|mut file| file.write_all(html.as_bytes()))
         .map_err(failed)?;

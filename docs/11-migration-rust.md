@@ -1119,9 +1119,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     telle quelle par le muxeur) ; chaque paquet reprend le `pts` de son image, `dts`
     égal (pas d'images B, sinon `Reordered`), et dure jusqu'à l'image suivante, la
     dernière un pas de la cadence de l'encodeur (sur l'extrait, la durée égale celle de
-    la source : 40,959 s). Un premier `pts` non nul est gardé. `partial_path` donne le nom temporaire d'une vidéo
-    (un test de `cli` l'exige égal à `files::names::partial_path`, que `media` ne peut pas
-    appeler) ; `StreamInfo::duration` la durée annoncée du flux.
+    la source : 40,959 s). Un premier `pts` non nul est gardé. `partial_file` crée le
+    fichier temporaire d'une vidéo sous un nom unique (un test de `cli` exige que le
+    ménage de `files::names`, que `media` ne peut pas appeler, le reconnaisse) ;
+    `StreamInfo::duration` la durée annoncée du flux.
     Erreurs de destination (`concerns_the_destination`) : chemin refusé, temporaire non
     créé, fichier non ouvert (`OpenFile`), renommage raté ; une écriture refusée
     (`Writing`) n'en est pas une, pour que la bascule vers openh264 joue.
@@ -1334,7 +1335,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       de 2 rayons : v0.1.1 266 recouvrements, portage fidèle 349, placement retenu 0 ;
       aucune pastille hors cadre. 121 pastilles s'écartent de leur piste de plus d'un
       rayon, presque toutes sur les vidéos denses ; la plus éloignée est à 304 px (096).
-  - PNG écrit dans `.<nom>.partial` à côté (`files::names::partial_path`, #115), puis
+  - PNG écrit dans son partiel à côté (`files::names::partial_file`, #115, #245), puis
     renommé. Une erreur d'entrée-sortie de l'encodeur PNG remonte en `Error::Write` avec
     son `io::Error` (#64) : `png` n'expose sa cause que par `cause()`, et un disque plein
     se perdrait ; droits ordinaires du
@@ -2097,8 +2098,9 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       sous `--force`, #70) sur la sortie d'erreur et sort en 130,
       même si la ligne ne s'écrit pas, en gardant la sortie d'erreur jusqu'à la sortie.
       `Status` retient la vidéo en cours. Rien
-      d'autre ne se fait : un `.partial` laissé par l'interruption est retiré par le
-      ménage de la relance (#115). La reprise d'un lot interrompu est #70.
+      d'autre ne se fait : un `.partial` laissé par l'interruption dans le dossier d'une
+      vidéo est retiré par le ménage de la relance (#115), les autres restent
+      (`names::partial_file`). La reprise d'un lot interrompu est #70.
     - Les lignes d'événement (extrait refait, cause d'un échec) s'écrivent
       au-dessus de cette dernière ligne.
     - Le mode se choisit par `std::io::IsTerminal` sur la sortie d'erreur.
@@ -2433,8 +2435,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       - les vidéos annotées ;
       - les images résumé, avec leur période (`_000m-010m`, 3 chiffres au moins) et
         leur partie (`_3_sur_8`, `_3_of_8`) ;
-      - les `.<nom>.partial` des vidéos annotées, des images et des CSV, que laisse un
-        arrêt brutal.
+      - les partiels des vidéos annotées, des images, des CSV et de `params.json`, que laisse un arrêt brutal, sous les deux formes de `names::partial_file`.
 
       `params.json` est réécrit, pas retiré. Le reste du dossier n'est pas touché.
     - Un CSV n'est retiré que s'il a exactement l'une de nos trois formes
@@ -2476,10 +2477,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       ménage sans rien avoir retiré (`Error::Read`).
     - Un lien porte le nom d'un dossier d'extraits : il est retiré, sa cible non (sous
       Windows, un lien de dossier par `remove_dir`).
-  - `names::partial_path` est la seule forme `.<nom>.partial` des fichiers écrits :
-    `table` et `summary::image_file` l'emploient ; celle de `media::path` lui est liée
-    par un test de `cli`.
-  - `table::write_tracks_csv` écrit dans `.<nom>.partial`, puis le renomme sans jamais
+  - `names::partial_file` crée le partiel de tout fichier écrit : un fichier vide `.<nom>.<6 lettres ou chiffres>.partial` à côté du fichier final, au nom tiré au hasard et créé de façon exclusive (`tempfile::Builder::make_in` et `File::create_new`, #245). Deux écrivains du même fichier, comme le fil du Ctrl-C qui réécrit la page pendant que le fil principal l'écrit, ou deux `batdetect -o` sur le même dossier, ont donc chacun le leur : le dernier renommage gagne et chaque fichier final est entier, sauf pour le tableau des pistes, où le premier gagne (voir `table::write_tracks_csv`). Un chemin sans nom de fichier est refusé (`InvalidInput`). `table`, `params`, `failures`, `summary::image_file` et la page de `cli` l'emploient ; `media::path` a la même forme, liée par un test de `cli`. Le ménage reconnaît cette forme, quel que soit le mot de 6 lettres ou chiffres (`.v_pistes.csv.backup.partial` compris), et l'ancienne, `.<nom>.partial`, laissée par la 0.2.0. `tempfile_in` n'est pas employé : il crée le fichier en `0600`, que le fichier final garderait. Un partiel laissé par un arrêt brutal à la racine (page) ou dans `.batdetect/echecs/` n'est plus écrasé au passage suivant : il reste, caché.
+  - `table::write_tracks_csv` écrit dans son partiel, puis le renomme sans jamais
     écraser un fichier présent (`exclusive::rename`, sinon `Error::Taken`).
     - Le renommage exclusif (`TempPath::persist_noclobber`) passe en premier. Sur toute
       autre erreur que « nom déjà pris », dont le refus de macOS sur exFAT (#236), le nom
@@ -2730,8 +2729,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       d'erreur nomme la vidéo, et le lancement suivant vide le dossier.
   - Encodeurs (`encoders`) : VideoToolbox pour chaque groupe tant qu'il n'est pas écarté,
     sinon openh264. openh264 pose une image-clé par seconde environ
-    (`with_key_interval(round(cadence))`). Un fichier s'écrit sous `.<nom>.partial`,
-    créé par `File::create` (droits habituels de l'utilisateur, umask compris), puis
+    (`with_key_interval(round(cadence))`). Un fichier s'écrit dans son partiel au nom unique,
+    créé par `File::create_new` (droits habituels de l'utilisateur, umask compris), puis
     renommé ; il n'en reste aucun après une erreur.
   - Reprise : quand VideoToolbox casse en cours d'écriture (hors erreur de destination),
     le groupe entier est noté, VideoToolbox est écarté pour la suite de la vidéo, et le
