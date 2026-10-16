@@ -17,11 +17,12 @@ use std::num::NonZeroU32;
 use std::ops::Range;
 
 use draw::canvas::{self, Canvas, PixelBox};
+use draw::color::Rgb;
 use draw::style::style_for;
 use draw::text::{self, Typeface};
 use files::names::Part;
 
-use crate::compose::{Pen, backdrop, compose};
+use crate::compose::{Pen, backdrop, compose, palette_color};
 use crate::header::Labels;
 use crate::layout::{Summary, layout};
 use crate::placement::Frame;
@@ -42,6 +43,13 @@ pub struct Page {
     pub minutes: Option<Range<u32>>,
     pub part: Option<Part>,
     pub canvas: Canvas,
+    pub painted: Vec<Painted>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Painted {
+    pub track: usize,
+    pub color: Rgb,
 }
 
 pub fn pages(
@@ -75,6 +83,14 @@ pub fn pages(
         .map(|page| {
             Ok(Page {
                 canvas: compose(&backdrop, &page, pen).map_err(Error::Canvas)?,
+                painted: page
+                    .marks
+                    .iter()
+                    .map(|mark| Painted {
+                        track: mark.track.id(),
+                        color: palette_color(mark.color),
+                    })
+                    .collect(),
                 minutes: page.minutes,
                 part: page.part,
             })

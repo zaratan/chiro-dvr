@@ -121,7 +121,9 @@ crates depuis #100, dépendances à sens unique :
   (`location`, dont `reference_video` pour les vidéos de la référence), lecture et écriture de la
   référence v0.1.1 et de ses bancs (`bench`), appariement des détections et des pistes.
 - `engine` → `media`, `types` (#116), avec la couture du banc (`detect_injected`) ;
-  `tracking` → `types` (#120) ; `files` → `types` (#122).
+  `tracking` → `types` (#120) ; `files` → `types` (#122) ;
+  `params.json`, marque d'un dossier terminé : `process` l'écrit en dernier (`files::params`,
+  par `.partial`), le ménage (`files::previous`) l'efface en premier (#66).
 - `draw` : dessin pur sur une toile RGBA opaque, police Roboto embarquée, palette et tailles ; ne dépend d'aucune crate du workspace.
 - `render` → `media`, `draw`, `types` (#110, #112) : images des extraits choisies par `pts`
   (`source`), reprise sur la dernière image-clé saine, un seul fil de décodage sur une plage abîmée ;
@@ -140,8 +142,8 @@ crates depuis #100, dépendances à sens unique :
   `summary`, `render`, `draw`, `media`, `types`, et `compare` pour ses tests (#184) ;
   `options` (réglages de la commande), `process` (une vidéo de bout en bout ; `tracked` en
   est le suivi, partagé avec les tests figés), `consent` (question avant de traiter les vidéos
-  valides quand des entrées sont refusées, `--skip-refused`), `language`, `overview` (image
-  résumé), `settings` (réglages de `params.json`),
+  valides quand des entrées sont refusées, `--skip-refused`), `language`, `listing` (pistes de `params.json` : temps, couleur, extraits écrits, #66),
+  `overview` (image résumé), `settings` (réglages de `params.json`),
   `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), `writable`
   (sonde d'écriture de chaque dossier de sortie avant tout calcul, #86), `access` (table
   fermée des raisons d'un chemin refusé, sans texte, #55), `jobs` (vidéos et dossiers de

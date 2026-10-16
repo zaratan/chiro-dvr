@@ -56,8 +56,8 @@ fn the_outputs_of_both_languages_and_of_the_old_names_are_removed_with_their_par
 }
 
 #[test]
-fn the_rest_of_the_folder_is_left() {
-    let others = ["params.json", "notes.txt", "w_pistes.csv", "v_summary_3_sur_8.png"];
+fn the_files_of_the_user_of_other_videos_and_named_almost_like_ours_are_left() {
+    let others = ["notes.txt", "w_pistes.csv", "v_summary_3_sur_8.png", "w_params.json"];
     let dest = folder_with(&others, &["autres"]);
     cleaned(dest.path());
     assert_eq!(
@@ -65,11 +65,18 @@ fn the_rest_of_the_folder_is_left() {
         [
             "autres",
             "notes.txt",
-            "params.json",
             "v_summary_3_sur_8.png",
+            "w_params.json",
             "w_pistes.csv"
         ]
     );
+}
+
+#[test]
+fn the_params_file_that_marks_a_finished_folder_is_removed_with_its_partial_file() {
+    let dest = folder_with(&["params.json", ".params.json.partial", "notes.txt"], &[]);
+    assert_eq!(cleaned(dest.path()), []);
+    assert_eq!(left_in(dest.path()), ["notes.txt"]);
 }
 
 #[test]
@@ -157,11 +164,11 @@ fn a_link_named_like_the_clips_folder_is_removed_without_touching_its_target() {
 
 #[cfg(unix)]
 #[test]
-fn a_table_that_cannot_be_read_stops_the_cleanup_before_anything_is_removed() {
+fn a_table_that_cannot_be_read_stops_the_cleanup_after_the_params_file_and_before_any_output() {
     use std::os::unix::fs::PermissionsExt;
 
     use crate::error::Error;
-    let dest = folder_with(&["v_pistes.csv", "v_resume.png"], &["clips"]);
+    let dest = folder_with(&["params.json", "v_pistes.csv", "v_resume.png"], &["clips"]);
     let table = dest.path().join("v_pistes.csv");
     fs::set_permissions(&table, fs::Permissions::from_mode(0o000)).unwrap();
     let error = remove_previous_outputs(dest.path(), OsStr::new("v"), Names::new(Language::French)).unwrap_err();

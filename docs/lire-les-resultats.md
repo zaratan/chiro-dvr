@@ -63,7 +63,9 @@ Pour chaque vidéo, un dossier à son nom, dans `batdetect/` à côté des vidé
 dossier choisi au lancement (`-o`). Sous une locale française : l'image résumé
 `<vidéo>_resume.png`, le tableau des pistes `<vidéo>_pistes.csv`, les extraits dans
 `extraits/` (`piste_01_0m04s.mp4`, et `piste_01_0m04s_zoom.mp4` pour l'extrait zoomé), et
-`params.json`, les réglages du calcul. Sous une autre locale, les mêmes fichiers en anglais
+`params.json`, les réglages et le bilan du calcul. `params.json` s'écrit en dernier : un
+dossier sans lui n'est pas terminé (calcul interrompu, ou vidéo en échec autrement qu'au-delà
+de `--max-tracks`). Sous une autre locale, les mêmes fichiers en anglais
 (`_summary.png`, `_tracks.csv`, `clips/track_01_0m04s.mp4`). La liste complète est dans le
 [README](../README.md#fichiers-produits).
 

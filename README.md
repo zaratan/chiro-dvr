@@ -103,8 +103,9 @@ jamais d'accent.
 | Vidéo annotée | `<nom>_annotee.mp4` | `<nom>_annotated.mp4` |
 | Réglages | `params.json` | `params.json` |
 
-Une fois la détection finie, chaque calcul efface, dans le dossier de la vidéo, les sorties des
-deux langues et celles des versions précédentes (`split/`, `<nom>.tracks.*`, `<nom>_boxes.mp4`).
+Une fois la détection finie, chaque calcul efface, dans le dossier de la vidéo, `params.json`
+d'abord, puis les sorties des deux langues et celles des versions précédentes (`split/`,
+`<nom>.tracks.*`, `<nom>_boxes.mp4`).
 La langue du dernier calcul fait foi. Un CSV qui n'a pas la forme d'un tableau des pistes est
 laissé tel quel, et le bilan le dit.
 
@@ -117,7 +118,16 @@ laissé tel quel, et le bilan le dit.
 - `<nom>_pistes.csv` : une ligne par piste, avec `id`, `start`, `end`, `start_s`,
   `duration_s`, `hits`, `chord_px`, `path_px`, `speed_px_s`, `max_area_px`,
   `peak_amplitude` et `filled_frames` ([lire les résultats](docs/lire-les-resultats.md)) ;
-- `params.json` : les réglages employés, la version et le FFmpeg lié ;
+- `params.json` : écrit en dernier, une fois les extraits finis : un dossier sans `params.json`
+  n'est pas terminé (calcul interrompu, ou vidéo en échec autrement qu'au-delà de
+  `--max-tracks`). Il donne les réglages employés, la version et le FFmpeg lié, l'état (`done`,
+  ou `too_many_tracks` au-delà de `--max-tracks`), le nombre de pistes, la durée, le temps non
+  analysé et le temps de calcul (`track_count`, `length_s`, `not_analysed_s`, `elapsed_s`, en
+  secondes non arrondies), la taille de la vidéo en octets (`video_bytes`), la langue des noms
+  (`language`, `fr` ou `en`) et l'heure locale de la fin du calcul (`date`). `tracks` liste les
+  pistes : numéro (`id`), début et durée non arrondis (`start_s`, `duration_s`), couleur de la
+  trajectoire sur l'image résumé en RVB (`color`), et chemins de l'extrait et du zoom écrits,
+  relatifs au dossier de la vidéo (`clip`, `zoom`, `null` quand il n'y en a pas) ;
 - `extraits/` : un extrait par piste, nommé par numéro de piste et temps de début à la
   seconde (le numéro départage deux pistes de la même seconde ; deux chiffres, trois dès
   100 pistes, pour que le Finder les range dans l'ordre), avec une boîte, un numéro et la

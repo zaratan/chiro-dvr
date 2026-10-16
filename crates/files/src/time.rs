@@ -1,6 +1,7 @@
 use types::frame::FrameIndex;
 use types::span::Span;
 use types::timeline::Timeline;
+use types::track::Track;
 
 #[cfg(test)]
 mod tests;
@@ -34,6 +35,12 @@ pub fn frame_seconds(timeline: &Timeline, frame: FrameIndex) -> f64 {
         Some((index, seconds)) => seconds + index.abs_diff(frame) as f64 * frame_duration(timeline),
         None => timeline.seconds_by_rate(frame),
     }
+}
+
+pub fn track_seconds(track: &Track, timeline: &Timeline) -> [f64; 2] {
+    let start = frame_seconds(timeline, track.first().frame);
+    let end = frame_seconds(timeline, track.last().frame);
+    [start, (end - start).max(frame_duration(timeline))]
 }
 
 pub(crate) fn frame_duration(timeline: &Timeline) -> f64 {

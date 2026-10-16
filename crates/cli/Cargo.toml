@@ -16,6 +16,7 @@ draw.workspace = true
 engine.workspace = true
 files.workspace = true
 fluent-bundle.workspace = true
+jiff.workspace = true
 media.workspace = true
 render.workspace = true
 serde.workspace = true

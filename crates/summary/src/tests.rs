@@ -1,7 +1,7 @@
 use draw::canvas::Canvas;
-use draw::color::Rgb;
+use draw::color::{PALETTE, Rgb};
 
-use super::pages;
+use super::{Painted, pages};
 use crate::layout::Summary;
 use crate::testing::{DebugLabels, timeline, track};
 
@@ -57,4 +57,25 @@ fn a_decomposed_accented_video_name_is_written_with_the_same_pixels_as_the_compo
     assert_eq!(composed, decomposed);
     let plain = pages(&summary("video_ete", &[], &timeline), gray(), &[], &DebugLabels).unwrap();
     assert_ne!(composed, plain);
+}
+
+#[test]
+fn each_track_is_painted_once_under_its_number_in_a_palette_colour_found_on_the_image() {
+    let tracks = [
+        track(3, 0, &[[40.0, 120.0], [120.0, 120.0], [200.0, 120.0]]),
+        track(7, 5, &[[40.0, 130.0], [120.0, 130.0], [200.0, 130.0]]),
+    ];
+    let timeline = timeline(40);
+    let written = pages(&summary("v", &tracks, &timeline), gray(), &[], &DebugLabels).unwrap();
+    let painted: Vec<Painted> = written.iter().flat_map(|page| page.painted.clone()).collect();
+    assert_eq!(painted.iter().map(|one| one.track).collect::<Vec<_>>(), [3, 7]);
+    assert_ne!(painted[0].color, painted[1].color);
+    for Painted { color, .. } in painted {
+        assert!(PALETTE.contains(&color), "{color:?}");
+        let pixel = [color.red, color.green, color.blue, 255];
+        assert!(
+            written[0].canvas.rgba().as_chunks::<4>().0.contains(&pixel),
+            "{color:?}"
+        );
+    }
 }

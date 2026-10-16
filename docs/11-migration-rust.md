@@ -286,7 +286,9 @@ Cible `x86_64-pc-windows-msvc`, construite seulement par la CI (tâches `rust-wi
   BSD-2-Clause, BSD-3-Clause, ISC, Unicode-3.0, WTFPL (ffmpeg-next, ffmpeg-sys-next) et
   Zlib. La liste a été mesurée avec toutes les dépendances déclarées, différées
   comprises. 0BSD, LGPL-2.1 et Unlicense n'apparaissent que comme alternatives dans une
-  expression « OU » qui contient aussi MIT (adler2, r-efi, memchr).
+  expression « OU » qui contient aussi MIT (adler2, r-efi, memchr, et jiff et ses crates
+  `jiff-*`, #66 ; sous Windows, `jiff-tzdb` embarque la base des fuseaux horaires de l'IANA,
+  du domaine public).
 
 ## Lints
 

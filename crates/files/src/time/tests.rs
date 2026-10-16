@@ -1,10 +1,12 @@
+use types::detection::Detection;
 use types::frame::{FrameIndex, Pts};
 use types::rate::FrameRate;
 use types::rational::Rational;
 use types::span::Span;
 use types::timeline::Timeline;
+use types::track::Track;
 
-use super::{clock, frame_duration, frame_seconds, hundredths, span_seconds};
+use super::{clock, frame_duration, frame_seconds, hundredths, span_seconds, track_seconds};
 
 fn timeline(pts: Vec<Option<Pts>>) -> Timeline {
     let rate = FrameRate::new(Rational::new(10_000, 333).unwrap()).unwrap();
@@ -84,4 +86,45 @@ fn a_span_over_frames_without_pts_stays_in_order() {
     let [start, end] = span_seconds(span(2, 3), &line);
     assert!(start < end);
     assert!((end - 17.0 * 0.0333).abs() < 1e-9);
+}
+
+fn still_on(frames: &[usize]) -> Track {
+    let points = frames
+        .iter()
+        .map(|&frame| Detection {
+            frame: FrameIndex::new(frame),
+            x: 10.0,
+            y: 10.0,
+            left: 9.0,
+            top: 9.0,
+            width: 2.0,
+            height: 2.0,
+            area: 4.0,
+            amplitude: 30.0,
+        })
+        .collect();
+    Track::new(1, points).unwrap()
+}
+
+#[test]
+fn a_track_starts_at_its_first_frame_and_lasts_until_its_last_one_as_the_table_writes_it() {
+    let directory = tempfile::tempdir().unwrap();
+    let csv = directory.path().join("v_tracks.csv");
+    let track = still_on(&[30, 31, 45]);
+    let timeline = regular(100);
+    crate::table::write_tracks_csv(&csv, std::slice::from_ref(&track), &timeline).unwrap();
+    let table = std::fs::read_to_string(&csv).unwrap();
+    let cells: Vec<&str> = table.lines().nth(1).unwrap().split(',').collect();
+    let [start, duration] = track_seconds(&track, &timeline);
+    assert_eq!(
+        [hundredths(start), hundredths(duration)],
+        [cells[3].parse::<f64>().unwrap(), cells[4].parse::<f64>().unwrap()]
+    );
+}
+
+#[test]
+fn a_track_seen_on_a_single_frame_lasts_one_frame() {
+    let timeline = regular(100);
+    let [_, duration] = track_seconds(&still_on(&[12]), &timeline);
+    assert_eq!(duration, frame_duration(&timeline));
 }
