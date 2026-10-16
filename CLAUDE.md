@@ -69,7 +69,7 @@ qu'un gros fichier à plusieurs rôles.
   `README.md`. Elle ne se réenregistre que depuis le tag `python-final` (`tools/reference_v011.py`, qui
   exige `src/` identique à `v0.1.1`).
 - `packaging/` : `NOTICE` et `GPL-3.0.txt` décrivent le binaire v0.1.1 publié, jusqu'à #93.
-  `release.yml` refuse toute publication avant #93.
+  `release.yml` publie sur un tag `vX.Y.Z`, derrière les gardes de `release-guards.sh` (docs/05).
 - Toutes les coordonnées, distances et surfaces hors de la détection sont en pixels de la
   vidéo d'origine ; seule la détection travaille à `work_width`.
 

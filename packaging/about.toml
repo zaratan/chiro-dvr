@@ -1,0 +1,50 @@
+accepted = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-3.0",
+  "WTFPL",
+  "Zlib",
+]
+targets = ["aarch64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+private = { ignore = true }
+
+[type-map.clarify]
+license = "MIT OR Apache-2.0"
+[[type-map.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "b47fb719a40d9ef9c8e3be525c41ce129c46d613cfc96a91bddd7c19dcebf7a1"
+
+[windows-sys.clarify]
+license = "MIT OR Apache-2.0"
+[[windows-sys.clarify.files]]
+path = "license-mit"
+license = "MIT"
+checksum = "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+
+[windows-link.clarify]
+license = "MIT OR Apache-2.0"
+[[windows-link.clarify.files]]
+path = "license-mit"
+license = "MIT"
+checksum = "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+
+[fluent-langneg.clarify]
+license = "Apache-2.0 OR MIT"
+[[fluent-langneg.clarify.git]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "016fcc02048817d628b04b140c54db290fd9d29a5e8a55b77871194e810716ac"
+
+[intl_pluralrules.clarify]
+license = "Apache-2.0 OR MIT"
+[[intl_pluralrules.clarify.git]]
+path = "intl_pluralrules/LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
