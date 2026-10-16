@@ -11,6 +11,7 @@ use batdetect::jobs::Job;
 use batdetect::options::Options;
 use batdetect::process::{Versions, Wording, process};
 use batdetect::progress::Silent;
+use files::table::{Column, Headings};
 use media::decode::Threads;
 use summary::header::{Band, HeaderLine, Labels};
 use types::language::Language;
@@ -31,6 +32,12 @@ impl Labels for Plain {
 
     fn band(&self, band: Band) -> String {
         format!("{band:?}")
+    }
+}
+
+impl Headings for Plain {
+    fn heading(&self, column: Column, _language: Language) -> String {
+        format!("{column:?}")
     }
 }
 

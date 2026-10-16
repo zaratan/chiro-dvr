@@ -6,18 +6,17 @@ use types::track::Track;
 #[cfg(test)]
 mod tests;
 
-const CENTISECONDS_PER_SECOND: u64 = 100;
-const CENTISECONDS_PER_MINUTE: u64 = 6000;
+const SECONDS_PER_MINUTE: u64 = 60;
+const SECONDS_PER_HOUR: u64 = 3600;
 const HUNDREDTHS: f64 = 100.0;
 
 pub fn clock(seconds: f64) -> String {
-    let centiseconds = (seconds.max(0.0) * HUNDREDTHS).round() as u64;
-    let minutes = centiseconds / CENTISECONDS_PER_MINUTE;
-    let rest = centiseconds % CENTISECONDS_PER_MINUTE;
+    let whole = seconds.max(0.0).floor() as u64;
     format!(
-        "{minutes}:{:02}.{:02}",
-        rest / CENTISECONDS_PER_SECOND,
-        rest % CENTISECONDS_PER_SECOND
+        "{}:{:02}:{:02}",
+        whole / SECONDS_PER_HOUR,
+        whole % SECONDS_PER_HOUR / SECONDS_PER_MINUTE,
+        whole % SECONDS_PER_MINUTE
     )
 }
 

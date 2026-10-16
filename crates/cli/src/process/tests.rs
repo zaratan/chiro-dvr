@@ -9,6 +9,7 @@ use engine::detection::detect;
 use files::names::{Names, params_json, partial_path};
 use files::params::Finish;
 use files::previous::Kept;
+use files::table::{Column, Headings};
 use media::decode::{Decoder, Threads};
 use media::encode::fallback::{self, Fallback};
 use media::encode::{self, Codec};
@@ -128,6 +129,12 @@ impl Labels for Plain {
 
     fn band(&self, band: Band) -> String {
         format!("{band:?}")
+    }
+}
+
+impl Headings for Plain {
+    fn heading(&self, column: Column, _language: Language) -> String {
+        format!("{column:?}")
     }
 }
 

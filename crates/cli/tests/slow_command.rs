@@ -12,6 +12,7 @@ use std::sync::OnceLock;
 use batdetect::options::Options;
 use batdetect::process::{Processed, process};
 use batdetect::progress::Silent;
+use files::table::{COLUMNS, Column};
 use media::decode::Threads;
 use reference::fixture::fixture;
 use reference::location::committed;
@@ -76,13 +77,14 @@ fn the_extract_gives_the_four_tracks_of_the_reference_in_its_table() {
     assert_eq!((found.reference, found.paired, found.agreeing), (4, 4, 4));
     assert_eq!((found.lost, found.added), (0, 0));
     assert_eq!(found.discrepancies, []);
+    let hits = COLUMNS.iter().position(|&column| column == Column::Hits).unwrap();
     let hits: Vec<usize> = run
         .table
         .as_ref()
         .unwrap()
         .lines()
         .skip(1)
-        .map(|line| line.split(',').nth(5).unwrap().parse().unwrap())
+        .map(|line| line.split(',').nth(hits).unwrap().parse().unwrap())
         .collect();
     let expected: Vec<usize> = run.recording.rows.iter().map(|row| row.hits).collect();
     assert_eq!(hits, expected);

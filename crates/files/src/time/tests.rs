@@ -1,5 +1,6 @@
 use types::detection::Detection;
 use types::frame::{FrameIndex, Pts};
+use types::language::Language;
 use types::rate::FrameRate;
 use types::rational::Rational;
 use types::span::Span;
@@ -7,6 +8,7 @@ use types::timeline::Timeline;
 use types::track::Track;
 
 use super::{clock, frame_duration, frame_seconds, hundredths, span_seconds, track_seconds};
+use crate::table::{COLUMNS, Column, Headings, write_tracks_csv};
 
 fn timeline(pts: Vec<Option<Pts>>) -> Timeline {
     let rate = FrameRate::new(Rational::new(10_000, 333).unwrap()).unwrap();
@@ -22,20 +24,21 @@ fn span(first: usize, last: usize) -> Span {
 }
 
 #[test]
-fn a_clock_shows_minutes_seconds_and_hundredths() {
-    assert_eq!(clock(7.39), "0:07.39");
-    assert_eq!(clock(237.18), "3:57.18");
-    assert_eq!(clock(3725.0), "62:05.00");
+fn a_clock_shows_hours_minutes_and_seconds_so_a_spreadsheet_never_reads_minutes_as_hours() {
+    assert_eq!(clock(7.39), "0:00:07");
+    assert_eq!(clock(237.18), "0:03:57");
+    assert_eq!(clock(3725.0), "1:02:05");
 }
 
 #[test]
-fn hundredths_that_round_up_carry_into_the_next_minute() {
-    assert_eq!(clock(59.996), "1:00.00");
+fn a_clock_drops_the_hundredths_like_the_name_of_the_clip_instead_of_rounding_up() {
+    assert_eq!(clock(4.8), "0:00:04");
+    assert_eq!(clock(59.996), "0:00:59");
 }
 
 #[test]
 fn a_negative_time_shows_as_zero() {
-    assert_eq!(clock(-0.2), "0:00.00");
+    assert_eq!(clock(-0.2), "0:00:00");
 }
 
 #[test]
@@ -88,6 +91,15 @@ fn a_span_over_frames_without_pts_stays_in_order() {
     assert!((end - 17.0 * 0.0333).abs() < 1e-9);
 }
 
+#[derive(Debug)]
+struct Named;
+
+impl Headings for Named {
+    fn heading(&self, column: Column, _language: Language) -> String {
+        format!("{column:?}")
+    }
+}
+
 fn still_on(frames: &[usize]) -> Track {
     let points = frames
         .iter()
@@ -112,13 +124,17 @@ fn a_track_starts_at_its_first_frame_and_lasts_until_its_last_one_as_the_table_w
     let csv = directory.path().join("v_tracks.csv");
     let track = still_on(&[30, 31, 45]);
     let timeline = regular(100);
-    crate::table::write_tracks_csv(&csv, std::slice::from_ref(&track), &timeline).unwrap();
+    write_tracks_csv(&csv, std::slice::from_ref(&track), &timeline, Language::English, &Named).unwrap();
     let table = std::fs::read_to_string(&csv).unwrap();
     let cells: Vec<&str> = table.lines().nth(1).unwrap().split(',').collect();
+    let cell = |column: Column| {
+        let index = COLUMNS.iter().position(|&one| one == column).unwrap();
+        cells[index].parse::<f64>().unwrap()
+    };
     let [start, duration] = track_seconds(&track, &timeline);
     assert_eq!(
         [hundredths(start), hundredths(duration)],
-        [cells[3].parse::<f64>().unwrap(), cells[4].parse::<f64>().unwrap()]
+        [cell(Column::StartSeconds), cell(Column::Duration)]
     );
 }
 

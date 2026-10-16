@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::error::Error;
 use crate::names::{Names, Output, composed, params_json, partial_path, previous_output};
-use crate::table::is_tracks_table;
+use crate::table::{Headings, is_tracks_table};
 
 #[cfg(test)]
 mod tests;
@@ -24,14 +24,19 @@ struct Found {
     kind: FileType,
 }
 
-pub fn remove_previous_outputs(dest: &Path, stem: &OsStr, ours: Names) -> Result<Vec<Kept>, Error> {
+pub fn remove_previous_outputs(
+    dest: &Path,
+    stem: &OsStr,
+    ours: Names,
+    headings: &dyn Headings,
+) -> Result<Vec<Kept>, Error> {
     let finished = params_json(dest);
     for mark in [partial_path(&finished), finished] {
         remove_if_there(&mark)?;
     }
     let (mut kept, mut removed) = (Vec::new(), Vec::new());
     for found in previous_outputs(dest, stem)? {
-        if found.output == Output::TracksTable && !(found.kind.is_file() && is_tracks_table(&found.path)?) {
+        if found.output == Output::TracksTable && !(found.kind.is_file() && is_tracks_table(&found.path, headings)?) {
             kept.push(Kept {
                 path: found.path,
                 ours: found.names == ours,

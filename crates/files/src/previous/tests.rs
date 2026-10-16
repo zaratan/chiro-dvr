@@ -6,13 +6,23 @@ use types::language::Language;
 
 use super::{Kept, remove_previous_outputs};
 use crate::names::Names;
+use crate::table::{Column, Headings};
 
-const OUR_TABLE: &str = "id,start,end,start_s,duration_s,hits,chord_px,path_px,speed_px_s,max_area_px,peak_amplitude,filled_frames\r\n1,0:00.00,0:00.50,0.0,0.5,3,10.0,10.0,20.0,9,80.0,0\r\n";
+const LEGACY_TABLE: &str = "id,start,end,start_s,duration_s,hits,chord_px,path_px,speed_px_s,max_area_px,peak_amplitude,filled_frames\r\n1,0:00.00,0:00.50,0.0,0.5,3,10.0,10.0,20.0,9,80.0,0\r\n";
+
+#[derive(Debug)]
+struct Debugged;
+
+impl Headings for Debugged {
+    fn heading(&self, column: Column, _language: Language) -> String {
+        format!("{column:?}")
+    }
+}
 
 fn folder_with(files: &[&str], folders: &[&str]) -> tempfile::TempDir {
     let dest = tempfile::tempdir().unwrap();
     for name in files {
-        fs::write(dest.path().join(name), OUR_TABLE).unwrap();
+        fs::write(dest.path().join(name), LEGACY_TABLE).unwrap();
     }
     for name in folders {
         fs::create_dir(dest.path().join(name)).unwrap();
@@ -22,7 +32,7 @@ fn folder_with(files: &[&str], folders: &[&str]) -> tempfile::TempDir {
 }
 
 fn cleaned(dest: &Path) -> Vec<Kept> {
-    remove_previous_outputs(dest, OsStr::new("v"), Names::new(Language::French)).unwrap()
+    remove_previous_outputs(dest, OsStr::new("v"), Names::new(Language::French), &Debugged).unwrap()
 }
 
 fn left_in(dest: &Path) -> Vec<String> {
@@ -82,7 +92,7 @@ fn the_params_file_that_marks_a_finished_folder_is_removed_with_its_partial_file
 #[test]
 fn a_table_whose_header_was_changed_is_kept_and_said_to_take_our_name_only_in_our_language() {
     let dest = folder_with(&["v_resume.png"], &[]);
-    let annotated = OUR_TABLE.replacen("filled_frames", "filled_frames,verdict", 1);
+    let annotated = LEGACY_TABLE.replacen("filled_frames", "filled_frames,verdict", 1);
     for name in ["v_pistes.csv", "v_tracks.csv"] {
         fs::write(dest.path().join(name), &annotated).unwrap();
     }
@@ -104,9 +114,9 @@ fn a_table_whose_header_was_changed_is_kept_and_said_to_take_our_name_only_in_ou
 
 #[test]
 fn a_table_with_semicolons_an_extra_cell_latin_text_or_nothing_is_kept() {
-    let semicolons = OUR_TABLE.replace(',', ";").into_bytes();
-    let extra_cell = OUR_TABLE.replacen(",0\r\n", ",0,yes\r\n", 1).into_bytes();
-    let mut latin = OUR_TABLE.as_bytes().to_vec();
+    let semicolons = LEGACY_TABLE.replace(',', ";").into_bytes();
+    let extra_cell = LEGACY_TABLE.replacen(",0\r\n", ",0,yes\r\n", 1).into_bytes();
+    let mut latin = LEGACY_TABLE.as_bytes().to_vec();
     latin.push(0xE9);
     for content in [semicolons, extra_cell, latin, Vec::new()] {
         let dest = tempfile::tempdir().unwrap();
@@ -119,7 +129,7 @@ fn a_table_with_semicolons_an_extra_cell_latin_text_or_nothing_is_kept() {
 #[test]
 fn a_table_of_ours_saved_with_unix_line_ends_is_still_ours() {
     let dest = tempfile::tempdir().unwrap();
-    fs::write(dest.path().join("v_tracks.csv"), OUR_TABLE.replace("\r\n", "\n")).unwrap();
+    fs::write(dest.path().join("v_tracks.csv"), LEGACY_TABLE.replace("\r\n", "\n")).unwrap();
     assert_eq!(cleaned(dest.path()), []);
     assert_eq!(left_in(dest.path()), Vec::<String>::new());
 }
@@ -132,7 +142,13 @@ fn a_video_name_decomposed_by_the_file_system_still_matches_its_outputs() {
         &[&format!("{decomposed}_pistes.csv"), &format!("{decomposed}_resume.png")],
         &[],
     );
-    remove_previous_outputs(dest.path(), OsStr::new(composed), Names::new(Language::French)).unwrap();
+    remove_previous_outputs(
+        dest.path(),
+        OsStr::new(composed),
+        Names::new(Language::French),
+        &Debugged,
+    )
+    .unwrap();
     assert_eq!(left_in(dest.path()), Vec::<String>::new());
 }
 
@@ -171,7 +187,8 @@ fn a_table_that_cannot_be_read_stops_the_cleanup_after_the_params_file_and_befor
     let dest = folder_with(&["params.json", "v_pistes.csv", "v_resume.png"], &["clips"]);
     let table = dest.path().join("v_pistes.csv");
     fs::set_permissions(&table, fs::Permissions::from_mode(0o000)).unwrap();
-    let error = remove_previous_outputs(dest.path(), OsStr::new("v"), Names::new(Language::French)).unwrap_err();
+    let error =
+        remove_previous_outputs(dest.path(), OsStr::new("v"), Names::new(Language::French), &Debugged).unwrap_err();
     fs::set_permissions(&table, fs::Permissions::from_mode(0o644)).unwrap();
     assert!(matches!(&error, Error::Read { path, .. } if *path == table), "{error}");
     assert_eq!(left_in(dest.path()), ["clips", "v_pistes.csv", "v_resume.png"]);
