@@ -61,8 +61,8 @@ Les conseils suivants viennent de la littérature sur l'observation en caméra t
 
 Pour chaque vidéo, un dossier à son nom, dans `batdetect/` à côté des vidéos, ou dans le
 dossier choisi au lancement (`-o`). Les noms des fichiers sont en français sur un Mac réglé en
-français, en anglais sinon, et ne portent jamais d'accent ; un nouveau calcul efface ceux de
-l'autre langue.
+français, en anglais sinon ; les mots ajoutés par l'outil ne portent jamais d'accent. Un nouveau
+calcul efface les fichiers de l'autre langue.
 
 | Fichier | Français | Anglais |
 | --- | --- | --- |
@@ -74,31 +74,37 @@ l'autre langue.
 | Réglages et bilan du calcul | `params.json` | `params.json` |
 
 - Une vidéo de plus de 10 min a une image résumé par tranche de 10 min
-  (`<vidéo>_resume_000m-010m.png`, …), et une tranche de plus de 20 pistes est coupée en
+  (`<vidéo>_resume_000m-010m.png`, …), et une image qui aurait plus de 20 pistes est coupée en
   parties (`<vidéo>_resume_1_sur_3.png`, …).
 - Un extrait est nommé par le numéro de sa piste et son début à la seconde. Le numéro départage
   deux pistes de la même seconde ; il a deux chiffres, trois dès 100 pistes, pour que le Finder
-  range les extraits dans l'ordre. L'extrait zoomé n'existe que pour les pistes petites ou
-  faibles ([Juger un extrait](#juger-un-extrait)).
+  range les extraits dans l'ordre. Par défaut, l'extrait zoomé n'existe que pour les pistes
+  petites ou faibles ([Juger un extrait](#juger-un-extrait)).
 - La vidéo annotée, la vidéo entière avec toutes les pistes dessinées, n'est écrite qu'avec
   `--annotated` ; sans l'option, celle d'un calcul précédent est effacée. Au-delà du
   [garde-fou](#garde-fou-du-nombre-de-pistes), il n'y a ni extraits ni vidéo annotée.
 - `params.json` s'écrit en dernier : un dossier sans lui n'est pas terminé (calcul interrompu,
-  ou vidéo en échec autrement qu'au-delà du garde-fou).
-- Le tableau des pistes s'ouvre dans un tableur réglé en français (point-virgule, virgule
-  décimale). Un tableur réglé en anglais affiche le début `0:00:04` comme `12:00:04 AM` : la
+  ou vidéo en échec autrement qu'au-delà du garde-fou), et la vidéo est refaite à la relance.
+- Le tableau français s'ouvre dans un tableur réglé en français (point-virgule, virgule
+  décimale), le tableau anglais dans un tableur réglé en anglais. Un tableur réglé en anglais affiche le début `0:00:04` comme `12:00:04 AM` : la
   valeur est juste (4 s), et un format Durée la montre en `0:00:04`.
 - Deux vidéos du même nom, aux majuscules près, qui vont dans le même
   dossier de résultats prennent leur extension dans le nom de leur dossier, `video_092_mp4/` et
   `video_092_mov/`, et, avec `-o`, aussi le nom de leur dossier d'origine,
   `nuit-12-oct_video_092_mp4/` ; deux vidéos qui tomberaient encore sur le même dossier sont
-  refusées avant tout calcul.
+  refusées avant tout calcul, et il faut renommer l'une d'elles. Si la seconde arrive plus tard
+  (`video_092.mov` à côté de `video_092.mp4`), les deux sont recalculées dans leurs dossiers
+  renommés, et l'ancien dossier `video_092/` reste là, orphelin, à supprimer à la main.
 
 À la fin du calcul, la commande écrit un bilan de la soirée : pour chaque vidéo sa durée, son
 nombre de pistes, le temps non analysé et le temps de calcul, puis à part les vidéos qui ont
 trop de pistes, celles en échec avec ce qu'il faut faire, et les entrées refusées. Sous macOS,
 lancée dans un terminal, elle annonce aussi la fin par une notification et ouvre chaque dossier de
 résultats dans le Finder (`--no-notify` pour s'en passer).
+
+Relancer la même commande ne refait pas une vidéo déjà faite avec les mêmes réglages : son
+dossier reste tel quel, et le bilan la compte « déjà faite » avec ses chiffres d'origine
+(`--force` refait tout).
 
 [techniques]: 10-logique-de-detection.md#les-techniques-en-simple
 [#9]: https://github.com/zaratan/chiro-dvr/issues/9

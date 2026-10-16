@@ -6,12 +6,14 @@ use batdetect::jobs::{Job, Reason, Refused};
 use batdetect::options::Options;
 use batdetect::outcome::{Failure, Panic, Row, State};
 use batdetect::process::{self, Extent};
+use batdetect::reuse::Earlier;
 use batdetect::tally::Tally;
 use engine::config::DetectConfig;
 use engine::detection;
 use engine::input;
 use engine::lost::Losses;
 use engine::settings::DetectSettings;
+use files::params::Finish;
 use files::previous::Kept;
 use tracking::stability::StabilityConfig;
 use tracking::track::TrackConfig;
@@ -342,4 +344,56 @@ fn a_single_refused_input_is_counted_and_titled_in_the_singular() {
         assert_eq!(lines[0], title, "{summary}");
         assert!(lines.contains(&heading), "{summary}");
     }
+}
+
+fn skipped(finish: Finish, tracks: usize, extent: Extent) -> State {
+    State::Skipped(Earlier {
+        finish,
+        tracks,
+        limit: 300,
+        extent,
+    })
+}
+
+#[test]
+fn a_resumed_evening_counts_the_videos_already_done_and_shows_their_earlier_figures_without_a_compute_time() {
+    let tally = Tally {
+        refused: Vec::new(),
+        rows: vec![
+            row(
+                "nuit/batdetect/video_089",
+                0,
+                skipped(Finish::Done, 48, extent(962.4, 41.2)),
+            ),
+            row(
+                "nuit/batdetect/video_099",
+                0,
+                skipped(Finish::TooManyTracks, 412, extent(600.0, 62.5)),
+            ),
+            row("nuit/batdetect/video_092", 17, done(14, extent(301.0, 0.0))),
+        ],
+    };
+    let summary = written(&tally, &Options::default(), Language::French);
+    let lines: Vec<&str> = summary.lines().collect();
+    assert_eq!(
+        lines[0],
+        "Bilan\u{a0}: 3 vidéos, 1 réussie, 1 déjà faite, 1 avec trop de pistes"
+    );
+    assert_eq!(
+        &lines[4..7],
+        [
+            "  video_089   16 min 2 s          48          42 s        —",
+            "  video_099   10 min 0 s   412, trop     1 min 3 s        —",
+            "  video_092    5 min 1 s          14           0 s     17 s",
+        ]
+    );
+    assert!(
+        lines.contains(&"  video_099\u{a0}: 412 pistes, au-delà de 300"),
+        "{summary}"
+    );
+    let english = written(&tally, &Options::default(), Language::English);
+    assert!(
+        english.starts_with("Summary: 3 videos, 1 done, 1 already done, 1 with too many tracks\n"),
+        "{english}"
+    );
 }

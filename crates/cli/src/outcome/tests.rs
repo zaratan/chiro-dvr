@@ -4,11 +4,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::Duration;
 
+use files::params::Finish;
 use render::clips::Rendered;
 
-use super::{Failure, Rank, Row, State, run_all};
+use super::{Failure, Ran, Rank, Row, State, run_all};
 use crate::jobs::Job;
 use crate::process::{Error, Extent, Processed};
+use crate::reuse::Earlier;
 
 fn jobs(count: usize) -> Vec<Job> {
     (0..count)
@@ -19,15 +21,15 @@ fn jobs(count: usize) -> Vec<Job> {
         .collect()
 }
 
-fn processed() -> Processed {
-    Processed {
+fn processed() -> Ran {
+    Ran::Processed(Processed {
         tracks: Vec::new(),
         extent: EXTENT,
         csv: Some(PathBuf::from("tracks.csv")),
         kept: Vec::new(),
         summaries: Vec::new(),
         rendered: Rendered::default(),
-    }
+    })
 }
 
 const EXTENT: Extent = Extent {
@@ -40,6 +42,7 @@ fn kinds(rows: &[Row]) -> Vec<&'static str> {
         .map(|row| match row.state {
             State::Done { .. } => "done",
             State::TooManyTracks { .. } => "too many",
+            State::Skipped(_) => "skipped",
             State::Failed(Failure::Error(_)) => "error",
             State::Failed(Failure::Panic(_)) => "panic",
         })
@@ -92,7 +95,7 @@ fn a_panic_on_the_second_video_leaves_the_third_one_processed_and_reported() {
 #[test]
 fn the_message_of_a_panic_is_kept_whether_it_is_a_literal_or_formatted() {
     let panicking = [
-        |_: &Job, _: Rank| -> Result<Processed, Error> { std::panic::panic_any("literal") },
+        |_: &Job, _: Rank| -> Result<Ran, Error> { std::panic::panic_any("literal") },
         |job: &Job, _: Rank| std::panic::panic_any(format!("formatted {}", job.video.display())),
     ];
     for (work, expected) in panicking.into_iter().zip(["literal", "formatted video_0.mp4"]) {
@@ -185,4 +188,33 @@ fn each_video_is_given_its_rank_in_the_lot_to_work_and_to_report() {
     .unwrap();
     let positions: Vec<usize> = reported.iter().map(|rank| rank.position).collect();
     assert_eq!(positions, [1, 2, 3]);
+}
+
+#[test]
+fn a_video_already_done_keeps_its_earlier_figures_and_is_reported_like_the_others() {
+    let earlier = Earlier {
+        finish: Finish::TooManyTracks,
+        tracks: 412,
+        limit: 300,
+        extent: EXTENT,
+    };
+    let mut reported = Vec::new();
+    let rows = run_all(
+        &jobs(2),
+        |_, rank| {
+            if rank.position == 1 {
+                Ok(Ran::Skipped(earlier))
+            } else {
+                Ok(processed())
+            }
+        },
+        |_, _, result| {
+            reported.push(matches!(result, Ok(Ran::Skipped(_))));
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(kinds(&rows), ["skipped", "done"]);
+    assert_eq!(reported, [true, false]);
+    assert!(matches!(rows[0].state, State::Skipped(found) if found == earlier));
 }

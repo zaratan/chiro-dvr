@@ -3,8 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use batdetect::jobs::Job;
 use batdetect::options::Options;
-use batdetect::outcome::{Failure, Rank};
-use batdetect::process::Processed;
+use batdetect::outcome::{Failure, Ran, Rank};
 use batdetect::progress::{Progress, Step};
 
 use crate::messages;
@@ -22,6 +21,7 @@ pub(crate) struct Status {
     drawn: AtomicUsize,
     position: AtomicUsize,
     total: usize,
+    resumes: bool,
 }
 
 impl Status {
@@ -32,6 +32,14 @@ impl Status {
             drawn: AtomicUsize::new(0),
             position: AtomicUsize::new(1),
             total,
+            resumes: true,
+        }
+    }
+
+    pub(crate) const fn redoing_all(self, force: bool) -> Self {
+        Self {
+            resumes: !force,
+            ..self
         }
     }
 
@@ -49,7 +57,8 @@ impl Status {
             position: self.position.load(Ordering::Relaxed),
             total: self.total,
         };
-        writeln!(out, "{}", self.texts.say(&Message::Interrupted { rank }))
+        let resumes = self.resumes;
+        writeln!(out, "{}", self.texts.say(&Message::Interrupted { rank, resumes }))
     }
 
     pub(crate) fn show(&self, out: &mut impl Write, line: &str) -> io::Result<()> {
@@ -90,14 +99,15 @@ impl Video<'_> {
     pub(crate) fn tell(
         &self,
         err: &mut impl Write,
-        result: &Result<Processed, Failure>,
+        result: &Result<Ran, Failure>,
         options: &Options,
     ) -> io::Result<()> {
         let (job, rank, texts) = (self.job, self.rank, self.status.texts);
         self.status.clear(err)?;
         let mut say = |message: &Message| writeln!(err, "{}", texts.say(message));
         match result {
-            Ok(processed) => {
+            Ok(Ran::Skipped(earlier)) => say(&messages::video_skipped(rank, job, earlier.tracks)),
+            Ok(Ran::Processed(processed)) => {
                 for redone in &processed.rendered.redone {
                     say(&messages::redone(job, &redone.paths, &redone.cause))?;
                 }

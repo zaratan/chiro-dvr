@@ -75,6 +75,7 @@ pub(crate) enum Fixed {
     SkipRefusedHelp,
     SkipRefusedDeclined,
     NoNotifyHelp,
+    ForceHelp,
     InputsRefused,
     TallyVideo,
     TallyLength,
@@ -157,6 +158,7 @@ impl Fixed {
             Self::SkipRefusedHelp => "skip-refused-help",
             Self::SkipRefusedDeclined => "skip-refused-declined",
             Self::NoNotifyHelp => "no-notify-help",
+            Self::ForceHelp => "force-help",
             Self::InputsRefused => "inputs-refused",
             Self::TallyVideo => "tally-video",
             Self::TallyLength => "tally-length",
@@ -225,6 +227,11 @@ pub(crate) enum Message {
         video: String,
         tracks: usize,
     },
+    VideoSkipped {
+        rank: Rank,
+        video: String,
+        tracks: usize,
+    },
     VideoFailed {
         rank: Rank,
         video: String,
@@ -246,6 +253,9 @@ pub(crate) enum Message {
         total: usize,
     },
     TallyDone {
+        count: usize,
+    },
+    TallyAlreadyDone {
         count: usize,
     },
     TallyTooManyCount {
@@ -413,6 +423,7 @@ pub(crate) enum Message {
     },
     Interrupted {
         rank: Rank,
+        resumes: bool,
     },
 }
 
@@ -424,12 +435,14 @@ impl Message {
             Self::ClipsRedone { .. } => "clips-redone",
             Self::VideoStep { .. } => "video-step",
             Self::VideoDone { .. } => "video-done",
+            Self::VideoSkipped { .. } => "video-skipped",
             Self::VideoFailed { .. } => "video-failed",
             Self::Failure { .. } => "failure",
             Self::FailureTodo { .. } => "failure-todo",
             Self::FailureDetail { .. } => "failure-detail",
             Self::TallyTitle { .. } => "tally-title",
             Self::TallyDone { .. } => "tally-done",
+            Self::TallyAlreadyDone { .. } => "tally-already-done",
             Self::TallyTooManyCount { .. } => "tally-too-many-count",
             Self::TallyFailedCount { .. } => "tally-failed-count",
             Self::TallyTooManyCell { .. } => "tally-too-many-cell",
@@ -509,13 +522,14 @@ impl Message {
                 ranked(&mut arguments, *rank, video);
                 arguments.set("step", step_name(*step));
             }
-            Self::VideoDone { rank, video, tracks } => {
+            Self::VideoDone { rank, video, tracks } | Self::VideoSkipped { rank, video, tracks } => {
                 ranked(&mut arguments, *rank, video);
                 arguments.set("tracks", *tracks);
             }
-            Self::Interrupted { rank } => {
+            Self::Interrupted { rank, resumes } => {
                 arguments.set("position", rank.position);
                 arguments.set("total", rank.total);
+                arguments.set("resumes", if *resumes { YES } else { NO });
             }
             Self::VideoFailed { rank, video, too_many } => {
                 ranked(&mut arguments, *rank, video);
@@ -558,6 +572,7 @@ impl Message {
         match self {
             Self::TallyTitle { total } => arguments.set("total", *total),
             Self::TallyDone { count }
+            | Self::TallyAlreadyDone { count }
             | Self::TallyTooManyCount { count }
             | Self::TallyFailedCount { count }
             | Self::TallyTooManyCell { count }
@@ -659,6 +674,7 @@ impl Message {
             | Self::ClipsRedone { .. }
             | Self::VideoStep { .. }
             | Self::VideoDone { .. }
+            | Self::VideoSkipped { .. }
             | Self::VideoFailed { .. }
             | Self::Interrupted { .. }
             | Self::Failure { .. }
@@ -666,6 +682,7 @@ impl Message {
             | Self::FailureDetail { .. }
             | Self::TallyTitle { .. }
             | Self::TallyDone { .. }
+            | Self::TallyAlreadyDone { .. }
             | Self::TallyTooManyCount { .. }
             | Self::TallyFailedCount { .. }
             | Self::TallyTooManyCell { .. }
