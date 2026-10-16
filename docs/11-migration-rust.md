@@ -1028,15 +1028,16 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     (numéro ÷ cadence), celui des temps du CSV de la v0.1.1.
   - `Detection` : `frame`, barycentre `x`, `y`, boîte `left`, `top`, `width`, `height`,
     `area` et `amplitude`, en `f64` et en pixels de la vidéo d'origine.
-    `FrameDetections` : une liste par image, images vides comprises, ordre gardé ; une
-    détection rangée sous une autre image est refusée. `without(&[Span])` vide les
-    images couvertes par des plages, sans revalider : ce qui en sort reste valide.
+    `FrameDetections` : une liste par image, images vides comprises, ordre gardé ; chaque
+    détection porte le rang de son image. `without(&[Span])` vide les images couvertes
+    par des plages ; ce qui en sort garde ses rangs.
     `Measures` : les mesures d'une détection sans son image, sérialisables (les
     détections des fichiers de `reference`, #160) ; `Measures::of` les tire d'une
     détection. `FrameDetections::push` ajoute une image dont les détections prennent le
     rang qu'elles remplissent (#150 : le détecteur ne peut plus ranger une détection
     sous une autre image ; #160 : `reference` relit ainsi les détections de ses
-    fichiers, sans erreur de rangement possible).
+    fichiers, sans erreur de rangement possible ; #172 : `push` sur `default()` est la
+    seule façon de remplir la liste, tests compris).
   - `Span` : plage d'images, bornes comprises, refusée si elle finit avant de commencer.
     Constructeurs qui ne peuvent pas échouer (#144) : `single` (une image), `hull` (de la
     première à la dernière image de deux plages), `widened` (élargie de chaque côté,

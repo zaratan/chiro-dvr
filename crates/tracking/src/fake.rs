@@ -1,4 +1,4 @@
-use types::detection::{Detection, FrameDetections};
+use types::detection::{Detection, FrameDetections, Measures};
 use types::frame::FrameIndex;
 use types::span::Span;
 
@@ -7,26 +7,20 @@ pub(crate) fn span(first: usize, last: usize) -> Span {
 }
 
 pub(crate) fn crowd(counts: &[usize]) -> FrameDetections {
-    let frames = counts
-        .iter()
-        .enumerate()
-        .map(|(frame, &count)| {
-            (0..count)
-                .map(|blob| Detection {
-                    frame: FrameIndex::new(frame),
-                    x: 10.0 * blob as f64,
-                    y: 10.0,
-                    left: 10.0 * blob as f64 - 1.0,
-                    top: 9.0,
-                    width: 3.0,
-                    height: 3.0,
-                    area: 9.0,
-                    amplitude: 80.0,
-                })
-                .collect()
-        })
-        .collect();
-    FrameDetections::new(frames).unwrap()
+    let mut frames = FrameDetections::default();
+    for &count in counts {
+        frames.push((0..count).map(|blob| Measures {
+            x: 10.0 * blob as f64,
+            y: 10.0,
+            left: 10.0 * blob as f64 - 1.0,
+            top: 9.0,
+            width: 3.0,
+            height: 3.0,
+            area: 9.0,
+            amplitude: 80.0,
+        }));
+    }
+    frames
 }
 
 pub(crate) fn detection(frame: usize, x: f64, y: f64) -> Detection {
@@ -53,9 +47,13 @@ pub(crate) fn line(start_frame: usize, frames: usize, start: (f64, f64), step: (
 }
 
 pub(crate) fn frames_of(detections: &[Detection], frame_count: usize) -> FrameDetections {
-    let mut frames = vec![Vec::new(); frame_count];
+    let mut placed = vec![Vec::new(); frame_count];
     for detection in detections {
-        frames[detection.frame.get()].push(*detection);
+        placed[detection.frame.get()].push(Measures::of(detection));
     }
-    FrameDetections::new(frames).unwrap()
+    let mut frames = FrameDetections::default();
+    for found in placed {
+        frames.push(found);
+    }
+    frames
 }

@@ -3,11 +3,11 @@ use std::path::Path;
 
 use reference::location::committed;
 use reference::recording::Recording;
-use types::detection::FrameDetections;
 
 use super::{write_failure, write_report};
 use crate::case::EXTRACT;
 use crate::comparison::{Comparison, compared};
+use crate::testing::nothing_detected;
 
 #[derive(Debug, thiserror::Error)]
 #[error("cannot read the summary")]
@@ -39,7 +39,7 @@ fn a_video_in_agreement_is_reported_with_its_totals_and_its_time() {
 #[test]
 fn a_video_under_98_percent_is_named_at_the_end_with_its_gaps() {
     let recording = Recording::read(&committed(EXTRACT)).unwrap();
-    let empty = FrameDetections::new(vec![Vec::new(); recording.frames.detections().frame_count()]).unwrap();
+    let empty = nothing_detected(&recording);
 
     let text = report(&[compared(&recording.summary.video.name, &empty, &recording, 1.0).unwrap()]);
 
