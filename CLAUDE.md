@@ -59,6 +59,10 @@ qu'un gros fichier à plusieurs rôles.
 
 - Code et identifiants en anglais, docs en français. Une valeur magique devient une constante
   nommée.
+- Les docs pour la naturaliste (`docs/premiere-soiree.md`, `docs/lire-les-resultats.md`, le README
+  côté utilisation) ne contiennent rien de technique : ni commande de reproduction, ni `<details>`,
+  ni script, ni nom de crate ou de fichier source ; les captures se refont par
+  `tools/docs-images.sh` ([docs/images/README.md](docs/images/README.md)).
 - Tests sans commentaire, le nom du test porte le pourquoi. Pas de mock de FFmpeg, ni de couture
   qui remplace un processus dans le code : images fabriquées ou vraie vidéo. Un outil du système
   se teste par un vrai exécutable factice (script `sh` sur le `PATH` passé au test).
