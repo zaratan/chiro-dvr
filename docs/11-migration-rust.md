@@ -202,7 +202,7 @@ mise run package:check    # contrôles du livrable sur cette archive
   |---|---|
   | C1 | l'archive contient le binaire, `LICENSE`, `NOTICE` et `licenses/`, rien d'autre |
   | C2 | aucun lien dynamique hors d'une liste mesurée par système : `otool -L`, `readelf -d` (lignes NEEDED), `dumpbin -dependents` |
-  | C3 | `minos` ≤ 14.0 sous macOS ; sous Linux, `GLIBC_` ≤ 2.35, `GLIBCXX_` ≤ 3.4.30, `CXXABI_` ≤ 1.3.13 et `GCC_` ≤ 12.0.0, la bibliothèque de l'Ubuntu 22.04 |
+  | C3 | `minos` ≤ 14.0 sous macOS ; sous Linux, `GLIBC_` ≤ 2.35, `GLIBCXX_` ≤ 3.4.30, `CXXABI_` ≤ 1.3.13 et `GCC_` ≤ 12.0.0, la bibliothèque de l'Ubuntu 22.04 ; sous Windows, versions du système et du sous-système de l'en-tête PE ≤ 10.0 (`dumpbin -headers`), celle de Windows 10, que Windows 11 annonce aussi |
   | C4 | `--version` donne `batdetect <VERSION>`, puis le FFmpeg épinglé, avec l'empreinte du script de construction et la LGPL |
   | C5 | le bloc `Rust crates:` de `NOTICE` égale `cargo tree -p batdetect -e normal,no-proc-macro` sur les trois cibles de `packaging/about.toml` ([Licences](#licences)) |
   | C6 | le CSV de l'extrait, en anglais, est identique à l'octet à `tests/fixtures/rust/video_092_original_3m24-4m05/tracks.csv` |
@@ -212,6 +212,7 @@ mise run package:check    # contrôles du livrable sur cette archive
   - Binaire remplacé par `/usr/bin/curl` : C2, C3, C4 et C6.
   - Construction sans `BATDETECT_VERSION` : C4.
   - Un octet changé dans le CSV : C6.
+  - Sous-système 11.0 posé par `editbin` sur une copie de l'archive Windows (16 octobre 2026, CI de la PR #261) : `FAIL C3-floor: subsystem 11.00, os 6.00, above 10.00`, et C4 et C6, le chargeur refusant le binaire (`Exec format error`) ; l'archive intacte donne `ok C3-floor (subsystem 6.00, os 6.00)`.
 - **Mesure** (16 octobre 2026, Mac, `release`) : l'archive macOS pèse 3 511 951 octets,
   dont un binaire de 8 130 992 octets. Le CSV des profils `ci` et `release` est
   identique à l'octet.
