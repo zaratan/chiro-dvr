@@ -348,13 +348,17 @@ fn the_unfinished_clip_is_written_under_a_dot_name_beside_it() {
     let settings = Settings::new(WIDTH, HEIGHT, thirty(), Codec::OpenH264).unwrap();
     let mut encoder = Encoder::create(&folder.path().join("clip.mp4"), &settings).unwrap();
     encoder.push(&testing::pattern(0)).unwrap();
-    assert!(folder.path().join(".clip.mp4.partial").exists());
+    let unfinished = names_in(folder.path());
+    assert!(
+        matches!(unfinished.as_slice(), [name] if name.starts_with(".clip.mp4.") && name.ends_with(".partial")),
+        "{unfinished:?}"
+    );
     encoder.finish().unwrap();
-    assert!(!folder.path().join(".clip.mp4.partial").exists());
+    assert_eq!(names_in(folder.path()), ["clip.mp4"]);
 }
 
 #[test]
-fn a_partial_file_left_by_an_earlier_run_is_overwritten() {
+fn a_partial_file_left_by_an_earlier_run_is_left_alone_and_the_clip_written_beside_it() {
     let folder = tempfile::tempdir().unwrap();
     fs::write(folder.path().join(".clip.mp4.partial"), "left over").unwrap();
     let settings = Settings::new(WIDTH, HEIGHT, thirty(), Codec::OpenH264).unwrap();
@@ -362,7 +366,20 @@ fn a_partial_file_left_by_an_earlier_run_is_overwritten() {
     encoder.push(&testing::pattern(0)).unwrap();
     encoder.finish().unwrap();
     assert_eq!(decoded_frames(&folder.path().join("clip.mp4")).0, 1);
-    assert_eq!(fs::read_dir(folder.path()).unwrap().count(), 1);
+    assert_eq!(names_in(folder.path()), [".clip.mp4.partial", "clip.mp4"]);
+    assert_eq!(
+        fs::read_to_string(folder.path().join(".clip.mp4.partial")).unwrap(),
+        "left over"
+    );
+}
+
+fn names_in(folder: &Path) -> Vec<String> {
+    let mut names: Vec<String> = fs::read_dir(folder)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .collect();
+    names.sort();
+    names
 }
 
 #[cfg(unix)]

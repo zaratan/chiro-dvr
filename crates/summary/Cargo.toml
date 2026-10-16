@@ -10,7 +10,6 @@ publish.workspace = true
 draw.workspace = true
 files.workspace = true
 png.workspace = true
-tempfile.workspace = true
 thiserror.workspace = true
 types.workspace = true
 
@@ -18,6 +17,7 @@ types.workspace = true
 reference.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true

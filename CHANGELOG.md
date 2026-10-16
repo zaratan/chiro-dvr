@@ -21,6 +21,7 @@ release échoue sans elle.
 - Les fichiers cachés d'un dossier, comme les `._x.mp4` que macOS dépose sur une clé exFAT, ne
   sont plus pris pour des vidéos (#204).
 - Sous macOS, le premier calcul n'échoue plus quand le dossier de résultats est sur une clé exFAT (#236).
+- Deux lancements sur le même dossier, ou un Ctrl-C pendant l'écriture de la page de résultats, ne mélangent plus deux versions d'un même fichier (#245).
 
 ## [0.2.0] - 2026-10-16
 

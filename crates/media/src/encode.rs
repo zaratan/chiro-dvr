@@ -1,6 +1,6 @@
 use std::ffi::CStr;
 use std::fmt;
-use std::fs::File;
+use std::io;
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 use std::ptr;
@@ -269,8 +269,8 @@ impl Stamps {
     }
 }
 
-/// The temporary name a video takes while it is written, beside its final one.
-pub fn partial_path(path: &Path) -> Option<PathBuf> {
+/// Creates, under a unique name beside its final one, the empty file a video is written to.
+pub fn partial_file(path: &Path) -> Option<io::Result<TempPath>> {
     path::partial(path)
 }
 
@@ -404,13 +404,12 @@ impl Destination {
         if path::location(path).is_none() {
             return Err(unusable());
         }
-        let partial = path::partial(path).ok_or_else(unusable)?;
-        let create = |source| Error::Create {
-            path: path.to_path_buf(),
-            source,
-        };
-        let temporary = TempPath::try_from_path(&partial).map_err(create)?;
-        File::create(&temporary).map_err(create)?;
+        let temporary = path::partial(path)
+            .ok_or_else(unusable)?
+            .map_err(|source| Error::Create {
+                path: path.to_path_buf(),
+                source,
+            })?;
         let location = path::location(&temporary).ok_or_else(unusable)?;
         let writing = |source| Error::Writing {
             path: path.to_path_buf(),

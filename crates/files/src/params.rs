@@ -5,13 +5,12 @@ use std::path::Path;
 use jiff::Zoned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use tempfile::TempPath;
 use types::language::Language;
 use types::span::Span;
 use types::timeline::Timeline;
 
 use crate::error::Error;
-use crate::names::partial_path;
+use crate::names::partial_file;
 use crate::time::{hundredths, span_seconds};
 
 #[cfg(test)]
@@ -94,7 +93,7 @@ pub fn write_params<S: Serialize>(path: &Path, params: &Params<'_, S>) -> Result
         path: path.to_path_buf(),
         source,
     };
-    let partial = TempPath::try_from_path(partial_path(path)).map_err(failed)?;
+    let partial = partial_file(path).map_err(failed)?;
     let mut file = BufWriter::new(File::create(&partial).map_err(failed)?);
     file.write_all(text.as_bytes()).map_err(failed)?;
     file.flush().map_err(failed)?;

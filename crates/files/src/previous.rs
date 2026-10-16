@@ -1,12 +1,12 @@
 use std::ffi::OsStr;
-use std::fs::{self, FileType};
+use std::fs::{self, DirEntry, FileType};
 use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::annotation::carries_verdicts;
 use crate::aside::{Stamp, set_aside};
 use crate::error::Error;
-use crate::names::{Names, Output, composed, params_json, partial_path, previous_output};
+use crate::names::{Names, Output, composed, is_partial_params, params_json, previous_output};
 use crate::table::{Headings, is_tracks_table};
 
 #[cfg(test)]
@@ -52,10 +52,7 @@ pub fn remove_previous_outputs(
     headings: &dyn Headings,
     stamp: Stamp,
 ) -> Result<Vec<Kept>, Error> {
-    let finished = params_json(dest);
-    for mark in [partial_path(&finished), finished] {
-        remove_if_there(&mark)?;
-    }
+    remove_params(dest)?;
     let (mut kept, mut aside, mut removed) = (Vec::new(), Vec::new(), Vec::new());
     for found in previous_outputs(dest, stem)? {
         if found.output != Output::TracksTable {
@@ -96,19 +93,31 @@ fn foreign(path: &Path, headings: &dyn Headings) -> Result<Option<Reason>, Error
     })
 }
 
-fn previous_outputs(dest: &Path, stem: &OsStr) -> Result<Vec<Found>, Error> {
+fn remove_params(dest: &Path) -> Result<(), Error> {
+    remove_if_there(&params_json(dest))?;
+    for entry in entries(dest)? {
+        if is_partial_params(&normalized(&entry.file_name())) {
+            remove_if_there(&entry.path())?;
+        }
+    }
+    Ok(())
+}
+
+fn entries(dest: &Path) -> Result<Vec<DirEntry>, Error> {
     let listing = |source| Error::List {
         path: dest.to_path_buf(),
         source,
     };
-    let entries = match fs::read_dir(dest) {
-        Err(source) if source.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
-        entries => entries.map_err(listing)?,
-    };
+    match fs::read_dir(dest) {
+        Err(source) if source.kind() == io::ErrorKind::NotFound => Ok(Vec::new()),
+        entries => entries.map_err(listing)?.map(|entry| entry.map_err(listing)).collect(),
+    }
+}
+
+fn previous_outputs(dest: &Path, stem: &OsStr) -> Result<Vec<Found>, Error> {
     let stem = normalized(stem);
     let mut found = Vec::new();
-    for entry in entries {
-        let entry = entry.map_err(listing)?;
+    for entry in entries(dest)? {
         if let Some((names, output)) = previous_output(&normalized(&entry.file_name()), &stem) {
             let path = entry.path();
             let kind = entry.file_type().map_err(|source| Error::List {

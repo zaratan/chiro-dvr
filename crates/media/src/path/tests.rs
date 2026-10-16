@@ -36,18 +36,28 @@ fn a_location_keeps_the_exact_bytes_of_a_path_that_is_not_utf8() {
 }
 
 #[test]
-fn the_partial_file_is_a_dot_file_beside_its_destination() {
-    assert_eq!(
-        partial(Path::new("out/clip.mp4")),
-        Some(Path::new("out/.clip.mp4.partial").to_path_buf())
-    );
-    assert_eq!(
-        partial(Path::new("clip.mp4")),
-        Some(Path::new(".clip.mp4.partial").to_path_buf())
-    );
+fn the_partial_file_is_an_empty_dot_file_beside_its_destination_with_a_unique_part() {
+    let folder = tempfile::tempdir().unwrap();
+    let partial = partial(&folder.path().join("clip.mp4")).unwrap().unwrap();
+    assert_eq!(partial.parent(), Some(folder.path()));
+    assert_eq!(std::fs::read(&partial).unwrap(), b"");
+    let name = partial.file_name().unwrap().to_str().unwrap();
+    let unique = name
+        .strip_prefix(".clip.mp4.")
+        .and_then(|rest| rest.strip_suffix(".partial"))
+        .unwrap();
+    assert_eq!(unique.len(), 6, "{name}");
+}
+
+#[test]
+fn two_partial_files_of_the_same_clip_are_two_files() {
+    let folder = tempfile::tempdir().unwrap();
+    let clip = folder.path().join("clip.mp4");
+    let (first, second) = (partial(&clip).unwrap().unwrap(), partial(&clip).unwrap().unwrap());
+    assert_ne!(first.to_path_buf(), second.to_path_buf());
 }
 
 #[test]
 fn a_path_without_a_file_name_has_no_partial_file() {
-    assert_eq!(partial(Path::new("out/..")), None);
+    assert!(partial(Path::new("out/..")).is_none());
 }

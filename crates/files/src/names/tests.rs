@@ -1,4 +1,5 @@
 use std::ffi::OsStr;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use types::detection::Detection;
@@ -6,7 +7,7 @@ use types::frame::FrameIndex;
 use types::language::Language;
 use types::track::Track;
 
-use super::{Names, Output, Part, composed, is_hidden, params_json, partial_path, previous_output};
+use super::{Names, Output, Part, composed, is_hidden, is_partial_params, params_json, partial_file, previous_output};
 
 fn track(id: usize) -> Track {
     let point = Detection {
@@ -148,6 +149,12 @@ fn recognised(name: &str) -> Option<Output> {
     previous_output(name.as_bytes(), b"v").map(|(_, output)| output)
 }
 
+fn partial_name_of(name: &OsStr) -> String {
+    let folder = tempfile::tempdir().unwrap();
+    let partial = partial_file(&folder.path().join(name)).unwrap();
+    partial.file_name().unwrap().to_str().unwrap().to_owned()
+}
+
 #[test]
 fn every_name_we_write_is_recognised_as_a_previous_output_and_so_is_its_partial_file() {
     let (dest, stem) = (Path::new("out/v"), OsStr::new("v"));
@@ -168,9 +175,8 @@ fn every_name_we_write_is_recognised_as_a_previous_output_and_so_is_its_partial_
         for (path, output) in written {
             let name = path.file_name().unwrap().to_str().unwrap();
             assert_eq!(recognised(name), Some(output), "{name}");
-            let partial = partial_path(path);
-            let partial = partial.file_name().unwrap().to_str().unwrap();
-            assert_eq!(recognised(partial), Some(Output::Partial), "{partial}");
+            let partial = partial_name_of(path.file_name().unwrap());
+            assert_eq!(recognised(&partial), Some(Output::Partial), "{partial}");
         }
         let clips = names.clips_dir(dest);
         assert_eq!(
@@ -220,6 +226,9 @@ fn names_that_only_look_like_outputs_are_not_recognised() {
         "v_resume_3_sur_.png",
         "v_resume.jpg",
         ".v_pistes.csv.bak.partial",
+        ".v_pistes.csv.Ab12C.partial",
+        ".v_pistes.csv.Ab-12C.partial",
+        ".v_pistes.csv.Ab12Cd7.partial",
         ".extraits.partial",
         "v_annotee.mp4.partial",
         "piste_01_0m00s.mp4",
@@ -229,11 +238,59 @@ fn names_that_only_look_like_outputs_are_not_recognised() {
 }
 
 #[test]
-fn a_partial_file_hides_beside_its_final_name() {
-    assert_eq!(
-        partial_path(Path::new("out/v/v_pistes.csv")),
-        PathBuf::from("out/v/.v_pistes.csv.partial")
-    );
+fn a_partial_file_is_created_empty_and_hidden_beside_its_final_name_with_a_unique_part() {
+    let folder = tempfile::tempdir().unwrap();
+    let partial = partial_file(&folder.path().join("v_pistes.csv")).unwrap();
+    assert_eq!(partial.parent(), Some(folder.path()));
+    assert_eq!(fs::read(&partial).unwrap(), b"");
+    let name = partial.file_name().unwrap().to_str().unwrap();
+    let unique = name
+        .strip_prefix(".v_pistes.csv.")
+        .and_then(|rest| rest.strip_suffix(".partial"))
+        .unwrap();
+    assert_eq!(unique.len(), 6, "{name}");
+}
+
+#[test]
+fn two_partial_files_of_the_same_file_have_two_names_so_two_writers_never_share_one() {
+    let folder = tempfile::tempdir().unwrap();
+    let page = folder.path().join("resultats.html");
+    let (first, second) = (partial_file(&page).unwrap(), partial_file(&page).unwrap());
+    assert_ne!(first.to_path_buf(), second.to_path_buf());
+    assert!(first.exists() && second.exists());
+}
+
+#[test]
+fn a_path_without_a_file_name_has_no_partial_file() {
+    let error = partial_file(Path::new("out/..")).unwrap_err();
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+}
+
+#[test]
+fn a_hidden_partial_name_with_any_word_of_six_letters_or_digits_is_taken_for_ours() {
+    assert_eq!(recognised(".v_pistes.csv.backup.partial"), Some(Output::Partial));
+}
+
+#[test]
+fn a_partial_file_left_under_the_fixed_name_of_version_0_2_0_is_still_recognised() {
+    for name in [
+        ".v_pistes.csv.partial",
+        ".v_annotee.mp4.partial",
+        ".v.tracks.csv.partial",
+    ] {
+        assert_eq!(recognised(name), Some(Output::Partial), "{name}");
+    }
+}
+
+#[test]
+fn the_partial_files_of_the_params_file_are_recognised_under_both_names_and_nothing_else() {
+    let unique = partial_name_of(OsStr::new("params.json"));
+    for name in [unique.as_str(), ".params.json.partial"] {
+        assert!(is_partial_params(name.as_bytes()), "{name}");
+    }
+    for name in ["params.json", ".params.json.bak.partial", ".v_pistes.csv.partial"] {
+        assert!(!is_partial_params(name.as_bytes()), "{name}");
+    }
 }
 
 #[test]
@@ -261,12 +318,8 @@ fn a_dated_name_escapes_the_cleanup_so_a_table_set_aside_is_never_removed_nor_se
 
 #[test]
 fn a_name_is_hidden_when_it_starts_with_a_dot_like_the_appledouble_copies_and_our_partial_files() {
-    let partial = partial_path(Path::new("out/v/v_pistes.csv"));
-    for hidden in [
-        OsStr::new("._v.mp4"),
-        OsStr::new(".DS_Store"),
-        partial.file_name().unwrap(),
-    ] {
+    let partial = partial_name_of(OsStr::new("v_pistes.csv"));
+    for hidden in [OsStr::new("._v.mp4"), OsStr::new(".DS_Store"), OsStr::new(&partial)] {
         assert!(is_hidden(hidden), "{hidden:?}");
     }
     for shown in ["v.mp4", "nuit.12", ""] {
