@@ -3,10 +3,9 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use tempfile::TempPath;
 
 use crate::error::Error;
-use crate::names::{hidden_dir, partial_path};
+use crate::names::{hidden_dir, partial_file};
 
 #[cfg(test)]
 mod tests;
@@ -45,7 +44,7 @@ pub fn record_refusals(root: &Path, record: &RefusalRecord) -> Result<(), Error>
         source,
     })?;
     text.push('\n');
-    let partial = TempPath::try_from_path(partial_path(&path)).map_err(failed)?;
+    let partial = partial_file(&path).map_err(failed)?;
     File::create(&partial)
         .and_then(|mut file| file.write_all(text.as_bytes()))
         .map_err(failed)?;

@@ -1,6 +1,6 @@
 # Profilage : où part le temps de calcul
 
-Le Rust (`batdetect-rs`) d'abord, mesuré le 16 octobre 2026 (#201) ; puis l'historique
+Le Rust (`batdetect`) d'abord, mesuré le 16 octobre 2026 (#201) ; puis l'historique
 des optimisations du Python jusqu'à la v0.1.1, qui a guidé les choix repris par le Rust.
 
 ## Rust (16 octobre 2026)
@@ -12,7 +12,7 @@ des optimisations du Python jusqu'à la v0.1.1, qui a guidé les choix repris pa
 - **Code** : commit b38748a, branche `rust/201-profil`. Aucun fichier de `crates/*/src`
   ni de `Cargo.*` ne diffère de f364698, le commit mesuré par #198.
 - **Binaire** : `cargo build --release --locked -p batdetect` (LTO `fat`), lancé comme
-  `target/release/batdetect-rs VIDÉO -o out/mN` avec `LANG=fr_FR.UTF-8`. Vidéos : une
+  `target/release/batdetect-rs VIDÉO -o out/mN` (renommé `batdetect` à #199) avec `LANG=fr_FR.UTF-8`. Vidéos : une
   copie de la 092 entière (9 011 images, 1440×1080, 5 min) et l'extrait du dépôt
   (`tests/fixtures/video_092_original_3m24-4m05.mp4`, 1 230 images).
 - **Temps et pic** (passages 1 à 5, de 3 h 21 à 3 h 28) : sous
@@ -27,7 +27,7 @@ des optimisations du Python jusqu'à la v0.1.1, qui a guidé les choix repris pa
   - **détection** : lecture, réduction et flou, fond, seuil, taches, et le fond médian de
     l'image résumé ;
   - **suivi** : exclusion des plages abîmées et instables, pistes, ménage des sorties
-    précédentes, CSV, essai de l'encodeur (une image encodée par VideoToolbox), `params.json` ;
+    précédentes, CSV, essai de l'encodeur (8 images grises encodées par VideoToolbox), `params.json` (écrit en dernier, après les extraits, depuis #66) ;
   - **image résumé** : dessin et PNG ;
   - **extraits** : extraits et zoom, rendus ensemble ; le profil ne sépare que l'encodage
     openh264 du zoom.

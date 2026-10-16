@@ -3,8 +3,9 @@ use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::string::FromUtf8Error;
 
-use files::names::{RESULTS_FOLDER, composed, is_hidden};
+use files::names::{RESULTS_FOLDER, is_hidden, name_key};
 
 use crate::access::Access;
 use crate::failure::Cause;
@@ -260,10 +261,7 @@ fn root(video: &Path, out: Option<&Path>) -> PathBuf {
 }
 
 fn folded(name: &OsStr) -> Vec<u8> {
-    name.to_str().map_or_else(
-        || name.as_encoded_bytes().to_vec(),
-        |text| composed(text).to_lowercase().into_bytes(),
-    )
+    String::from_utf8(name_key(name)).map_or_else(FromUtf8Error::into_bytes, |text| text.to_lowercase().into_bytes())
 }
 
 fn output_name(video: &Path, ambiguous: bool, with_parent: bool) -> OsString {

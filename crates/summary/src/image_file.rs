@@ -3,9 +3,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use draw::canvas::Canvas;
-use files::names::partial_path;
+use files::names::partial_file;
 use png::{BitDepth, ColorType, Encoder, EncodingError};
-use tempfile::TempPath;
 
 #[cfg(test)]
 mod tests;
@@ -36,12 +35,11 @@ pub enum Error {
 }
 
 pub fn write_png(path: &Path, canvas: &Canvas) -> Result<(), Error> {
-    let partial = partial_path(path);
     let create = |source| Error::Create {
         path: path.to_path_buf(),
         source,
     };
-    let partial = TempPath::try_from_path(partial).map_err(create)?;
+    let partial = partial_file(path).map_err(create)?;
     let file = File::create(&partial).map_err(create)?;
     let encode = |source| encoding_error(path, source);
     let mut encoder = Encoder::new(&file, canvas.width(), canvas.height());

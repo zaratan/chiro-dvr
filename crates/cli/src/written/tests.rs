@@ -233,6 +233,20 @@ fn a_relative_results_folder_is_titled_by_the_folder_it_stands_in() {
     assert_eq!(super::title(Path::new(".")), evening);
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn two_folders_whose_names_differ_only_by_bytes_that_are_not_utf8_are_two_videos_on_the_page() {
+    use std::os::unix::ffi::OsStrExt;
+    let root = tempfile::tempdir().unwrap();
+    for name in [b"vol_\xe9".as_slice(), b"vol_\xe8"] {
+        let dest = root.path().join(OsStr::from_bytes(name));
+        fs::create_dir_all(&dest).unwrap();
+        fs::write(dest.join("params.json"), params("done", 1)).unwrap();
+    }
+    write_page(root.path(), &[], 0, FRENCH).unwrap();
+    assert_eq!(page(root.path()).matches("<details class=\"video\"").count(), 2);
+}
+
 #[test]
 fn a_folder_named_by_a_decomposed_accent_is_the_same_video_as_its_composed_job() {
     let root = tempfile::tempdir().unwrap();
