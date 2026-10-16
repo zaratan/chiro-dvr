@@ -116,10 +116,13 @@ et les noms des fichiers produits sont en français quand la locale l'est, en an
 - **Publier une version** :
   1. `workspace.package.version` de `Cargo.toml` vaut la version, et `Cargo.lock` suit.
   2. La section `[Non publiée]` de `CHANGELOG.md` devient `[X.Y.Z] - date`.
-  3. Une fois ce commit sur `main` et la CI verte, on pousse le tag `vX.Y.Z`.
-- `packaging/release-guards.sh` refuse le tag dans quatre cas, dans cet ordre :
+  3. En bas du CHANGELOG, le lien `[X.Y.Z]` compare `v<précédente>...vX.Y.Z` (`releases/tag/vX.Y.Z` pour la première version) ; si la section `[Non publiée]` ou son lien reste, ce lien compare `vX.Y.Z...HEAD`.
+  4. Une fois ce commit sur `main` et la CI verte, on pousse le tag `vX.Y.Z`.
+- `packaging/release-guards.sh` refuse le tag dans six cas, dans cet ordre :
   - il ne vaut pas `v` + la version de `Cargo.toml` ;
   - le CHANGELOG n'a pas sa section ;
+  - le lien `[X.Y.Z]` manque, est en double ou ne part pas de la version précédente du CHANGELOG ;
+  - la section `[Non publiée]` ou son lien existe, et ce lien ne compare pas `vX.Y.Z...HEAD` ;
   - le commit n'est pas sur `main` ;
   - `ci.yml` n'y est pas passé au vert.
 - La release porte les trois archives, les deux sources LGPL (FFmpeg et openh264) et

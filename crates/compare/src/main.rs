@@ -5,7 +5,7 @@ use std::process::ExitCode;
 use compare::arguments::{Request, parse};
 use compare::comparison::{VIDEOS_AT_ONCE, compare_all};
 use compare::outcome::Outcome;
-use compare::report::{write_failure, write_report};
+use compare::report::{write_failure, write_report, write_same_as};
 
 fn main() -> ExitCode {
     match parse(env::args_os()) {
@@ -27,7 +27,7 @@ fn run(request: &Request) -> ExitCode {
             };
         }
     };
-    let answers = compare_all(&cases, VIDEOS_AT_ONCE, request.frames.as_deref());
+    let answers = compare_all(&cases, VIDEOS_AT_ONCE, &request.folders);
     let outcome = Outcome::of(&cases, answers);
     for (recording, error) in &outcome.failed {
         if write_failure(recording, error, &mut stderr).is_err() {
@@ -35,7 +35,10 @@ fn run(request: &Request) -> ExitCode {
         }
     }
     let mut stdout = io::stdout().lock();
-    let written = write_report(&outcome.compared, &mut stdout);
+    let written = write_report(&outcome.compared, &mut stdout).and_then(|()| match &request.folders.same_as {
+        Some(previous) => write_same_as(previous, &outcome.compared, &mut stdout),
+        None => Ok(()),
+    });
     if written.is_ok() && outcome.holds() {
         ExitCode::SUCCESS
     } else {

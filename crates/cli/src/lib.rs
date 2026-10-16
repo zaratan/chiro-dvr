@@ -4,6 +4,7 @@ pub mod failure;
 #[cfg(test)]
 #[path = "../tests/support/flight.rs"]
 mod flight;
+pub mod inventory;
 pub mod jobs;
 pub mod language;
 pub mod ledger;

@@ -16,6 +16,7 @@ tracking.workspace = true
 types.workspace = true
 
 [dev-dependencies]
+media = { workspace = true, features = ["testing"] }
 tempfile.workspace = true
 
 [lints]

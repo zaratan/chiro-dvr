@@ -72,20 +72,15 @@ autoriser. Si l'accès a été refusé, rien n'est traité :
 > Confidentialité et sécurité, Fichiers et dossiers
 
 Il faut alors ouvrir Réglages Système › Confidentialité et sécurité › Fichiers et dossiers,
-autoriser le Terminal pour ce dossier (le Bureau, par exemple), puis relancer. Si c'est une vidéo
-du dossier qui ne peut pas être lue, elle est comptée en échec et le bilan dit quoi faire ; un
-détail technique en anglais peut s'afficher juste avant, il ne sert qu'au développeur :
+autoriser le Terminal pour ce dossier (le Bureau, par exemple), puis relancer.
 
-> Bilan : 1 vidéo, 1 en échec
->
-> 1 vidéo sur 1 en échec :\
-> video_092 : le système refuse la lecture de ce fichier\
-> à faire : vérifier ses droits ; sur Mac, autoriser le Terminal dans Réglages Système,
-> Confidentialité et sécurité, Fichiers et dossiers
+**Avant de calculer, l'outil ouvre chaque vidéo.** Une vidéo qui ne peut pas être lue, ou dont la copie est ratée, est refusée tout de suite, avec ce qu'il faut faire, au lieu d'échouer au milieu de la soirée :
 
-**Avec plusieurs dossiers d'un coup**, si l'un d'eux est refusé (introuvable, illisible…), la
-commande le nomme et demande s'il faut traiter quand même les autres. Entrée ou `o` lance le
-calcul, `n` l'arrête ; toute autre réponse repose la question :
+> erreur : aucune vidéo n'est traitée :\
+> nuit-12-oct/video_093.mp4 : ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète\
+> à faire : s'il vient des jumelles, le recopier par le câble USB, sans passer par Stream Vision 2 ; sinon, le retirer du dossier
+
+**Avec plusieurs dossiers d'un coup**, ou quand une seule vidéo est refusée parmi d'autres, la commande nomme l'entrée refusée (introuvable, illisible…) et demande s'il faut traiter quand même les autres. Entrée ou `o` lance le calcul, `n` l'arrête ; toute autre réponse repose la question :
 
 > erreur : une entrée est refusée :\
 > nuit-13-oct : introuvable\
@@ -93,6 +88,8 @@ calcul, `n` l'arrête ; toute autre réponse repose la question :
 > Traiter quand même la vidéo valide ? (O/n)
 
 ## 5. Attendre
+
+Le calcul commence par une ligne qui annonce la soirée, par exemple « 12 vidéos, 1 h 2 min 5 s de vidéo ». Quand la même commande est relancée, elle dit aussi combien sont déjà faites : « 12 vidéos, 1 h 2 min 5 s de vidéo, dont 3 déjà faites ».
 
 Pendant le calcul, une seule ligne se redessine sur place : le rang de la vidéo dans le lot, son
 nom, puis l'étape en cours, par exemple « [1/1] video_092_original_3m24-4m05 — détection »,

@@ -202,7 +202,7 @@ mise run package:check    # contrôles du livrable sur cette archive
   |---|---|
   | C1 | l'archive contient le binaire, `LICENSE`, `NOTICE` et `licenses/`, rien d'autre |
   | C2 | aucun lien dynamique hors d'une liste mesurée par système : `otool -L`, `readelf -d` (lignes NEEDED), `dumpbin -dependents` |
-  | C3 | `minos` ≤ 14.0 sous macOS ; sous Linux, `GLIBC_` ≤ 2.35, `GLIBCXX_` ≤ 3.4.30, `CXXABI_` ≤ 1.3.13 et `GCC_` ≤ 12.0.0, la bibliothèque de l'Ubuntu 22.04 |
+  | C3 | `minos` ≤ 14.0 sous macOS ; sous Linux, `GLIBC_` ≤ 2.35, `GLIBCXX_` ≤ 3.4.30, `CXXABI_` ≤ 1.3.13 et `GCC_` ≤ 12.0.0, la bibliothèque de l'Ubuntu 22.04 ; sous Windows, versions du système et du sous-système de l'en-tête PE ≤ 10.0 (`dumpbin -headers`), celle de Windows 10, que Windows 11 annonce aussi |
   | C4 | `--version` donne `batdetect <VERSION>`, puis le FFmpeg épinglé, avec l'empreinte du script de construction et la LGPL |
   | C5 | le bloc `Rust crates:` de `NOTICE` égale `cargo tree -p batdetect -e normal,no-proc-macro` sur les trois cibles de `packaging/about.toml` ([Licences](#licences)) |
   | C6 | le CSV de l'extrait, en anglais, est identique à l'octet à `tests/fixtures/rust/video_092_original_3m24-4m05/tracks.csv` |
@@ -212,6 +212,7 @@ mise run package:check    # contrôles du livrable sur cette archive
   - Binaire remplacé par `/usr/bin/curl` : C2, C3, C4 et C6.
   - Construction sans `BATDETECT_VERSION` : C4.
   - Un octet changé dans le CSV : C6.
+  - Sous-système 11.0 posé par `editbin` sur une copie de l'archive Windows (16 octobre 2026, CI de la PR #261) : `FAIL C3-floor: subsystem 11.00, os 6.00, above 10.00`, et C4 et C6, le chargeur refusant le binaire (`Exec format error`) ; l'archive intacte donne `ok C3-floor (subsystem 6.00, os 6.00)`.
 - **Mesure** (16 octobre 2026, Mac, `release`) : l'archive macOS pèse 3 511 951 octets,
   dont un binaire de 8 130 992 octets. Le CSV des profils `ci` et `release` est
   identique à l'octet.
@@ -1940,6 +1941,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       sinon inaccessible) ;
     - plusieurs vidéos vers le même dossier de résultats : une ligne par dossier, qui
       nomme toutes ses vidéos, après les refus d'entrées puisque ce sont des sorties.
+    - vidéo qui ne s'ouvre pas (`Reason::Unopened`, #62), vue par l'inventaire, après les précédentes : sa ligne est la phrase de l'échec équivalent et son « à faire » celui de cet échec (`failure::reading_cause`, la classification d'une lecture ratée), suivi du détail anglais quand ce « à faire » y renvoie (`unsupported`). Le bilan reprend les mêmes lignes, détail compris, puisque ce « à faire » y renvoie ; un échec à son tour, lui, y perd son détail.
 
     Si toutes les entrées sont des dossiers sans vidéo, le refus devient « aucune vidéo
     (mp4, mov, avi, mkv ou m4v) trouvée dans ce dossier : », suivi des dossiers, chacun
@@ -1963,8 +1965,13 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       « à faire ».
     - Le chemin avec question se teste dans `consent`, sur une entrée fabriquée. Un test
       de commande ne peut pas fabriquer de terminal sans pseudo-terminal.
-    `failure::Missing` et `NotAVideo` restent pour un fichier qui disparaît ou change
-    entre le départ et son tour.
+    Les causes d'une lecture ratée restent pour un fichier qui disparaît ou change entre le départ et son tour.
+  - Inventaire au départ (`inventory::take_stock`, #62), après `jobs::plan` et avant la question des refus.
+    - La reprise se décide là, une fois pour toutes (`reuse::earlier`, sauf `--force`), et non plus dans la boucle : une vidéo déjà faite n'est pas ouverte, sa durée est celle de son `params.json`.
+    - Chaque autre vidéo est ouverte par `engine::input::Input::open`, en un seul fil, puis refermée aussitôt : sa durée est le nombre d'images annoncé divisé par la cadence.
+    - Une vidéo qui ne s'ouvre pas rejoint les refus d'entrées, avec la même question, le même `--skip-refused` et le même code 2.
+    - Coût, mesuré le 16 octobre 2026 sur lumiel (binaire release, fichiers en cache, `-o` vers un dossier en lecture seule pour s'arrêter juste après l'inventaire) : 0,39 à 0,44 s pour les 26 vidéos de `BATDETECT_VIDEOS_DIR`, dont 0,39 s de CPU, pic de mémoire 15,6 Mo.
+    - Une vidéo fausse, tronquée ou au flux effacé échoue toujours à l'ouverture (essai sur la vidéo fabriquée) : un échec à son tour vient désormais surtout de l'écriture. Les tests de commande le provoquent par un fichier ordinaire posé à la place de `<racine>/<vidéo>/`, qui fait échouer la vidéo sur tous les systèmes, Windows et root compris (« erreur inattendue »).
   - Une vidéo donnée deux fois, sous n'importe quelle écriture (son dossier et son nom,
     `./`, un lien), n'est traitée qu'une fois, sous sa première écriture (#194). La clé est
     son chemin réel (`fs::canonicalize`), ou, pour un fichier absent, le dossier réel suivi
@@ -2090,6 +2097,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       (`Error::Progress`). Le rapport de cette vidéo échoue ensuite sur la même sortie
       d'erreur, et le lot s'arrête là, en code 1. Avant #63, le lot ne s'arrêtait qu'à
       la première ligne d'événement ou d'échec.
+    - Avant le premier rang, une ligne annonce le lot sur la sortie d'erreur (#62) : « 12 vidéos, 1 h 2 min 5 s de vidéo, dont 3 déjà faites », la fin seulement s'il y en a ; la durée s'écrit comme la colonne « durée » du bilan (`clock`), vidéos déjà faites comprises.
     - Le binaire (`status.rs`) écrit « [3/12] video_092 — détection », puis « — suivi »,
       « — image résumé », « — extraits ». La vidéo est nommée sans extension, et son rang
       compte dans le lot.
@@ -2834,8 +2842,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       dans la tolérance de l'appariement.
 - **`compare`** → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré. `media` n'y sert qu'à choisir les fils du
-  décodeur (`Threads::Automatic`).
-  - `compare extract|092|092-1440|settings|local [--frames DOSSIER]` lance
+  décodeur (`Threads::Automatic`), et, dans `slow_same_as`, à couper l'extrait (`payload::wipe`, #176).
+  - `compare extract|092|092-1440|settings|local [--frames DOSSIER] [--same-as DOSSIER]` lance
     `engine::detection::detect` sur l'extrait, la 092, la 092 à 1440 pixels de travail
     (#151, nommée par son dossier pour ne pas écraser la 092), les 16 cas de réglages
     ([Réglages](#réglages)) ou les 26 vidéos (`BATDETECT_REFERENCE_DIR`,
@@ -2861,7 +2869,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     Une vidéo en échec (vidéo absente, demi-fenêtre autre que celle de la référence…)
     est écrite sur la sortie d'erreur avec ses causes, sans effacer le rapport des
     autres. Code de sortie 1 si une vidéo échoue, si une vidéo est sous 98 % dans un
-    sens, ou si aucune vidéo n'est comparée (`Outcome::holds`). Les refus de #149 et
+    sens, si une vidéo diffère du passage de `--same-as`, ou si aucune vidéo n'est comparée (`Outcome::holds`). Les refus de #149 et
     #150 ont disparu avec #151 : tout réglage valide se compare. Avec `settings`,
     `--frames` écrit dans un dossier par cas (`DOSSIER/<cas>/frames.jsonl`), les cas
     partageant leur vidéo.
@@ -2880,6 +2888,13 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     erreur de décodage vus par le décodeur de `media` (par ffprobe dans la référence),
     détections brutes avant exclusion. Sur l'extrait, `pts`, images-clés et erreurs sont
     égaux à ceux de la référence sur les 1 230 images.
+  - `--same-as DOSSIER` (#176) dit si ce passage donne les mêmes détections qu'un passage précédent écrit par `--frames DOSSIER`, hors des plages abîmées. Les pixels que FFmpeg dissimule dans ces plages varient d'une lecture à l'autre : deux passages de `main` y différaient sur 17 vidéos et 2 351 images (#159), si bien que `cmp -r` entre deux dossiers `--frames` ne prouve rien.
+    - Avant la détection, `DOSSIER/<vidéo>/frames.jsonl` est relu ; absent ou illisible, la vidéo échoue sans être détectée.
+    - Après la détection, les entrées sont d'abord comparées : nombre d'images, puis `pts`, image-clé et erreur de décodage de chaque image. Si elles diffèrent, les détections ne sont pas comparées.
+    - Sinon, les détections le sont image par image, à l'égalité exacte, hors des plages abîmées que le moteur vient de trouver (`Detected::damage`, marge comprise). La comparaison se fait en direct plutôt qu'entre deux dossiers parce que `frames.jsonl` ne garde pas les pertes avant la première image et après la dernière, qui ouvrent aussi une plage. Les plages sont donc celles du seul nouveau passage : des pertes au bord vues par l'ancien seul donnent « differs », du côté prudent ; vues par le nouveau seul, elles écartent des images que l'ancien ne jugeait pas abîmées. Les plages instables ne sont pas écartées : elles se déduisent des détections, que l'on compare brutes.
+    - Sortie : une section à la fin du rapport, `same as DOSSIER, outside the damaged spans`, puis une ligne par vidéo : `identical`, `differs` (images hors plage, dix au plus puis `… and N more`) ou `inputs differ` (première image et champs qui diffèrent, ou nombres d'images de chaque côté), suivie du nombre de plages, de leurs images et des images qui diffèrent dedans ; enfin le bilan, `N videos: identical …, differing …, inputs differ …`.
+    - Le test lent `slow_same_as` coupe un vingtième de l'extrait par `media::payload::wipe`, le détecte à un fil puis en fils automatiques : identique hors de sa plage (sur lumiel : images 601 à 644, avec 27 images différentes dedans, un nombre que le test ne demande pas, parce qu'il varie d'une lecture et d'une machine à l'autre) ; une détection déplacée hors plage est listée avec sa vidéo et son image. Il exige que les fils automatiques décodent par images (`ActiveThreads::Frame`) : sinon ses deux passages liraient la vidéo de la même façon. `slow_extract` relance l'extrait avec `--same-as` sur le dossier qu'il vient d'écrire, par le chemin de la commande.
+    - Mesure (#176, lumiel, profil `ci`) : `compare local --frames A`, puis `compare local --frames B --same-as A`. Les 26 vidéos sont identiques hors plages ; 17 vidéos et 1 812 images diffèrent dans leurs plages, les 17 que `cmp -r` trouve entre A et B. Code de sortie 1 aux deux passages, par la seule 120 et la seule 123, sous 98 % côté Rust (0,9668 et 0,8039) : sur lumiel, le décodeur signale en erreur les images 4589 de la 120, 3986, 4902 et 5417 de la 123, que la référence (ffprobe, Mac) ne signale pas ; les groupes de détections ajoutées qui partent de ces images (10 à 13 images chacun) sont au bord bas de l'image (y = 1 078). Pistes : celles qu'attend `local_agreement`, 966, dont 963 appariées et 958 concordantes, 3 perdues, 9 ajoutées.
   - **Identité entre systèmes.** Une seule opération de la chaîne de détection
     (`engine`, et `WorkScale` dans `types`) dépend de la libm depuis #150 : `exp`, qui
     calcule le noyau du flou une fois par vidéo.

@@ -8,6 +8,7 @@ use std::string::FromUtf8Error;
 use files::names::{RESULTS_FOLDER, is_hidden, name_key};
 
 use crate::access::Access;
+use crate::failure::Cause;
 
 #[cfg(test)]
 mod tests;
@@ -28,6 +29,7 @@ pub enum Reason {
     NoVideo,
     Unreadable(Access),
     SharedFolder { videos: Vec<PathBuf> },
+    Unopened { cause: Cause, detail: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

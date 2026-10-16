@@ -445,6 +445,11 @@ pub(crate) enum Message {
         rank: Rank,
         resumes: bool,
     },
+    Announce {
+        videos: usize,
+        length: String,
+        done: usize,
+    },
 }
 
 impl Message {
@@ -515,6 +520,7 @@ impl Message {
             Self::TallyRefusedCount { .. } => "tally-refused-count",
             Self::TallyRefusedHeading { .. } => "tally-refused-heading",
             Self::Interrupted { .. } => "interrupted",
+            Self::Announce { .. } => "announce",
         }
     }
 
@@ -555,6 +561,11 @@ impl Message {
                 arguments.set("position", rank.position);
                 arguments.set("total", rank.total);
                 arguments.set("resumes", if *resumes { YES } else { NO });
+            }
+            Self::Announce { videos, length, done } => {
+                arguments.set("videos", *videos);
+                arguments.set("length", length.as_str());
+                arguments.set("done", *done);
             }
             Self::VideoFailed { rank, video, too_many } => {
                 ranked(&mut arguments, *rank, video);
@@ -744,6 +755,7 @@ impl Message {
             | Self::VideoSkipped { .. }
             | Self::VideoFailed { .. }
             | Self::Interrupted { .. }
+            | Self::Announce { .. }
             | Self::Failure { .. }
             | Self::FailureTodo { .. }
             | Self::FailureDetail { .. }

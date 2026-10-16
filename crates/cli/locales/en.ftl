@@ -17,6 +17,13 @@ video-done = [{ $position }/{ $total }] { $video } — { $tracks ->
         [one] { $tracks } track
        *[other] { $tracks } tracks
     }
+announce = { $videos ->
+        [one] { $videos } video
+       *[other] { $videos } videos
+    }, { $length } of video{ $done ->
+        [0] {""}
+       *[other] , { $done } of them already done
+    }
 video-failed = [{ $position }/{ $total }] { $video } — { $too-many ->
         [yes] too many tracks
        *[no] failed

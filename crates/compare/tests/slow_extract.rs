@@ -4,8 +4,9 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use compare::case::{Case, EXTRACT};
-use compare::comparison::{Comparison, compare, frames_path};
+use compare::comparison::{Comparison, Folders, compare, frames_path};
 use compare::report::write_report;
+use compare::sameness::Verdict;
 use reference::fixture::fixtures;
 use reference::frames::Frames;
 use reference::location::committed;
@@ -14,6 +15,7 @@ use tempfile::TempDir;
 
 struct Run {
     comparison: Comparison,
+    again: Comparison,
     written: Result<String, String>,
     frames: Result<Frames, String>,
 }
@@ -23,11 +25,27 @@ fn run() -> &'static Run {
     static RUN: OnceLock<Run> = OnceLock::new();
     RUN.get_or_init(|| {
         let folder = TempDir::new().unwrap();
-        let comparison = compare(&Case::committed(EXTRACT), Some(folder.path())).unwrap();
+        let comparison = compare(
+            &Case::committed(EXTRACT),
+            &Folders {
+                frames: Some(folder.path().to_path_buf()),
+                same_as: None,
+            },
+        )
+        .unwrap();
         write_report(std::slice::from_ref(&comparison), &mut io::stdout().lock()).unwrap();
+        let again = compare(
+            &Case::committed(EXTRACT),
+            &Folders {
+                frames: None,
+                same_as: Some(folder.path().to_path_buf()),
+            },
+        )
+        .unwrap();
         let path = frames_path(folder.path(), &format!("{EXTRACT}.mp4"));
         Run {
             comparison,
+            again,
             written: fs::read_to_string(&path).map_err(|error| error.to_string()),
             frames: Frames::read(&path).map_err(|error| error.to_string()),
         }
@@ -65,4 +83,20 @@ fn the_extract_has_the_timestamps_key_frames_and_decoding_errors_of_the_referenc
     let recording = Recording::read(&committed(EXTRACT)).unwrap();
 
     assert_eq!(run().frames.as_ref().unwrap().entries(), recording.frames.entries());
+}
+
+#[test]
+#[ignore = "slow"]
+fn the_extract_detected_again_against_its_written_frames_is_the_same_through_the_command_path() {
+    let again = run().again.same_as.as_ref().unwrap();
+
+    assert!(again.holds(), "{again:?}");
+    assert!(matches!(
+        again.verdict(),
+        Verdict::Compared {
+            span_count: 0,
+            differing_inside: 0,
+            ..
+        }
+    ));
 }

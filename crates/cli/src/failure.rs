@@ -104,7 +104,7 @@ pub fn cause(error: &Error, options: &Options) -> Cause {
 
 fn detecting(error: &detection::Error, tuned: bool) -> Cause {
     match error {
-        detection::Error::Input(input) => reading(input),
+        detection::Error::Input(input) => reading_cause(input),
         detection::Error::Geometry { .. }
         | detection::Error::Blur { .. }
         | detection::Error::Mask { .. }
@@ -118,7 +118,7 @@ fn detecting(error: &detection::Error, tuned: bool) -> Cause {
     }
 }
 
-fn reading(error: &input::Error) -> Cause {
+pub fn reading_cause(error: &input::Error) -> Cause {
     match error {
         input::Error::Decode { source, .. } => decoding(source),
         input::Error::NoAnnouncedFrames { .. } | input::Error::FrameCount { .. } => Cause::Damaged,

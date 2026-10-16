@@ -5,7 +5,8 @@ use super::Outcome;
 use crate::case::{Case, EXTRACT, WHOLE};
 use crate::comparison::{Comparison, compared};
 use crate::error::Error;
-use crate::testing::nothing_detected;
+use crate::sameness::Sameness;
+use crate::testing::{frames_without_detections, nothing_detected};
 
 fn agreeing() -> Comparison {
     let recording = Recording::read(&committed(EXTRACT)).unwrap();
@@ -52,4 +53,26 @@ fn a_failure_a_comparison_under_98_percent_or_no_comparison_at_all_fails_the_run
     assert!(!under.holds());
     assert!(!only_failed.holds());
     assert!(Outcome::of(&cases(1), vec![Ok(agreeing())]).holds());
+}
+
+#[test]
+fn a_run_that_differs_from_the_earlier_one_outside_the_damaged_spans_fails_even_in_agreement_with_the_reference() {
+    let recording = Recording::read(&committed(EXTRACT)).unwrap();
+    let name = &recording.summary.video.name;
+    let same = Comparison {
+        same_as: Some(Sameness::of(name, &recording.frames, &recording.frames, &[])),
+        ..agreeing()
+    };
+    let changed = Comparison {
+        same_as: Some(Sameness::of(
+            name,
+            &recording.frames,
+            &frames_without_detections(&recording),
+            &[],
+        )),
+        ..agreeing()
+    };
+
+    assert!(Outcome::of(&cases(1), vec![Ok(same)]).holds());
+    assert!(!Outcome::of(&cases(1), vec![Ok(changed)]).holds());
 }

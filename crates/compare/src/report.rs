@@ -4,6 +4,7 @@ use std::path::Path;
 
 use crate::agreement::MIN_RATE;
 use crate::comparison::Comparison;
+use crate::sameness::{Sameness, Verdict};
 use crate::tracks::TrackCounts;
 
 #[cfg(test)]
@@ -52,6 +53,28 @@ pub fn write_report(comparisons: &[Comparison], out: &mut impl Write) -> io::Res
         writeln!(out, "  {name}")?;
     }
     Ok(())
+}
+
+pub fn write_same_as(previous: &Path, comparisons: &[Comparison], out: &mut impl Write) -> io::Result<()> {
+    writeln!(out, "same as {}, outside the damaged spans", previous.display())?;
+    let compared: Vec<&Sameness> = comparisons
+        .iter()
+        .filter_map(|comparison| comparison.same_as.as_ref())
+        .collect();
+    for sameness in &compared {
+        sameness.write_line(out)?;
+    }
+    let identical = compared.iter().filter(|sameness| sameness.holds()).count();
+    let inputs = compared
+        .iter()
+        .filter(|sameness| matches!(sameness.verdict(), Verdict::InputsDiffer(_)))
+        .count();
+    writeln!(
+        out,
+        "{} videos: identical {identical}, differing {}, inputs differ {inputs}",
+        compared.len(),
+        compared.len() - identical - inputs
+    )
 }
 
 fn percent(rate: f64) -> f64 {

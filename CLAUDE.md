@@ -97,6 +97,7 @@ mise run rust:coverage    # tests rapides, couverture ≥ 95 % (dans check:ci)
 /Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:settings   # les 16 cas de réglages, sous Linux seulement en CI
 /Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:reference  # la 092 entière
 /Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --profile ci -p compare -- local  # écarts à la référence (extract, 092, 092-1440, settings, local)
+/Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --profile ci -p compare -- local --frames B --same-as A  # mêmes détections qu'un passage --frames A, hors plages abîmées
 /Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --release -p bench -- VIDÉO --against DOSSIER  # garde du banc contre un banc de la v0.1.1
 BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… mise run rust:data  # référence et 26 vidéos sur une autre machine (seau, sommes dans tests/fixtures/reference/SHA256SUMS)
 ```
@@ -155,7 +156,7 @@ crates depuis #71, dépendances à sens unique :
   vidéo, seulement si elle est à nous, #71), `ledger` (échec d'une vidéo gardé dans
   `.batdetect/echecs/` pour la page, effacé à la réussite, #71),
   `options` (réglages de la commande), `process` (une vidéo de bout en bout ; `tracked` en
-  est le suivi, partagé avec les tests figés), `reuse` (vidéo déjà faite, sautée d'après son `params.json`, #70), `consent` (question avant de traiter les vidéos
+  est le suivi, partagé avec les tests figés), `reuse` (vidéo déjà faite, sautée d'après son `params.json`, #70), `inventory` (inventaire au départ : reprise décidée, autres vidéos ouvertes et refusées si elles ne s'ouvrent pas, durée annoncée, #62), `consent` (question avant de traiter les vidéos
   valides quand des entrées sont refusées, `--skip-refused`), `language`, `listing` (pistes de `params.json` : temps, couleur, extraits écrits, #66),
   `overview` (image résumé), `settings` (réglages de `params.json`),
   `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), `writable`
@@ -163,7 +164,7 @@ crates depuis #71, dépendances à sens unique :
   fermée des raisons d'un chemin refusé, sans texte, #55), `jobs` (vidéos et dossiers de
   sortie, toutes les entrées fautives refusées ensemble avant tout calcul, #55), `progress` (étapes
   d'une vidéo annoncées par `process`, #63), `failure` (cause d'un échec, sans texte, #64), `tally` (modèle du bilan de fin de soirée, #65), dans le binaire `status` (vidéo et étape en
-  cours sur la sortie d'erreur, redessinée sur un terminal, #63), `board` (mise en forme du bilan, #65), `notify` (sous macOS dans un terminal, notification par
+  cours sur la sortie d'erreur, redessinée sur un terminal, #63), `board` (mise en forme du bilan, #65), `clock` (durée en h, min et s, du bilan et de l'annonce, #62), `notify` (sous macOS dans un terminal, notification par
   `osascript` et page de résultats ouverte par `open` après le bilan, seuls sous-processus du binaire, #69, #71), `sheet`
   (libellés de la page par Fluent, #71), `style` (couleurs et nom de l'option d'aide, #56) et `parsing` (lecture
   des valeurs d'options, erreur typée avec l'option et sa plage, #55) ; usages courants en tête de l'aide et sans argument (#56), version gravée par

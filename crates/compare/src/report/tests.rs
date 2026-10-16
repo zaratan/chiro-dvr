@@ -4,10 +4,11 @@ use std::path::Path;
 use reference::location::committed;
 use reference::recording::Recording;
 
-use super::{write_failure, write_report};
+use super::{write_failure, write_report, write_same_as};
 use crate::case::EXTRACT;
 use crate::comparison::{Comparison, compared};
-use crate::testing::nothing_detected;
+use crate::sameness::Sameness;
+use crate::testing::{frames_without_detections, nothing_detected};
 
 #[derive(Debug, thiserror::Error)]
 #[error("cannot read the summary")]
@@ -59,4 +60,35 @@ fn a_failure_names_its_recording_then_each_of_its_causes() {
         String::from_utf8(out).unwrap(),
         "data/video_089: cannot read the summary\n  disk gone\n"
     );
+}
+
+#[test]
+fn the_runs_compared_with_an_earlier_folder_are_listed_under_its_name_then_counted() {
+    let recording = Recording::read(&committed(EXTRACT)).unwrap();
+    let name = &recording.summary.video.name;
+    let with = |current: &reference::frames::Frames| Comparison {
+        same_as: Some(Sameness::of(name, &recording.frames, current, &[])),
+        ..compared(name, recording.frames.detections(), &recording, 1.0).unwrap()
+    };
+    let without_frames = compared(name, recording.frames.detections(), &recording, 1.0).unwrap();
+    let mut out = Vec::new();
+
+    write_same_as(
+        Path::new("out/first"),
+        &[
+            with(&recording.frames),
+            with(&frames_without_detections(&recording)),
+            without_frames,
+        ],
+        &mut out,
+    )
+    .unwrap();
+
+    let text = String::from_utf8(out).unwrap();
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines.len(), 4);
+    assert_eq!(lines[0], "same as out/first, outside the damaged spans");
+    assert!(lines[1].starts_with("video_092_original_3m24-4m05.mp4\tidentical\t"));
+    assert!(lines[2].starts_with("video_092_original_3m24-4m05.mp4\tdiffers\toutside "));
+    assert_eq!(lines[3], "2 videos: identical 1, differing 1, inputs differ 0");
 }

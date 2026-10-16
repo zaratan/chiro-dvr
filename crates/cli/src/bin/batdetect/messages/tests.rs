@@ -5,21 +5,24 @@ use std::path::PathBuf;
 
 use batdetect::access::Access;
 use batdetect::failure::Cause;
+use batdetect::inventory::{Listed, Stock};
 use batdetect::jobs::{self, Job, Reason, Refused};
 use batdetect::options::Options;
 use batdetect::outcome::Rank;
 use batdetect::outcome::{Failure, Panic};
 use batdetect::process::{self, Extent};
 use batdetect::progress::Step;
+use batdetect::reuse::Earlier;
 use batdetect::writable::Unwritable;
 use engine::detection;
 use engine::input;
 use engine::lost::Losses;
+use files::params::Finish;
 use types::language::Language;
 
 use super::{
-    detection_refused, failure_lines, folders_refused, inputs_refused, inputs_skipped, option_refused, redone,
-    render_refused, tracking_refused, video_done, video_failed, video_step,
+    announcement, detection_refused, failure_lines, folders_refused, inputs_refused, inputs_skipped, option_refused,
+    redone, refused_lines, render_refused, tracking_refused, video_done, video_failed, video_step,
 };
 use crate::texts::{Fixed, Message, Texts};
 
@@ -624,6 +627,101 @@ fn the_refusals_before_the_question_are_counted_and_the_question_counts_the_vali
         [
             "Traite les vidéos valides sans poser la question quand des entrées sont refusées",
             "Processes the valid videos without asking when some inputs are refused"
+        ]
+    );
+}
+
+fn unopened(cause: Cause) -> Refused {
+    Refused {
+        path: PathBuf::from("nuit/faux.mp4"),
+        reason: Reason::Unopened {
+            cause,
+            detail: "cannot decode nuit/faux.mp4".to_owned(),
+        },
+    }
+}
+
+#[test]
+fn a_video_that_cannot_be_opened_is_refused_with_the_sentence_and_the_advice_of_its_failure_in_both_languages() {
+    let refused = [unopened(Cause::NotAVideo)];
+    assert_eq!(
+        refused_lines(Texts::new(Language::French), &refused),
+        [
+            "nuit/faux.mp4\u{a0}: ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète",
+            "  à faire\u{a0}: s'il vient des jumelles, le recopier par le câble USB, sans passer par Stream Vision 2\u{a0}; \
+             sinon, le retirer du dossier",
+        ]
+    );
+    assert_eq!(
+        refused_lines(Texts::new(Language::English), &refused),
+        [
+            "nuit/faux.mp4: this file is not a readable video, or its copy is incomplete",
+            "  what to do: if it comes from the binoculars, copy it again over the USB cable, not through Stream \
+             Vision 2; otherwise, move it out of the folder",
+        ]
+    );
+}
+
+#[test]
+fn an_unsupported_video_refused_at_the_start_gives_the_detail_its_advice_points_to() {
+    assert_eq!(
+        refused_lines(Texts::new(Language::English), &[unopened(Cause::Unsupported)]),
+        [
+            "nuit/faux.mp4: this video format is not handled",
+            "  what to do: report it, with the detail below",
+            "  detail: cannot decode nuit/faux.mp4",
+        ]
+    );
+}
+
+fn listed(name: &str, length_s: f64, done: bool) -> Listed {
+    Listed {
+        job: Job {
+            video: PathBuf::from(format!("nuit/{name}.mp4")),
+            dest: PathBuf::from(format!("nuit/batdetect/{name}")),
+        },
+        earlier: done.then_some(Earlier {
+            finish: Finish::Done,
+            tracks: 1,
+            limit: 300,
+            extent: Extent {
+                length_s,
+                not_analysed_s: 0.0,
+            },
+        }),
+        length_s,
+    }
+}
+
+#[test]
+fn the_announcement_counts_the_videos_and_their_length_and_names_those_already_done_only_when_there_are_some() {
+    let stock = |listed: Vec<Listed>| Stock {
+        listed,
+        refused: Vec::new(),
+    };
+    let one = stock(vec![listed("a", 41.9, false)]);
+    assert_eq!(
+        both(&announcement(&one)),
+        ["1 vidéo, 41 s de vidéo", "1 video, 41 s of video"]
+    );
+    let some_done = stock(vec![
+        listed("a", 1800.0, true),
+        listed("b", 1800.0, false),
+        listed("c", 125.0, true),
+    ]);
+    assert_eq!(
+        both(&announcement(&some_done)),
+        [
+            "3 vidéos, 1 h 2 min 5 s de vidéo, dont 2 déjà faites",
+            "3 videos, 1 h 2 min 5 s of video, 2 of them already done"
+        ]
+    );
+    let one_done = stock(vec![listed("a", 60.0, true), listed("b", 60.0, false)]);
+    assert_eq!(
+        both(&announcement(&one_done)),
+        [
+            "2 vidéos, 2 min 0 s de vidéo, dont 1 déjà faite",
+            "2 videos, 2 min 0 s of video, 1 of them already done"
         ]
     );
 }
