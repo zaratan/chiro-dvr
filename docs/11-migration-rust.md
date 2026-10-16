@@ -10,9 +10,8 @@ Ce document tient trois choses ([qui tient quoi](README.md#qui-tient-quoi)) :
 - **les sections tenues à jour**, de [Construction](#construction) à
   [Plage réelle des sources](#plage-réelle-des-sources), puis la méthode des
   [Réglages](#réglages) et la [Garde](#garde) du banc ;
-- **la description des crates** ([Crates](#crates)), figée au 16 octobre 2026 (30deaeb) :
-  l'état courant est dans [10](10-logique-de-detection.md), [02](02-methode.md) et
-  [CLAUDE.md](../CLAUDE.md) ;
+- **la description des crates** ([Crates](#crates)), qui détaille la carte à jour de
+  [CLAUDE.md](../CLAUDE.md) et suit les lots ;
 - **l'histoire de la migration**, mesures datées comprises, qui ne se récrivent pas.
 
 ## Bilan (16 octobre 2026)
