@@ -45,7 +45,7 @@ de comportement du code met à jour ce document-là, dans la même série de cha
 | Valeur de chaque réglage et sa justification mesurée | [02](02-methode.md) | 10 cite le défaut et renvoie à 02 ; le README n'en recopie aucun (`batdetect --help` affiche les défauts depuis le code) |
 | Logique étape par étape, module de chaque étape | [10](10-logique-de-detection.md) | — |
 | Chaîne de construction, charte, tests, licences, encodage | [11](11-migration-rust.md), sections Construction à Plage réelle des sources | 05 et 02 y renvoient |
-| Détail des crates | [11](11-migration-rust.md#crates), figé au 16 octobre 2026 | l'état courant est dans 10, 02 et CLAUDE.md |
+| Détail des crates | [11](11-migration-rust.md#crates), qui suit les lots | la carte courte dans CLAUDE.md |
 | Carte courte des crates, règles des agents | [CLAUDE.md](../CLAUDE.md) | — |
 | Temps de calcul actuels | [09](09-profilage.md) | les autres citent ses chiffres |
 | Questions ouvertes | [06](06-questions-ouvertes.md) | — |

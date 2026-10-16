@@ -9,7 +9,33 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          code=true
+          if [ "$EVENT" = pull_request ]; then
+            changed=$(git diff --name-only --no-renames HEAD^1 HEAD)
+            printf '%s\n' "$changed"
+            if [ -n "$changed" ] && ! grep -qvE '(\.md$|^docs/images/)' <<< "$changed"; then
+              code=false
+            fi
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
   rust:
+    needs: changes
+    if: needs.changes.outputs.code != 'false'
     strategy:
       fail-fast: false
       matrix:
@@ -43,6 +69,8 @@ jobs:
       - run: mise run rust:coverage
 
   rust-slow:
+    needs: changes
+    if: needs.changes.outputs.code != 'false'
     strategy:
       fail-fast: false
       matrix:
@@ -86,6 +114,8 @@ jobs:
         run: cargo test --workspace --locked --profile ci --test 'hardware_*' -- --include-ignored
 
   rust-reference:
+    needs: changes
+    if: needs.changes.outputs.code != 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -120,6 +150,8 @@ jobs:
       - run: mise run rust:reference
 
   rust-settings:
+    needs: changes
+    if: needs.changes.outputs.code != 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -153,6 +185,8 @@ jobs:
       - run: mise run rust:settings
 
   rust-windows:
+    needs: changes
+    if: needs.changes.outputs.code != 'false'
     runs-on: windows-latest
     timeout-minutes: 60
     defaults:
@@ -197,6 +231,8 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked --profile ci -- -D warnings
 
   rust-windows-slow:
+    needs: changes
+    if: needs.changes.outputs.code != 'false'
     runs-on: windows-latest
     timeout-minutes: 60
     defaults:
@@ -248,4 +284,18 @@ jobs:
         run: cargo test --workspace --locked --profile ci --no-fail-fast --test 'slow_*' -- --include-ignored
 
   package:
+    needs: changes
+    if: needs.changes.outputs.code != 'false'
     uses: ./.github/workflows/package.yml
+
+  verdict:
+    needs: [changes, rust, rust-slow, rust-reference, rust-settings, rust-windows, rust-windows-slow, package]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
+          jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<< "$NEEDS" > /dev/null
