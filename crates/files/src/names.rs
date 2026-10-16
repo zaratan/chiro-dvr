@@ -179,6 +179,10 @@ impl Names {
     }
 }
 
+pub fn names_the_video(name: &[u8], stem: &[u8]) -> bool {
+    previous_output(name, stem).is_some_and(|(_, output)| output != Output::ClipsFolder)
+}
+
 pub(crate) fn previous_output(name: &[u8], stem: &[u8]) -> Option<(Names, Output)> {
     let finished = |name: &[u8]| {
         EVERY

@@ -57,12 +57,14 @@ fn interrupted_at(step: &str, out: &std::path::Path) -> (std::process::ExitStatu
 #[cfg(unix)]
 #[test]
 #[ignore = "slow"]
-fn ctrl_c_during_the_detection_names_the_video_reached_and_exits_with_130_then_the_same_command_redoes_the_lot() {
+fn ctrl_c_during_the_detection_names_the_video_reached_and_exits_with_130_then_the_same_command_resumes_the_lot() {
     let out = tempfile::tempdir().unwrap();
     let (status, seen) = interrupted_at("détection", out.path());
     assert_eq!(status.code(), Some(130), "{seen}");
     assert!(
-        seen.ends_with("lot interrompu à la vidéo 1/1\u{a0}; relancer la même commande refait le lot\n"),
+        seen.ends_with(
+            "lot interrompu à la vidéo 1/1\u{a0}; relancer la même commande reprend là où le lot s'est arrêté\n"
+        ),
         "{seen}"
     );
     let again = batdetect(out.path()).output().unwrap();
@@ -91,4 +93,7 @@ fn ctrl_c_during_the_clips_leaves_a_folder_without_params_json_that_reads_unfini
     let folder = out.path().join("video_092_original_3m24-4m05");
     assert!(folder.join("video_092_original_3m24-4m05_pistes.csv").is_file());
     assert!(!folder.join("params.json").exists());
+    let page = std::fs::read_to_string(out.path().join("resultats.html")).unwrap();
+    assert!(page.contains("inachevée"), "{page}");
+    assert!(!page.contains("pas encore traitée"), "{page}");
 }

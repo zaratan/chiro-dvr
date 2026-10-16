@@ -51,6 +51,17 @@ fn a_video_with_too_many_tracks_says_so_above_its_image() {
 }
 
 #[test]
+fn a_folded_video_with_too_many_tracks_still_says_so_in_its_heading() {
+    let mut night = video("v");
+    assert!(!render(&night, "v1", &Named).contains("TooManyBadge"));
+    night.too_many = Some(TooMany { count: 301, limit: 300 });
+    night.open = false;
+    let section = render(&night, "v1", &Named);
+    let (heading, _) = section.split_once("</summary>").unwrap();
+    assert!(heading.contains(r#"<span class="badge">TooManyBadge</span>"#));
+}
+
+#[test]
 fn a_video_of_the_last_run_opens_and_one_of_an_earlier_evening_stays_folded() {
     let mut night = video("v");
     assert!(render(&night, "v1", &Named).starts_with(r#"<details class="video" id="v1" open>"#));
@@ -62,5 +73,5 @@ fn a_video_of_the_last_run_opens_and_one_of_an_earlier_evening_stays_folded() {
 fn the_results_kept_from_before_a_failure_stay_folded_and_say_where_they_come_from() {
     let section = render_previous(&video("v"), "v3-previous", &Named);
     assert!(section.starts_with(r#"<details class="video" id="v3-previous">"#));
-    assert!(section.contains("PreviousOf(&quot;v&quot;)"));
+    assert!(section.contains("PreviousResults"));
 }

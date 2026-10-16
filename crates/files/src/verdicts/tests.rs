@@ -76,3 +76,27 @@ fn a_table_without_a_verdict_column_or_without_a_file_gives_no_verdict() {
     let absent = folder.path().join("absent.csv");
     assert_eq!(read_verdicts(&absent, &[track(1, 4.8)], &Named), [None]);
 }
+
+#[test]
+fn a_table_saved_again_in_latin_1_by_a_spreadsheet_keeps_its_verdicts() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().join("v_pistes.csv");
+    let mut bytes = b"Track;Verdict;StartSeconds\r\n1;oui s".to_vec();
+    bytes.push(0xFB);
+    bytes.extend(b"re;4,8\r\n");
+    fs::write(&path, bytes).unwrap();
+    assert_eq!(
+        read_verdicts(&path, &[track(1, 4.8)], &Named),
+        [Some("oui sûre".to_owned())]
+    );
+}
+
+#[test]
+fn a_start_rounded_to_the_hundredth_in_the_table_still_meets_its_track() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = written(folder.path(), "Track;Verdict;StartSeconds\n7;oui;209,6\n");
+    assert_eq!(
+        read_verdicts(&path, &[track(7, 209.595)], &Named),
+        [Some("oui".to_owned())]
+    );
+}

@@ -28,6 +28,7 @@ pub fn render(page: &Page, labels: &dyn Labels) -> String {
             match entry {
                 Entry::Video(video) => section::render(video, &anchor, labels),
                 Entry::Failed(failed) => cards::failed(failed, &anchor, labels),
+                Entry::Older { name } => cards::pending(name, &anchor, Label::OlderBadge, Label::OlderText, labels),
                 Entry::Unfinished { name } => {
                     cards::pending(name, &anchor, Label::UnfinishedBadge, Label::UnfinishedText, labels)
                 }
@@ -88,7 +89,7 @@ const fn has_section(entry: &Entry) -> bool {
     match entry {
         Entry::Video(_) => true,
         Entry::Failed(failed) => failed.previous.is_some(),
-        Entry::Unfinished { .. } | Entry::Waiting { .. } => false,
+        Entry::Unfinished { .. } | Entry::Older { .. } | Entry::Waiting { .. } => false,
     }
 }
 
@@ -99,23 +100,18 @@ fn tally(page: &Page, labels: &dyn Labels) -> String {
     let failed = count(|entry| matches!(entry, Entry::Failed(_)));
     let unfinished = count(|entry| matches!(entry, Entry::Unfinished { .. }));
     let waiting = count(|entry| matches!(entry, Entry::Waiting { .. }));
-    let first_failed = page
-        .entries
-        .iter()
-        .position(|entry| matches!(entry, Entry::Failed(_)))
-        .map(|index| index + 1);
+    let first = |wanted: fn(&Entry) -> bool| page.entries.iter().position(wanted).map(|index| index + 1);
+    let first_too_many = first(|entry| matches!(entry, Entry::Video(video) if video.too_many.is_some()));
+    let first_failed = first(|entry| matches!(entry, Entry::Failed(_)));
     let mut parts = vec![span("count", &labels.label(&Label::Videos(page.entries.len())))];
     if done > 0 {
         parts.push(span("count", &labels.label(&Label::Done(done))));
     }
-    if too_many > 0 {
-        parts.push(span("count", &labels.label(&Label::TooManyCount(too_many))));
+    if let Some(first) = first_too_many {
+        parts.push(link(first, &labels.label(&Label::TooManyCount(too_many))));
     }
     if let Some(first) = first_failed {
-        parts.push(format!(
-            r##"<a class="count bad" href="#v{first}">{}</a>"##,
-            text(&labels.label(&Label::FailedCount(failed)))
-        ));
+        parts.push(link(first, &labels.label(&Label::FailedCount(failed))));
     }
     if unfinished > 0 {
         parts.push(span("count", &labels.label(&Label::UnfinishedCount(unfinished))));
@@ -125,6 +121,10 @@ fn tally(page: &Page, labels: &dyn Labels) -> String {
     }
     parts.push(span("count strong", &labels.label(&Label::Tracks(page.tracks()))));
     parts.join("\n    ")
+}
+
+fn link(entry: usize, content: &str) -> String {
+    format!(r##"<a class="count bad" href="#v{entry}">{}</a>"##, text(content))
 }
 
 fn span(class: &str, content: &str) -> String {

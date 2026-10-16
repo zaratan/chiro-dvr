@@ -18,7 +18,7 @@ pub(crate) fn render_previous(video: &Video, anchor: &str, labels: &dyn Labels) 
         anchor,
         labels,
         false,
-        Some(labels.label(&Label::PreviousOf(&video.name))),
+        Some(labels.label(&Label::PreviousResults)),
     )
 }
 
@@ -51,7 +51,7 @@ fn rendered(video: &Video, anchor: &str, labels: &dyn Labels, open: bool, previo
         r#"<details class="video" id="{anchor}"{open}>
   <summary class="video-head">
     <span class="chevron" aria-hidden="true"></span>
-    <h2 class="name">{name}</h2>
+    <h2 class="name">{name}</h2>{badge}
     <span class="meta">{meta}</span>
   </summary>{notice}
   <div class="body">
@@ -80,6 +80,15 @@ fn rendered(video: &Video, anchor: &str, labels: &dyn Labels, open: bool, previo
   </div>
 </details>"#,
         open = if open { " open" } else { "" },
+        badge = if video.too_many.is_some() {
+            format!(
+                r#"
+    <span class="badge">{}</span>"#,
+                say(Label::TooManyBadge)
+            )
+        } else {
+            String::new()
+        },
         name = text(&video.name),
         meta = text(&meta.join(META_SEPARATOR)),
         pictures = pictures(video, anchor, labels),

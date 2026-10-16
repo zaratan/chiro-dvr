@@ -9,6 +9,7 @@ pub enum Entry {
     Video(Video),
     Failed(Failed),
     Unfinished { name: String },
+    Older { name: String },
     Waiting { name: String },
 }
 
@@ -78,7 +79,7 @@ impl Page {
             .iter()
             .map(|entry| match entry {
                 Entry::Video(video) => video.tracks.len(),
-                Entry::Failed(_) | Entry::Unfinished { .. } | Entry::Waiting { .. } => 0,
+                Entry::Failed(_) | Entry::Unfinished { .. } | Entry::Older { .. } | Entry::Waiting { .. } => 0,
             })
             .sum()
     }

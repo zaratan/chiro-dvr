@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::path::Path;
 
@@ -89,22 +89,18 @@ pub fn write_tracks_csv(
         })
 }
 
-pub fn is_tracks_table(path: &Path, headings: &dyn Headings) -> Result<bool, Error> {
-    let bytes = fs::read(path).map_err(|source| Error::Read {
-        path: path.to_path_buf(),
-        source,
-    })?;
-    let Ok(text) = str::from_utf8(&bytes) else {
-        return Ok(false);
+pub(crate) fn is_tracks_table(bytes: &[u8], headings: &dyn Headings) -> bool {
+    let Ok(text) = str::from_utf8(bytes) else {
+        return false;
     };
     let mut lines = text.lines();
     let Some(first) = lines.next() else {
-        return Ok(false);
+        return false;
     };
     let legacy = Form::legacy();
     let ours = LANGUAGES.map(|language| Form::ours(language, headings));
     let form = ours.iter().chain([&legacy]).find(|form| form.header == first);
-    Ok(form.is_some_and(|form| lines.all(|line| form.fits(line))))
+    form.is_some_and(|form| lines.all(|line| form.fits(line)))
 }
 
 #[derive(Debug)]

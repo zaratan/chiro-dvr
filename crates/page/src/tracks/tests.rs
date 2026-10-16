@@ -19,6 +19,8 @@ fn a_track_without_clips_has_no_button_to_play_but_can_still_be_shown_on_the_ima
     }
     let table = render(&night, &Named);
     assert!(!table.contains("class=\"play\""));
+    assert!(!table.contains("ColumnWatch"));
+    assert!(!table.contains("class=\"watch\""));
     assert_eq!(table.matches("ShowTrack(").count(), 4);
 }
 

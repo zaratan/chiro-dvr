@@ -143,7 +143,7 @@ fn a_table_we_write_in_either_language_with_or_without_tracks_is_recognised_as_o
     for language in [Language::French, Language::English] {
         for tracks in [vec![], vec![three_points()]] {
             let (_directory, path) = written(language, &tracks);
-            assert!(is_tracks_table(&path, &Spelled).unwrap(), "{language:?}");
+            assert!(is_tracks_table(&fs::read(&path).unwrap(), &Spelled), "{language:?}");
         }
     }
 }
@@ -153,7 +153,7 @@ fn a_table_written_by_v0_1_1_is_still_recognised_as_ours_so_the_cleanup_removes_
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("v.tracks.csv");
     fs::write(&path, LEGACY_TABLE).unwrap();
-    assert!(is_tracks_table(&path, &Spelled).unwrap());
+    assert!(is_tracks_table(&fs::read(&path).unwrap(), &Spelled));
 }
 
 #[test]
@@ -162,7 +162,7 @@ fn a_verdict_written_in_the_table_even_as_a_space_makes_it_no_longer_ours_so_the
     let table = fs::read_to_string(&path).unwrap();
     for verdict in ["oui", " "] {
         fs::write(&path, table.replacen(";;", &format!(";{verdict};"), 1)).unwrap();
-        assert!(!is_tracks_table(&path, &Spelled).unwrap(), "{verdict:?}");
+        assert!(!is_tracks_table(&fs::read(&path).unwrap(), &Spelled), "{verdict:?}");
     }
 }
 
@@ -177,7 +177,7 @@ fn a_table_resaved_without_its_byte_order_mark_with_one_it_never_had_or_with_the
         english.replace(',', ";"),
     ] {
         fs::write(&path, &content).unwrap();
-        assert!(!is_tracks_table(&path, &Spelled).unwrap(), "{content}");
+        assert!(!is_tracks_table(&fs::read(&path).unwrap(), &Spelled), "{content}");
     }
 }
 
@@ -206,7 +206,7 @@ fn a_table_is_named_only_once_whole_and_leaves_no_partial_file() {
         .map(|entry| entry.unwrap().file_name())
         .collect();
     assert_eq!(names, ["v_pistes.csv"]);
-    assert!(is_tracks_table(&path, &Spelled).unwrap());
+    assert!(is_tracks_table(&fs::read(&path).unwrap(), &Spelled));
 }
 
 #[test]

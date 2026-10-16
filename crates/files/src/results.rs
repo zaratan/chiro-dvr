@@ -7,7 +7,7 @@ use serde::Deserialize;
 use types::language::Language;
 
 use crate::failures::{FailureRecord, read_failures};
-use crate::names::{Names, params_json, previous_output};
+use crate::names::{Names, names_the_video, params_json};
 use crate::params::{Finish, TrackEntry};
 use crate::picture::png_size;
 use crate::table::Headings;
@@ -56,6 +56,7 @@ pub struct Finished {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Found {
     Finished(Box<Finished>),
+    Older,
     Unfinished,
     Absent,
 }
@@ -113,7 +114,11 @@ fn found(dest: &Path, name: &OsStr, headings: &dyn Headings) -> Option<Found> {
         .as_deref()
         .and_then(|bytes| serde_json::from_slice::<Ours>(bytes).ok())
         .is_some();
-    (our_params || holds_our_outputs(dest, name)).then_some(Found::Unfinished)
+    if our_params {
+        Some(Found::Older)
+    } else {
+        holds_our_outputs(dest, name).then_some(Found::Unfinished)
+    }
 }
 
 #[derive(Deserialize)]
@@ -128,7 +133,7 @@ fn holds_our_outputs(dest: &Path, name: &OsStr) -> bool {
     fs::read_dir(dest).is_ok_and(|entries| {
         entries
             .flatten()
-            .any(|entry| previous_output(entry.file_name().as_encoded_bytes(), name.as_encoded_bytes()).is_some())
+            .any(|entry| names_the_video(entry.file_name().as_encoded_bytes(), name.as_encoded_bytes()))
     })
 }
 

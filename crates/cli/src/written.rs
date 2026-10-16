@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 use std::fs::{self, File};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use files::error::Error;
 use files::failures::FailureRecord;
 use files::names::partial_path;
-use files::names::{RESULTS_FOLDER, results_page};
+use files::names::{RESULTS_FOLDER, composed, results_page};
 use files::params::Finish;
 use files::results::{Finished, Found, read_results};
 use files::table::Headings;
@@ -25,6 +25,7 @@ use crate::jobs::Job;
 mod tests;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
+const MARKER_WINDOW: usize = 1024;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Wording<'a> {
@@ -87,7 +88,10 @@ fn replace(target: &Path, html: &str) -> Result<(), Error> {
 }
 
 fn ours(path: &Path) -> bool {
-    fs::read(path).is_ok_and(|bytes| page::is_ours(&bytes))
+    let mut head = Vec::with_capacity(MARKER_WINDOW);
+    File::open(path)
+        .and_then(|file| file.take(MARKER_WINDOW as u64).read_to_end(&mut head))
+        .is_ok_and(|_| page::is_ours(&head))
 }
 
 fn page_of(root: &Path, jobs: &[Job], finished: usize, headings: &dyn Headings) -> Page {
@@ -96,29 +100,29 @@ fn page_of(root: &Path, jobs: &[Job], finished: usize, headings: &dyn Headings) 
         .enumerate()
         .filter(|(_, job)| root_of(job) == root)
         .collect();
-    let batch_rank = |name: &OsStr| {
-        in_batch
-            .iter()
-            .find(|(_, job)| job.dest.file_name() == Some(name))
-            .map(|(rank, job)| (*rank, *job))
-    };
-    let mut entries: BTreeMap<OsString, Entry> = BTreeMap::new();
+    let in_batch_names: Vec<String> = in_batch
+        .iter()
+        .map(|(_, job)| key(job.dest.file_name().unwrap_or_default()))
+        .collect();
+    let mut entries: BTreeMap<String, Entry> = BTreeMap::new();
     for folder in read_results(root, headings) {
-        let open = batch_rank(&folder.name).is_some();
+        let open = in_batch_names.contains(&key(&folder.name));
         let entry = match (folder.found, folder.failure) {
             (found, Some(record)) => Entry::Failed(failed(root, &folder.name, record, found)),
             (Found::Finished(done), None) => Entry::Video(video(&folder.name, &done, open)),
+            (Found::Older, None) => Entry::Older {
+                name: shown(&folder.name),
+            },
             (Found::Unfinished | Found::Absent, None) => Entry::Unfinished {
                 name: shown(&folder.name),
             },
         };
-        entries.insert(folder.name, entry);
+        entries.insert(key(&folder.name), entry);
     }
     for &(rank, job) in &in_batch {
         if rank >= finished {
-            let name = job.dest.file_name().unwrap_or_default().to_os_string();
             entries.insert(
-                name,
+                key(job.dest.file_name().unwrap_or_default()),
                 Entry::Waiting {
                     name: shown(job.video.file_stem().unwrap_or_default()),
                 },
@@ -134,7 +138,7 @@ fn page_of(root: &Path, jobs: &[Job], finished: usize, headings: &dyn Headings) 
 fn failed(root: &Path, folder: &OsStr, record: FailureRecord, found: Found) -> Failed {
     let previous = match found {
         Found::Finished(done) => Some(video(folder, &done, false)),
-        Found::Unfinished | Found::Absent => None,
+        Found::Older | Found::Unfinished | Found::Absent => None,
     };
     let refers_to_detail = REFERS_TO_DETAIL.contains(&record.cause.as_str());
     Failed {
@@ -153,7 +157,7 @@ fn video(folder: &OsStr, done: &Finished, open: bool) -> Video {
     let tracks = written
         .tracks
         .iter()
-        .zip(done.verdicts.iter().cloned().chain(std::iter::repeat(None)))
+        .zip(&done.verdicts)
         .map(|(entry, verdict)| Track {
             id: entry.id,
             start_s: entry.start_s,
@@ -162,7 +166,7 @@ fn video(folder: &OsStr, done: &Finished, open: bool) -> Video {
             summary: entry.summary.clone(),
             clip: entry.clip.clone(),
             zoom: entry.zoom.clone(),
-            verdict,
+            verdict: verdict.clone(),
         })
         .collect();
     Video {
@@ -203,11 +207,16 @@ fn date(written: &str) -> Option<Date> {
 }
 
 fn title(root: &Path) -> String {
+    let root = std::path::absolute(root).unwrap_or_else(|_| root.to_path_buf());
     let named = match root.file_name() {
         Some(name) if name == RESULTS_FOLDER => root.parent().and_then(Path::file_name),
         other => other,
     };
     shown(named.unwrap_or(root.as_os_str()))
+}
+
+fn key(name: &OsStr) -> String {
+    composed(&name.to_string_lossy())
 }
 
 fn shown(path: impl AsRef<Path>) -> String {

@@ -7,7 +7,15 @@ mod tests;
 
 pub(crate) fn render(video: &Video, labels: &dyn Labels) -> String {
     let say = |label: Label<'_>| text(&labels.label(&label));
-    let rows: Vec<String> = video.tracks.iter().map(|track| row(video, track, labels)).collect();
+    let watchable = video
+        .tracks
+        .iter()
+        .any(|track| track.clip.is_some() || track.zoom.is_some());
+    let rows: Vec<String> = video
+        .tracks
+        .iter()
+        .map(|track| row(video, track, watchable, labels))
+        .collect();
     let mut links = Vec::new();
     if let Some(table) = &video.table {
         links.push(format!(
@@ -37,7 +45,7 @@ pub(crate) fn render(video: &Video, labels: &dyn Labels) -> String {
             <th scope="col" class="num">{start}</th>
             <th scope="col" class="num">{length}</th>
             <th scope="col">{verdict}</th>
-            <th scope="col">{watch}</th>
+            {watch}
           </tr></thead>
           <tbody>
 {rows}
@@ -49,12 +57,16 @@ pub(crate) fn render(video: &Video, labels: &dyn Labels) -> String {
         start = say(Label::ColumnStart),
         length = say(Label::ColumnLength),
         verdict = say(Label::ColumnVerdict),
-        watch = say(Label::ColumnWatch),
+        watch = if watchable {
+            format!(r#"<th scope="col">{}</th>"#, say(Label::ColumnWatch))
+        } else {
+            String::new()
+        },
         rows = rows.join("\n"),
     )
 }
 
-fn row(video: &Video, track: &Track, labels: &dyn Labels) -> String {
+fn row(video: &Video, track: &Track, watchable: bool, labels: &dyn Labels) -> String {
     let say = |label: Label<'_>| text(&labels.label(&label));
     let start = labels.label(&Label::Start(track.start_s));
     let total = video.tracks.len();
@@ -111,9 +123,13 @@ fn row(video: &Video, track: &Track, labels: &dyn Labels) -> String {
               <th scope="row"><button type="button" class="dot"{dot} aria-label="{show}">{id}</button></th>
               <td class="num">{start}</td>
               <td class="num">{duration}</td>
-              {verdict}
-              <td class="watch">{buttons}</td>
+              {verdict}{watch}
             </tr>"#,
+        watch = if watchable {
+            format!("\n              <td class=\"watch\">{buttons}</td>")
+        } else {
+            String::new()
+        },
         show = say(Label::ShowTrack(track.id)),
         id = track.id,
         start = text(&start),
@@ -122,5 +138,5 @@ fn row(video: &Video, track: &Track, labels: &dyn Labels) -> String {
 }
 
 fn file_name(path: &str) -> &str {
-    path.rsplit('/').next().unwrap_or(path)
+    path.rsplit_once('/').map_or(path, |(_, name)| name)
 }

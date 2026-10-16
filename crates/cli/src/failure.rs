@@ -170,7 +170,9 @@ fn in_use(error: &files::error::Error) -> Option<Cause> {
     const SHARING_VIOLATION: i32 = 32;
     const LOCK_VIOLATION: i32 = 33;
     match error {
-        files::error::Error::Remove { path, source } | files::error::Error::Read { path, source }
+        files::error::Error::Remove { path, source }
+        | files::error::Error::Read { path, source }
+        | files::error::Error::SetAside { path, source }
             if matches!(source.raw_os_error(), Some(SHARING_VIOLATION | LOCK_VIOLATION)) =>
         {
             Some(Cause::InUse { file: path.clone() })

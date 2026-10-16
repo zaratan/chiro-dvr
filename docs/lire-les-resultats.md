@@ -57,25 +57,101 @@ Les conseils suivants viennent de la littérature sur l'observation en caméra t
 - débit maximal ;
 - pas de zoom numérique.
 
+## La page des résultats
+
+À la fin du calcul, la page des résultats s'ouvre dans le navigateur. C'est le fichier
+`resultats.html`, dans le dossier `batdetect/` à côté des vidéos, ou dans le dossier choisi au
+lancement. Pour la rouvrir plus tard, double-cliquer dessus. Elle marche sans internet, et
+encore après avoir copié tout le dossier `batdetect/` sur une clé ou sur un autre ordinateur.
+
+Ce qu'elle montre, de haut en bas :
+
+- le total de la soirée : les vidéos, celles réussies, et le nombre de pistes ; quand il y en a,
+  celles qui ont trop de pistes, celles en échec, les inachevées et celles en attente ;
+- une section par vidéo, dans l'ordre alphabétique des noms de leurs dossiers (majuscules
+  d'abord), avec la date du calcul. Les soirées
+  précédentes rangées dans le même dossier y sont aussi. Les vidéos du dernier calcul sont
+  dépliées, les autres repliées : un clic sur le nom ouvre ou ferme la section.
+
+Dans une section, l'image résumé et la liste des pistes. Chaque piste a son numéro, de la
+couleur de sa trajectoire sur l'image, son début, sa durée, le verdict noté dans le tableau
+des pistes, et les boutons « Extrait » et, quand il existe, « Zoom ».
+
+- Un clic sur « Extrait » ou « Zoom » passe la vidéo à la place de l'image.
+  « Revenir à l'image résumé » la remet, « Précédente » et « Suivante » passent
+  d'une piste à l'autre.
+- Un clic sur le numéro d'une piste remet l'image résumé.
+- Un clic sur l'image l'ouvre en taille réelle.
+- Une vidéo chargée a plusieurs images résumé : des onglets « Partie » les séparent, et
+  chaque onglet dit quelles pistes il montre. Choisir une piste affiche la partie qui la
+  contient.
+
+Une vidéo en échec garde sa place dans la liste, marquée en rouge, avec la raison et ce qu'il
+faut faire, comme dans le bilan. Si les résultats d'un calcul précédent sont encore là, un lien
+y mène ; ce n'est pas toujours le cas, car un nouveau calcul commence par les effacer. Une vidéo « inachevée » est une vidéo dont le calcul s'est arrêté
+avant la fin : relancer la même commande la refait. Pendant le calcul, les vidéos pas encore
+traitées sont « en attente ». Une vidéo calculée par une version plus ancienne de l'outil
+est marquée « ancienne version » : relancer la même commande la refait.
+
+La page ne note rien : le verdict se note dans le tableau des pistes ([Noter le
+verdict](#noter-le-verdict)), et la page le montre au calcul suivant.
+
+Limite : les résultats d'une vidéo sont rangés sous son nom. Si deux soirées sont envoyées dans
+le même dossier choisi au lancement et ont des vidéos de même nom, la seconde remplace la
+première, et la page ne montre que la dernière. Gardez un dossier par soirée.
+
 ## Où sont les résultats
 
 Pour chaque vidéo, un dossier à son nom, dans `batdetect/` à côté des vidéos, ou dans le
-dossier choisi au lancement (`-o`). Sous une locale française : l'image résumé
-`<vidéo>_resume.png`, le tableau des pistes `<vidéo>_pistes.csv`, les extraits dans
-`extraits/` (`piste_01_0m04s.mp4`, et `piste_01_0m04s_zoom.mp4` pour l'extrait zoomé), et
-`params.json`, les réglages et le bilan du calcul. `params.json` s'écrit en dernier : un
-dossier sans lui n'est pas terminé (calcul interrompu, ou vidéo en échec autrement qu'au-delà
-de `--max-tracks`). Sous une autre locale, les mêmes fichiers en anglais
-(`_summary.png`, `_tracks.csv`, `clips/track_01_0m04s.mp4`). La liste complète est dans le
-[README](../README.md#fichiers-produits). Un tableur réglé en anglais affiche le début
-`0:00:04` comme `12:00:04 AM` : la valeur est juste (4 s), et un format Durée la montre en
-`0:00:04`.
+dossier choisi au lancement (`-o`). Les noms des fichiers sont en français sur un Mac réglé en
+français, en anglais sinon ; les mots ajoutés par l'outil ne portent jamais d'accent. Un nouveau
+calcul efface les fichiers de l'autre langue.
+
+| Fichier | Français | Anglais |
+| --- | --- | --- |
+| Image résumé | `<vidéo>_resume.png` | `<vidéo>_summary.png` |
+| Tableau des pistes | `<vidéo>_pistes.csv` | `<vidéo>_tracks.csv` |
+| Extrait | `extraits/piste_01_0m04s.mp4` | `clips/track_01_0m04s.mp4` |
+| Extrait zoomé | `extraits/piste_01_0m04s_zoom.mp4` | `clips/track_01_0m04s_zoom.mp4` |
+| Vidéo annotée | `<vidéo>_annotee.mp4` | `<vidéo>_annotated.mp4` |
+| Réglages et bilan du calcul | `params.json` | `params.json` |
+
+- Une vidéo de plus de 10 min a une image résumé par tranche de 10 min
+  (`<vidéo>_resume_000m-010m.png`, …), et une image qui aurait plus de 20 pistes est coupée en
+  parties (`<vidéo>_resume_1_sur_3.png`, …).
+- Un extrait est nommé par le numéro de sa piste et son début à la seconde. Le numéro départage
+  deux pistes de la même seconde ; il a deux chiffres, trois dès 100 pistes, pour que le Finder
+  range les extraits dans l'ordre. Par défaut, l'extrait zoomé n'existe que pour les pistes
+  petites ou faibles ([Juger un extrait](#juger-un-extrait)).
+- La vidéo annotée, la vidéo entière avec toutes les pistes dessinées, n'est écrite qu'avec
+  `--annotated` ; sans l'option, celle d'un calcul précédent est effacée. Au-delà du
+  [garde-fou](#garde-fou-du-nombre-de-pistes), il n'y a ni extraits ni vidéo annotée.
+- `params.json` s'écrit en dernier : un dossier sans lui n'est pas terminé (calcul interrompu,
+  ou vidéo en échec autrement qu'au-delà du garde-fou), et la vidéo est refaite à la relance.
+- Le tableau français s'ouvre dans un tableur réglé en français (point-virgule, virgule
+  décimale), le tableau anglais dans un tableur réglé en anglais. Un tableur réglé en anglais affiche le début `0:00:04` comme `12:00:04 AM` : la
+  valeur est juste (4 s), et un format Durée la montre en `0:00:04`.
+- Deux vidéos du même nom, aux majuscules près, qui vont dans le même
+  dossier de résultats prennent leur extension dans le nom de leur dossier, `video_092_mp4/` et
+  `video_092_mov/`, et, avec `-o`, aussi le nom de leur dossier d'origine,
+  `nuit-12-oct_video_092_mp4/` ; deux vidéos qui tomberaient encore sur le même dossier sont
+  refusées avant tout calcul, et il faut renommer l'une d'elles. Si la seconde arrive plus tard
+  (`video_092.mov` à côté de `video_092.mp4`), les deux sont recalculées dans leurs dossiers
+  renommés, et l'ancien dossier `video_092/` reste là, orphelin, à supprimer à la main.
+- À côté des dossiers des vidéos : la [page des résultats](#la-page-des-résultats),
+  `resultats.html` (`results.html` en anglais), et un dossier caché, `.batdetect/`, où l'outil
+  garde la raison des vidéos en échec pour la page. Les laisser avec les dossiers des vidéos :
+  la page en a besoin.
 
 À la fin du calcul, la commande écrit un bilan de la soirée : pour chaque vidéo sa durée, son
 nombre de pistes, le temps non analysé et le temps de calcul, puis à part les vidéos qui ont
 trop de pistes, celles en échec avec ce qu'il faut faire, et les entrées refusées. Sous macOS,
-lancée dans un terminal, elle annonce aussi la fin par une notification et ouvre chaque dossier de
-résultats dans le Finder (`--no-notify` pour s'en passer).
+lancée dans un terminal, elle annonce aussi la fin par une notification et ouvre la page des
+résultats de chaque dossier (`--no-notify` pour s'en passer).
+
+Relancer la même commande ne refait pas une vidéo déjà faite avec les mêmes réglages : son
+dossier reste tel quel, et le bilan la compte « déjà faite » avec ses chiffres d'origine
+(`--force` refait tout).
 
 [techniques]: 10-logique-de-detection.md#les-techniques-en-simple
 [#9]: https://github.com/zaratan/chiro-dvr/issues/9
@@ -182,83 +258,6 @@ dit rien de l'animal, de sa vitesse ni de la confiance de l'outil, et les extrai
 reprennent pas : leur boîte est toujours rouge et la trace du vol toujours jaune orangé.
 Seul le numéro identifie une piste.
 
-### Refaire les captures
-
-<details>
-<summary>Commandes, depuis la racine du dépôt</summary>
-
-Les coordonnées des repères valent pour l'image résumé de l'extrait, 1879 × 1215 pixels :
-si elle change, les replacer.
-
-```bash
-LANGUAGE=fr cargo run --release -p batdetect -- \
-  tests/fixtures/video_092_original_3m24-4m05.mp4 --osd-region 0,0,1,0.07 -o out/resume
-resume=out/resume/video_092_original_3m24-4m05/video_092_original_3m24-4m05_resume.png
-reperes=()
-repere() {
-  local n=$1 x=$2 y=$3 tx=$4 ty=$5
-  reperes+=(-stroke black -strokewidth 8 -draw "line $x,$y $tx,$ty"
-    -stroke white -strokewidth 3 -draw "line $x,$y $tx,$ty"
-    -stroke black -strokewidth 3 -fill white
-    -draw "roundrectangle $((x - 22)),$((y - 22)) $((x + 22)),$((y + 22)) 6,6"
-    -stroke none -fill black -gravity Center
-    -annotate "$(printf '%+d%+d' $((x - width / 2)) $((y - height / 2)))" "$n" -gravity NorthWest)
-}
-width=1949 height=1215
-repere 1 1915 44 1866 44
-repere 2 1635 82 1562 82
-repere 3 1650 120 1594 120
-repere 4 1660 250 1612 250
-repere 5 560 560 600 628
-repere 6 170 700 106 772
-repere 7 990 375 918 428
-repere 8 720 38 720 38
-repere 9 1500 1140 1426 1130
-magick "$resume" -background 'rgb(32,32,32)' -gravity East -splice 70x0 -gravity NorthWest \
-  -stroke white -strokewidth 3 -draw 'line 1612,148 1612,352' \
-  -font crates/draw/fonts/Roboto.ttf -pointsize 32 "${reperes[@]}" \
-  -resize 1200x -quality 80 docs/images/resume-extrait.jpg
-reperes=() width=1520 height=215
-repere 10 800 30 800 76
-repere 11 1480 115 1424 115
-repere 12 1040 172 977 137
-repere 13 290 170 226 168
-magick "$resume" -crop 1440x135+0+1080 +repage -background 'rgb(32,32,32)' \
-  -gravity North -splice 0x60 -gravity South -splice 0x20 -gravity East -splice 80x0 \
-  -gravity NorthWest -font crates/draw/fonts/Roboto.ttf -pointsize 32 "${reperes[@]}" \
-  docs/images/resume-frise.png
-```
-
-Les captures des extraits se tirent ensuite, dans le même shell (`repere` vient du bloc
-précédent). Les numéros d'image et les coordonnées valent pour les extraits de l'extrait de
-test, 1440 × 1080 pixels.
-
-```bash
-LANGUAGE=fr cargo run --release -p batdetect -- \
-  tests/fixtures/video_092_original_3m24-4m05.mp4 --zoom all -o out/extraits
-clips=out/extraits/video_092_original_3m24-4m05/extraits
-image() { ffmpeg -v error -y -i "$clips/$1.mp4" -vf "select=eq(n\,$2)" -frames:v 1 "out/$1_$2.png"; }
-image piste_01_0m04s 250
-image piste_01_0m04s_zoom 250
-image piste_02_0m23s 56
-for n in 52 53 54; do image piste_02_0m23s $n; done
-magick out/piste_01_0m04s_250.png -resize 1200x -quality 80 docs/images/extrait-lente.jpg
-magick out/piste_01_0m04s_zoom_250.png -resize 1200x -quality 80 docs/images/extrait-zoom.jpg
-reperes=() width=1440 height=1080
-repere 1 1160 720 1083 660
-repere 2 960 580 1040 610
-repere 3 1320 470 1236 440
-repere 4 240 110 290 58
-magick out/piste_02_0m23s_56.png -font crates/draw/fonts/Roboto.ttf -pointsize 32 "${reperes[@]}" \
-  -resize 1200x -quality 80 docs/images/extrait-chauve-souris.jpg
-magick \( out/piste_02_0m23s_52.png -crop 130x120+1160+390 \) \
-  \( out/piste_02_0m23s_53.png -crop 130x120+1115+445 \) \
-  \( out/piste_02_0m23s_54.png -crop 130x120+1075+500 \) \
-  +repage -filter point -resize 300% -bordercolor black -border 3 +append docs/images/extrait-boites.png
-```
-
-</details>
-
 ## Juger un extrait
 
 L'image résumé dit où regarder ; le verdict se donne sur l'extrait, à l'œil. L'outil ne juge
@@ -268,8 +267,9 @@ pas : il montre ce qui a bougé, et Manon décide si c'est une chauve-souris.
 
 Chaque piste a son extrait, `extraits/piste_01_0m04s.mp4`, sauf au-delà du
 [garde-fou](#garde-fou-du-nombre-de-pistes) : la vidéo en pleine taille et à vitesse réelle,
-par défaut de 1,5 s avant le début de la piste à 1,5 s après sa fin. Le regarder d'abord en
-entier, puis image par image là où la cible passe.
+par défaut de 1,5 s avant le début de la piste à 1,5 s après sa fin. Il se regarde dans la
+[page des résultats](#la-page-des-résultats), ou dans un lecteur vidéo pour avancer image par
+image. Le regarder d'abord en entier, puis image par image là où la cible passe.
 
 Si la cible est petite ou faible, un second fichier l'accompagne, `piste_01_0m04s_zoom.mp4` :
 la même scène recadrée autour du trajet, agrandie jusqu'à quatre fois et ralentie quatre fois.
@@ -337,8 +337,9 @@ les passages.
 Quand la vidéo est recalculée dans le même dossier, un tableau dont au moins une case
 `verdict` est remplie est mis de côté tel quel, sous un nom daté
 (`<vidéo>_pistes_2026-10-16_2130.csv`), et le nouveau tableau s'écrit à côté ; le bilan de la
-soirée le dit. Un tableau que l'outil ne reconnaît plus est mis de côté de la même façon ; un
-tableau sans aucun verdict est remplacé, même trié. Les numéros ont pu changer : reporter les
+soirée le dit ; un recalcul suivant n'y touche plus. Un tableau que l'outil ne reconnaît plus
+est mis de côté de la même façon ; un tableau sans aucun verdict est remplacé, même trié, et
+une note écrite hors de la colonne `verdict` est alors perdue. Les numéros ont pu changer : reporter les
 verdicts par le début de la piste, à une seconde près, et à l'extrait en cas de doute.
 
 ### Une piste de trop vaut mieux qu'un passage manqué

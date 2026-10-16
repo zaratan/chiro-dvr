@@ -13,6 +13,7 @@ pub mod outcome;
 pub mod overview;
 pub mod process;
 pub mod progress;
+pub mod reuse;
 mod settings;
 pub mod tally;
 pub mod writable;

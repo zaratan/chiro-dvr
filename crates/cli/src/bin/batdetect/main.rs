@@ -20,9 +20,10 @@ use batdetect::consent::{Asking, Choice};
 use batdetect::jobs::{self, Job, Refused, plan};
 use batdetect::language::system_language;
 use batdetect::ledger::Ledger;
-use batdetect::outcome::{self, run_all};
+use batdetect::outcome::{self, Ran, run_all};
 use batdetect::process::Wording as _;
 use batdetect::process::{Versions, process};
+use batdetect::reuse::{self, Run};
 use batdetect::tally::Tally;
 use batdetect::writable::unwritable_folders;
 use batdetect::written::{self, Wording};
@@ -59,9 +60,11 @@ fn main() -> ExitCode {
         let (heading, lines) = messages::folders_refused(texts, &refused);
         return report(texts, arguments::rejection(texts, &heading, &lines));
     }
-    let status = Arc::new(Status::new(texts, io::stderr().is_terminal(), jobs.len()));
+    let status = Arc::new(Status::new(texts, io::stderr().is_terminal(), jobs.len()).redoing_all(request.force));
     let watched = Arc::clone(&status);
+    let stopped = jobs.clone();
     let watching = ctrlc::set_handler(move || {
+        settle(&stopped, watched.texts());
         let mut err = io::stderr().lock();
         match watched.interrupted(&mut err) {
             Ok(()) | Err(_) => process::exit(INTERRUPTED),
@@ -127,8 +130,17 @@ fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, request: &Request) 
         jobs,
         |job, rank| {
             status.enter(rank);
+            let run = Run {
+                options,
+                version: versions.program,
+                language: texts.language(),
+            };
+            let earlier = if request.force { None } else { reuse::earlier(job, run) };
+            if let Some(earlier) = earlier {
+                return Ok(Ran::Skipped(earlier));
+            }
             let video = Video { status, rank, job };
-            process(job, &texts, &video, Threads::Automatic, versions, options)
+            process(job, &texts, &video, Threads::Automatic, versions, options).map(Ran::Processed)
         },
         |job, rank, result| {
             unwritten.extend(ledger.note(job, result.as_ref().err(), options, Timestamp::now()));
@@ -138,6 +150,7 @@ fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, request: &Request) 
         },
     );
     let Ok(rows) = rows else {
+        settle(jobs, texts);
         return ExitCode::FAILURE;
     };
     let tally = Tally {
@@ -163,5 +176,18 @@ fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, request: &Request) 
     match written {
         Ok(()) if tally.all_done() => ExitCode::SUCCESS,
         _ => ExitCode::FAILURE,
+    }
+}
+
+fn settle(jobs: &[Job], texts: Texts) {
+    let wording = Wording {
+        labels: &texts,
+        headings: &texts,
+        language: texts.language(),
+    };
+    for root in written::roots(jobs) {
+        match written::write_page(&root, jobs, jobs.len(), wording) {
+            Ok(()) | Err(_) => {}
+        }
     }
 }

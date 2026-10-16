@@ -9,6 +9,10 @@ video-step = [{ $position }/{ $total }] { $video } — { $step ->
         [summary] summary image
        *[clips] clips
     }
+video-skipped = [{ $position }/{ $total }] { $video } — already done, { $tracks ->
+        [one] { $tracks } track
+       *[other] { $tracks } tracks
+    }
 video-done = [{ $position }/{ $total }] { $video } — { $tracks ->
         [one] { $tracks } track
        *[other] { $tracks } tracks
@@ -146,6 +150,7 @@ tally-title = Summary: { $total ->
         [one] { $total } video
        *[other] { $total } videos
     }
+tally-already-done = { $count } already done
 tally-done = { $count } done
 tally-too-many-count = { $count } with too many tracks
 tally-failed-count = { $count } failed
@@ -173,6 +178,18 @@ tally-kept = { $video }: { $table } does not have the form of a tracks table{ $w
 tally-unwritten-heading = { $count ->
         [one] File not written, the results page may be incomplete:
        *[other] Files not written, the results page may be incomplete:
+    }
+tally-set-aside-heading = { $count ->
+        [one] Table set aside:
+       *[other] Tables set aside:
+    }
+tally-set-aside = { $video }: { $table } { $reason ->
+        [verdicts] holds verdicts
+       *[unknown] does not have the form of a tracks table
+    }, set aside as { $dated }
+tally-unwritten = { $taken ->
+        [yes] { $path } already exists and is not a batdetect page: rename or move it to get the page
+       *[no] { $path }: { $detail }
     }
 tally-changed = Changed settings: { $settings }
 tally-regions = { $count ->
@@ -202,7 +219,8 @@ file-table = One row per track (start, end, length, speed, size), for a spreadsh
 file-clip = The clip of every track, named by its number and its start
 file-zoom = The same, slowed and magnified, for small or faint tracks
 file-annotated = The whole video with the tracks drawn, with --annotated
-file-params = The settings and the outcome of the video, written last: without it, the folder is not finished
+file-params = The settings and the outcome, written last: without it, the video is redone on the next run
+files-page = The results page, to open in a browser, sits beside the folders of the videos: { $page }
 files-long =
     A long or crowded video has several summary images, per 10 min slice ({ $period })
     or per part ({ $part }).
@@ -218,6 +236,7 @@ skip-refused-question = Process { $count ->
 skip-refused-declined = no video is processed
 skip-refused-help = Processes the valid videos without asking when some inputs are refused
 no-notify-help = Neither notifies the end of the batch nor opens the results page (macOS)
+force-help = Redoes every video, even those already done with the same settings
 tally-refused-count = { $count ->
         [one] { $count } input refused
        *[other] { $count } inputs refused
@@ -226,7 +245,10 @@ tally-refused-heading = { $count ->
         [one] Refused input, not processed
        *[other] Refused inputs, not processed
     }:
-interrupted = batch interrupted at video { $position }/{ $total }; running the same command again redoes the batch
+interrupted = batch interrupted at video { $position }/{ $total }; running the same command again { $resumes ->
+        [yes] resumes where the batch stopped
+       *[no] redoes the batch
+    }
 table-track = track
 table-start = start
 table-end = end
@@ -269,6 +291,9 @@ page-computed = computed on { $date }
 page-tried = tried on { $date }
 page-not-analysed = { $duration } not analysed
 page-unfinished-badge = unfinished
+page-too-many-badge = too many tracks
+page-older-badge = older version
+page-older = computed by an older version of the tool; running the same command again redoes it
 page-waiting-badge = waiting
 page-unfinished = the run stopped before the end of this video; running the same command again redoes it
 page-waiting = not processed yet by the current run

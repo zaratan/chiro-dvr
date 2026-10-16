@@ -324,21 +324,51 @@ utiliser son temps de début.
 
 ## Sorties
 
-La liste des fichiers produits est dans le [README](../README.md#fichiers-produits).
+La liste des fichiers produits est dans
+[lire les résultats](lire-les-resultats.md#où-sont-les-résultats). Ce qui suit ne sert qu'au
+développeur.
+
+`params.json` s'écrit en dernier, une fois les extraits finis. Il donne les réglages employés,
+la version et le FFmpeg lié, l'état (`done`, ou `too_many_tracks` au-delà de `--max-tracks`), le
+nombre de pistes, la durée, le temps non analysé et le temps de calcul (`track_count`,
+`length_s`, `not_analysed_s`, `elapsed_s`, en secondes non arrondies), la taille de la vidéo en
+octets (`video_bytes`), la langue des noms (`language`, `fr` ou `en`) et l'heure locale de la fin
+du calcul (`date`). `tracks` liste les pistes : numéro (`id`), début et durée non arrondis
+(`start_s`, `duration_s`), couleur de la trajectoire sur l'image résumé en RVB (`color`), image
+résumé qui la dessine (`summary`, par exemple `video_097_resume_3_sur_8.png`), et chemins de
+l'extrait et du zoom écrits, relatifs au dossier de la vidéo (`null` quand il n'y en a pas).
+Les périodes ignorées sont dans `ignored_s`, les illisibles dans `damaged_s`, avec
+`damaged_frames` (nombre d'images signalées par le décodeur ou qui suivent un trou dans les
+horodatages, pas le nombre d'images écartées).
+
+Une vidéo déjà faite est sautée : son dossier a un `params.json` terminé, et la vidéo, la version
+de batdetect, la langue des noms et les réglages (sauf la liste des encodeurs) n'ont pas changé.
+Rien n'est écrit ni effacé dans son dossier ; le bilan reprend sa durée, ses pistes et son temps
+non analysé, affiche « — » en calcul et compte « N déjà faites ». Une vidéo laissée avec trop de
+pistes reste comptée ainsi. Après un Ctrl-C, relancer la même commande reprend là où le lot s'est
+arrêté ; `--force` refait toutes les vidéos.
+
+Une fois la détection finie, chaque calcul (pas une vidéo sautée parce que déjà faite) efface,
+dans le dossier de la vidéo, `params.json` d'abord, puis les sorties des deux langues et celles des versions précédentes (`split/`,
+`<nom>.tracks.*`, `<nom>_boxes.mp4`). Les sorties de la v0.1.1, écrites dans `out/` du dossier
+où la commande était lancée, restent où elles sont.
 
 Garde-fou : au-delà de `max_tracks` pistes (300 par défaut, 0 désactive), les extraits
-et la vidéo annotée ne sont pas produits, et la vidéo compte en échec. Le CSV,
+et la vidéo annotée ne sont pas produits, et la vidéo est comptée à part au bilan. Le CSV,
 `params.json` (avec le seuil, dans `RenderConfig`, et `"state": "too_many_tracks"`) et l'image
 résumé restent écrits. 300 est au-dessus de la vidéo la plus chargée sans explosion (148
 pistes, 097) et en dessous de la plus petite explosion connue (374 pistes, seuil 12 sans
 facteur de bruit). Le
 seuil est fixe, pas un taux par minute : il suppose des clips d'environ 5 min, comme ceux
 des jumelles, et se monte avec `--max-tracks` pour une vidéo plus longue. Le bilan de la
-soirée compte ces vidéos à part, avec leur nombre de pistes.
+soirée compte ces vidéos à part, avec leur nombre de pistes ; une relance identique ne les refait
+pas et les compte encore ainsi.
 
 Colonnes du CSV, dans cet ordre : `piste` (numéro), `début` et `fin` (`h:mm:ss`, tronqués
 à la seconde comme le nom de l'extrait), `durée (s)`, `verdict` (vide, rempli à l'œil ;
-l'outil n'en tire rien, mais un verdict rempli garde le tableau à la relance), `points`
+l'outil n'en tire rien ; un tableau dont une cellule verdict est remplie, ou qui n'a plus notre
+forme, est mis de côté sous un nom daté (`<nom>_pistes_AAAA-MM-JJ_HHMM.csv`) et le tableau neuf
+s'écrit, ce que dit le bilan ; une vidéo sautée n'y touche pas), `points`
 (nombre de détections), `corde (px)` (distance de bout en bout), `chemin (px)` (chemin parcouru), `vitesse (px/s)` (chemin ÷ durée), `surface max (px)`
 (plus grande tache, en pixels d'origine), `amplitude (niveaux de gris)` (plus fort écart au
 fond ; avec le filtre à la taille de la cible, écart mesuré sur l'image filtrée, donc plus

@@ -12,8 +12,16 @@ le workflow de release échouera sans elle.
 - Toutes les entrées sont contrôlées avant le calcul, les refusées listées ensemble ;
   `--skip-refused` traite les vidéos valides sans poser la question (#55).
 - Une ligne par étape pendant le calcul, et un bilan de la soirée à la fin (#63, #65).
-- Sous macOS, dans un terminal : notification de fin de lot et dossiers de résultats ouverts dans
-  le Finder ; `--no-notify` les éteint (#69).
+- Sous macOS, dans un terminal : notification de fin de lot et page des résultats ouverte dans le
+  navigateur ; `--no-notify` les éteint (#69, #71).
+- Une page `resultats.html` (`results.html` en anglais) à la racine de chaque dossier de
+  résultats, réécrite à chaque fin de vidéo : total, une section par vidéo, soirées précédentes
+  comprises, image résumé, liste des pistes avec leur verdict et leurs extraits lus dans la
+  page, vidéos en échec avec leur raison. Hors ligne, sans rien écrire ; une page du même nom
+  qui n'est pas la nôtre n'est jamais remplacée (#71).
+- Relancer la même commande saute les vidéos déjà faites avec la même version, la même langue et
+  les mêmes réglages, sans toucher à leur dossier ; le bilan les compte « déjà faites ».
+  `--force` refait tout (#70).
 - Image résumé : frise du temps et plages illisibles datées (#127), coupée en parties au-delà
   de 20 pistes (#157). Extraits zoomés en pleine taille (#103).
 - Archives du binaire pour macOS arm64, Linux x86_64 (glibc 2.35 au moins) et Windows
@@ -28,8 +36,11 @@ le workflow de release échouera sans elle.
   retrouvent, 3 sont perdues et 9 apparaissent ; les écarts sont listés dans docs/11.
 - Le tableau des pistes se lit dans un tableur : en français, BOM UTF-8, point-virgule, virgule
   décimale et en-têtes français ; en anglais, virgule et point. Une colonne `verdict` vide suit
-  la durée, début et fin s'écrivent `0:00:04`, le début en secondes passe en dernière colonne.
-  Un tableau dont le verdict est rempli est laissé tel quel à la relance (#84).
+  la durée, début et fin s'écrivent `0:00:04`, le début en secondes passe en dernière colonne
+  (#84).
+- Au recalcul, un tableau qui porte des verdicts, ou qui n'a plus la forme écrite par l'outil,
+  est mis de côté tel quel sous un nom daté (`<nom>_pistes_2026-10-16_1430.csv`) et le nouveau
+  tableau s'écrit à côté ; le bilan le dit (#83).
 - Sans `-o`/`--out-dir`, les résultats vont dans `batdetect/` à côté de chaque vidéo, et non plus
   dans `out/` du dossier de lancement (#86).
 - `params.json` s'écrit en dernier, après les extraits : un dossier sans lui n'est pas terminé. Il

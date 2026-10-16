@@ -194,6 +194,14 @@ pub(crate) fn video_done(rank: Rank, job: &Job, tracks: usize) -> Message {
     }
 }
 
+pub(crate) fn video_skipped(rank: Rank, job: &Job, tracks: usize) -> Message {
+    Message::VideoSkipped {
+        rank,
+        video: short_name(job),
+        tracks,
+    }
+}
+
 pub(crate) fn video_failed(rank: Rank, job: &Job, failure: &Failure) -> Message {
     Message::VideoFailed {
         rank,

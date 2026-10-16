@@ -6,12 +6,14 @@ use batdetect::jobs::{Job, Reason, Refused};
 use batdetect::options::Options;
 use batdetect::outcome::{Failure, Panic, Row, State};
 use batdetect::process::{self, Extent};
+use batdetect::reuse::Earlier;
 use batdetect::tally::Tally;
 use engine::config::DetectConfig;
 use engine::detection;
 use engine::input;
 use engine::lost::Losses;
 use engine::settings::DetectSettings;
+use files::params::Finish;
 use files::previous::Kept;
 use tracking::stability::StabilityConfig;
 use tracking::track::TrackConfig;
@@ -59,10 +61,17 @@ fn damaged() -> State {
 }
 
 fn evening() -> Tally {
-    let kept = vec![Kept {
-        path: PathBuf::from("nuit/batdetect/video_092/video_092_pistes.csv"),
-        ours: true,
-    }];
+    let kept = vec![
+        Kept::SetAside {
+            path: PathBuf::from("nuit/batdetect/video_092/video_092_pistes.csv"),
+            dated: PathBuf::from("nuit/batdetect/video_092/video_092_pistes_2026-10-16_1430.csv"),
+            reason: files::previous::Reason::Verdicts,
+        },
+        Kept::Left {
+            path: PathBuf::from("nuit/batdetect/video_092/video_092_tracks.csv"),
+            ours: false,
+        },
+    ];
     Tally {
         refused: Vec::new(),
         unwritten: Vec::new(),
@@ -136,8 +145,11 @@ Trop de pistes (tableau et image résumé écrits, pas d'extraits)\u{a0}:
     à faire\u{a0}: la recopier depuis les jumelles par le câble USB, sans passer par Stream Vision 2, puis relancer\u{a0}; si \
 elle reste abîmée, le signaler
 
+Tableau mis de côté\u{a0}:
+  video_092\u{a0}: video_092_pistes.csv porte des verdicts, mis de côté sous video_092_pistes_2026-10-16_1430.csv
+
 Tableau laissé tel quel\u{a0}:
-  video_092\u{a0}: video_092_pistes.csv n'a pas la forme d'un tableau des pistes\u{a0}; le nouveau tableau n'est pas écrit
+  video_092\u{a0}: video_092_tracks.csv n'a pas la forme d'un tableau des pistes
 
 Réglages changés\u{a0}: --threshold 11
 ";
@@ -160,6 +172,12 @@ fn the_english_summary_has_the_same_shape() {
     assert!(lines.contains(&"1 video of 5 failed:"), "{summary}");
     assert!(lines.contains(&"Changed settings: --threshold 11"), "{summary}");
     assert!(lines.contains(&"Table left as it is:"), "{summary}");
+    assert!(
+        lines.contains(
+            &"  video_092: video_092_pistes.csv holds verdicts, set aside as video_092_pistes_2026-10-16_1430.csv"
+        ),
+        "{summary}"
+    );
 }
 
 #[test]
@@ -190,7 +208,7 @@ fn a_file_the_results_page_needs_but_could_not_write_is_named_at_the_end_with_it
     assert!(
         summary.ends_with(
             "\nFichier non écrit, la page de résultats peut être incomplète\u{a0}:\n  \
-             cannot write nuit/batdetect/.batdetect/echecs/v.json: disk full\n"
+             nuit/batdetect/.batdetect/echecs/v.json\u{a0}: cannot write nuit/batdetect/.batdetect/echecs/v.json: disk full\n"
         ),
         "{summary}"
     );
@@ -237,7 +255,7 @@ fn several_failures_and_several_tables_left_as_they_are_are_counted_in_the_plura
     let kept = |name: &str| State::Done {
         tracks: 1,
         extent: extent(1.0, 0.0),
-        kept: vec![Kept {
+        kept: vec![Kept::Left {
             path: PathBuf::from(format!("nuit/batdetect/{name}/{name}_tracks.csv")),
             ours: false,
         }],
@@ -370,4 +388,76 @@ fn a_single_refused_input_is_counted_and_titled_in_the_singular() {
         assert_eq!(lines[0], title, "{summary}");
         assert!(lines.contains(&heading), "{summary}");
     }
+}
+
+fn skipped(finish: Finish, tracks: usize, extent: Extent) -> State {
+    State::Skipped(Earlier {
+        finish,
+        tracks,
+        limit: 300,
+        extent,
+    })
+}
+
+#[test]
+fn a_resumed_evening_counts_the_videos_already_done_and_shows_their_earlier_figures_without_a_compute_time() {
+    let tally = Tally {
+        unwritten: Vec::new(),
+        refused: Vec::new(),
+        rows: vec![
+            row(
+                "nuit/batdetect/video_089",
+                0,
+                skipped(Finish::Done, 48, extent(962.4, 41.2)),
+            ),
+            row(
+                "nuit/batdetect/video_099",
+                0,
+                skipped(Finish::TooManyTracks, 412, extent(600.0, 62.5)),
+            ),
+            row("nuit/batdetect/video_092", 17, done(14, extent(301.0, 0.0))),
+        ],
+    };
+    let summary = written(&tally, &Options::default(), Language::French);
+    let lines: Vec<&str> = summary.lines().collect();
+    assert_eq!(
+        lines[0],
+        "Bilan\u{a0}: 3 vidéos, 1 réussie, 1 déjà faite, 1 avec trop de pistes"
+    );
+    assert_eq!(
+        &lines[4..7],
+        [
+            "  video_089   16 min 2 s          48          42 s        —",
+            "  video_099   10 min 0 s   412, trop     1 min 3 s        —",
+            "  video_092    5 min 1 s          14           0 s     17 s",
+        ]
+    );
+    assert!(
+        lines.contains(&"  video_099\u{a0}: 412 pistes, au-delà de 300"),
+        "{summary}"
+    );
+    let english = written(&tally, &Options::default(), Language::English);
+    assert!(
+        english.starts_with("Summary: 3 videos, 1 done, 1 already done, 1 with too many tracks\n"),
+        "{english}"
+    );
+}
+
+#[test]
+fn a_page_of_someone_else_in_the_way_is_explained_with_what_to_do() {
+    let tally = Tally {
+        refused: Vec::new(),
+        unwritten: vec![files::error::Error::Taken {
+            path: PathBuf::from("Bureau/resultats.html"),
+        }],
+        rows: vec![row("Bureau/video_092", 17, done(1, extent(301.0, 0.0)))],
+    };
+    let summary = written(&tally, &Options::default(), Language::French);
+    assert!(
+        summary.ends_with(
+            "  Bureau/resultats.html existe déjà et n'est pas une page de batdetect\u{a0}: \
+             la renommer ou la déplacer pour avoir la page\n"
+        ),
+        "{summary}"
+    );
 }

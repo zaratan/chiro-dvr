@@ -1,6 +1,7 @@
+use batdetect::failure::TOO_MANY_TRACKS;
 use batdetect::process::Wording;
 use files::params::language_code;
-use fluent_bundle::FluentArgs;
+use fluent_bundle::{FluentArgs, FluentValue};
 use page::labels::{Label, Labels};
 use page::model::Date;
 use summary::header::duration;
@@ -12,7 +13,6 @@ use crate::texts::Texts;
 pub(crate) mod tests;
 
 pub(crate) const DATE: &str = "page-date";
-const TOO_MANY_TRACKS: &str = "too-many-tracks";
 const HUNDREDTHS_PER_SECOND: f64 = 100.0;
 const HUNDREDTHS_PER_SECOND_WHOLE: u64 = 100;
 const HUNDREDTHS_PER_MINUTE: u64 = 6000;
@@ -36,103 +36,87 @@ impl Labels for Texts {
 
 impl Texts {
     pub(crate) fn spoken<'a>(self, label: &Label<'a>) -> Spoken<'a> {
-        if let Some(text) = self.direct(label) {
-            return Spoken::Direct(text);
-        }
-        if let Some(id) = plain(label) {
-            return Spoken::Message(id, FluentArgs::new());
-        }
-        let mut arguments = FluentArgs::new();
-        let id = self.with_arguments(label, &mut arguments);
-        Spoken::Message(id, arguments)
-    }
-
-    fn direct(self, label: &Label<'_>) -> Option<String> {
-        let text = match *label {
-            Label::Language => language_code(self.language()).to_owned(),
-            Label::Length(seconds) => unbroken(&duration(seconds)),
-            Label::Start(seconds) => self.clock(seconds),
-            Label::Seconds(seconds) => unbroken(&format!("{} s", self.fixed(seconds, 1))),
-            Label::Todo { cause, folder } => self.todo(cause, folder),
-            Label::TooManyTodo => self.todo(TOO_MANY_TRACKS, ""),
-            Label::Detail(detail) => {
-                let mut arguments = FluentArgs::new();
-                arguments.set("detail", detail);
-                self.said("failure-detail", &arguments).trim_start().to_owned()
-            }
-            _ => return None,
-        };
-        Some(text)
-    }
-
-    fn with_arguments<'a>(self, label: &Label<'a>, arguments: &mut FluentArgs<'a>) -> &'static str {
         match *label {
-            Label::Computed(date) => given_text(arguments, "date", self.date(date), "page-computed"),
-            Label::Tried(date) => given_text(arguments, "date", self.date(date), "page-tried"),
-            Label::Folder(name) => given(arguments, "name", name, "page-folder"),
-            Label::Videos(count) => counted(arguments, count, "page-videos"),
-            Label::Done(count) => counted(arguments, count, "tally-done"),
-            Label::TooManyCount(count) => counted(arguments, count, "tally-too-many-count"),
-            Label::FailedCount(count) => counted(arguments, count, "tally-failed-count"),
-            Label::UnfinishedCount(count) => counted(arguments, count, "page-unfinished-count"),
-            Label::WaitingCount(count) => counted(arguments, count, "page-waiting-count"),
-            Label::Tracks(count) => counted(arguments, count, "summary-tracks"),
+            Label::Language => Spoken::Direct(language_code(self.language()).to_owned()),
+            Label::Length(seconds) => Spoken::Direct(unbroken(&duration(seconds))),
+            Label::Start(seconds) => Spoken::Direct(self.clock(seconds)),
+            Label::Seconds(seconds) => Spoken::Direct(unbroken(&format!("{} s", self.fixed(seconds, 1)))),
+            Label::Todo { cause, folder } => Spoken::Direct(self.todo(cause, folder)),
+            Label::TooManyTodo => Spoken::Direct(self.todo(TOO_MANY_TRACKS, "")),
+            Label::Detail(detail) => {
+                Spoken::Direct(self.trimmed("failure-detail", &arguments([("detail", detail.into())])))
+            }
+            Label::Computed(date) => message("page-computed", [("date", self.date(date).into())]),
+            Label::Tried(date) => message("page-tried", [("date", self.date(date).into())]),
             Label::NotAnalysed(seconds) => {
-                given_text(arguments, "duration", unbroken(&duration(seconds)), "page-not-analysed")
+                message("page-not-analysed", [("duration", unbroken(&duration(seconds)).into())])
             }
-            Label::Failure { video, cause, place } => {
-                arguments.set("video", video);
-                arguments.set("cause", cause);
-                arguments.set("place", place);
-                "failure"
-            }
-            Label::TooMany { video, count, limit } => {
-                arguments.set("video", video);
-                arguments.set("count", count);
-                arguments.set("limit", limit);
-                "tally-too-many"
-            }
-            Label::SummaryAlt { video, tracks } => {
-                arguments.set("tracks", tracks);
-                given(arguments, "video", video, "page-summary-alt")
-            }
+            Label::Folder(name) => message("page-folder", [("name", name.into())]),
+            Label::Videos(count) => message("page-videos", [("count", count.into())]),
+            Label::Done(count) => message("tally-done", [("count", count.into())]),
+            Label::TooManyCount(count) => message("tally-too-many-count", [("count", count.into())]),
+            Label::FailedCount(count) => message("tally-failed-count", [("count", count.into())]),
+            Label::UnfinishedCount(count) => message("page-unfinished-count", [("count", count.into())]),
+            Label::WaitingCount(count) => message("page-waiting-count", [("count", count.into())]),
+            Label::Tracks(count) => message("summary-tracks", [("count", count.into())]),
+            Label::Failure { video, cause, place } => failure(video, cause, place),
+            Label::TooMany { video, count, limit } => too_many(video, count, limit),
+            Label::SummaryAlt { video, tracks } => summary_alt(video, tracks),
             Label::PartAlt {
                 video,
                 part,
                 parts,
                 first,
                 last,
-            } => {
-                part_arguments(arguments, part, parts, first, last);
-                given(arguments, "video", video, "page-part-alt")
-            }
+            } => parted("page-part-alt", Some(video), [part, parts, first, last]),
             Label::PartTab {
                 part,
                 parts,
                 first,
                 last,
-            } => {
-                part_arguments(arguments, part, parts, first, last);
-                "page-part-tab"
-            }
-            Label::Parts(video) => given(arguments, "video", video, "page-parts"),
-            Label::TableCaption(video) => given(arguments, "video", video, "page-table-caption"),
-            Label::Player(video) => given(arguments, "video", video, "page-player"),
-            Label::PlayClip(track) => numbered(arguments, track, "page-play-clip"),
-            Label::PlayZoom(track) => numbered(arguments, track, "page-play-zoom"),
-            Label::ShowTrack(track) => numbered(arguments, track, "page-show-track"),
+            } => parted("page-part-tab", None, [part, parts, first, last]),
+            Label::Parts(video) => message("page-parts", [("video", video.into())]),
+            Label::TableCaption(video) => message("page-table-caption", [("video", video.into())]),
+            Label::Player(video) => message("page-player", [("video", video.into())]),
+            Label::PlayClip(track) => message("page-play-clip", [("track", track.into())]),
+            Label::PlayZoom(track) => message("page-play-zoom", [("track", track.into())]),
+            Label::ShowTrack(track) => message("page-show-track", [("track", track.into())]),
             Label::Playing {
                 track,
                 total,
                 start,
                 zoom,
-            } => {
-                arguments.set("total", total);
-                arguments.set("start", start);
-                arguments.set("zoom", if zoom { YES } else { NO });
-                numbered(arguments, track, "page-playing")
-            }
-            _ => "",
+            } => playing(track, total, start, zoom),
+            Label::Heading => message("page-heading", []),
+            Label::Reminder => message("page-reminder", []),
+            Label::ExpandAll => message("page-expand", []),
+            Label::CollapseAll => message("page-collapse", []),
+            Label::FailedBadge => message("tally-failed-cell", []),
+            Label::TooManyBadge => message("page-too-many-badge", []),
+            Label::UnfinishedBadge => message("page-unfinished-badge", []),
+            Label::OlderBadge => message("page-older-badge", []),
+            Label::WaitingBadge => message("page-waiting-badge", []),
+            Label::PreviousResults => message("page-previous-results", []),
+            Label::UnfinishedText => message("page-unfinished", []),
+            Label::OlderText => message("page-older", []),
+            Label::WaitingText => message("page-waiting", []),
+            Label::Part => message("page-part", []),
+            Label::ColumnTrack => message("page-column-track", []),
+            Label::ColumnStart => message("page-column-start", []),
+            Label::ColumnLength => message("page-column-length", []),
+            Label::ColumnVerdict => message("page-column-verdict", []),
+            Label::ColumnWatch => message("page-column-watch", []),
+            Label::NoVerdict => message("page-no-verdict", []),
+            Label::Clip => message("page-clip", []),
+            Label::Zoom => message("page-zoom", []),
+            Label::Unreadable => message("page-unreadable", []),
+            Label::Back => message("page-back", []),
+            Label::Previous => message("page-previous", []),
+            Label::Next => message("page-next", []),
+            Label::PreviousClip => message("page-previous-clip", []),
+            Label::NextClip => message("page-next-clip", []),
+            Label::TableLink => message("page-table-link", []),
+            Label::AnnotatedLink => message("page-annotated-link", []),
         }
     }
 
@@ -148,82 +132,90 @@ impl Texts {
     }
 
     fn todo(self, cause: &str, folder: &str) -> String {
-        let mut arguments = FluentArgs::new();
-        arguments.set("cause", cause);
-        arguments.set("folder", folder);
-        self.said("failure-todo", &arguments).trim_start().to_owned()
+        self.trimmed(
+            "failure-todo",
+            &arguments([("cause", cause.into()), ("folder", folder.into())]),
+        )
+    }
+
+    fn trimmed(self, id: &'static str, values: &FluentArgs<'_>) -> String {
+        self.said(id, values).trim_start().to_owned()
     }
 
     fn date(self, date: Date) -> String {
-        let mut arguments = FluentArgs::new();
-        arguments.set("day", date.day.to_string());
-        arguments.set("month", i64::from(date.month));
-        arguments.set("year", date.year.to_string());
-        arguments.set("hour", date.hour.to_string());
-        arguments.set("minute", format!("{:02}", date.minute));
-        self.said(DATE, &arguments)
+        let values = arguments([
+            ("day", date.day.to_string().into()),
+            ("month", i64::from(date.month).into()),
+            ("year", date.year.to_string().into()),
+            ("hour", date.hour.to_string().into()),
+            ("minute", format!("{:02}", date.minute).into()),
+        ]);
+        self.said(DATE, &values)
     }
 }
 
-fn plain(label: &Label<'_>) -> Option<&'static str> {
-    let id = match *label {
-        Label::Heading => "page-heading",
-        Label::Reminder => "page-reminder",
-        Label::ExpandAll => "page-expand",
-        Label::CollapseAll => "page-collapse",
-        Label::FailedBadge => "tally-failed-cell",
-        Label::UnfinishedBadge => "page-unfinished-badge",
-        Label::WaitingBadge => "page-waiting-badge",
-        Label::PreviousResults | Label::PreviousOf(_) => "page-previous-results",
-        Label::UnfinishedText => "page-unfinished",
-        Label::WaitingText => "page-waiting",
-        Label::Part => "page-part",
-        Label::ColumnTrack => "page-column-track",
-        Label::ColumnStart => "page-column-start",
-        Label::ColumnLength => "page-column-length",
-        Label::ColumnVerdict => "page-column-verdict",
-        Label::ColumnWatch => "page-column-watch",
-        Label::NoVerdict => "page-no-verdict",
-        Label::Clip => "page-clip",
-        Label::Zoom => "page-zoom",
-        Label::Unreadable => "page-unreadable",
-        Label::Back => "page-back",
-        Label::Previous => "page-previous",
-        Label::Next => "page-next",
-        Label::PreviousClip => "page-previous-clip",
-        Label::NextClip => "page-next-clip",
-        Label::TableLink => "page-table-link",
-        Label::AnnotatedLink => "page-annotated-link",
-        _ => return None,
-    };
-    Some(id)
+fn failure<'a>(video: &'a str, cause: &'a str, place: &'a str) -> Spoken<'a> {
+    message(
+        "failure",
+        [
+            ("video", video.into()),
+            ("cause", cause.into()),
+            ("place", place.into()),
+        ],
+    )
 }
 
-fn given_text(arguments: &mut FluentArgs<'_>, name: &'static str, value: String, id: &'static str) -> &'static str {
-    arguments.set(name, value);
-    id
+fn too_many(video: &str, count: usize, limit: usize) -> Spoken<'_> {
+    message(
+        "tally-too-many",
+        [
+            ("video", video.into()),
+            ("count", count.into()),
+            ("limit", limit.into()),
+        ],
+    )
 }
 
-fn counted(arguments: &mut FluentArgs<'_>, count: usize, id: &'static str) -> &'static str {
-    arguments.set("count", count);
-    id
+fn summary_alt(video: &str, tracks: usize) -> Spoken<'_> {
+    message("page-summary-alt", [("video", video.into()), ("tracks", tracks.into())])
 }
 
-fn given<'a>(arguments: &mut FluentArgs<'a>, name: &'static str, value: &'a str, id: &'static str) -> &'static str {
-    arguments.set(name, value);
-    id
+fn parted<'a>(id: &'static str, video: Option<&'a str>, [part, parts, first, last]: [usize; 4]) -> Spoken<'a> {
+    let mut values = arguments([
+        ("part", part.into()),
+        ("parts", parts.into()),
+        ("first", first.into()),
+        ("last", last.into()),
+    ]);
+    if let Some(video) = video {
+        values.set("video", video);
+    }
+    Spoken::Message(id, values)
 }
 
-fn numbered(arguments: &mut FluentArgs<'_>, track: usize, id: &'static str) -> &'static str {
-    arguments.set("track", track);
-    id
+fn playing(track: usize, total: usize, start: &str, zoom: bool) -> Spoken<'_> {
+    let zoom = if zoom { YES } else { NO };
+    message(
+        "page-playing",
+        [
+            ("track", track.into()),
+            ("total", total.into()),
+            ("start", start.into()),
+            ("zoom", zoom.into()),
+        ],
+    )
 }
 
-fn part_arguments(arguments: &mut FluentArgs<'_>, part: usize, parts: usize, first: usize, last: usize) {
-    arguments.set("part", part);
-    arguments.set("parts", parts);
-    arguments.set("first", first);
-    arguments.set("last", last);
+fn message<'a, const N: usize>(id: &'static str, values: [(&'static str, FluentValue<'a>); N]) -> Spoken<'a> {
+    Spoken::Message(id, arguments(values))
+}
+
+fn arguments<'a, const N: usize>(values: [(&'static str, FluentValue<'a>); N]) -> FluentArgs<'a> {
+    let mut arguments = FluentArgs::new();
+    for (name, value) in values {
+        arguments.set(name, value);
+    }
+    arguments
 }
 
 fn unbroken(text: &str) -> String {

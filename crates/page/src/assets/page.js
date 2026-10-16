@@ -44,6 +44,9 @@ document.querySelectorAll("details.video").forEach((section) => {
     announce.textContent = button.dataset.now;
     video.src = button.dataset.src;
     video.play().catch(() => {});
+    if (document.activeElement === document.body || document.activeElement?.disabled) {
+      (next.disabled ? previous : next).focus({ preventScroll: true });
+    }
     player.scrollIntoView({ block: "nearest", behavior: motion });
   };
 
@@ -72,9 +75,9 @@ document.querySelectorAll("details.video").forEach((section) => {
       if (first) list.scrollTo({ top: first.offsetTop - list.querySelector("thead").offsetHeight, behavior: motion });
     });
     tab.addEventListener("keydown", (event) => {
-      const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
-      if (!step) return;
-      const target = (index + step + tabs.length) % tabs.length;
+      const targets = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: tabs.length - 1 };
+      if (!(event.key in targets)) return;
+      const target = (targets[event.key] + tabs.length) % tabs.length;
       choosePart(target + 1);
       tabs[target].focus();
       event.preventDefault();

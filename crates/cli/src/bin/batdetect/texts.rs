@@ -8,7 +8,7 @@ use batdetect::outcome::Rank;
 use batdetect::process::Wording;
 use batdetect::progress::Step;
 use engine::settings::Bound;
-use files::names::{Names, Part, RESULTS_FOLDER, params_json, period_suffix};
+use files::names::{Names, Part, RESULTS_FOLDER, params_json, period_suffix, results_page};
 use files::table::{Column, Headings};
 use fluent_bundle::concurrent::FluentBundle;
 use fluent_bundle::{FluentArgs, FluentError, FluentResource, FluentValue};
@@ -75,6 +75,7 @@ pub(crate) enum Fixed {
     SkipRefusedHelp,
     SkipRefusedDeclined,
     NoNotifyHelp,
+    ForceHelp,
     InputsRefused,
     TallyVideo,
     TallyLength,
@@ -157,6 +158,7 @@ impl Fixed {
             Self::SkipRefusedHelp => "skip-refused-help",
             Self::SkipRefusedDeclined => "skip-refused-declined",
             Self::NoNotifyHelp => "no-notify-help",
+            Self::ForceHelp => "force-help",
             Self::InputsRefused => "inputs-refused",
             Self::TallyVideo => "tally-video",
             Self::TallyLength => "tally-length",
@@ -225,6 +227,11 @@ pub(crate) enum Message {
         video: String,
         tracks: usize,
     },
+    VideoSkipped {
+        rank: Rank,
+        video: String,
+        tracks: usize,
+    },
     VideoFailed {
         rank: Rank,
         video: String,
@@ -246,6 +253,9 @@ pub(crate) enum Message {
         total: usize,
     },
     TallyDone {
+        count: usize,
+    },
+    TallyAlreadyDone {
         count: usize,
     },
     TallyTooManyCount {
@@ -272,10 +282,24 @@ pub(crate) enum Message {
     TallyUnwrittenHeading {
         count: usize,
     },
+    TallyUnwritten {
+        path: String,
+        taken: bool,
+        detail: String,
+    },
     TallyKept {
         video: String,
         table: String,
         written: bool,
+    },
+    TallySetAsideHeading {
+        count: usize,
+    },
+    TallySetAside {
+        video: String,
+        table: String,
+        dated: String,
+        reason: &'static str,
     },
     TallyChanged {
         settings: String,
@@ -295,6 +319,9 @@ pub(crate) enum Message {
     FilesLong {
         period: String,
         part: String,
+    },
+    FilesPage {
+        page: String,
     },
     SummaryPart {
         number: usize,
@@ -416,6 +443,7 @@ pub(crate) enum Message {
     },
     Interrupted {
         rank: Rank,
+        resumes: bool,
     },
 }
 
@@ -427,12 +455,14 @@ impl Message {
             Self::ClipsRedone { .. } => "clips-redone",
             Self::VideoStep { .. } => "video-step",
             Self::VideoDone { .. } => "video-done",
+            Self::VideoSkipped { .. } => "video-skipped",
             Self::VideoFailed { .. } => "video-failed",
             Self::Failure { .. } => "failure",
             Self::FailureTodo { .. } => "failure-todo",
             Self::FailureDetail { .. } => "failure-detail",
             Self::TallyTitle { .. } => "tally-title",
             Self::TallyDone { .. } => "tally-done",
+            Self::TallyAlreadyDone { .. } => "tally-already-done",
             Self::TallyTooManyCount { .. } => "tally-too-many-count",
             Self::TallyFailedCount { .. } => "tally-failed-count",
             Self::TallyTooManyCell { .. } => "tally-too-many-cell",
@@ -440,13 +470,17 @@ impl Message {
             Self::TallyFailedHeading { .. } => "tally-failed-heading",
             Self::TallyKeptHeading { .. } => "tally-kept-heading",
             Self::TallyUnwrittenHeading { .. } => "tally-unwritten-heading",
+            Self::TallyUnwritten { .. } => "tally-unwritten",
             Self::TallyKept { .. } => "tally-kept",
+            Self::TallySetAsideHeading { .. } => "tally-set-aside-heading",
+            Self::TallySetAside { .. } => "tally-set-aside",
             Self::TallyChanged { .. } => "tally-changed",
             Self::TallyRegions { .. } => "tally-regions",
             Self::TallyFailureTodo { .. } => "tally-failure-todo",
             Self::UseFolder { .. } => "use-folder",
             Self::FilesHeading { .. } => "files-heading",
             Self::FilesLong { .. } => "files-long",
+            Self::FilesPage { .. } => "files-page",
             Self::SummaryPart { .. } => "summary-part",
             Self::SummaryTracks { .. } => "summary-tracks",
             Self::SummaryNotAnalysed { .. } => "summary-not-analysed",
@@ -513,13 +547,14 @@ impl Message {
                 ranked(&mut arguments, *rank, video);
                 arguments.set("step", step_name(*step));
             }
-            Self::VideoDone { rank, video, tracks } => {
+            Self::VideoDone { rank, video, tracks } | Self::VideoSkipped { rank, video, tracks } => {
                 ranked(&mut arguments, *rank, video);
                 arguments.set("tracks", *tracks);
             }
-            Self::Interrupted { rank } => {
+            Self::Interrupted { rank, resumes } => {
                 arguments.set("position", rank.position);
                 arguments.set("total", rank.total);
+                arguments.set("resumes", if *resumes { YES } else { NO });
             }
             Self::VideoFailed { rank, video, too_many } => {
                 ranked(&mut arguments, *rank, video);
@@ -562,11 +597,13 @@ impl Message {
         match self {
             Self::TallyTitle { total } => arguments.set("total", *total),
             Self::TallyDone { count }
+            | Self::TallyAlreadyDone { count }
             | Self::TallyTooManyCount { count }
             | Self::TallyFailedCount { count }
             | Self::TallyTooManyCell { count }
             | Self::TallyKeptHeading { count }
             | Self::TallyUnwrittenHeading { count }
+            | Self::TallySetAsideHeading { count }
             | Self::TallyRegions { count } => arguments.set("count", *count),
             Self::TallyTooMany { video, count, limit } => {
                 arguments.set("video", video.as_str());
@@ -582,12 +619,29 @@ impl Message {
                 arguments.set("table", table.as_str());
                 arguments.set("written", if *written { YES } else { NO });
             }
+            Self::TallySetAside {
+                video,
+                table,
+                dated,
+                reason,
+            } => {
+                arguments.set("video", video.as_str());
+                arguments.set("table", table.as_str());
+                arguments.set("dated", dated.as_str());
+                arguments.set("reason", *reason);
+            }
             Self::TallyChanged { settings } => arguments.set("settings", settings.as_str()),
             Self::TallyFailureTodo { cause } => arguments.set("cause", *cause),
             Self::UseFolder { folder } | Self::FilesHeading { folder } => arguments.set("folder", folder.as_str()),
             Self::FilesLong { period, part } => {
                 arguments.set("period", period.as_str());
                 arguments.set("part", part.as_str());
+            }
+            Self::FilesPage { page } => arguments.set("page", page.as_str()),
+            Self::TallyUnwritten { path, taken, detail } => {
+                arguments.set("path", path.as_str());
+                arguments.set("taken", if *taken { YES } else { NO });
+                arguments.set("detail", detail.as_str());
             }
             other => other.command_line_arguments(arguments),
         }
@@ -626,6 +680,12 @@ impl Message {
                 arguments.set("region", region.as_str());
             }
             Self::OptionRefused { option } => arguments.set("option", option.as_str()),
+            other => other.refusal_arguments(arguments),
+        }
+    }
+
+    fn refusal_arguments<'a>(&'a self, arguments: &mut FluentArgs<'a>) {
+        match self {
             Self::InputRefused { path, reason } => {
                 arguments.set("path", path.as_str());
                 arguments.set("reason", *reason);
@@ -660,10 +720,28 @@ impl Message {
                 arguments.set("access", *access);
             }
             Self::Fixed(_)
+            | Self::DefaultValue { .. }
+            | Self::RegionShape { .. }
+            | Self::PossibleValues { .. }
+            | Self::ClipMarginRefused { .. }
+            | Self::UnexpectedArgument { .. }
+            | Self::ValueRequired { .. }
+            | Self::UsedTwice { .. }
+            | Self::SimilarArgument { .. }
+            | Self::SimilarValue { .. }
+            | Self::ArgumentAsValue { .. }
+            | Self::InvalidValue { .. }
+            | Self::UnexpectedValue { .. }
+            | Self::DecimalPoint { .. }
+            | Self::MoreInformation { .. }
+            | Self::SettingRefused { .. }
+            | Self::RegionRefused { .. }
+            | Self::OptionRefused { .. }
             | Self::TooManyTracks { .. }
             | Self::ClipsRedone { .. }
             | Self::VideoStep { .. }
             | Self::VideoDone { .. }
+            | Self::VideoSkipped { .. }
             | Self::VideoFailed { .. }
             | Self::Interrupted { .. }
             | Self::Failure { .. }
@@ -671,6 +749,7 @@ impl Message {
             | Self::FailureDetail { .. }
             | Self::TallyTitle { .. }
             | Self::TallyDone { .. }
+            | Self::TallyAlreadyDone { .. }
             | Self::TallyTooManyCount { .. }
             | Self::TallyFailedCount { .. }
             | Self::TallyTooManyCell { .. }
@@ -678,13 +757,17 @@ impl Message {
             | Self::TallyFailedHeading { .. }
             | Self::TallyKeptHeading { .. }
             | Self::TallyUnwrittenHeading { .. }
+            | Self::TallyUnwritten { .. }
             | Self::TallyKept { .. }
+            | Self::TallySetAsideHeading { .. }
+            | Self::TallySetAside { .. }
             | Self::TallyChanged { .. }
             | Self::TallyRegions { .. }
             | Self::TallyFailureTodo { .. }
             | Self::UseFolder { .. }
             | Self::FilesHeading { .. }
             | Self::FilesLong { .. }
+            | Self::FilesPage { .. }
             | Self::SummaryPart { .. }
             | Self::SummaryTracks { .. }
             | Self::SummaryNotAnalysed { .. }
@@ -824,12 +907,16 @@ impl Texts {
             .iter()
             .map(|(name, meaning)| format!("\n  {placeholder}{name}{placeholder:#}\n      {}", self.text(*meaning)))
             .collect();
+        let page = format!("{RESULTS_FOLDER}/{}", results_page(self.language));
         format!(
-            "{header}{}{header:#}{}\n\n{}\n\n{} {GUIDE}",
+            "{header}{}{header:#}{}\n\n{}\n\n{}\n\n{} {GUIDE}",
             self.say(&Message::FilesHeading {
                 folder: RESULTS_FOLDER.to_owned(),
             }),
             lines.concat(),
+            self.say(&Message::FilesPage {
+                page: format!("{placeholder}{page}{placeholder:#}"),
+            }),
             self.say(&Message::FilesLong {
                 period: period_suffix(EXAMPLE_PERIOD),
                 part: names.part_suffix(EXAMPLE_PART),

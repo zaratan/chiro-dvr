@@ -22,6 +22,9 @@ fn evening() -> Page {
             Entry::Unfinished {
                 name: "video_094".to_owned(),
             },
+            Entry::Older {
+                name: "video_096".to_owned(),
+            },
             Entry::Waiting {
                 name: "video_095".to_owned(),
             },
@@ -44,12 +47,11 @@ fn a_page_written_by_someone_else_is_not_ours() {
 }
 
 #[test]
-fn the_total_counts_each_state_and_every_track_and_links_to_the_first_failure() {
+fn the_total_counts_each_state_and_every_track_and_links_to_the_first_video_of_each_problem() {
     let html = render(&evening(), &Named);
     for count in [
-        "Videos(5)",
+        "Videos(6)",
         "Done(1)",
-        "TooManyCount(1)",
         "UnfinishedCount(1)",
         "WaitingCount(1)",
         "Tracks(8)",
@@ -57,16 +59,32 @@ fn the_total_counts_each_state_and_every_track_and_links_to_the_first_failure() 
         assert!(html.contains(count), "{count}");
     }
     assert!(html.contains(r##"<a class="count bad" href="#v3">FailedCount(1)</a>"##));
+    assert!(html.contains(r##"<a class="count bad" href="#v2">TooManyCount(1)</a>"##));
 }
 
 #[test]
 fn the_entries_follow_the_order_given_with_their_anchors() {
     let html = render(&evening(), &Named);
-    let anchors: Vec<usize> = ["id=\"v1\"", "id=\"v2\"", "id=\"v3\"", "id=\"v4\"", "id=\"v5\""]
-        .iter()
-        .map(|anchor| html.find(anchor).unwrap())
-        .collect();
+    let anchors: Vec<usize> = [
+        "id=\"v1\"",
+        "id=\"v2\"",
+        "id=\"v3\"",
+        "id=\"v4\"",
+        "id=\"v5\"",
+        "id=\"v6\"",
+    ]
+    .iter()
+    .map(|anchor| html.find(anchor).unwrap())
+    .collect();
     assert!(anchors.is_sorted());
+}
+
+#[test]
+fn a_video_done_by_an_older_version_says_so_rather_than_unfinished() {
+    let html = render(&evening(), &Named);
+    let (_, card) = html.split_once(">video_096</h2>").unwrap();
+    assert!(card.starts_with("\n    <span class=\"badge\">OlderBadge</span>"));
+    assert!(card.contains("OlderText"));
 }
 
 #[test]

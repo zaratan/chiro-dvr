@@ -680,8 +680,20 @@ fn a_run_in_french_then_in_english_then_in_french_in_the_same_folder_leaves_only
     }
 }
 
+#[cfg(test)]
+fn dated(folder: &Path, table: &str) -> Vec<String> {
+    let prefix = format!("{table}_20");
+    let mut names: Vec<String> = fs::read_dir(folder)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name.starts_with(&prefix))
+        .collect();
+    names.sort();
+    names
+}
+
 #[test]
-fn a_table_annotated_by_hand_is_left_and_named_in_the_summary_in_the_language_of_the_messages() {
+fn a_table_annotated_by_hand_is_set_aside_and_named_in_the_summary_in_the_language_of_the_messages() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let out = root.path().join("out");
     let folder = out.join("flight");
@@ -690,48 +702,75 @@ fn a_table_annotated_by_hand_is_left_and_named_in_the_summary_in_the_language_of
     fs::write(folder.join("flight_pistes.csv"), annotated).unwrap();
     let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
     assert!(output.status.success(), "{}", text(&output.stderr));
+    let [french] = dated(&folder, "flight_pistes").try_into().unwrap();
     let summary = text(&output.stdout);
     let lines: Vec<&str> = summary.lines().collect();
     let heading = lines
         .iter()
-        .position(|line| *line == "Tableau laissé tel quel\u{a0}:")
+        .position(|line| *line == "Tableau mis de côté\u{a0}:")
         .unwrap_or_else(|| panic!("{summary}"));
     assert_eq!(
         lines[heading + 1],
-        "  flight\u{a0}: flight_pistes.csv n'a pas la forme d'un tableau des pistes\u{a0}; le nouveau tableau n'est pas écrit"
+        format!("  flight\u{a0}: flight_pistes.csv porte des verdicts, mis de côté sous {french}")
     );
-    let errors = text(&output.stderr);
-    assert!(!errors.contains("flight_pistes.csv"), "{errors}");
+    assert!(!summary.contains("laissé"), "{summary}");
+    assert!(
+        !text(&output.stderr).contains("flight_pistes"),
+        "{}",
+        text(&output.stderr)
+    );
+    assert_eq!(fs::read_to_string(folder.join(&french)).unwrap(), annotated);
+    assert!(
+        fs::read_to_string(folder.join("flight_pistes.csv"))
+            .unwrap()
+            .starts_with("\u{feff}piste;")
+    );
+    let unknown = "id,start,end,start_s,duration_s,hits,chord_px,path_px,speed_px_s,max_area_px,peak_amplitude,filled_frames,notes\r\n";
+    fs::write(folder.join("flight_tracks.csv"), unknown).unwrap();
     let output = run(&[&videos, Path::new("-o"), &out], "C");
     assert!(output.status.success(), "{}", text(&output.stderr));
+    let [english] = dated(&folder, "flight_tracks").try_into().unwrap();
     let summary = text(&output.stdout);
     assert!(
-        summary
-            .lines()
-            .any(|line| line == "  flight: flight_pistes.csv does not have the form of a tracks table"),
+        summary.lines().any(|line| line
+            == format!("  flight: flight_tracks.csv does not have the form of a tracks table, set aside as {english}")),
         "{summary}"
     );
-    assert_eq!(fs::read_to_string(folder.join("flight_pistes.csv")).unwrap(), annotated);
-    assert!(folder.join("flight_tracks.csv").is_file());
+    assert_eq!(fs::read_to_string(folder.join(&english)).unwrap(), unknown);
+    assert_eq!(fs::read_to_string(folder.join(&french)).unwrap(), annotated);
+    assert!(!folder.join("flight_pistes.csv").exists());
 }
 
 #[test]
-fn a_verdict_written_in_the_table_of_an_earlier_run_is_left_as_it_is_by_the_next_run() {
+fn a_verdict_written_in_the_table_of_an_earlier_run_is_set_aside_once_and_a_blank_table_written_beside_it() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let out = root.path().join("out");
-    let table = out.join("flight").join("flight_pistes.csv");
+    let folder = out.join("flight");
+    let table = folder.join("flight_pistes.csv");
     let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
     assert!(output.status.success(), "{}", text(&output.stderr));
-    let annotated = fs::read_to_string(&table).unwrap().replacen(";;", ";oui;", 1);
+    let blank = fs::read(&table).unwrap();
+    let annotated = String::from_utf8(blank.clone()).unwrap().replacen(";;", ";oui;", 1);
     fs::write(&table, &annotated).unwrap();
-    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    let output = run(&[&videos, Path::new("-o"), &out, Path::new("--force")], "fr_FR.UTF-8");
     assert!(output.status.success(), "{}", text(&output.stderr));
     assert!(
-        text(&output.stdout).contains("Tableau laissé tel quel\u{a0}:"),
+        text(&output.stdout).contains("Tableau mis de côté\u{a0}:"),
         "{}",
         text(&output.stdout)
     );
-    assert_eq!(fs::read_to_string(&table).unwrap(), annotated);
+    let [aside] = dated(&folder, "flight_pistes").try_into().unwrap();
+    assert_eq!(fs::read(folder.join(&aside)).unwrap(), annotated.as_bytes());
+    assert_eq!(fs::read(&table).unwrap(), blank);
+    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    assert!(
+        !text(&output.stdout).contains("Tableau mis de côté"),
+        "{}",
+        text(&output.stdout)
+    );
+    assert_eq!(dated(&folder, "flight_pistes"), [aside]);
+    assert_eq!(fs::read(&table).unwrap(), blank);
 }
 
 #[cfg(unix)]
@@ -978,4 +1017,68 @@ fn a_video_damaged_in_a_folder_of_its_own_is_told_among_the_failures_without_a_t
         summary.lines().any(|line| line.starts_with("  abimee\u{a0}: ")),
         "{summary}"
     );
+}
+
+#[cfg(test)]
+fn reuses_earlier_results() -> bool {
+    !env!("BATDETECT_VERSION").ends_with("-dirty")
+}
+
+#[cfg(test)]
+fn modified(folder: &Path) -> Vec<(String, std::time::SystemTime)> {
+    tree::tree(folder)
+        .into_iter()
+        .filter(|name| !name.ends_with('/'))
+        .map(|name| {
+            let time = fs::metadata(folder.join(&name)).unwrap().modified().unwrap();
+            (name, time)
+        })
+        .collect()
+}
+
+#[test]
+fn the_same_command_again_skips_the_video_already_done_without_touching_its_folder_unless_forced_or_uncommitted() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    assert!(run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8").status.success());
+    let before = modified(&out.join("flight"));
+    let again = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    assert!(again.status.success(), "{}", text(&again.stderr));
+    let (title, line) = if reuses_earlier_results() {
+        (
+            "Bilan\u{a0}: 1 vidéo, 1 déjà faite\n",
+            "[1/1] flight — déjà faite, 1 piste",
+        )
+    } else {
+        ("Bilan\u{a0}: 1 vidéo, 1 réussie\n", "[1/1] flight — 1 piste")
+    };
+    assert!(text(&again.stdout).starts_with(title), "{}", text(&again.stdout));
+    assert!(text(&again.stderr).contains(line), "{}", text(&again.stderr));
+    assert_eq!(modified(&out.join("flight")) == before, reuses_earlier_results());
+    let forced = run(&[&videos, Path::new("-o"), &out, Path::new("--force")], "fr_FR.UTF-8");
+    assert!(
+        text(&forced.stdout).starts_with("Bilan\u{a0}: 1 vidéo, 1 réussie\n"),
+        "{}",
+        text(&forced.stdout)
+    );
+    assert_ne!(modified(&out.join("flight")), before);
+}
+
+#[test]
+fn a_lot_stopped_before_its_second_video_was_marked_finished_resumes_with_that_video_only() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4", "b.mp4"]);
+    let out = root.path().join("out");
+    assert!(run(&[&videos, Path::new("-o"), &out], "C").status.success());
+    fs::remove_file(out.join("b").join("params.json")).unwrap();
+    let first = modified(&out.join("a"));
+    let again = run(&[&videos, Path::new("-o"), &out], "C");
+    assert!(again.status.success(), "{}", text(&again.stderr));
+    let title = if reuses_earlier_results() {
+        "Summary: 2 videos, 1 done, 1 already done\n"
+    } else {
+        "Summary: 2 videos, 2 done\n"
+    };
+    assert!(text(&again.stdout).starts_with(title), "{}", text(&again.stdout));
+    assert_eq!(modified(&out.join("a")) == first, reuses_earlier_results());
+    assert!(out.join("b").join("params.json").is_file());
 }

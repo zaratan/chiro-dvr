@@ -1,12 +1,14 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use files::params::Finish;
 use files::previous::Kept;
 
 use super::Tally;
 use crate::jobs::{Job, Reason, Refused};
 use crate::outcome::{Failure, Panic, Row, State};
 use crate::process::Extent;
+use crate::reuse::Earlier;
 
 const EXTENT: Extent = Extent {
     length_s: 10.0,
@@ -25,7 +27,7 @@ fn row(dest: &str, state: State) -> Row {
 }
 
 fn kept(path: &str) -> Vec<Kept> {
-    vec![Kept {
+    vec![Kept::Left {
         path: PathBuf::from(path),
         ours: false,
     }]
@@ -114,7 +116,12 @@ fn each_state_is_found_apart_and_too_many_tracks_is_not_a_failure() {
 #[test]
 fn the_tables_left_as_they_are_come_from_done_videos_and_from_videos_with_too_many_tracks() {
     let tally = evening();
-    let kept: Vec<&Path> = tally.kept().map(|(_, table)| table.path.as_path()).collect();
+    let kept: Vec<&Path> = tally
+        .kept()
+        .map(|(_, table)| match table {
+            Kept::Left { path, .. } | Kept::SetAside { path, .. } => path.as_path(),
+        })
+        .collect();
     assert_eq!(
         kept,
         [
@@ -191,4 +198,51 @@ fn a_folder_of_failed_videos_only_is_titled_only_if_it_exists() {
     };
     assert_eq!(tally.roots(), [written.as_path()]);
     assert_eq!(tally.failed().count(), 2);
+}
+
+fn skipped(dest: &str, finish: Finish) -> Row {
+    row(
+        dest,
+        State::Skipped(Earlier {
+            finish,
+            tracks: 7,
+            limit: 5,
+            extent: EXTENT,
+        }),
+    )
+}
+
+#[test]
+fn a_video_already_done_counts_apart_and_one_left_with_too_many_tracks_still_counts_as_too_many() {
+    let tally = Tally {
+        unwritten: Vec::new(),
+        refused: Vec::new(),
+        rows: vec![
+            skipped("a/batdetect/1", Finish::Done),
+            skipped("a/batdetect/2", Finish::TooManyTracks),
+        ],
+    };
+    assert_eq!(dests(tally.already_done()), [Path::new("a/batdetect/1")]);
+    assert_eq!(tally.done().count(), 0);
+    let too_many: Vec<(&Path, usize, usize)> = tally
+        .too_many()
+        .map(|(row, count, limit)| (row.job.dest.as_path(), count, limit))
+        .collect();
+    assert_eq!(too_many, [(Path::new("a/batdetect/2"), 7, 5)]);
+    assert_eq!((tally.failed().count(), tally.kept().count()), (0, 0));
+    assert!(!tally.all_done());
+}
+
+#[test]
+fn an_evening_of_videos_all_already_done_ends_well() {
+    let tally = Tally {
+        unwritten: Vec::new(),
+        refused: Vec::new(),
+        rows: vec![
+            skipped("a/batdetect/1", Finish::Done),
+            skipped("b/batdetect/1", Finish::Done),
+        ],
+    };
+    assert!(tally.all_done());
+    assert_eq!(tally.roots().len(), 2);
 }

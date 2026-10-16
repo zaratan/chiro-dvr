@@ -22,7 +22,9 @@ pub enum Label<'a> {
     Length(u64),
     NotAnalysed(u64),
     FailedBadge,
+    TooManyBadge,
     UnfinishedBadge,
+    OlderBadge,
     WaitingBadge,
     Failure {
         video: &'a str,
@@ -35,8 +37,8 @@ pub enum Label<'a> {
     },
     Detail(&'a str),
     PreviousResults,
-    PreviousOf(&'a str),
     UnfinishedText,
+    OlderText,
     WaitingText,
     TooMany {
         video: &'a str,

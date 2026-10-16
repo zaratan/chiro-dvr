@@ -156,6 +156,23 @@ sert pas à juger une étape de quelques secondes : elle n'est pas reprise ici.
 - Le CPU par étape n'est pas mesuré : les parts du profil entre étapes sont faussées par
   l'échantillonneur, et `ps` ne donne qu'une charge lissée.
 
+### Sous Linux (lumiel, 16 octobre 2026)
+
+Mesures de l'utilisateur sur lumiel (Rocky Linux 10, x86_64), binaire `release` de `main` du
+16 octobre 2026, comparées au même binaire sur le M1 Max le même jour. Le pic est la mémoire
+résidente au plus haut.
+
+| Vidéo | Machine | Réel | CPU | Pic |
+| --- | --- | ---: | ---: | ---: |
+| 092 entière | M1 Max | 19,0 s | 128,5 s | 1,09 Go |
+| 092 entière | lumiel | 28,7 s | 238,9 s | ≈ 1,27 Go |
+| extrait | lumiel | 9,00 s | 41,1 s | 503 Mo |
+| extrait, `--zoom all` | lumiel | 10,49 s | 65,5 s | 951 Mo |
+
+- Sur la 092, lumiel met 1,5 fois plus de temps réel et 1,9 fois plus de CPU que le M1 Max.
+- Sur l'extrait, les 4 zooms de `--zoom all`, encodés par openh264, ajoutent 1,5 s réelles,
+  24,4 s de CPU et 448 Mo au pic.
+
 ## v0.1.1 (Python)
 
 Historique des optimisations du Python jusqu'à la v0.1.1, mesuré du 4 au 6 octobre 2026

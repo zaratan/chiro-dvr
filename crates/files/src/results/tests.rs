@@ -101,12 +101,12 @@ fn a_folder_with_our_outputs_but_no_parameters_is_unfinished() {
 }
 
 #[test]
-fn parameters_written_before_the_state_was_recorded_mean_unfinished() {
+fn parameters_written_by_an_older_version_mean_a_video_done_by_it_not_an_interrupted_one() {
     let root = tempfile::tempdir().unwrap();
     let dest = root.path().join("v");
     fs::create_dir_all(&dest).unwrap();
     fs::write(dest.join("params.json"), params("")).unwrap();
-    assert_eq!(read_results(root.path(), &Named)[0].found, Found::Unfinished);
+    assert_eq!(read_results(root.path(), &Named)[0].found, Found::Older);
 }
 
 #[test]
@@ -116,6 +116,8 @@ fn a_folder_of_the_user_or_a_hidden_one_is_not_a_video() {
     fs::create_dir_all(&mine).unwrap();
     fs::write(mine.join("params.json"), r#"{ "zoom": 2 }"#).unwrap();
     fs::write(mine.join("plage.jpg"), "").unwrap();
+    fs::create_dir_all(root.path().join("Vacances/clips")).unwrap();
+    fs::write(root.path().join("Vacances/clips/plongee.mp4"), "").unwrap();
     fs::create_dir_all(root.path().join(".cache/v")).unwrap();
     fs::write(root.path().join("resultats.html"), "").unwrap();
     assert_eq!(read_results(root.path(), &Named), []);

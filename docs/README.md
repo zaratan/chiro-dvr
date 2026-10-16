@@ -2,10 +2,15 @@
 
 ## Pour utiliser l'outil
 
-Vous relisez les résultats d'une soirée : commencez ici.
+Ces documents s'adressent à la naturaliste et ne contiennent rien de technique : ce qui sert à
+les refaire est rangé côté développeur, plus bas.
+
+Première fois : commencez par la [première soirée](premiere-soiree.md). Vous relisez les
+résultats d'une soirée : passez à [lire les résultats](lire-les-resultats.md).
 
 | Document | Contenu |
 | --- | --- |
+| [premiere-soiree.md](premiere-soiree.md) | La première soirée pas à pas : installer, brancher les jumelles, copier les vidéos, lancer, attendre, ouvrir les résultats |
 | [lire-les-resultats.md](lire-les-resultats.md) | Ce que l'outil ne voit pas, conseils de prise de vue, comment lire l'image résumé, juger un extrait et noter son verdict, et les mots de l'image résumé, du tableau des pistes et des extraits |
 
 ## Pour comprendre ou modifier l'outil
@@ -26,6 +31,8 @@ pas, et pourquoi les choses sont comme elles sont.
 | [09-profilage.md](09-profilage.md) | Développeur | Où part le temps de calcul du Rust : étapes, points chauds, fils ; puis le profil de la v0.1.1 en Python |
 | [10-logique-de-detection.md](10-logique-de-detection.md) | Naturaliste et développeur | La logique expliquée : outil mathématique de chaque étape, choix et limites |
 | [11-migration-rust.md](11-migration-rust.md) | Développeur | La réécriture en Rust : bilan, chaîne de construction, licences, charte, tests, encodage, et l'histoire de la migration |
+| [images/README.md](images/README.md) | Développeur | D'où vient chaque image des docs pour la naturaliste, et comment les refaire |
+| [tools/docs-images.sh](../tools/docs-images.sh) | Développeur | Le script qui refait toutes les images de `docs/images/` depuis l'extrait de test |
 
 ## Qui tient quoi
 
@@ -42,7 +49,11 @@ de comportement du code met à jour ce document-là, dans la même série de cha
 | Carte courte des crates, règles des agents | [CLAUDE.md](../CLAUDE.md) | — |
 | Temps de calcul actuels | [09](09-profilage.md) | les autres citent ses chiffres |
 | Questions ouvertes | [06](06-questions-ouvertes.md) | — |
-| Utilisation, fichiers produits | [README](../README.md) et [lire-les-resultats](lire-les-resultats.md) | — |
+| Utilisation | [README](../README.md) | les détails dans premiere-soiree et lire-les-resultats |
+| Fichiers produits | [lire-les-resultats](lire-les-resultats.md#où-sont-les-résultats) | `params.json` et le ménage des sorties, pour le développeur, dans [02](02-methode.md#sorties) |
+| Construire, vérifier, publier une version | [CONTRIBUTING](../CONTRIBUTING.md) | le détail de la CI et de la distribution dans [05](05-outillage.md) |
+| Provenance et fabrication des images des docs | [images/README](images/README.md) et [tools/docs-images.sh](../tools/docs-images.sh) | les docs pour la naturaliste n'en disent rien |
+| Parcours d'une soirée, des jumelles aux résultats, pour qui n'a jamais lancé l'outil | [premiere-soiree](premiere-soiree.md) | le README y renvoie |
 | Lecture de l'image résumé : bandeau, trait, flèche, pastille, zone masquée, frise du temps, couleurs | [lire-les-resultats](lire-les-resultats.md#lire-limage-résumé) | le README y renvoie |
 | Lecture d'un extrait, façon de désigner une piste et de noter son verdict, faux positifs observés | [lire-les-resultats](lire-les-resultats.md#juger-un-extrait) | le dessin des extraits et ses réglages sont dans [02](02-methode.md#extrait-zoomé-et-ralenti) |
 | Histoire et mesures datées | 11 et les sections datées de 03, 07, 08, 09 | — |

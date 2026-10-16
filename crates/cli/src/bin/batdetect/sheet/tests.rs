@@ -33,6 +33,7 @@ pub(crate) fn samples() -> Vec<Label<'static>> {
         Label::Length(300),
         Label::NotAnalysed(33),
         Label::FailedBadge,
+        Label::TooManyBadge,
         Label::UnfinishedBadge,
         Label::WaitingBadge,
         Label::Failure {
@@ -46,8 +47,9 @@ pub(crate) fn samples() -> Vec<Label<'static>> {
         },
         Label::Detail("cannot decode"),
         Label::PreviousResults,
-        Label::PreviousOf("video_093"),
         Label::UnfinishedText,
+        Label::OlderBadge,
+        Label::OlderText,
         Label::WaitingText,
         Label::TooMany {
             video: "video_097",

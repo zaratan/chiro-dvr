@@ -16,8 +16,8 @@ use crate::sheet::{self, Spoken};
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 59;
-const FIXED: [Fixed; 77] = [
+const VARIANTS: usize = 65;
+const FIXED: [Fixed; 78] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -56,6 +56,7 @@ const FIXED: [Fixed; 77] = [
     Fixed::SkipRefusedHelp,
     Fixed::SkipRefusedDeclined,
     Fixed::NoNotifyHelp,
+    Fixed::ForceHelp,
     Fixed::InputsRefused,
     Fixed::TallyVideo,
     Fixed::TallyLength,
@@ -157,7 +158,13 @@ fn rank(message: &Message) -> usize {
         Message::TallyRefusedCount { .. } => 55,
         Message::TallyRefusedHeading { .. } => 56,
         Message::Interrupted { .. } => 57,
-        Message::TallyUnwrittenHeading { .. } => 58,
+        Message::TallySetAsideHeading { .. } => 58,
+        Message::TallySetAside { .. } => 59,
+        Message::VideoSkipped { .. } => 60,
+        Message::TallyAlreadyDone { .. } => 61,
+        Message::TallyUnwrittenHeading { .. } => 62,
+        Message::FilesPage { .. } => 63,
+        Message::TallyUnwritten { .. } => 64,
     }
 }
 
@@ -240,6 +247,7 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::TableAmplitude => 74,
         Fixed::TableFilledFrames => 75,
         Fixed::TableStartSeconds => 76,
+        Fixed::ForceHelp => 77,
     }
 }
 
@@ -247,16 +255,18 @@ fn samples() -> Vec<Message> {
     FIXED
         .into_iter()
         .map(Message::Fixed)
-        .chain(lines())
+        .chain(tally_lines())
+        .chain(video_lines())
         .chain(command_line())
         .collect()
 }
 
-fn lines() -> Vec<Message> {
+fn tally_lines() -> Vec<Message> {
     let text = |value: &str| value.to_owned();
     vec![
         Message::TallyTitle { total: 12 },
         Message::TallyDone { count: 10 },
+        Message::TallyAlreadyDone { count: 2 },
         Message::TallyTooManyCount { count: 1 },
         Message::TallyFailedCount { count: 1 },
         Message::TallyTooManyCell { count: 412 },
@@ -268,10 +278,22 @@ fn lines() -> Vec<Message> {
         Message::TallyFailedHeading { failed: 1, total: 12 },
         Message::TallyKeptHeading { count: 1 },
         Message::TallyUnwrittenHeading { count: 1 },
+        Message::TallyUnwritten {
+            path: text("nuit/batdetect/resultats.html"),
+            taken: false,
+            detail: text("cannot write nuit/batdetect/resultats.html: disk full"),
+        },
         Message::TallyKept {
             video: text("video_092"),
             table: text("video_092_pistes.csv"),
             written: false,
+        },
+        Message::TallySetAsideHeading { count: 1 },
+        Message::TallySetAside {
+            video: text("video_092"),
+            table: text("video_092_pistes.csv"),
+            dated: text("video_092_pistes_2026-10-16_1430.csv"),
+            reason: "verdicts",
         },
         Message::TallyChanged {
             settings: text("--threshold 11"),
@@ -288,6 +310,15 @@ fn lines() -> Vec<Message> {
             period: text("_000m-010m"),
             part: text("_1_sur_3"),
         },
+        Message::FilesPage {
+            page: text("batdetect/resultats.html"),
+        },
+    ]
+}
+
+fn video_lines() -> Vec<Message> {
+    let text = |value: &str| value.to_owned();
+    vec![
         Message::TooManyTracks {
             video: text("nuit/video_092.mp4"),
             count: 301,
@@ -310,8 +341,14 @@ fn lines() -> Vec<Message> {
             video: text("video_092"),
             tracks: 14,
         },
+        Message::VideoSkipped {
+            rank: Rank { position: 4, total: 12 },
+            video: text("video_093"),
+            tracks: 1,
+        },
         Message::Interrupted {
             rank: Rank { position: 3, total: 12 },
+            resumes: true,
         },
         Message::VideoFailed {
             rank: Rank { position: 3, total: 12 },
@@ -805,6 +842,7 @@ fn the_files_produced_are_named_as_the_command_writes_them_in_each_language() {
             ),
             names.annotated_video(here, stem).display().to_string(),
             "params.json".to_owned(),
+            format!("batdetect/{}", files::names::results_page(language)),
         ];
         for name in expected {
             assert!(

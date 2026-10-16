@@ -1,9 +1,11 @@
 use std::path::Path;
 
+use files::params::Finish;
 use files::previous::Kept;
 
 use crate::jobs::Refused;
 use crate::outcome::{Failure, Row, State};
+use crate::reuse::Earlier;
 
 #[cfg(test)]
 mod tests;
@@ -38,17 +40,35 @@ impl Tally {
         self.rows.iter().filter(|row| matches!(row.state, State::Done { .. }))
     }
 
+    pub fn already_done(&self) -> impl Iterator<Item = &Row> {
+        self.rows.iter().filter(|row| {
+            matches!(
+                row.state,
+                State::Skipped(Earlier {
+                    finish: Finish::Done,
+                    ..
+                })
+            )
+        })
+    }
+
     pub fn too_many(&self) -> impl Iterator<Item = (&Row, usize, usize)> {
         self.rows.iter().filter_map(|row| match row.state {
-            State::TooManyTracks { count, limit, .. } => Some((row, count, limit)),
-            State::Done { .. } | State::Failed(_) => None,
+            State::TooManyTracks { count, limit, .. }
+            | State::Skipped(Earlier {
+                finish: Finish::TooManyTracks,
+                tracks: count,
+                limit,
+                ..
+            }) => Some((row, count, limit)),
+            State::Done { .. } | State::Skipped(_) | State::Failed(_) => None,
         })
     }
 
     pub fn failed(&self) -> impl Iterator<Item = (&Row, &Failure)> {
         self.rows.iter().filter_map(|row| match &row.state {
             State::Failed(failure) => Some((row, failure)),
-            State::Done { .. } | State::TooManyTracks { .. } => None,
+            State::Done { .. } | State::TooManyTracks { .. } | State::Skipped(_) => None,
         })
     }
 
@@ -56,14 +76,16 @@ impl Tally {
         self.rows.iter().flat_map(|row| {
             let kept: &[Kept] = match &row.state {
                 State::Done { kept, .. } | State::TooManyTracks { kept, .. } => kept,
-                State::Failed(_) => &[],
+                State::Skipped(_) | State::Failed(_) => &[],
             };
             kept.iter().map(move |table| (row, table))
         })
     }
 
     pub fn all_done(&self) -> bool {
-        self.refused.is_empty() && self.unwritten.is_empty() && self.done().count() == self.rows.len()
+        self.refused.is_empty()
+            && self.unwritten.is_empty()
+            && self.done().count() + self.already_done().count() == self.rows.len()
     }
 }
 

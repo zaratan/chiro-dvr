@@ -223,3 +223,21 @@ fn the_page_to_open_at_the_end_is_ours_in_the_language_of_the_run_or_none() {
     fs::write(root.path().join("resultats.html"), "<p>mes notes</p>").unwrap();
     assert_eq!(page_to_open(root.path(), Language::French), None);
 }
+
+#[test]
+fn a_relative_results_folder_is_titled_by_the_folder_it_stands_in() {
+    let here = std::env::current_dir().unwrap();
+    let evening = here.file_name().unwrap().to_string_lossy().into_owned();
+    assert_eq!(super::title(Path::new("batdetect")), evening);
+    assert_eq!(super::title(Path::new(".")), evening);
+}
+
+#[test]
+fn a_folder_named_by_a_decomposed_accent_is_the_same_video_as_its_composed_job() {
+    let root = tempfile::tempdir().unwrap();
+    finished(root.path(), "nuit_e\u{301}te\u{301}", "done", 1);
+    write_page(root.path(), &[job(root.path(), "nuit_\u{e9}t\u{e9}")], 1, FRENCH).unwrap();
+    let html = page(root.path());
+    assert_eq!(html.matches("<details class=\"video\"").count(), 1);
+    assert!(html.contains(r#"<details class="video" id="v1" open>"#));
+}

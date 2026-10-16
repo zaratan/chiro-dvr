@@ -2,8 +2,10 @@ use std::path::PathBuf;
 
 use batdetect::jobs::Job;
 use batdetect::options::Options;
-use batdetect::outcome::{Failure, Panic, Rank};
+use batdetect::outcome::{Failure, Panic, Ran, Rank};
 use batdetect::process::{Extent, Processed};
+use batdetect::reuse::Earlier;
+use files::params::Finish;
 use files::previous::Kept;
 use render::clips::Rendered;
 use types::language::Language;
@@ -65,7 +67,7 @@ fn on_a_terminal_the_erased_width_counts_characters_and_not_bytes() {
     assert_eq!(written(true, &[Action::Show("é"), Action::Clear]), "é\r \r");
 }
 
-fn told(result: &Result<Processed, Failure>) -> String {
+fn told(result: &Result<Ran, Failure>) -> String {
     let status = Status::new(TEXTS, true, 1);
     let job = Job {
         video: PathBuf::from("nuit/flight.mp4"),
@@ -91,7 +93,7 @@ fn on_a_terminal_the_step_is_erased_before_the_last_line_of_the_video() {
             not_analysed_s: 0.0,
         },
         csv: None,
-        kept: vec![Kept {
+        kept: vec![Kept::Left {
             path: PathBuf::from("out/flight/flight_pistes.csv"),
             ours: true,
         }],
@@ -99,7 +101,7 @@ fn on_a_terminal_the_step_is_erased_before_the_last_line_of_the_video() {
         rendered: Rendered::default(),
     };
     assert_eq!(
-        told(&Ok(processed)),
+        told(&Ok(Ran::Processed(processed))),
         format!("[1/1] flight — extraits\r{}\r[1/1] flight — 0 piste\n", " ".repeat(23))
     );
 }
@@ -121,7 +123,7 @@ fn on_a_terminal_a_failure_erases_the_step_then_gives_its_cause_above_its_last_l
 }
 
 #[test]
-fn an_interruption_erases_the_step_on_a_terminal_then_names_the_video_reached_and_how_to_redo_the_lot() {
+fn an_interruption_erases_the_step_on_a_terminal_then_names_the_video_reached_and_how_to_resume_the_lot() {
     let step = "[3/12] flight — détection";
     let width = step.chars().count();
     for (terminal, erased) in [(true, format!("\r{}\r", " ".repeat(width))), (false, "\n".to_owned())] {
@@ -133,8 +135,8 @@ fn an_interruption_erases_the_step_on_a_terminal_then_names_the_video_reached_an
         assert_eq!(
             String::from_utf8(err).unwrap(),
             format!(
-                "{step}{erased}lot interrompu à la vidéo 3/12\u{a0}; relancer la même commande refait le \
-                 lot\n"
+                "{step}{erased}lot interrompu à la vidéo 3/12\u{a0}; relancer la même commande reprend là où \
+                 le lot s'est arrêté\n"
             )
         );
     }
@@ -147,6 +149,53 @@ fn an_interruption_in_english_says_the_same() {
     status.interrupted(&mut err).unwrap();
     assert_eq!(
         String::from_utf8(err).unwrap(),
-        "batch interrupted at video 1/2; running the same command again redoes the batch\n"
+        "batch interrupted at video 1/2; running the same command again resumes where the batch stopped\n"
     );
+}
+
+#[test]
+fn a_video_already_done_announces_no_step_and_says_so_with_its_earlier_track_count() {
+    let status = Status::new(TEXTS, true, 1);
+    let job = Job {
+        video: PathBuf::from("nuit/flight.mp4"),
+        dest: PathBuf::from("out/flight"),
+    };
+    let video = Video {
+        status: &status,
+        rank: Rank { position: 1, total: 1 },
+        job: &job,
+    };
+    let earlier = Earlier {
+        finish: Finish::Done,
+        tracks: 4,
+        limit: 300,
+        extent: Extent {
+            length_s: 40.0,
+            not_analysed_s: 0.0,
+        },
+    };
+    let mut err = Vec::new();
+    video
+        .tell(&mut err, &Ok(Ran::Skipped(earlier)), &Options::default())
+        .unwrap();
+    assert_eq!(String::from_utf8(err).unwrap(), "[1/1] flight — déjà faite, 4 pistes\n");
+}
+
+#[test]
+fn an_interruption_under_force_says_that_the_same_command_redoes_the_whole_lot() {
+    for (language, said) in [
+        (
+            Language::French,
+            "lot interrompu à la vidéo 1/2\u{a0}; relancer la même commande refait le lot\n",
+        ),
+        (
+            Language::English,
+            "batch interrupted at video 1/2; running the same command again redoes the batch\n",
+        ),
+    ] {
+        let status = Status::new(Texts::new(language), false, 2).redoing_all(true);
+        let mut err = Vec::new();
+        status.interrupted(&mut err).unwrap();
+        assert_eq!(String::from_utf8(err).unwrap(), said);
+    }
 }

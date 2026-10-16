@@ -16,7 +16,7 @@ pub fn read_verdicts(path: &Path, tracks: &[TrackEntry], headings: &dyn Headings
     let Ok(bytes) = fs::read(path) else {
         return vec![None; tracks.len()];
     };
-    let text = String::from_utf8_lossy(&bytes);
+    let text = str::from_utf8(&bytes).map_or_else(|_| bytes.iter().copied().map(char::from).collect(), str::to_owned);
     let mut lines = text.lines().filter(|line| !line.trim().is_empty());
     let Some(header) = lines.next().map(|line| line.trim_start_matches(BYTE_ORDER_MARK)) else {
         return vec![None; tracks.len()];
