@@ -111,7 +111,7 @@ dependencies = [
 
 [[package]]
 name = "batdetect"
-version = "0.0.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "compare",
@@ -137,7 +137,7 @@ dependencies = [
 
 [[package]]
 name = "bench"
-version = "0.0.0"
+version = "0.2.0"
 dependencies = [
  "bench",
  "clap",
@@ -298,7 +298,7 @@ checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
 name = "compare"
-version = "0.0.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "engine",
@@ -396,7 +396,7 @@ dependencies = [
 
 [[package]]
 name = "draw"
-version = "0.0.0"
+version = "0.2.0"
 dependencies = [
  "skrifa",
  "thiserror",
@@ -412,7 +412,7 @@ checksum = "0e9c71c2167ca323c882b99918929403426e2373ea17242ff5653e0d5e1058be"
 
 [[package]]
 name = "engine"
-version = "0.0.0"
+version = "0.2.0"
 dependencies = [
  "dhat",
  "media",
@@ -477,7 +477,7 @@ dependencies = [
 
 [[package]]
 name = "files"
-version = "0.0.0"
+version = "0.2.0"
 dependencies = [
  "reference",
  "serde",
@@ -672,7 +672,7 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
 name = "media"
-version = "0.0.0"
+version = "0.2.0"
 dependencies = [
  "ffmpeg-next",
  "reference",
@@ -983,7 +983,7 @@ dependencies = [
 
 [[package]]
 name = "reference"
-version = "0.0.0"
+version = "0.2.0"
 dependencies = [
  "flate2",
  "proptest",
@@ -1025,7 +1025,7 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "render"
-version = "0.0.0"
+version = "0.2.0"
 dependencies = [
  "draw",
  "media",
@@ -1182,7 +1182,7 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "summary"
-version = "0.0.0"
+version = "0.2.0"
 dependencies = [
  "draw",
  "files",
@@ -1330,7 +1330,7 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
 name = "tracking"
-version = "0.0.0"
+version = "0.2.0"
 dependencies = [
  "proptest",
  "reference",
@@ -1351,7 +1351,7 @@ dependencies = [
 
 [[package]]
 name = "types"
-version = "0.0.0"
+version = "0.2.0"
 dependencies = [
  "proptest",
  "serde",
