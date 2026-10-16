@@ -240,3 +240,15 @@ fn a_partial_file_hides_beside_its_final_name() {
 fn a_name_decomposed_by_the_file_system_is_composed_again() {
     assert_eq!(composed("nuit_e\u{301}te\u{301}"), "nuit_\u{e9}t\u{e9}");
 }
+
+#[test]
+fn a_dated_name_escapes_the_cleanup_so_a_table_set_aside_is_never_removed_nor_set_aside_again() {
+    for dated in [
+        "v_pistes_2026-10-16_1430.csv",
+        "v_tracks_2026-10-16_1430_2.csv",
+        "v.tracks_2026-10-16_1430.csv",
+        ".v_pistes_2026-10-16_1430.csv.partial",
+    ] {
+        assert_eq!(previous_output(dated.as_bytes(), b"v"), None, "{dated}");
+    }
+}

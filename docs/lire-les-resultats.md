@@ -289,8 +289,9 @@ les passages.
 Quand la vidéo est recalculée dans le même dossier, un tableau dont au moins une case
 `verdict` est remplie est mis de côté tel quel, sous un nom daté
 (`<vidéo>_pistes_2026-10-16_2130.csv`), et le nouveau tableau s'écrit à côté ; le bilan de la
-soirée le dit. Un tableau que l'outil ne reconnaît plus est mis de côté de la même façon ; un
-tableau sans aucun verdict est remplacé, même trié. Les numéros ont pu changer : reporter les
+soirée le dit ; un recalcul suivant n'y touche plus. Un tableau que l'outil ne reconnaît plus
+est mis de côté de la même façon ; un tableau sans aucun verdict est remplacé, même trié, et
+une note écrite hors de la colonne `verdict` est alors perdue. Les numéros ont pu changer : reporter les
 verdicts par le début de la piste, à une seconde près, et à l'extrait en cas de doute.
 
 ### Une piste de trop vaut mieux qu'un passage manqué

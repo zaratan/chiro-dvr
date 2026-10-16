@@ -11,6 +11,7 @@ use batdetect::tally::Tally;
 use engine::settings::Setting;
 use files::names::composed;
 use files::params::Finish;
+use files::previous::{Kept, Reason};
 
 use crate::arguments::{MAX_BLOBS, MIN_HITS, OSD_REGION};
 use crate::messages;
@@ -38,7 +39,8 @@ pub(crate) fn write(out: &mut impl Write, tally: &Tally, options: &Options, text
     too_many(out, tally, texts)?;
     failed(out, tally, options, texts)?;
     refused(out, tally, texts)?;
-    kept(out, tally, texts)?;
+    set_aside(out, tally, texts)?;
+    left(out, tally, texts)?;
     let changed = options.changed();
     if !changed.is_empty() {
         let settings: Vec<String> = changed.iter().map(|change| setting(*change, texts)).collect();
@@ -223,28 +225,62 @@ fn refused(out: &mut impl Write, tally: &Tally, texts: Texts) -> io::Result<()> 
     Ok(())
 }
 
-fn kept(out: &mut impl Write, tally: &Tally, texts: Texts) -> io::Result<()> {
-    let kept: Vec<_> = tally.kept().collect();
-    if kept.is_empty() {
+fn set_aside(out: &mut impl Write, tally: &Tally, texts: Texts) -> io::Result<()> {
+    let aside: Vec<_> = tally
+        .kept()
+        .filter_map(|(row, table)| match table {
+            Kept::SetAside { path, dated, reason } => Some((row, path, dated, *reason)),
+            Kept::Left { .. } => None,
+        })
+        .collect();
+    if aside.is_empty() {
         return Ok(());
     }
     writeln!(out)?;
-    let heading = Message::TallyKeptHeading { count: kept.len() };
+    let heading = Message::TallySetAsideHeading { count: aside.len() };
     writeln!(out, "{}", texts.say(&heading))?;
-    for (row, table) in kept {
-        let message = Message::TallyKept {
+    for (row, path, dated, reason) in aside {
+        let message = Message::TallySetAside {
             video: name(row),
-            table: table
-                .path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into_owned(),
-            written: !table.ours,
+            table: file_name(path),
+            dated: file_name(dated),
+            reason: match reason {
+                Reason::Verdicts => "verdicts",
+                Reason::UnknownForm => "unknown",
+            },
         };
         writeln!(out, "{INDENT}{}", texts.say(&message))?;
     }
     Ok(())
+}
+
+fn left(out: &mut impl Write, tally: &Tally, texts: Texts) -> io::Result<()> {
+    let left: Vec<_> = tally
+        .kept()
+        .filter_map(|(row, table)| match table {
+            Kept::Left { path, ours } => Some((row, path, *ours)),
+            Kept::SetAside { .. } => None,
+        })
+        .collect();
+    if left.is_empty() {
+        return Ok(());
+    }
+    writeln!(out)?;
+    let heading = Message::TallyKeptHeading { count: left.len() };
+    writeln!(out, "{}", texts.say(&heading))?;
+    for (row, path, ours) in left {
+        let message = Message::TallyKept {
+            video: name(row),
+            table: file_name(path),
+            written: !ours,
+        };
+        writeln!(out, "{INDENT}{}", texts.say(&message))?;
+    }
+    Ok(())
+}
+
+fn file_name(path: &Path) -> String {
+    path.file_name().unwrap_or_default().to_string_lossy().into_owned()
 }
 
 fn setting(change: Change, texts: Texts) -> String {

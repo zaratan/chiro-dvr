@@ -284,6 +284,15 @@ pub(crate) enum Message {
         table: String,
         written: bool,
     },
+    TallySetAsideHeading {
+        count: usize,
+    },
+    TallySetAside {
+        video: String,
+        table: String,
+        dated: String,
+        reason: &'static str,
+    },
     TallyChanged {
         settings: String,
     },
@@ -450,6 +459,8 @@ impl Message {
             Self::TallyFailedHeading { .. } => "tally-failed-heading",
             Self::TallyKeptHeading { .. } => "tally-kept-heading",
             Self::TallyKept { .. } => "tally-kept",
+            Self::TallySetAsideHeading { .. } => "tally-set-aside-heading",
+            Self::TallySetAside { .. } => "tally-set-aside",
             Self::TallyChanged { .. } => "tally-changed",
             Self::TallyRegions { .. } => "tally-regions",
             Self::TallyFailureTodo { .. } => "tally-failure-todo",
@@ -577,6 +588,7 @@ impl Message {
             | Self::TallyFailedCount { count }
             | Self::TallyTooManyCell { count }
             | Self::TallyKeptHeading { count }
+            | Self::TallySetAsideHeading { count }
             | Self::TallyRegions { count } => arguments.set("count", *count),
             Self::TallyTooMany { video, count, limit } => {
                 arguments.set("video", video.as_str());
@@ -591,6 +603,17 @@ impl Message {
                 arguments.set("video", video.as_str());
                 arguments.set("table", table.as_str());
                 arguments.set("written", if *written { YES } else { NO });
+            }
+            Self::TallySetAside {
+                video,
+                table,
+                dated,
+                reason,
+            } => {
+                arguments.set("video", video.as_str());
+                arguments.set("table", table.as_str());
+                arguments.set("dated", dated.as_str());
+                arguments.set("reason", *reason);
             }
             Self::TallyChanged { settings } => arguments.set("settings", settings.as_str()),
             Self::TallyFailureTodo { cause } => arguments.set("cause", *cause),
@@ -636,6 +659,12 @@ impl Message {
                 arguments.set("region", region.as_str());
             }
             Self::OptionRefused { option } => arguments.set("option", option.as_str()),
+            other => other.refusal_arguments(arguments),
+        }
+    }
+
+    fn refusal_arguments<'a>(&'a self, arguments: &mut FluentArgs<'a>) {
+        match self {
             Self::InputRefused { path, reason } => {
                 arguments.set("path", path.as_str());
                 arguments.set("reason", *reason);
@@ -670,6 +699,23 @@ impl Message {
                 arguments.set("access", *access);
             }
             Self::Fixed(_)
+            | Self::DefaultValue { .. }
+            | Self::RegionShape { .. }
+            | Self::PossibleValues { .. }
+            | Self::ClipMarginRefused { .. }
+            | Self::UnexpectedArgument { .. }
+            | Self::ValueRequired { .. }
+            | Self::UsedTwice { .. }
+            | Self::SimilarArgument { .. }
+            | Self::SimilarValue { .. }
+            | Self::ArgumentAsValue { .. }
+            | Self::InvalidValue { .. }
+            | Self::UnexpectedValue { .. }
+            | Self::DecimalPoint { .. }
+            | Self::MoreInformation { .. }
+            | Self::SettingRefused { .. }
+            | Self::RegionRefused { .. }
+            | Self::OptionRefused { .. }
             | Self::TooManyTracks { .. }
             | Self::ClipsRedone { .. }
             | Self::VideoStep { .. }
@@ -690,6 +736,8 @@ impl Message {
             | Self::TallyFailedHeading { .. }
             | Self::TallyKeptHeading { .. }
             | Self::TallyKept { .. }
+            | Self::TallySetAsideHeading { .. }
+            | Self::TallySetAside { .. }
             | Self::TallyChanged { .. }
             | Self::TallyRegions { .. }
             | Self::TallyFailureTodo { .. }

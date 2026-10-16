@@ -368,7 +368,7 @@ Colonnes du CSV, dans cet ordre : `piste` (numéro), `début` et `fin` (`h:mm:ss
 à la seconde comme le nom de l'extrait), `durée (s)`, `verdict` (vide, rempli à l'œil ;
 l'outil n'en tire rien ; un tableau dont une cellule verdict est remplie, ou qui n'a plus notre
 forme, est mis de côté sous un nom daté (`<nom>_pistes_AAAA-MM-JJ_HHMM.csv`) et le tableau neuf
-s'écrit ; une vidéo sautée n'y touche pas), `points`
+s'écrit, ce que dit le bilan ; une vidéo sautée n'y touche pas), `points`
 (nombre de détections), `corde (px)` (distance de bout en bout), `chemin (px)` (chemin parcouru), `vitesse (px/s)` (chemin ÷ durée), `surface max (px)`
 (plus grande tache, en pixels d'origine), `amplitude (niveaux de gris)` (plus fort écart au
 fond ; avec le filtre à la taille de la cible, écart mesuré sur l'image filtrée, donc plus

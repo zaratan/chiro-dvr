@@ -1997,14 +1997,18 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
         et instables) en secondes.
       - `Processed` et `Error::TooManyTracks` les portent. `TooManyTracks` porte aussi le
         CSV laissé : il naît dans `render_clips`, après le CSV.
-    - Sous le tableau, quatre sections, omises quand elles sont vides :
+    - Sous le tableau, des sections omises quand elles sont vides, dont :
       - « Trop de pistes (tableau et image résumé écrits, pas d'extraits) », avec le « à
         faire » de #64 ;
       - « 1 vidéo sur 12 en échec », avec la raison et le « à faire » de #64, sans le
         détail anglais, qui reste sur la sortie d'erreur. Le « à faire » qui renvoie au
         détail ci-dessous devient, dans le bilan, « avec le détail écrit pendant le
         traitement » (`tally-failure-todo`) ;
-      - « Tableau laissé tel quel » (#115) ;
+      - « Tableau mis de côté » (#83) : « {vidéo} : {csv} porte des verdicts, mis de côté
+        sous {nom daté} », ou « n'a pas la forme d'un tableau des pistes » ;
+      - « Tableau laissé tel quel » (#115), pour une entrée qui n'a pas pu être mise de
+        côté parce qu'elle n'est pas un fichier, ou pour un fichier qui occupe encore le
+        nom (autre casse) ;
       - « Réglages changés : --threshold 11, --max-blobs 0 ». Ce sont les cinq réglages de
         la détection (`--threshold`, `--min-hits`, `--max-blobs`, `--work-width`,
         `--osd-region` avec son nombre de zones), donnés par `Options::changed`, avec
@@ -2056,12 +2060,14 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     - Il retire les sorties des deux langues et des anciens noms : sur l'extrait, une
       passe en français, puis en anglais, puis en français dans le même `-o`, ne laisse
       que les fichiers de la dernière, sous les noms de la v0.1.1.
-    - Un CSV qui n'a pas notre forme est laissé, et le bilan le dit (#65), sous « Tableau
-      laissé tel quel » : « {vidéo} : {csv} n'a pas la forme d'un tableau des pistes ».
-    - Si ce CSV porte le nom de la langue courante, ou si un fichier occupe encore ce
-      nom après le ménage (`Error::Taken`, autre casse), le nouveau tableau n'est pas
-      écrit par-dessus : `Processed::csv` vaut `None`, et la ligne finit par « ; le
-      nouveau tableau n'est pas écrit ». La vidéo reste réussie.
+    - Un CSV qui n'a pas notre forme, ou qui porte des verdicts, est mis de côté sous un
+      nom daté (#83), et le bilan le dit sous « Tableau mis de côté ».
+    - Une entrée au nom du tableau qui n'est pas un fichier est laissée, et le bilan le
+      dit (#65) sous « Tableau laissé tel quel » : « {vidéo} : {csv} n'a pas la forme
+      d'un tableau des pistes ». Si elle porte le nom de la langue courante, ou si un
+      fichier occupe encore ce nom après le ménage (`Error::Taken`, autre casse), le
+      nouveau tableau n'est pas écrit par-dessus : `Processed::csv` vaut `None`, et la
+      ligne finit par « ; le nouveau tableau n'est pas écrit ». La vidéo reste réussie.
   - Image résumé (#104) : `overview`, appelée après `params.json`, si bien qu'un échec du
     fond laisse le CSV et les réglages. Le fond passe par
     `Converter::new(…, SourceRange::FullBlackAt16)`, puis `summary::pages` ; chaque page
@@ -2378,18 +2384,37 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       français (BOM compris) puis des lignes de 13 champs séparés par des points-virgules,
       l'en-tête anglais puis 13 champs séparés par des virgules, ou l'en-tête de 12
       colonnes de la v0.1.1 puis 12 champs séparés par des virgules. Dans les deux formes
-      d'aujourd'hui, la case `verdict` est vide. Sinon il est laissé et rendu (`Kept`, avec
-      `ours` vrai s'il porte le nom de la langue courante). Suffisent à le garder :
+      d'aujourd'hui, la case `verdict` est vide. Sinon il est mis de côté (#83), quel
+      que soit son nom (langue courante, autre langue, v0.1.1). Suffisent à le mettre de
+      côté :
       - un verdict écrit ;
       - un tableur qui change de séparateur ou retire le BOM ;
       - une colonne ajoutée, une case remplie au-delà de la dernière ;
       - un fichier vide ou qui n'est pas en UTF-8.
 
-      Une entrée à ce nom qui n'est pas un fichier ordinaire (dossier, lien) est gardée
-      aussi. Un tableur qui réenregistre le fichier à l'identique, verdict vide, donne un
-      CSV à notre forme : il est retiré. La mise de côté datée reste à #83.
-    - Toutes les entrées sont classées, CSV lus, avant la première suppression : un CSV
-      illisible arrête le ménage sans rien avoir retiré (`Error::Read`).
+      Un tableur qui réenregistre le fichier à l'identique, verdict vide, donne un CSV à
+      notre forme : il est retiré.
+    - Mise de côté (`aside::set_aside`) : le fichier est renommé, identique à l'octet, en
+      `<nom>_<AAAA-MM-JJ>_<HHMM>.csv` à l'heure locale du calcul (`aside::Stamp`, crate
+      `jiff`), puis `_2`, `_3`… dans la même minute ; `v.tracks.csv` devient
+      `v.tracks_<AAAA-MM-JJ>_<HHMM>.csv`. Le nom daté est d'abord réservé par une
+      création exclusive (`create_new`), puis le fichier est renommé par-dessus : rien
+      n'est écrasé, et cela marche aussi sur exFAT, où le renommage exclusif de macOS
+      (`renamex_np`, celui de `persist_noclobber`) échoue. En cas d'échec, le fichier
+      reste à sa place et la réservation vide est retirée (`Error::SetAside`). Le nom daté échappe au motif du ménage : il n'est jamais retiré
+      ni remis de côté. Rendu dans `Kept::SetAside`, avec sa raison.
+    - Raison (`annotation::carries_verdicts`) : lecture tolérante, qui ne sert qu'au
+      message. Décodage « lossy » (MacRoman, Windows-1252), fins de ligne CR, LF ou CRLF,
+      BOM ignoré, séparateur deviné parmi `;`, `,` et tabulation par la cellule d'en-tête
+      `verdict` (en-têtes Fluent des deux langues, sans tenir compte de la casse ni des
+      guillemets), où qu'elle soit. Une case non vide, même faite d'espaces, est un verdict
+      (`Reason::Verdicts`) ; sinon `Reason::UnknownForm`. Un fichier UTF-16 n'est pas lu.
+    - Une entrée à ce nom qui n'est pas un fichier ordinaire (dossier, lien) est laissée en
+      place et rendue (`Kept::Left`, avec `ours` vrai s'il porte le nom de la langue
+      courante) ; le nouveau tableau n'est alors pas écrit.
+    - Toutes les entrées sont classées, CSV lus, avant la première mise de côté, et les
+      mises de côté passent avant la première suppression : un CSV illisible arrête le
+      ménage sans rien avoir retiré (`Error::Read`).
     - Un lien porte le nom d'un dossier d'extraits : il est retiré, sa cible non (sous
       Windows, un lien de dossier par `remove_dir`).
   - `names::partial_path` est la seule forme `.<nom>.partial` des fichiers écrits :
