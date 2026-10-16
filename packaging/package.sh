@@ -16,14 +16,21 @@ case $host in
   *) fail "no archive for $host" ;;
 esac
 archive=$repository/dist/batdetect-$name.$extension
+declared=$(tr -d '\r' < "$repository/Cargo.toml" | sed -n '/^\[workspace\.package\]$/,/^\[/s/^version = "\(.*\)"$/\1/p')
+[ -n "$declared" ] || fail "no version in [workspace.package] of Cargo.toml"
+export BATDETECT_VERSION=${BATDETECT_VERSION:-$declared}
 
 case ${1:-} in
   --archive)
     echo "$archive"
     exit 0
     ;;
+  --version)
+    echo "$BATDETECT_VERSION"
+    exit 0
+    ;;
   "") ;;
-  *) fail "usage: $0 [--archive]" ;;
+  *) fail "usage: $0 [--archive | --version]" ;;
 esac
 
 cd "$repository"
