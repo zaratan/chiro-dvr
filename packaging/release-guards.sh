@@ -14,9 +14,6 @@ version=$(python3 -I -c 'import sys, tomllib; print(tomllib.load(open(sys.argv[1
 [ "$tag" = "v$version" ] || fail "tag $tag but Cargo.toml says $version"
 echo "tag $tag matches Cargo.toml"
 
-! grep -q 'opencv-python-headless' "$repository/packaging/NOTICE" || fail "NOTICE de la v0.1.1 : #224"
-echo "NOTICE describes the Rust binary"
-
 "$repository/packaging/release-notes.sh" "$version" > /dev/null || fail "CHANGELOG.md has no section [$version]"
 echo "CHANGELOG.md has a section [$version]"
 

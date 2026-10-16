@@ -177,6 +177,29 @@ check_version() {
   fi
 }
 
+check_crates() {
+  local notice=$unpacked/NOTICE targets target flags=() listed shipped extra missing
+  [ -f "$notice" ] || { flunk C5-crates "no NOTICE in the archive"; return; }
+  targets=$(tr -d '\r' < "$repository/packaging/about.toml" | sed -n 's/^targets = \[\(.*\)\]$/\1/p' | tr -d '"' | tr ',' ' ')
+  [ -n "$targets" ] || { flunk C5-crates "no targets in packaging/about.toml"; return; }
+  for target in $targets; do
+    flags+=(--target "$target")
+  done
+  listed=$(tr -d '\r' < "$notice" | sed -n '/^Rust crates:$/,/^$/p' | sed -n 's/^- \([^ ]*\) \([^ ,]*\),.*/\1 \2/p')
+  shipped=$(cd "$repository" && cargo tree --locked -p batdetect -e normal,no-proc-macro --prefix none \
+    --format '{p}' "${flags[@]}" | sed -e '/(/d' -e 's/ v/ /' -e '/^$/d' | LC_ALL=C sort -u) \
+    || { flunk C5-crates "cargo tree failed"; return; }
+  extra=$(outside "$listed" "$shipped")
+  missing=$(outside "$shipped" "$listed")
+  if [ -z "$shipped" ]; then
+    flunk C5-crates "cargo tree lists no crate"
+  elif [ -n "$extra$missing" ]; then
+    flunk C5-crates "not shipped: ${extra:-none}; missing from NOTICE: ${missing:-none}"
+  else
+    pass "C5-crates ($(wc -l <<< "$shipped" | tr -d ' ') crates)"
+  fi
+}
+
 check_tracks() {
   local video=$repository/tests/fixtures/$extract.mp4 out=$work/out produced
   if [ ! -f "$video" ] || head -c 24 "$video" | grep -q '^version https://git-lfs'; then
@@ -201,6 +224,7 @@ check_contents
 check_links
 check_floor
 check_version
+check_crates
 check_tracks
 
 if [ "$failures" -gt 0 ]; then

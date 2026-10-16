@@ -83,18 +83,17 @@ et les noms des fichiers produits sont en français quand la locale l'est, en an
 ## Distribution
 
 - Homebrew installe la 0.1.1 (`brew install zaratan/bat-tools/batdetect`), formule du tap
-  `zaratan/homebrew-bat-tools`, binaire de la v0.1.1 décrit par `packaging/NOTICE` et sous
-  GPL v3. Son mode d'emploi est le README du tag `v0.1.1`.
-- Le binaire Rust se publie par un tag (#223). Sa licence et son `NOTICE` viennent de #224,
-  la formule de #225.
+  `zaratan/homebrew-bat-tools`, binaire de la v0.1.1 sous GPL v3, décrit par le
+  `packaging/NOTICE` du tag `v0.1.1`. Son mode d'emploi est le README de ce tag.
+- Le binaire Rust se publie par un tag (#223), sous MIT et LGPL 2.1 ou ultérieure :
+  `packaging/NOTICE` et `packaging/licenses/` le décrivent
+  ([11](11-migration-rust.md#licences), #224). La formule vient de #225.
 - **Publier une version** :
   1. `workspace.package.version` de `Cargo.toml` vaut la version, et `Cargo.lock` suit.
   2. La section `[Non publiée]` de `CHANGELOG.md` devient `[X.Y.Z] - date`.
   3. Une fois ce commit sur `main` et la CI verte, on pousse le tag `vX.Y.Z`.
-- `packaging/release-guards.sh` refuse le tag dans cinq cas, dans cet ordre :
+- `packaging/release-guards.sh` refuse le tag dans quatre cas, dans cet ordre :
   - il ne vaut pas `v` + la version de `Cargo.toml` ;
-  - `packaging/NOTICE` décrit encore la v0.1.1 (il cite `opencv-python-headless`). Cette
-    garde est provisoire, et #224 la lève ;
   - le CHANGELOG n'a pas sa section ;
   - le commit n'est pas sur `main` ;
   - `ci.yml` n'y est pas passé au vert.

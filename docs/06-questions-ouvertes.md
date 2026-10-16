@@ -50,11 +50,11 @@
      l'OpenCV de Homebrew (91 formules de plus, environ 3,2 Go, et des surfaces un peu
      différentes). Mac Apple Silicon, macOS 14 minimum, binaire sous GPL v3 à cause du
      FFmpeg embarqué.
-   - **À trancher à #93 pour le Rust** : le binaire lie FFmpeg sous LGPL (fournir de quoi
-     relier, ou liaison dynamique) et openh264 construit depuis les sources, donc sans la
-     licence de brevets H.264 que Cisco n'accorde qu'à ses propres binaires
-     ([11](11-migration-rust.md#licences), [05](05-outillage.md)). Il se construit sous
-     macOS, Linux et Windows.
+   - **Tranché (16 octobre, #224) pour le Rust** : le binaire est sous MIT pour le code et
+     LGPL 2.1 ou ultérieure pour FFmpeg, lié en statique. Chaque release joint les sources
+     de FFmpeg et d'openh264, pour pouvoir relier. openh264 est construit depuis les
+     sources, donc sans la licence de brevets de Cisco : brevets acceptés, et `NOTICE` le
+     dit ([11](11-migration-rust.md#licences), [05](05-outillage.md#distribution)).
 10. **Lisibilité de l'image résumé** (`<nom>_resume.png`), constatée sur l'original de la 092 :
     les étiquettes des pistes qui entrent par le bord droit sortaient du cadre, celles des
     pistes groupées se chevauchaient, le rouge se lisait mal sur la roche claire, et rien

@@ -193,6 +193,9 @@ mise run package:check    # contrôles du livrable sur cette archive
   - `packaging/package.sh` lit la cible dans la ligne `host:` de `rustc -vV`, pas dans
     `uname`, qui vaut `UCRT64_NT-…` sous MSYS2. Les scripts sont en bash : `mise` ne
     tourne pas sous Windows.
+  - Sans `BATDETECT_VERSION`, il la pose à la version de `[workspace.package]` de
+    `Cargo.toml`, et `--version` l'imprime. Ainsi `mise run package:check` contrôle en
+    local la même version qu'en CI.
 - **Contrôles** : `packaging/check.sh ARCHIVE [VERSION]` joue tous les contrôles, puis
   échoue à la fin si un seul a échoué.
 
@@ -202,10 +205,8 @@ mise run package:check    # contrôles du livrable sur cette archive
   | C2 | aucun lien dynamique hors d'une liste mesurée par système : `otool -L`, `readelf -d` (lignes NEEDED), `dumpbin -dependents` |
   | C3 | `minos` ≤ 14.0 sous macOS ; sous Linux, `GLIBC_` ≤ 2.35, `GLIBCXX_` ≤ 3.4.30, `CXXABI_` ≤ 1.3.13 et `GCC_` ≤ 12.0.0, la bibliothèque de l'Ubuntu 22.04 |
   | C4 | `--version` donne `batdetect <VERSION>`, puis le FFmpeg épinglé, avec l'empreinte du script de construction et la LGPL |
+  | C5 | le bloc `Rust crates:` de `NOTICE` égale `cargo tree -p batdetect -e normal,no-proc-macro` sur les trois cibles de `packaging/about.toml` ([Licences](#licences)) |
   | C6 | le CSV de l'extrait, en anglais, est identique à l'octet à `tests/fixtures/rust/video_092_original_3m24-4m05/tracks.csv` |
-
-  La liste des crates de `NOTICE` contre `cargo tree` (C5) vient avec son format, à
-  #224.
 - **Preuves négatives** (16 octobre 2026, Mac) : chaque contrôle échoue seul sur une
   archive altérée.
   - Fichier en trop et `NOTICE` retiré : C1.
@@ -307,30 +308,100 @@ Cible `x86_64-pc-windows-msvc`, construite seulement par la CI (tâches `rust-wi
 
 ## Licences
 
+Le livrable est sous **MIT** pour le code de batdetect (`LICENSE`) et sous **LGPL 2.1 ou
+ultérieure** pour FFmpeg. Il porte aussi openh264 (BSD-2), Roboto (OFL-1.1), la
+bibliothèque standard de Rust et 83 crates tierces, chacun sous sa licence. Décision du
+16 octobre 2026, #224.
+
+`packaging/NOTICE` décrit le binaire composant par composant. Les textes de licence sont
+dans `packaging/licenses/`, et `package.sh` copie l'un et l'autre dans chaque archive
+([Empaquetage](#empaquetage)). Chaque texte vient de la source épinglée du composant :
+
+| Fichier | Source |
+|---|---|
+| `FFmpeg-LGPL-2.1.txt` | `COPYING.LGPLv2.1` de `ffmpeg-7.1.1.tar.xz` |
+| `openh264-BSD-2-Clause.txt` | `LICENSE` de l'archive openh264 2.6.0 |
+| `Roboto-OFL-1.1.txt` | copie de `crates/draw/fonts/OFL.txt` |
+| `Rust-MIT.txt`, `Rust-Apache-2.0.txt` | `LICENSE-MIT` et `LICENSE-APACHE` de `rust-lang/rust` au tag 1.99.0 |
+| `crates.txt` | généré par `mise run notice` |
+
 - **FFmpeg 7.1.1 en LGPL 2.1 ou ultérieure.**
-  - Il est construit sans `--enable-gpl` ni `--enable-nonfree` ; `libavcodec` annonce
-    « LGPL version 2.1 or later ».
-  - Lié en statique, il impose les obligations de la LGPL à la distribution : fournir de
-    quoi relier, ou passer en liaison dynamique. Cela se tranche à #93, qui réécrira
-    aussi `packaging/NOTICE`.
-  - Le binaire est donc MIT et LGPL.
-- **openh264 2.6.0 en BSD-2.** Il est construit depuis les sources, donc **sans** la
-  licence de brevets H.264 que Cisco n'accorde qu'à ses propres binaires. C'est une
-  question pour l'utilisateur avant toute distribution, pas une décision prise ici.
+  - Il est construit sans `--enable-gpl` ni `--enable-nonfree`, et `libavcodec` annonce
+    « LGPL version 2.1 or later ». `--version` l'affiche, et `check.sh` le contrôle (C4).
+  - Lié en statique, il impose de fournir de quoi relier. Chaque release joint donc
+    `ffmpeg-7.1.1.tar.xz` (#223), et les sources de batdetect du tag sont publiques.
+  - `NOTICE` dit comment relier : changer `FFMPEG_URL` et `FFMPEG_SHA256` dans
+    `ffmpeg-versions`, lancer le script de construction, puis `cargo build`.
+- **openh264 2.6.0 en BSD-2.**
+  - Il est construit depuis les sources, et sa source est jointe à la release.
+  - Il n'a donc **pas** la licence de brevets H.264 que Cisco n'accorde qu'à ses propres
+    binaires.
+  - Brevets acceptés le 16 octobre 2026. `NOTICE` le dit : les codecs H.264 et HEVC
+    peuvent être couverts par des brevets, et aucune licence de brevet n'est fournie
+    avec ce binaire.
 - **Roboto en SIL Open Font License 1.1** (#101).
   - Embarquée dans `draw` : `crates/draw/fonts/Roboto.ttf`, police variable `wdth` et
     `wght`.
-  - Licence à côté : `crates/draw/fonts/OFL.txt`.
+  - Licence à côté : `crates/draw/fonts/OFL.txt`, recopiée dans `packaging/licenses/`.
   - Provenance : dépôt `google/fonts`, fichier `ofl/roboto/Roboto[wdth,wght].ttf`, commit
     `6183fc0` du 27 janvier 2026. sha256 `d7598e12…872a134`.
-  - Pas de nom de police réservé. Elle entre dans `packaging/NOTICE` à #93.
-- **Crates** : `deny.toml` n'admet que MIT, Apache-2.0 (avec ou sans LLVM-exception),
-  BSD-2-Clause, BSD-3-Clause, ISC, Unicode-3.0, WTFPL (ffmpeg-next, ffmpeg-sys-next) et
-  Zlib. La liste a été mesurée avec toutes les dépendances déclarées, différées
-  comprises. 0BSD, LGPL-2.1 et Unlicense n'apparaissent que comme alternatives dans une
-  expression « OU » qui contient aussi MIT (adler2, r-efi, memchr, et jiff et ses crates
-  `jiff-*`, #66 ; sous Windows, `jiff-tzdb` embarque la base des fuseaux horaires de l'IANA,
-  du domaine public).
+  - Pas de nom de police réservé.
+- **Bibliothèque standard de Rust** : MIT OU Apache-2.0. L'avis complet de la std (ses
+  dépendances comprises) est `share/doc/rust/COPYRIGHT-library.html` de la toolchain :
+  1,5 Mo de HTML. Il n'est pas joint à l'archive.
+- **Crates livrées** : l'union de
+  `cargo tree -p batdetect -e normal,no-proc-macro --target <triple>` sur les trois
+  triples de `packaging/about.toml`, crates du workspace exclues. Mesurée le 16 octobre
+  2026 : 83 crates, dont 78 sous macOS, 74 sous Linux et 75 sous Windows.
+  - **Génération par `mise run notice`.**
+    - Elle croise cette liste avec le JSON de `cargo-about`, épinglé dans `mise.toml`.
+    - Elle réécrit le bloc `Rust crates:` de `NOTICE`, une ligne `- nom version,
+      licence` par crate, et `licenses/crates.txt` : 41 textes distincts, chacun suivi
+      des crates qui l'emploient.
+    - **Avis de copyright.** Chaque texte garde celui que la crate publie. Plusieurs
+      textes n'en ont aucun, comme leur amont :
+      - un texte MIT commun à 17 crates (adler2 à zmij, dont rustc-hash et tinyvec) ;
+      - le MIT de fdeflate ;
+      - le WTFPL de ffmpeg-next.
+      - Cinq crates ont un texte que `cargo-about` ne trouve pas seul. `about.toml` le
+        lui donne par `clarify` :
+        - dans la crate, pour type-map, windows-sys et windows-link ;
+        - dans le dépôt amont, au commit publié, pour fluent-langneg et
+          intl_pluralrules.
+      - objc2, objc2-encode, block2 et dispatch2 ne publient aucun texte, seulement un
+        `LICENSE.md` qui renvoie à MIT. Leur ligne de copyright devient « No copyright
+        notice is published with these crates », suivie des auteurs de leur
+        `Cargo.toml`.
+      - La tâche échoue sur tout autre modèle de texte (`<year>`, `<copyright holders>`).
+    - `cargo-about` ne sait pas écarter les proc-macros (13 crates de plus avec leurs
+      dépendances) : la liste de `cargo tree` fait foi.
+  - **Contrôle C5** de `check.sh` : le bloc de `NOTICE` de l'archive égale la liste de
+    `cargo tree`, sans crate absente ni en trop. Une dépendance changée sans
+    `mise run notice` fait donc échouer `package.yml`.
+    - `cargo tree` lit les manifestes des trois cibles, que la machine n'a pas toujours
+      téléchargés : C5 a besoin du réseau.
+    - Preuve négative (16 octobre 2026) : une crate retirée du `NOTICE`, puis une crate
+      en trop, font échouer C5 seul.
+  - **Licence retenue** : l'ordre de `accepted` (`about.toml`) la choisit dans une
+    expression « OU ». MIT l'emporte : 74 crates.
+  - Les autres :
+    - Unicode-3.0 : `tinystr`, `yoke`, `zerofrom` ;
+    - BSD-3-Clause : `tiny-skia`, `tiny-skia-path` ;
+    - BSD-2-Clause : `arrayref` ;
+    - WTFPL : `ffmpeg-next`, `ffmpeg-sys-next` ;
+    - Apache-2.0 : `self_cell`, sous `Apache-2.0 OR GPL-2.0-only`.
+
+    Aucune crate livrée n'a de fichier NOTICE à reprendre (Apache-2.0 §4d).
+- **Licences admises** : `deny.toml` n'admet que MIT, Apache-2.0 (avec ou sans
+  LLVM-exception), BSD-2-Clause, BSD-3-Clause, ISC, Unicode-3.0, WTFPL et Zlib.
+  - La liste a été mesurée avec toutes les dépendances déclarées, différées comprises.
+  - D'autres licences n'apparaissent que comme alternatives dans une expression « OU » :
+    0BSD (`adler2`), Unlicense (`memchr`) et LGPL-2.1-or-later (`r-efi`), à côté de MIT ;
+    GPL-2.0-only (`self_cell`), à côté d'Apache-2.0 seulement.
+  - `r-efi` ne vise qu'UEFI et n'est livré sur aucune des trois cibles.
+- **`jiff` et ses crates `jiff-*`** (#66, #83 : heure locale des noms datés et de `params.json`) :
+  Unlicense OU MIT, MIT retenu par `about.toml` ; sous Windows, `jiff-tzdb` embarque la base des
+  fuseaux horaires de l'IANA, du domaine public.
 
 ## Lints
 
@@ -597,8 +668,11 @@ Forme et tests :
     à sa place.
   - Ses lignes finissent en CRLF, comme tout tableau produit. `.gitattributes` le marque
     `-text` : git garde donc ces octets tels quels.
-  - Il diffère de la référence v0.1.1 sur trois cellules : `path_px` de la piste 1
-    (912.3 au lieu de 912.7) et `peak_amplitude` des pistes 1 et 3 (110.2 au lieu de
+  - Il est au format du tableau de #84 : en-têtes anglais, colonne `verdict` vide, début
+    et fin en `h:mm:ss`. Refait par #224 depuis le format d'avant #84, avec les mêmes
+    valeurs dans les 10 colonnes communes.
+  - Ses valeurs diffèrent de la référence v0.1.1 sur trois cellules : le chemin de la
+    piste 1 (912.3 au lieu de 912.7) et l'amplitude des pistes 1 et 3 (110.2 au lieu de
     110.3, 99.0 au lieu de 99.1).
 - Cinq petites fixtures, hors LFS, faites une fois par le ffmpeg 9.0.2 de Homebrew
   (libx264) et commitées :

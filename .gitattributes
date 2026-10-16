@@ -9,4 +9,5 @@ packaging/ffmpeg-versions text eol=lf
 tests/fixtures/rust/video_092_original_3m24-4m05/tracks.csv -text
 LICENSE text eol=lf
 packaging/NOTICE text eol=lf
+packaging/about.toml text eol=lf
 packaging/licenses/** text eol=lf
