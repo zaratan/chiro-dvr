@@ -47,7 +47,7 @@ pub(crate) fn write(out: &mut impl Write, tally: &Tally, options: &Options, text
     Ok(())
 }
 
-fn title(tally: &Tally, texts: Texts) -> String {
+pub(crate) fn title(tally: &Tally, texts: Texts) -> String {
     let (done, too_many, failed) = (tally.done().count(), tally.too_many().count(), tally.failed().count());
     let counted = [
         (done, Message::TallyDone { count: done }),

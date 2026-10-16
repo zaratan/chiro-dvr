@@ -16,7 +16,7 @@ use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
 const VARIANTS: usize = 58;
-const FIXED: [Fixed; 63] = [
+const FIXED: [Fixed; 64] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -54,6 +54,7 @@ const FIXED: [Fixed; 63] = [
     Fixed::SettingsRefused,
     Fixed::SkipRefusedHelp,
     Fixed::SkipRefusedDeclined,
+    Fixed::NoNotifyHelp,
     Fixed::InputsRefused,
     Fixed::TallyVideo,
     Fixed::TallyLength,
@@ -210,6 +211,7 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::SettingsRefused => 60,
         Fixed::SkipRefusedHelp => 61,
         Fixed::SkipRefusedDeclined => 62,
+        Fixed::NoNotifyHelp => 63,
     }
 }
 

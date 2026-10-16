@@ -12,6 +12,8 @@ le workflow de release échouera sans elle.
 - Toutes les entrées sont contrôlées avant le calcul, les refusées listées ensemble ;
   `--skip-refused` traite les vidéos valides sans poser la question (#55).
 - Une ligne par étape pendant le calcul, et un bilan de la soirée à la fin (#63, #65).
+- Sous macOS, dans un terminal : notification de fin de lot et dossiers de résultats ouverts dans
+  le Finder ; `--no-notify` les éteint (#69).
 - Image résumé : frise du temps et plages illisibles datées (#127), coupée en parties au-delà
   de 20 pistes (#157). Extraits zoomés en pleine taille (#103).
 
