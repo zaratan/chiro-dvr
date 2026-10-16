@@ -10,6 +10,7 @@ use types::track::Track;
 
 use crate::dialect::Dialect;
 use crate::error::Error;
+use crate::exclusive;
 use crate::names::partial_path;
 use crate::time::{clock, frame_duration, frame_seconds};
 
@@ -79,14 +80,12 @@ pub fn write_tracks_csv(
     }
     file.flush().map_err(failed)?;
     drop(file);
-    partial
-        .persist_noclobber(path)
-        .map_err(|failure| match failure.error.kind() {
-            io::ErrorKind::AlreadyExists => Error::Taken {
-                path: path.to_path_buf(),
-            },
-            _ => failed(failure.error),
-        })
+    exclusive::rename(partial, path).map_err(|source| match source.kind() {
+        io::ErrorKind::AlreadyExists => Error::Taken {
+            path: path.to_path_buf(),
+        },
+        _ => failed(source),
+    })
 }
 
 pub(crate) fn is_tracks_table(bytes: &[u8], headings: &dyn Headings) -> bool {

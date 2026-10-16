@@ -15,6 +15,7 @@ release échoue sans elle.
 
 - Les fichiers cachés d'un dossier, comme les `._x.mp4` que macOS dépose sur une clé exFAT, ne
   sont plus pris pour des vidéos (#204).
+- Sous macOS, le premier calcul n'échoue plus quand le dossier de résultats est sur une clé exFAT (#236).
 
 ## [0.2.0] - 2026-10-16
 
@@ -108,6 +109,7 @@ Première version publiée : binaire macOS arm64 (macOS 14 ou plus récent) inst
 - `--max-tracks` (300 par défaut) arrête le rendu d'une vidéo qui sort trop de pistes (#3).
 - Images abîmées au décodage repérées et sorties du calcul (#1), réglages invalides refusés (#4).
 
-[Non publiée]: https://github.com/zaratan/chiro-dvr/compare/v0.1.1...HEAD
+[Non publiée]: https://github.com/zaratan/chiro-dvr/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/zaratan/chiro-dvr/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/zaratan/chiro-dvr/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/zaratan/chiro-dvr/releases/tag/v0.1.0

@@ -1,0 +1,174 @@
+#![cfg(target_os = "macos")]
+
+use std::ffi::OsStr;
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::thread;
+
+use files::aside::Stamp;
+use files::error::Error;
+use files::names::Names;
+use files::previous::{Kept, Reason, remove_previous_outputs};
+use files::table::{Column, Headings, write_tracks_csv};
+use jiff::civil::date;
+use tempfile::{TempDir, TempPath};
+use types::frame::Pts;
+use types::language::Language;
+use types::rate::FrameRate;
+use types::rational::Rational;
+use types::timeline::Timeline;
+
+const IMAGE: &str = "volume.dmg";
+const MOUNT: &str = "mount";
+const IMAGE_SIZE: &str = "64m";
+const ANNOTATED: &str = "track,verdict\r\n1,yes\r\n";
+
+#[derive(Debug)]
+struct Debugged;
+
+impl Headings for Debugged {
+    fn heading(&self, column: Column, _language: Language) -> String {
+        format!("{column:?}")
+    }
+}
+
+#[derive(Debug)]
+struct Attached {
+    folder: TempDir,
+}
+
+impl Attached {
+    fn mount(&self) -> PathBuf {
+        self.folder.path().join(MOUNT)
+    }
+}
+
+#[cfg(test)]
+impl Attached {
+    fn exfat() -> Self {
+        let attached = Self {
+            folder: tempfile::tempdir().unwrap(),
+        };
+        let image = attached.folder.path().join(IMAGE);
+        hdiutil(&[
+            "create".as_ref(),
+            "-size".as_ref(),
+            IMAGE_SIZE.as_ref(),
+            "-fs".as_ref(),
+            "ExFAT".as_ref(),
+            image.as_os_str(),
+        ]);
+        fs::create_dir(attached.mount()).unwrap();
+        hdiutil(&[
+            "attach".as_ref(),
+            "-nobrowse".as_ref(),
+            "-mountpoint".as_ref(),
+            attached.mount().as_os_str(),
+            image.as_os_str(),
+        ]);
+        attached
+    }
+}
+
+impl Drop for Attached {
+    fn drop(&mut self) {
+        let detached = Command::new("hdiutil")
+            .arg("detach")
+            .arg(self.mount())
+            .arg("-force")
+            .status();
+        assert!(
+            thread::panicking() || detached.is_ok_and(|status| status.success()),
+            "the exFAT image is still attached at {}",
+            self.mount().display()
+        );
+    }
+}
+
+#[cfg(test)]
+fn hdiutil(arguments: &[&OsStr]) {
+    let output = Command::new("hdiutil").args(arguments).output().unwrap();
+    assert!(
+        output.status.success(),
+        "hdiutil {arguments:?}: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[cfg(test)]
+fn one_second() -> Timeline {
+    let rate = FrameRate::new(Rational::new(30, 1).unwrap()).unwrap();
+    let pts = (0..30).map(|frame| Some(Pts::new(frame))).collect();
+    Timeline::new(pts, Rational::new(1, 30).unwrap(), rate).unwrap()
+}
+
+#[cfg(test)]
+fn write_table(path: &Path) {
+    write_tracks_csv(path, &[], &one_second(), Language::English, &Debugged).unwrap();
+}
+
+#[cfg(test)]
+fn left_in(dest: &Path) -> Vec<String> {
+    let mut names: Vec<String> = fs::read_dir(dest)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .collect();
+    names.sort();
+    names
+}
+
+#[test]
+#[ignore = "slow"]
+fn macos_refuses_the_exclusive_rename_on_exfat_so_the_table_needs_another_way_not_to_overwrite() {
+    let volume = Attached::exfat();
+    let partial = volume.mount().join(".v_tracks.csv.partial");
+    fs::write(&partial, "").unwrap();
+    let failure = TempPath::try_from_path(&partial)
+        .unwrap()
+        .persist_noclobber(volume.mount().join("v_tracks.csv"))
+        .unwrap_err();
+    assert_ne!(failure.error.kind(), io::ErrorKind::AlreadyExists, "{}", failure.error);
+}
+
+#[test]
+#[ignore = "slow"]
+fn on_exfat_a_table_is_written_then_set_aside_with_its_verdict_and_written_again_beside_it() {
+    let volume = Attached::exfat();
+    let dest = volume.mount().join("out");
+    fs::create_dir(&dest).unwrap();
+    let names = Names::new(Language::English);
+    let table = names.tracks_csv(&dest, OsStr::new("v"));
+    write_table(&table);
+    assert_eq!(left_in(&dest), ["v_tracks.csv"]);
+    fs::write(&table, ANNOTATED).unwrap();
+    let stamp = Stamp::at(date(2026, 10, 16).at(14, 30, 0, 0));
+    let kept = remove_previous_outputs(&dest, OsStr::new("v"), names, &Debugged, stamp).unwrap();
+    let dated = dest.join("v_tracks_2026-10-16_1430.csv");
+    assert_eq!(
+        kept,
+        [Kept::SetAside {
+            path: table.clone(),
+            dated: dated.clone(),
+            reason: Reason::Verdicts,
+        }]
+    );
+    write_table(&table);
+    assert_eq!(left_in(&dest), ["v_tracks.csv", "v_tracks_2026-10-16_1430.csv"]);
+    assert_eq!(fs::read_to_string(&dated).unwrap(), ANNOTATED);
+}
+
+#[test]
+#[ignore = "slow"]
+fn on_exfat_a_table_is_never_written_over_an_annotated_one() {
+    let volume = Attached::exfat();
+    let dest = volume.mount().join("out");
+    fs::create_dir(&dest).unwrap();
+    let table = Names::new(Language::English).tracks_csv(&dest, OsStr::new("v"));
+    fs::write(&table, ANNOTATED).unwrap();
+    let error = write_tracks_csv(&table, &[], &one_second(), Language::English, &Debugged).unwrap_err();
+    assert!(matches!(error, Error::Taken { .. }), "{error}");
+    assert_eq!(fs::read_to_string(&table).unwrap(), ANNOTATED);
+    assert_eq!(left_in(&dest), ["v_tracks.csv"]);
+}
