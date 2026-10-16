@@ -1,10 +1,10 @@
 # Changelog
 
 Les versions suivent [SemVer](https://semver.org/lang/fr/). Chaque version publiée a sa section
-ici ; à partir de #93, la release GitHub en reprendra le texte (`packaging/release-notes.sh`), et
-le workflow de release échouera sans elle.
+ici ; la release GitHub en reprend le texte (`packaging/release-notes.sh`), et le workflow de
+release échoue sans elle.
 
-## [Non publiée]
+## [0.2.0] - 2026-10-16
 
 ### Ajouté
 
@@ -24,6 +24,9 @@ le workflow de release échouera sans elle.
   `--force` refait tout (#70).
 - Image résumé : frise du temps et plages illisibles datées (#127), coupée en parties au-delà
   de 20 pistes (#157). Extraits zoomés en pleine taille (#103).
+- Documentation pour la naturaliste : `docs/premiere-soiree.md` (des jumelles aux résultats, pas à
+  pas), « lire l'image résumé » et « juger un extrait » dans `docs/lire-les-resultats.md`, README
+  réécrit pour elle ; la partie développeur est dans `CONTRIBUTING.md` (#77, #79, #80, #81).
 - Archives du binaire pour macOS arm64, Linux x86_64 (glibc 2.35 au moins) et Windows
   x86_64, avec `SHA256SUMS` et les sources de FFmpeg et d'openh264 jointes à la release.
   Chaque archive est contrôlée avant publication : liens dynamiques, système minimal,
