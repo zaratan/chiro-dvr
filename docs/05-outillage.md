@@ -82,12 +82,20 @@ et les noms des fichiers produits sont en français quand la locale l'est, en an
 
 ## Distribution
 
-- Homebrew installe la 0.1.1 (`brew install zaratan/bat-tools/batdetect`), formule du tap
-  `zaratan/homebrew-bat-tools`, binaire de la v0.1.1 sous GPL v3, décrit par le
-  `packaging/NOTICE` du tag `v0.1.1`. Son mode d'emploi est le README de ce tag.
-- Le binaire Rust se publie par un tag (#223), sous MIT et LGPL 2.1 ou ultérieure :
+- **Homebrew installe la 0.2.0** (`brew install zaratan/bat-tools/batdetect`), par la
+  formule `Formula/batdetect.rb` du tap `zaratan/homebrew-bat-tools` (#225).
+  - La formule télécharge `batdetect-darwin-arm64.tar.gz` de la release et vérifie son
+    `sha256`.
+  - Elle installe le binaire et `licenses/`, auquel `NOTICE` renvoie. Homebrew copie
+    d'office `LICENSE` et `NOTICE` dans le keg, mais pas un dossier.
+  - Elle n'a plus de `depends_on "ffmpeg"` : FFmpeg est lié en statique. Sa licence est
+    `all_of: ["MIT", "LGPL-2.1-or-later"]`.
+  - Ses planchers : Apple Silicon (`arch: :arm64`) et macOS 14 (`macos: :sonoma`).
+- **La 0.1.1**, binaire Python sous GPL v3, est décrite par le `packaging/NOTICE` du tag
+  `v0.1.1`, et son mode d'emploi par le README de ce tag.
+- **Le binaire Rust se publie par un tag** (#223), sous MIT et LGPL 2.1 ou ultérieure :
   `packaging/NOTICE` et `packaging/licenses/` le décrivent
-  ([11](11-migration-rust.md#licences), #224). La formule vient de #225.
+  ([11](11-migration-rust.md#licences), #224).
 - **Publier une version** :
   1. `workspace.package.version` de `Cargo.toml` vaut la version, et `Cargo.lock` suit.
   2. La section `[Non publiée]` de `CHANGELOG.md` devient `[X.Y.Z] - date`.
@@ -100,5 +108,12 @@ et les noms des fichiers produits sont en français quand la locale l'est, en an
 - La release porte les trois archives, les deux sources LGPL (FFmpeg et openh264) et
   `SHA256SUMS`. Son texte est la section du CHANGELOG, extraite par
   `packaging/release-notes.sh`.
-- `bump-formulae.yml`, dans le tap, ouvre chaque jour à 6 h UTC la PR de mise à jour de
-  la formule après une release.
+- **Mise à jour de la formule** : `bump-formulae.yml`, dans le tap, ouvre la PR
+  `batdetect X.Y.Z` au premier passage de 6 h UTC après la release, ou à la demande par
+  `workflow_dispatch`.
+  - Il ne change que deux lignes : la ligne `version "…"` à la racine, et le `sha256` du
+    bloc `on_macos do … on_arm do … end end`, recalculé sur l'archive.
+  - La formule garde donc cette forme. `brew audit --strict` la juge redondante avec la
+    version lue dans l'URL, comme pour la 0.1.1, mais le script en a besoin.
+  - Quand la forme de l'archive ou de l'installation change, la formule se retouche à la
+    main, comme à #225.

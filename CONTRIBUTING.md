@@ -44,5 +44,7 @@ images des docs se refont par `tools/docs-images.sh` ([docs/images/](docs/images
 Mettre la version dans `Cargo.toml`, renommer la section `[Non publiée]` du CHANGELOG, puis
 pousser le tag `vX.Y.Z` sur `main` une fois la CI verte. `release.yml` contrôle le tag,
 construit et contrôle les trois archives et publie la release. Le détail est dans
-[docs/05](docs/05-outillage.md#distribution). Le lendemain, le tap
-`zaratan/homebrew-bat-tools` ouvre la PR de mise à jour de la formule.
+[docs/05](docs/05-outillage.md#distribution). Au premier passage de 6 h UTC qui suit, le tap
+`zaratan/homebrew-bat-tools` ouvre la PR de mise à jour de la formule, qui ne change que sa
+version et son `sha256`. Quand l'archive ou son installation changent de forme, la formule
+se retouche à la main.
