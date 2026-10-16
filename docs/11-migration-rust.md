@@ -128,13 +128,14 @@ ailleurs, ces commandes se lancent sans lui.
   - Pas la feature `static` de ffmpeg-next non plus : elle ajoute 16 frameworks macOS
     figés, dont QTKit (absent en arm64, l'éditeur de liens le signale) et AppKit, OpenGL,
     OpenCL, inutiles.
-  - Ce que le binaire lie en dynamique :
+  - Ce que le binaire lie en dynamique (mesuré par `otool -L` le 16 octobre 2026) :
     - sur macOS : libc++, libSystem, libiconv (tirée par la bibliothèque standard de
-      Rust) et cinq frameworks (VideoToolbox, CoreFoundation, CoreMedia, CoreVideo,
-      CoreServices) ;
+      Rust), libobjc et six frameworks (Foundation, CoreFoundation, VideoToolbox,
+      CoreMedia, CoreVideo, CoreServices). libobjc et Foundation viennent de ctrlc, par
+      objc2 ;
     - sous Linux : libstdc++, libgcc_s, libc et libm.
-  - La CI vérifie par `otool -L` et `ldd` qu'aucune `libav*`, `libsw*` ni openh264
-    n'est liée en dynamique. La liste complète n'est pas contrôlée.
+  - `packaging/check.sh` contrôle cette liste sur le binaire livré (voir
+    [Empaquetage](#empaquetage)).
 - **Version liée vérifiable** : FFmpeg est construit avec `--extra-version=<empreinte>`.
   `batdetect --version` affiche donc `FFmpeg 7.1.1-<empreinte>`, et un test compare
   cette empreinte à la cible de `.ffmpeg`.
@@ -177,11 +178,50 @@ ailleurs, ces commandes se lancent sans lui.
   Le binaire `release` pèse 690 576 octets, mais il ne fait que `--version` et la LTO
   retire presque tout FFmpeg : ce chiffre ne prédit pas la taille de l'outil complet.
 
+### Empaquetage
+
+```bash
+mise run package          # binaire release, puis dist/batdetect-<cible>.tar.gz (zip sous Windows)
+mise run package:check    # contrôles du livrable sur cette archive
+```
+
+- **Archives** (#223) : `batdetect-darwin-arm64.tar.gz`, `batdetect-linux-x86_64.tar.gz`
+  et `batdetect-windows-x86_64.zip`.
+  - Contenu, à la racine : le binaire, `LICENSE`, `NOTICE` et `licenses/`.
+  - Sans numéro de version dans le nom, comme à la v0.1.1 : la formule Homebrew en
+    dépend.
+  - `packaging/package.sh` lit la cible dans la ligne `host:` de `rustc -vV`, pas dans
+    `uname`, qui vaut `UCRT64_NT-…` sous MSYS2. Les scripts sont en bash : `mise` ne
+    tourne pas sous Windows.
+- **Contrôles** : `packaging/check.sh ARCHIVE [VERSION]` joue tous les contrôles, puis
+  échoue à la fin si un seul a échoué.
+
+  | Contrôle | Ce qu'il mesure |
+  |---|---|
+  | C1 | l'archive contient le binaire, `LICENSE`, `NOTICE` et `licenses/`, rien d'autre |
+  | C2 | aucun lien dynamique hors d'une liste mesurée par système : `otool -L`, `readelf -d` (lignes NEEDED), `dumpbin -dependents` |
+  | C3 | `minos` ≤ 14.0 sous macOS ; sous Linux, `GLIBC_` ≤ 2.35, `GLIBCXX_` ≤ 3.4.30, `CXXABI_` ≤ 1.3.13 et `GCC_` ≤ 12.0.0, la bibliothèque de l'Ubuntu 22.04 |
+  | C4 | `--version` donne `batdetect <VERSION>`, puis le FFmpeg épinglé, avec l'empreinte du script de construction et la LGPL |
+  | C6 | le CSV de l'extrait, en anglais, est identique à l'octet à `tests/fixtures/rust/video_092_original_3m24-4m05/tracks.csv` |
+
+  La liste des crates de `NOTICE` contre `cargo tree` (C5) vient avec son format, à
+  #224.
+- **Preuves négatives** (16 octobre 2026, Mac) : chaque contrôle échoue seul sur une
+  archive altérée.
+  - Fichier en trop et `NOTICE` retiré : C1.
+  - Binaire remplacé par `/usr/bin/curl` : C2, C3, C4 et C6.
+  - Construction sans `BATDETECT_VERSION` : C4.
+  - Un octet changé dans le CSV : C6.
+- **Mesure** (16 octobre 2026, Mac, `release`) : l'archive macOS pèse 3 511 951 octets,
+  dont un binaire de 8 130 992 octets. Le CSV des profils `ci` et `release` est
+  identique à l'octet.
+
 ### Windows
 
 Cible `x86_64-pc-windows-msvc`, construite seulement par la CI (tâches `rust-windows` et
 `rust-windows-slow`) :
-`mise` n'y tourne pas, et la construction pour un poste Windows viendra avec #93.
+`mise` n'y tourne pas. Le binaire Windows se construit et s'empaquette dans `package.yml`
+([Empaquetage](#empaquetage)) ; la construction sur un poste Windows est l'objet de #226.
 
 - **Script** : `packaging/ffmpeg-windows.sh`, en bash sous MSYS2, avec MSVC dans le
   `PATH`.
@@ -235,8 +275,10 @@ Cible `x86_64-pc-windows-msvc`, construite seulement par la CI (tâches `rust-wi
   - aucune archive `.a` ne reste ;
   - chaque `.lib` demande `LIBCMT` et jamais `MSVCRT` (`dumpbin -directives`).
 - **Fins de ligne** : l'image Windows extrait le texte en CRLF (`core.autocrlf`).
-  `.gitattributes` force `eol=lf` pour les scripts `.sh`, `ffmpeg-versions` et
-  `tests/fixtures/reference/**`.
+  `.gitattributes` force `eol=lf` pour les scripts `.sh`, `ffmpeg-versions`,
+  `tests/fixtures/reference/**`, et pour `LICENSE`, `packaging/NOTICE` et
+  `packaging/licenses/**`. Les textes du zip sont ainsi les mêmes que ceux des archives
+  macOS et Linux.
 - **Construction suivie à l'essai.** Au plus 5 essais par méthode étaient permis :
   FFmpeg construit par nous, puis vcpkg, puis un BtbN lié en dynamique sur décision de
   l'utilisateur. La première méthode a abouti au 2ᵉ essai (PR #132) :
@@ -547,6 +589,17 @@ Forme et tests :
   (fichier git ordinaire, fin de ligne `\n` forcée par `.gitattributes`). Le test
   `slow_extract` de `compare` le redemande au bit près sur macOS, Linux et Windows ; un
   écart remonte à l'utilisateur (voir `compare`).
+- `tests/fixtures/rust/video_092_original_3m24-4m05/tracks.csv` : le tableau des pistes
+  de l'extrait, contrôlé à l'octet par `check.sh` (C6) sur les trois systèmes.
+  - Il se refait depuis la racine du dépôt, en anglais, par le binaire `release` :
+    `verrou lourd env -u LANGUAGE -u LC_ALL -u LC_MESSAGES LANG=C target/release/batdetect tests/fixtures/video_092_original_3m24-4m05.mp4 -o out/csv`.
+    On copie ensuite `out/csv/video_092_original_3m24-4m05/video_092_original_3m24-4m05_tracks.csv`
+    à sa place.
+  - Ses lignes finissent en CRLF, comme tout tableau produit. `.gitattributes` le marque
+    `-text` : git garde donc ces octets tels quels.
+  - Il diffère de la référence v0.1.1 sur trois cellules : `path_px` de la piste 1
+    (912.3 au lieu de 912.7) et `peak_amplitude` des pistes 1 et 3 (110.2 au lieu de
+    110.3, 99.0 au lieu de 99.1).
 - Cinq petites fixtures, hors LFS, faites une fois par le ffmpeg 9.0.2 de Homebrew
   (libx264) et commitées :
   - `full_range.mp4` (1,9 Ko, `yuvj420p`, plage `pc`, lue jusqu'au bout depuis #150) :

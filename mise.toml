@@ -18,6 +18,14 @@ run = [
   { task = "rust:settings" },
 ]
 
+[tasks.package]
+depends = ["rust:link"]
+run = "bash packaging/package.sh"
+
+[tasks."package:check"]
+depends = ["package"]
+run = 'bash packaging/check.sh "$(bash packaging/package.sh --archive)"'
+
 [tasks."rust:ffmpeg"]
 run = "bash packaging/ffmpeg-unix.sh"
 

@@ -236,6 +236,7 @@ skip-refused-question = Traiter quand même { $count ->
     } ? (O/n)
 skip-refused-declined = aucune vidéo n'est traitée
 skip-refused-help = Traite les vidéos valides sans poser la question quand des entrées sont refusées
+no-notify-help = Ne signale pas la fin du lot et n'ouvre pas les dossiers de résultats dans le Finder (macOS)
 tally-refused-count = { $count ->
         [one] { $count } entrée refusée
        *[other] { $count } entrées refusées
