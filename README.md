@@ -3,6 +3,8 @@
 Repère et suit les chauves-souris dans les vidéos de jumelles thermiques, puis sort un
 extrait par passage pour validation par une naturaliste.
 
+Première fois ? Le guide [première soirée](docs/premiere-soiree.md) va des jumelles aux résultats, pas à pas.
+
 ## Installation
 
 Homebrew installe pour l'instant la 0.1.1, la dernière version publiée, sur un Mac Apple Silicon
