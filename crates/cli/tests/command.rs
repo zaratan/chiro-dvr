@@ -8,7 +8,7 @@ mod tree;
 use std::fs;
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+use std::process::{Child, ChildStdin, Command, Output, Stdio};
 use std::sync::OnceLock;
 
 use serde_json::Value;
@@ -904,16 +904,36 @@ fn a_video_given_by_its_folder_and_again_under_another_writing_is_processed_once
     );
 }
 
-fn run_answering(arguments: &[&Path], answer: &str) -> io::Result<Output> {
-    let mut child = command(arguments, "fr_FR.UTF-8")
+fn answerable(arguments: &[&Path]) -> io::Result<Child> {
+    command(arguments, "fr_FR.UTF-8")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()?;
-    if let Some(mut input) = child.stdin.take() {
-        input.write_all(answer.as_bytes())?;
+        .spawn()
+}
+
+fn write_answer(mut input: ChildStdin, answer: &str) -> io::Result<()> {
+    match input.write_all(answer.as_bytes()) {
+        Err(error) if error.kind() == io::ErrorKind::BrokenPipe => Ok(()),
+        written => written,
+    }
+}
+
+fn run_answering(arguments: &[&Path], answer: &str) -> io::Result<Output> {
+    let mut child = answerable(arguments)?;
+    if let Some(input) = child.stdin.take() {
+        write_answer(input, answer)?;
     }
     child.wait_with_output()
+}
+
+#[test]
+fn an_answer_left_unread_by_a_command_that_already_stopped_is_not_a_write_error() {
+    let root = tempfile::tempdir().unwrap();
+    let mut child = answerable(&[&root.path().join("absente.mp4")]).unwrap();
+    let input = child.stdin.take().unwrap();
+    assert_eq!(child.wait_with_output().unwrap().status.code(), Some(2));
+    write_answer(input, "o\n").unwrap();
 }
 
 #[test]
