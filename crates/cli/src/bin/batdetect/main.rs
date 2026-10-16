@@ -2,12 +2,14 @@ mod arguments;
 mod board;
 mod errors;
 mod messages;
+mod notify;
 mod numbers;
 mod parsing;
 mod status;
 mod style;
 mod texts;
 
+use std::env;
 use std::io::{self, IsTerminal};
 use std::process::{self, ExitCode};
 use std::sync::Arc;
@@ -15,7 +17,6 @@ use std::sync::Arc;
 use batdetect::consent::{Asking, Choice};
 use batdetect::jobs::{self, Job, Refused, plan};
 use batdetect::language::system_language;
-use batdetect::options::Options;
 use batdetect::outcome::{self, run_all};
 use batdetect::process::{Versions, process};
 use batdetect::tally::Tally;
@@ -63,7 +64,7 @@ fn main() -> ExitCode {
     if watching.is_err() {
         return ExitCode::FAILURE;
     }
-    run(&jobs, skipped, &status, &request.options)
+    run(&jobs, skipped, &status, &request)
 }
 
 fn admitted(request: &Request, texts: Texts) -> Result<(Vec<Job>, Vec<Refused>), ExitCode> {
@@ -98,8 +99,9 @@ fn admitted(request: &Request, texts: Texts) -> Result<(Vec<Job>, Vec<Refused>),
     }
 }
 
-fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, options: &Options) -> ExitCode {
+fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, request: &Request) -> ExitCode {
     let texts = status.texts();
+    let options = &request.options;
     let ffmpeg = media::library::version();
     let versions = Versions {
         program: messages::version(),
@@ -121,7 +123,16 @@ fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, options: &Options) 
         return ExitCode::FAILURE;
     };
     let tally = Tally { rows, refused: skipped };
-    match board::write(&mut io::stdout().lock(), &tally, options, texts) {
+    let written = board::write(&mut io::stdout().lock(), &tally, options, texts);
+    if cfg!(target_os = "macos")
+        && !request.no_notify
+        && io::stdout().is_terminal()
+        && let Some(path) = env::var_os("PATH")
+    {
+        let calls = notify::calls(&board::title(&tally, texts), &tally.roots());
+        notify::run(&calls, &path);
+    }
+    match written {
         Ok(()) if tally.all_done() => ExitCode::SUCCESS,
         _ => ExitCode::FAILURE,
     }

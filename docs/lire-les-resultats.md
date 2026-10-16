@@ -69,7 +69,9 @@ dossier choisi au lancement (`-o`). Sous une locale française : l'image résum�
 
 À la fin du calcul, la commande écrit un bilan de la soirée : pour chaque vidéo sa durée, son
 nombre de pistes, le temps non analysé et le temps de calcul, puis à part les vidéos qui ont
-trop de pistes, celles en échec avec ce qu'il faut faire, et les entrées refusées.
+trop de pistes, celles en échec avec ce qu'il faut faire, et les entrées refusées. Sous macOS,
+lancée dans un terminal, elle annonce aussi la fin par une notification et ouvre chaque dossier de
+résultats dans le Finder (`--no-notify` pour s'en passer).
 
 [techniques]: 10-logique-de-detection.md#les-techniques-en-simple
 [#9]: https://github.com/zaratan/chiro-dvr/issues/9

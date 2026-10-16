@@ -51,7 +51,7 @@ Depuis les sources, la commande se lance par `target/release/batdetect` ou par
 `batdetect --help` toutes les options avec leur valeur par défaut : c'est lui qui fait foi.
 
 - `-o`/`--out-dir`, `--zoom auto|all|none`, `--annotated`, `--max-tracks`, `--clip-margin`,
-  `--osd-region` (à répéter pour plusieurs zones) et `--skip-refused`.
+  `--osd-region` (à répéter pour plusieurs zones), `--skip-refused` et `--no-notify`.
 - Quatre réglages changent la détection : `--threshold`, `--min-hits`, `--max-blobs` et
   `--work-width`. Les autres réglages sont fixés et écrits dans `params.json`
   ([docs/02](docs/02-methode.md)).
@@ -66,6 +66,10 @@ puis un bilan de la soirée : pour chaque vidéo sa durée, ses pistes, le temps
 temps de calcul, puis les vidéos en échec avec ce qu'il faut faire. Le code de sortie n'est pas
 nul dès qu'une entrée est refusée ou qu'une vidéo échoue. Un lot interrompu (Ctrl-C) se refait
 en relançant la même commande.
+
+Sous macOS, quand la commande est lancée dans un terminal, la fin du lot s'annonce par une
+notification qui reprend la première ligne du bilan, et chaque dossier de résultats s'ouvre dans
+le Finder. `--no-notify` les éteint ; ni notification ni dossier ouvert quand la sortie est redirigée.
 
 Les jumelles doivent être fixes pendant l'enregistrement. Les moments où le cadre bouge
 sont repérés et ignorés (environ 1 s de part et d'autre du mouvement) : ils ne sont pas
