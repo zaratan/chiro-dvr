@@ -58,7 +58,8 @@ Le Terminal s'ouvre dans votre dossier personnel, pas sur le Bureau : un nom de 
 la main y est cherché, n'est pas trouvé, et rien n'est traité :
 
 > erreur : aucune vidéo n'est traitée :\
-> nuit-12-oct : introuvable
+> nuit-12-oct : introuvable\
+> à faire : vérifier le chemin ; le dossier ou la vidéo a peut-être été déplacé ou renommé
 
 Glisser le dossier évite cette erreur.
 
@@ -66,7 +67,9 @@ Glisser le dossier évite cette erreur.
 autoriser. Si l'accès a été refusé, rien n'est traité :
 
 > erreur : aucune vidéo n'est traitée :\
-> nuit-12-oct : lecture refusée
+> nuit-12-oct : lecture refusée\
+> à faire : vérifier ses droits ; sur Mac, autoriser le Terminal dans Réglages Système,
+> Confidentialité et sécurité, Fichiers et dossiers
 
 Il faut alors ouvrir Réglages Système › Confidentialité et sécurité › Fichiers et dossiers,
 autoriser le Terminal pour ce dossier (le Bureau, par exemple), puis relancer. Si c'est une vidéo
@@ -86,6 +89,7 @@ calcul, `n` l'arrête ; toute autre réponse repose la question :
 
 > erreur : une entrée est refusée :\
 > nuit-13-oct : introuvable\
+> à faire : vérifier le chemin ; le dossier ou la vidéo a peut-être été déplacé ou renommé\
 > Traiter quand même la vidéo valide ? (O/n)
 
 ## 5. Attendre

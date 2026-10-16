@@ -1,14 +1,13 @@
 use std::fs;
 
-use types::detection::{Detection, FrameDetections};
-use types::frame::{FrameIndex, Pts};
+use types::detection::{FrameDetections, Measures};
+use types::frame::Pts;
 
 use super::{FrameEntry, Frames};
 use crate::error::Error;
 
-fn detection(frame: usize) -> Detection {
-    Detection {
-        frame: FrameIndex::new(frame),
+fn measures() -> Measures {
+    Measures {
         x: 1400.5,
         y: 246.25,
         left: 1399.5,
@@ -32,7 +31,10 @@ fn entry(pts: Option<i64>) -> FrameEntry {
 fn empty_frames_and_missing_pts_survive_a_round_trip() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("frames.jsonl");
-    let detections = FrameDetections::new(vec![vec![detection(0), detection(0)], vec![], vec![detection(2)]]).unwrap();
+    let mut detections = FrameDetections::default();
+    detections.push([measures(), measures()]);
+    detections.push([]);
+    detections.push([measures()]);
     let frames = Frames::new(vec![entry(Some(0)), entry(None), entry(Some(666))], detections).unwrap();
     frames.write(&path).unwrap();
     assert!(
@@ -68,11 +70,10 @@ fn a_skipped_frame_number_is_refused() {
 
 #[test]
 fn a_frame_table_and_detections_of_different_lengths_are_refused() {
-    let error = Frames::new(
-        vec![entry(Some(0))],
-        FrameDetections::new(vec![vec![], vec![]]).unwrap(),
-    )
-    .unwrap_err();
+    let mut detections = FrameDetections::default();
+    detections.push([]);
+    detections.push([]);
+    let error = Frames::new(vec![entry(Some(0))], detections).unwrap_err();
     assert!(matches!(
         error,
         Error::FrameCount {

@@ -1,11 +1,11 @@
 use reference::location::committed;
 use reference::recording::Recording;
-use types::detection::FrameDetections;
 
 use super::Outcome;
 use crate::case::{Case, EXTRACT, WHOLE};
 use crate::comparison::{Comparison, compared};
 use crate::error::Error;
+use crate::testing::nothing_detected;
 
 fn agreeing() -> Comparison {
     let recording = Recording::read(&committed(EXTRACT)).unwrap();
@@ -14,7 +14,7 @@ fn agreeing() -> Comparison {
 
 fn disagreeing() -> Comparison {
     let recording = Recording::read(&committed(EXTRACT)).unwrap();
-    let empty = FrameDetections::new(vec![Vec::new(); recording.frames.detections().frame_count()]).unwrap();
+    let empty = nothing_detected(&recording);
     compared(EXTRACT, &empty, &recording, 1.0).unwrap()
 }
 

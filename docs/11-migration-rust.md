@@ -1028,15 +1028,16 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     (numéro ÷ cadence), celui des temps du CSV de la v0.1.1.
   - `Detection` : `frame`, barycentre `x`, `y`, boîte `left`, `top`, `width`, `height`,
     `area` et `amplitude`, en `f64` et en pixels de la vidéo d'origine.
-    `FrameDetections` : une liste par image, images vides comprises, ordre gardé ; une
-    détection rangée sous une autre image est refusée. `without(&[Span])` vide les
-    images couvertes par des plages, sans revalider : ce qui en sort reste valide.
+    `FrameDetections` : une liste par image, images vides comprises, ordre gardé ; chaque
+    détection porte le rang de son image. `without(&[Span])` vide les images couvertes
+    par des plages ; ce qui en sort garde ses rangs.
     `Measures` : les mesures d'une détection sans son image, sérialisables (les
     détections des fichiers de `reference`, #160) ; `Measures::of` les tire d'une
     détection. `FrameDetections::push` ajoute une image dont les détections prennent le
     rang qu'elles remplissent (#150 : le détecteur ne peut plus ranger une détection
     sous une autre image ; #160 : `reference` relit ainsi les détections de ses
-    fichiers, sans erreur de rangement possible).
+    fichiers, sans erreur de rangement possible ; #172 : `push` sur `default()` est la
+    seule façon de remplir la liste, tests compris).
   - `Span` : plage d'images, bornes comprises, refusée si elle finit avant de commencer.
     Constructeurs qui ne peuvent pas échouer (#144) : `single` (une image), `hull` (de la
     première à la dernière image de deux plages), `widened` (élargie de chaque côté,
@@ -1912,10 +1913,21 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       enregistre déjà. `--force` part à #70.
   - Un dossier donne ses vidéos (`mp4`, `mov`, `avi`, `mkv`, `m4v`), par ordre de nom, au
     premier niveau seulement : un `batdetect/` voisin n'est pas repris.
+    - Un nom qui commence par « . » est écarté (#204), comme la page écarte les dossiers
+      cachés : ce sont surtout les `._x.mp4` (AppleDouble) que macOS dépose à côté de
+      chaque fichier sur un volume exFAT ou FAT. Un dossier qui n'en contient que devient
+      un dossier sans vidéo.
+    - Une vidéo nommée, cachée ou non, reste jugée sur sa seule extension.
   - Refus en bloc avant tout calcul (`jobs::plan`, #55). Toutes les entrées sont relevées
     avant la première détection, et une seule fautive arrête tout le lot (code 2, aucun
     dossier créé). Chaque refus est une ligne « chemin : raison », sous « aucune vidéo
-    n'est traitée : », sans ligne d'usage ni renvoi à l'aide. Les raisons, typées par
+    n'est traitée : », sans ligne d'usage ni renvoi à l'aide. Sous chaque refus vient, en
+    retrait, sa ligne « à faire » (#239), comme sous un échec du bilan. Ses textes sont des
+    clés du même message `failure-todo`. Une lecture refusée reprend la clé de l'échec
+    équivalent, `read-refused`. Les autres ont leur clé : `input-missing` (introuvable, ou
+    un élément du chemin qui n'est pas un dossier : « le dossier ou la vidéo a peut-être
+    été déplacé ou renommé », quand l'échec `missing` ne parle que de la vidéo),
+    `unreachable` (inaccessible), `not-a-video-name`, `no-video`, `shared-folder`. Les raisons, typées par
     `jobs::Reason` :
     - chemin absent ;
     - fichier nommé dont l'extension n'est pas une des cinq ;
@@ -1927,7 +1939,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       nomme toutes ses vidéos, après les refus d'entrées puisque ce sont des sorties.
 
     Si toutes les entrées sont des dossiers sans vidéo, le refus devient « aucune vidéo
-    (mp4, mov, avi, mkv ou m4v) trouvée dans ce dossier : », suivi des dossiers.
+    (mp4, mov, avi, mkv ou m4v) trouvée dans ce dossier : », suivi des dossiers, chacun
+    avec sa ligne « à faire ».
 
     Quand des vidéos valides restent à côté des refus, la commande peut les traiter
     (`consent::Asking`, décision de l'utilisateur du 16 octobre) :
@@ -1943,7 +1956,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - Sans terminal et sans l'option (script, redirection), le refus en bloc reste.
     - Si aucune entrée n'est valide, le refus en bloc reste, avec ou sans l'option.
     - Le bilan, toujours sur la sortie standard, compte « 2 entrées refusées » dans son
-      titre et les liste sous « Entrées refusées, non traitées : ».
+      titre et les liste sous « Entrées refusées, non traitées : », chacune avec sa ligne
+      « à faire ».
     - Le chemin avec question se teste dans `consent`, sur une entrée fabriquée. Un test
       de commande ne peut pas fabriquer de terminal sans pseudo-terminal.
     `failure::Missing` et `NotAVideo` restent pour un fichier qui disparaît ou change
@@ -1988,6 +2002,12 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       « dossier : raison » par dossier, sans ligne d'usage ni renvoi à l'aide (#55). La
       raison vient de la table fermée `access::Access` : écriture refusée, pas un dossier,
       introuvable, disque en lecture seule, disque plein, sinon inaccessible.
+    - Chaque dossier refusé a sa ligne « à faire » (#82), comme une entrée refusée.
+      Écriture refusée et disque plein reprennent les clés de l'échec (`forbidden`,
+      `disk-full`). Disque en lecture seule : « copier les vidéos sur le Mac, ou choisir un
+      autre dossier avec -o » (`read-only`, décision du 9 octobre). Pas un dossier ou
+      introuvable : « choisir un autre dossier avec -o » (`other-folder`). Inaccessible :
+      `unreachable`, comme pour une entrée.
     - Un `-o` qui est un fichier est refusé de même, avant la détection.
   - Bilan de fin de soirée (#65), écrit une fois après `run_all`, sur la sortie standard.
     - Modèle sans texte dans la bibliothèque : `tally::Tally` (les `Row` de `run_all`),

@@ -336,7 +336,7 @@ fn refusal(language: Language, error: &jobs::Error) -> Vec<String> {
 }
 
 #[test]
-fn every_reason_to_refuse_an_input_has_its_own_words_in_both_languages() {
+fn every_reason_to_refuse_an_input_has_its_own_words_and_says_what_to_do_under_it_in_both_languages() {
     let refused = |path: &str, reason: Reason| Refused {
         path: PathBuf::from(path),
         reason,
@@ -364,13 +364,22 @@ fn every_reason_to_refuse_an_input_has_its_own_words_in_both_languages() {
         [
             "aucune vidéo n'est traitée\u{a0}:",
             "absente.mp4\u{a0}: introuvable",
+            "  à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé",
             "README.md\u{a0}: pas une vidéo (mp4, mov, avi, mkv ou m4v)",
+            "  à faire\u{a0}: ne donner que des vidéos, ou des dossiers de vidéos",
             "vide\u{a0}: aucune vidéo (mp4, mov, avi, mkv ou m4v) dans ce dossier",
+            "  à faire\u{a0}: vérifier que c'est le bon dossier\u{a0}: seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers",
             "fermee\u{a0}: lecture refusée",
+            "  à faire\u{a0}: vérifier ses droits\u{a0}; sur Mac, autoriser le Terminal dans Réglages Système, \
+             Confidentialité et sécurité, Fichiers et dossiers",
             "x.mp4/nuit\u{a0}: un élément du chemin n'est pas un dossier",
+            "  à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé",
             "partie\u{a0}: introuvable",
+            "  à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé",
             "reseau\u{a0}: inaccessible",
+            "  à faire\u{a0}: vérifier que le disque est toujours branché, puis relancer\u{a0}; si cela recommence, le signaler",
             "out/night_x_mp4\u{a0}: dossier de résultats commun à a/night/x.mp4, b/night/x.mp4",
+            "  à faire\u{a0}: renommer l'une de ces vidéos, ou les traiter en deux fois avec un -o différent",
         ]
     );
     assert_eq!(
@@ -378,19 +387,28 @@ fn every_reason_to_refuse_an_input_has_its_own_words_in_both_languages() {
         [
             "no video is processed:",
             "absente.mp4: not found",
+            "  what to do: check the path; the folder or the video may have been moved or renamed",
             "README.md: not a video (mp4, mov, avi, mkv or m4v)",
+            "  what to do: give only videos, or folders of videos",
             "vide: no video (mp4, mov, avi, mkv or m4v) in this folder",
+            "  what to do: check it is the right folder: only the videos directly inside it are processed, not those of its subfolders",
             "fermee: reading refused",
+            "  what to do: check its rights; on a Mac, allow the Terminal in System Settings, Privacy & Security, \
+             Files and Folders",
             "x.mp4/nuit: part of the path is not a folder",
+            "  what to do: check the path; the folder or the video may have been moved or renamed",
             "partie: not found",
+            "  what to do: check the path; the folder or the video may have been moved or renamed",
             "reseau: unreachable",
+            "  what to do: check that the disk is still connected, then run again; if it happens again, report it",
             "out/night_x_mp4: results folder shared by a/night/x.mp4, b/night/x.mp4",
+            "  what to do: rename one of these videos, or process them in two runs with a different -o",
         ]
     );
 }
 
 #[test]
-fn folders_without_any_video_are_listed_under_the_extensions_looked_for_in_both_languages() {
+fn folders_without_any_video_are_listed_under_the_extensions_looked_for_each_with_what_to_do_in_both_languages() {
     let one = jobs::Error::NoVideo {
         folders: vec![PathBuf::from("nuit-12-oct")],
     };
@@ -401,7 +419,8 @@ fn folders_without_any_video_are_listed_under_the_extensions_looked_for_in_both_
         refusal(Language::French, &one),
         [
             "aucune vidéo (mp4, mov, avi, mkv ou m4v) trouvée dans ce dossier\u{a0}:",
-            "nuit-12-oct"
+            "nuit-12-oct",
+            "  à faire\u{a0}: vérifier que c'est le bon dossier\u{a0}: seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers"
         ]
     );
     assert_eq!(
@@ -409,14 +428,17 @@ fn folders_without_any_video_are_listed_under_the_extensions_looked_for_in_both_
         [
             "aucune vidéo (mp4, mov, avi, mkv ou m4v) trouvée dans ces dossiers\u{a0}:",
             "nuit-12-oct",
-            "nuit-13-oct"
+            "  à faire\u{a0}: vérifier que c'est le bon dossier\u{a0}: seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers",
+            "nuit-13-oct",
+            "  à faire\u{a0}: vérifier que c'est le bon dossier\u{a0}: seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers"
         ]
     );
     assert_eq!(
         refusal(Language::English, &one),
         [
             "no video (mp4, mov, avi, mkv or m4v) found in this folder:",
-            "nuit-12-oct"
+            "nuit-12-oct",
+            "  what to do: check it is the right folder: only the videos directly inside it are processed, not those of its subfolders"
         ]
     );
     assert_eq!(
@@ -476,7 +498,7 @@ fn a_refused_clip_margin_is_recognised_by_its_setting_and_not_by_its_name() {
 }
 
 #[test]
-fn every_folder_where_nothing_can_be_written_has_its_own_line_and_reason_in_both_languages() {
+fn every_folder_where_nothing_can_be_written_has_its_own_line_reason_and_what_to_do_in_both_languages() {
     let folder = |path: &str, access| Unwritable {
         folder: PathBuf::from(path),
         access,
@@ -499,11 +521,17 @@ fn every_folder_where_nothing_can_be_written_has_its_own_line_and_reason_in_both
         [
             "aucune vidéo n'est traitée, les résultats ne peuvent pas s'écrire dans ces dossiers\u{a0}:",
             "a\u{a0}: écriture refusée",
+            "  à faire\u{a0}: vérifier les droits de ce dossier, ou en choisir un autre avec -o",
             "b\u{a0}: n'est pas un dossier",
+            "  à faire\u{a0}: choisir un autre dossier avec -o",
             "c\u{a0}: introuvable",
+            "  à faire\u{a0}: choisir un autre dossier avec -o",
             "d\u{a0}: disque en lecture seule",
+            "  à faire\u{a0}: copier les vidéos sur le Mac, ou choisir un autre dossier avec -o",
             "e\u{a0}: disque plein",
+            "  à faire\u{a0}: libérer de la place sur le disque de e, puis relancer",
             "f\u{a0}: inaccessible",
+            "  à faire\u{a0}: vérifier que le disque est toujours branché, puis relancer\u{a0}; si cela recommence, le signaler",
         ]
     );
     assert_eq!(
@@ -511,11 +539,17 @@ fn every_folder_where_nothing_can_be_written_has_its_own_line_and_reason_in_both
         [
             "no video is processed, the results cannot be written in these folders:",
             "a: writing refused",
+            "  what to do: check the rights of this folder, or choose another one with -o",
             "b: not a folder",
+            "  what to do: choose another folder with -o",
             "c: not found",
+            "  what to do: choose another folder with -o",
             "d: read-only disk",
+            "  what to do: copy the videos to the Mac, or choose another folder with -o",
             "e: disk full",
+            "  what to do: free some space on the disk of e, then run again",
             "f: unreachable",
+            "  what to do: check that the disk is still connected, then run again; if it happens again, report it",
         ]
     );
     let (heading, _) = folders_refused(Texts::new(Language::French), &refused[..1]);
@@ -548,12 +582,18 @@ fn the_refusals_before_the_question_are_counted_and_the_question_counts_the_vali
             vec![
                 "2 entrées sont refusées\u{a0}:".to_owned(),
                 "absente.mp4\u{a0}: introuvable".to_owned(),
-                "autre.mp4\u{a0}: introuvable".to_owned()
+                "  à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé"
+                    .to_owned(),
+                "autre.mp4\u{a0}: introuvable".to_owned(),
+                "  à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé"
+                    .to_owned()
             ],
             vec![
                 "2 inputs are refused:".to_owned(),
                 "absente.mp4: not found".to_owned(),
-                "autre.mp4: not found".to_owned()
+                "  what to do: check the path; the folder or the video may have been moved or renamed".to_owned(),
+                "autre.mp4: not found".to_owned(),
+                "  what to do: check the path; the folder or the video may have been moved or renamed".to_owned()
             ],
         ]
     );

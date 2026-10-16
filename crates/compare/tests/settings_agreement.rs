@@ -13,7 +13,7 @@ use reference::frames::Frames;
 use reference::location::committed;
 use reference::recording::Recording;
 use tempfile::TempDir;
-use types::detection::FrameDetections;
+use types::detection::{FrameDetections, Measures};
 use types::span::Span;
 
 const DISPLAY_BAND_PX: f64 = 0.07 * 1080.0;
@@ -41,21 +41,18 @@ fn run() -> &'static Run {
     })
 }
 
-#[cfg(test)]
 fn below_the_display_band(detections: &FrameDetections, ignored: &[Span]) -> FrameDetections {
     let kept = detections.without(ignored);
-    FrameDetections::new(
-        kept.iter()
-            .map(|(_, found)| {
-                found
-                    .iter()
-                    .copied()
-                    .filter(|detection| detection.y >= DISPLAY_BAND_PX)
-                    .collect()
-            })
-            .collect(),
-    )
-    .unwrap()
+    let mut below = FrameDetections::default();
+    for (_, found) in kept.iter() {
+        below.push(
+            found
+                .iter()
+                .filter(|detection| detection.y >= DISPLAY_BAND_PX)
+                .map(Measures::of),
+        );
+    }
+    below
 }
 
 #[test]

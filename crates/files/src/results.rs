@@ -7,7 +7,7 @@ use serde::Deserialize;
 use types::language::Language;
 
 use crate::failures::{FailureRecord, read_failures};
-use crate::names::{Names, names_the_video, params_json};
+use crate::names::{Names, is_hidden, names_the_video, params_json};
 use crate::params::{Finish, TrackEntry};
 use crate::picture::png_size;
 use crate::table::Headings;
@@ -16,7 +16,6 @@ use crate::verdicts::read_verdicts;
 #[cfg(test)]
 mod tests;
 
-const HIDDEN_PREFIX: &[u8] = b".";
 const FRENCH: &str = "fr";
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -74,7 +73,7 @@ pub fn read_results(root: &Path, headings: &dyn Headings) -> Vec<Folder> {
         for entry in entries.flatten() {
             let name = entry.file_name();
             let path = entry.path();
-            if name.as_encoded_bytes().starts_with(HIDDEN_PREFIX) || !path.is_dir() {
+            if is_hidden(&name) || !path.is_dir() {
                 continue;
             }
             if let Some(found) = found(&path, &name, headings) {

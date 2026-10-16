@@ -1,7 +1,6 @@
 use std::fs;
 
-use types::detection::{Detection, FrameDetections};
-use types::frame::FrameIndex;
+use types::detection::{FrameDetections, Measures};
 
 use super::{
     Patch, TargetLine, read_detections, read_report, read_targets, write_detections, write_report, write_targets,
@@ -93,9 +92,8 @@ const RECORDED_REPORT: &str = r#"{"video": "video_092_original.mp4", "code": "v0
 {"id": 8, "motion": "pass", "amplitude": -60.0, "sigma": 1.5, "visible_frames": 12, "found": true,
 "completeness": 0.75, "start_delay": 2, "end_early": 1, "fragments": 1, "median_effective": -45.5}]}"#;
 
-fn detection(frame: usize, x: f64) -> Detection {
-    Detection {
-        frame: FrameIndex::new(frame),
+fn measures(x: f64) -> Measures {
+    Measures {
         x,
         y: 497.022_727_272_727_25,
         left: x - 2.5,
@@ -111,12 +109,10 @@ fn detection(frame: usize, x: f64) -> Detection {
 fn the_detections_of_a_run_go_through_a_compressed_file_frame_by_frame_unchanged() {
     let folder = tempfile::tempdir().unwrap();
     let path = folder.path().join("injected.jsonl.gz");
-    let detections = FrameDetections::new(vec![
-        vec![detection(0, 10.0), detection(0, 300.5)],
-        Vec::new(),
-        vec![detection(2, 12.0)],
-    ])
-    .unwrap();
+    let mut detections = FrameDetections::default();
+    detections.push([measures(10.0), measures(300.5)]);
+    detections.push([]);
+    detections.push([measures(12.0)]);
 
     write_detections(&path, &detections).unwrap();
 

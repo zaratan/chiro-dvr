@@ -1,13 +1,13 @@
 use reference::location::committed;
 use reference::recording::Recording;
 use reference::track_matching::{Discrepancy, DiscrepancyKind};
-use types::detection::FrameDetections;
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
 
 use super::{TrackAgreement, TrackCounts};
 use crate::case::EXTRACT;
+use crate::testing::nothing_detected;
 
 const EXTRACT_VIDEO: &str = "video_092_original_3m24-4m05.mp4";
 
@@ -47,7 +47,7 @@ fn the_reference_detections_tracked_again_give_back_the_four_tracks_of_the_extra
 #[test]
 fn without_detections_every_reference_track_is_lost_and_listed_with_its_time() {
     let recording = extract();
-    let empty = FrameDetections::new(vec![Vec::new(); recording.frames.detections().frame_count()]).unwrap();
+    let empty = nothing_detected(&recording);
 
     let agreement = TrackAgreement::of(EXTRACT_VIDEO, &empty, rate(), &recording).unwrap();
 

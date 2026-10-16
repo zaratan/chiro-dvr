@@ -97,6 +97,47 @@ fn folders_without_any_video_alone_are_named_as_finding_no_video() {
 }
 
 #[test]
+fn a_folder_leaves_out_every_hidden_name_such_as_the_copies_macos_drops_beside_each_video_on_exfat() {
+    let night = a_night_with(&["video.mp4", "._video.mp4", ".cachee.mov"]);
+    let videos = collect_videos(&[night.path().to_path_buf()]).videos;
+    assert_eq!(videos, [night.path().join("video.mp4")]);
+}
+
+#[test]
+fn a_folder_holding_only_hidden_videos_is_named_as_finding_no_video() {
+    let night = a_night_with(&["._video.mp4"]);
+    let inputs = [night.path().to_path_buf()];
+    let Err(Error::NoVideo { folders }) = plan(&inputs, None) else {
+        panic!("the folder is not said to hold no video");
+    };
+    assert_eq!(folders, inputs);
+}
+
+#[test]
+fn a_hidden_folder_given_itself_still_gives_its_videos() {
+    let night = tempfile::tempdir().unwrap();
+    let hidden = night.path().join(".nuit");
+    fs::create_dir(&hidden).unwrap();
+    fs::write(hidden.join("video.mp4"), "").unwrap();
+    let names = |input: PathBuf| -> Vec<_> {
+        collect_videos(&[input])
+            .videos
+            .into_iter()
+            .map(|path| path.file_name().unwrap().to_owned())
+            .collect()
+    };
+    assert_eq!(names(hidden.clone()), ["video.mp4"]);
+    assert_eq!(names(hidden.join(".")), ["video.mp4"]);
+}
+
+#[test]
+fn a_hidden_video_given_by_name_is_still_judged_by_its_extension() {
+    let night = a_night_with(&["._video.mp4"]);
+    let inputs = [night.path().join("._video.mp4")];
+    assert_eq!(collect_videos(&inputs).videos, inputs);
+}
+
+#[test]
 fn no_input_at_all_finds_no_video() {
     assert!(matches!(plan(&[], None), Err(Error::NoVideo { folders }) if folders.is_empty()));
 }
