@@ -242,6 +242,12 @@ fn a_name_decomposed_by_the_file_system_is_composed_again() {
 }
 
 #[test]
+fn the_results_page_is_named_in_the_language_of_the_run() {
+    assert_eq!(super::results_page(Language::French), "resultats.html");
+    assert_eq!(super::results_page(Language::English), "results.html");
+}
+
+#[test]
 fn a_dated_name_escapes_the_cleanup_so_a_table_set_aside_is_never_removed_nor_set_aside_again() {
     for dated in [
         "v_pistes_2026-10-16_1430.csv",

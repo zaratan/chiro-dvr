@@ -74,6 +74,7 @@ fn evening() -> Tally {
     ];
     Tally {
         refused: Vec::new(),
+        unwritten: Vec::new(),
         rows: vec![
             row("nuit/batdetect/video_089", 130, done(48, extent(962.4, 41.2))),
             row(
@@ -183,6 +184,7 @@ fn the_english_summary_has_the_same_shape() {
 fn a_summary_of_videos_all_done_with_default_settings_has_only_its_title_and_its_table() {
     let tally = Tally {
         refused: Vec::new(),
+        unwritten: Vec::new(),
         rows: vec![row("nuit/batdetect/video_092", 17, done(1, extent(301.0, 0.0)))],
     };
     assert_eq!(
@@ -193,9 +195,31 @@ fn a_summary_of_videos_all_done_with_default_settings_has_only_its_title_and_its
 }
 
 #[test]
+fn a_file_the_results_page_needs_but_could_not_write_is_named_at_the_end_with_its_cause() {
+    let tally = Tally {
+        refused: Vec::new(),
+        unwritten: vec![files::error::Error::Write {
+            path: PathBuf::from("nuit/batdetect/.batdetect/echecs/v.json"),
+            source: std::io::Error::other("disk full"),
+        }],
+        rows: vec![row("nuit/batdetect/video_092", 17, done(1, extent(301.0, 0.0)))],
+    };
+    let summary = written(&tally, &Options::default(), Language::French);
+    assert!(
+        summary.ends_with(
+            "\nFichier non écrit, la page de résultats peut être incomplète\u{a0}:\n  \
+             nuit/batdetect/.batdetect/echecs/v.json\u{a0}: cannot write nuit/batdetect/.batdetect/echecs/v.json: disk full\n"
+        ),
+        "{summary}"
+    );
+    assert!(!tally.all_done());
+}
+
+#[test]
 fn a_long_video_counts_hours_and_a_fraction_of_a_second_not_analysed_still_shows() {
     let tally = Tally {
         refused: Vec::new(),
+        unwritten: Vec::new(),
         rows: vec![row("nuit/batdetect/longue", 4323, done(2, extent(7200.0, 0.3)))],
     };
     let summary = written(&tally, &Options::default(), Language::French);
@@ -209,6 +233,7 @@ fn a_long_video_counts_hours_and_a_fraction_of_a_second_not_analysed_still_shows
 fn a_name_decomposed_by_the_file_system_is_composed_before_its_width_is_counted() {
     let tally = Tally {
         refused: Vec::new(),
+        unwritten: Vec::new(),
         rows: vec![row(
             "nuit/batdetect/e\u{301}te\u{301}te\u{301}",
             1,
@@ -237,6 +262,7 @@ fn several_failures_and_several_tables_left_as_they_are_are_counted_in_the_plura
     };
     let tally = Tally {
         refused: Vec::new(),
+        unwritten: Vec::new(),
         rows: vec![
             row("nuit/batdetect/a", 0, damaged()),
             row("nuit/batdetect/b", 0, panic),
@@ -285,6 +311,7 @@ fn the_changed_settings_are_written_as_they_are_typed() {
     };
     let tally = Tally {
         refused: Vec::new(),
+        unwritten: Vec::new(),
         rows: vec![row("nuit/batdetect/v", 1, done(1, extent(1.0, 0.0)))],
     };
     let summary = written(&tally, &options, Language::French);
@@ -299,6 +326,7 @@ fn the_changed_settings_are_written_as_they_are_typed() {
 fn with_refused(refused: Vec<Refused>) -> Tally {
     Tally {
         refused,
+        unwritten: Vec::new(),
         rows: vec![row("nuit/batdetect/video_092", 17, done(1, extent(301.0, 0.0)))],
     }
 }
@@ -374,6 +402,7 @@ fn skipped(finish: Finish, tracks: usize, extent: Extent) -> State {
 #[test]
 fn a_resumed_evening_counts_the_videos_already_done_and_shows_their_earlier_figures_without_a_compute_time() {
     let tally = Tally {
+        unwritten: Vec::new(),
         refused: Vec::new(),
         rows: vec![
             row(
@@ -411,5 +440,24 @@ fn a_resumed_evening_counts_the_videos_already_done_and_shows_their_earlier_figu
     assert!(
         english.starts_with("Summary: 3 videos, 1 done, 1 already done, 1 with too many tracks\n"),
         "{english}"
+    );
+}
+
+#[test]
+fn a_page_of_someone_else_in_the_way_is_explained_with_what_to_do() {
+    let tally = Tally {
+        refused: Vec::new(),
+        unwritten: vec![files::error::Error::Taken {
+            path: PathBuf::from("Bureau/resultats.html"),
+        }],
+        rows: vec![row("Bureau/video_092", 17, done(1, extent(301.0, 0.0)))],
+    };
+    let summary = written(&tally, &Options::default(), Language::French);
+    assert!(
+        summary.ends_with(
+            "  Bureau/resultats.html existe déjà et n'est pas une page de batdetect\u{a0}: \
+             la renommer ou la déplacer pour avoir la page\n"
+        ),
+        "{summary}"
     );
 }

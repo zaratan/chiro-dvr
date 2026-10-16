@@ -57,7 +57,9 @@ Le temps de calcul dépend de l'ordinateur ([mesures](docs/09-profilage.md)).
 Pour chaque vidéo, un dossier à son nom dans `batdetect/` : l'image résumé, qui montre toutes les
 pistes sur la scène (plusieurs images pour une longue vidéo) ; le tableau des pistes, à ouvrir
 dans un tableur, avec une colonne pour noter son verdict ; un extrait par piste, et un extrait ralenti et agrandi pour les pistes
-petites ou faibles. À la fin, le Terminal affiche le bilan de la soirée. Comment lire tout cela,
+petites ou faibles. À la fin, le Terminal affiche le bilan de la soirée et la page des résultats,
+`batdetect/resultats.html`, s'ouvre dans le navigateur : toute la soirée, images et extraits
+compris, sur une seule page. Comment lire tout cela,
 juger un extrait et noter son verdict : [lire les résultats](docs/lire-les-resultats.md).
 
 ## Choisir un mode

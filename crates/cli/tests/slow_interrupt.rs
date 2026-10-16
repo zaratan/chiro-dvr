@@ -93,4 +93,7 @@ fn ctrl_c_during_the_clips_leaves_a_folder_without_params_json_that_reads_unfini
     let folder = out.path().join("video_092_original_3m24-4m05");
     assert!(folder.join("video_092_original_3m24-4m05_pistes.csv").is_file());
     assert!(!folder.join("params.json").exists());
+    let page = std::fs::read_to_string(out.path().join("resultats.html")).unwrap();
+    assert!(page.contains("inachevée"), "{page}");
+    assert!(!page.contains("pas encore traitée"), "{page}");
 }

@@ -10,9 +10,8 @@ Ce document tient trois choses ([qui tient quoi](README.md#qui-tient-quoi)) :
 - **les sections tenues à jour**, de [Construction](#construction) à
   [Plage réelle des sources](#plage-réelle-des-sources), puis la méthode des
   [Réglages](#réglages) et la [Garde](#garde) du banc ;
-- **la description des crates** ([Crates](#crates)), figée au 16 octobre 2026 (30deaeb) :
-  l'état courant est dans [10](10-logique-de-detection.md), [02](02-methode.md) et
-  [CLAUDE.md](../CLAUDE.md) ;
+- **la description des crates** ([Crates](#crates)), qui détaille la carte à jour de
+  [CLAUDE.md](../CLAUDE.md) et suit les lots ;
 - **l'histoire de la migration**, mesures datées comprises, qui ne se récrivent pas.
 
 ## Bilan (16 octobre 2026)
@@ -1008,10 +1007,10 @@ Mesure du 11 octobre 2026 (#101) :
 
 ## Crates
 
-Description figée au 16 octobre 2026 (30deaeb) : l'état courant est dans
-[10](10-logique-de-detection.md), [02](02-methode.md) et [CLAUDE.md](../CLAUDE.md).
+La carte à jour des crates est dans [CLAUDE.md](../CLAUDE.md) ; cette section la détaille et suit
+les lots.
 
-Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `members = ["crates/*"]`. `unsafe` n'est permis que dans `media`.
+Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), treize avec `page` (#71), `members = ["crates/*"]`. `unsafe` n'est permis que dans `media`.
 
 - **`types`** : vocabulaire commun, sans entrée-sortie ni algorithme de détection. Un
   type n'y entre que s'il est produit par une crate et lu par au moins deux autres. Gelé
@@ -1353,6 +1352,24 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
     totale, tirés des plages elles-mêmes et non du bandeau. Une tranche coupée par #157
     est comparée pages réunies : numéros et en-tête ; ses couleurs, attribuées par
     paquet, ne le sont pas.
+- **`page`** (#71) : la page de résultats d'une soirée, en HTML, sans aucune dépendance (ni
+  crate du workspace, ni FFmpeg). Elle ne lit pas le disque : `cli::written` lui donne un
+  `model::Page`, et elle rend une chaîne.
+  - `model` : la page (titre, entrées dans l'ordre), une entrée par vidéo : `Video` (images
+    résumé avec leur taille, pistes avec couleur, image, extrait, zoom et verdict), `Failed`
+    (clé de la cause, place, détail, résultats d'avant s'il y en a), `Unfinished`, `Waiting`.
+  - `labels` : `Label`, chaque texte de la page avec ses arguments, et le trait `Labels`, que
+    `Texts` implémente dans le binaire (`sheet.rs`) avec les textes `page-*` des `.ftl` ; la
+    raison et le conseil d'un échec sont les messages `failure` et `failure-todo` du bilan.
+  - `escape` : texte échappé (`& < > " '`) et chemins encodés en pourcents segment par segment,
+    tout octet hors de `A-Z a-z 0-9 - . _ ~`, si bien qu'un `#`, un `%` ou un `?` dans un nom
+    reste un nom de fichier. Rien n'est normalisé : le lien suit l'octet du disque.
+  - `document` (page entière, total, marque `<meta name="generator" content="batdetect">` et
+    `is_ours`, lue dans le premier Kio), `section` (une vidéo : onglets de parties, images
+    avec `width` et `height` pour que l'onglet ne fasse pas sauter la page, lecteur),
+    `tracks` (le tableau), `cards` (échec, inachevée, en attente).
+  - `assets/page.css` et `assets/page.js`, inclus par `include_str!` : la page tient en un
+    fichier, sans réseau, avec `preload="none"` sur le seul lecteur de chaque vidéo.
 - **`reference`** → `types` : la référence v0.1.1 en Rust. Gelée pendant le lot 6
   (#124), comme `types`.
   - `fixture` : chemins des fixtures et garde LFS. `location` : `committed(nom)` pour
@@ -1980,6 +1997,27 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       échec »),
       `rows_in`, `done`, `too_many`, `failed`, `kept` et `all_done`. Il servira à #69 et
       #71. Mise en forme dans le binaire : `board::write`.
+    - Page de résultats (#71), à la racine de chaque dossier de résultats.
+      - `written::write_page` relit la racine (`files::results`), y ajoute les vidéos du lot
+        pas encore traitées (« en attente »), ouvre celles du lot, et écrit `resultats.html`
+        ou `results.html` par `.partial` puis renommage ; il retire la page de l'autre langue.
+        Il n'écrit ni ne retire une page qui n'a pas la marque de `page`, et ne crée jamais
+        la racine. `main` l'appelle avant le lot puis dans le rappel de fin de chaque vidéo ;
+        une erreur va dans `Tally::unwritten`, dite à la fin du bilan (une page étrangère du
+        même nom avec ce qu'il faut faire, sinon le chemin et le détail), et rend le code 1
+        sans arrêter le lot. Au Ctrl-C, ou si la boucle du lot s'arrête sur une erreur, chaque
+        page est réécrite sans entrée « en attente » avant la sortie.
+      - Les clés des vidéos sont les noms de dossier composés en NFC : un dossier créé en NFD
+        et la même vidéo tapée en NFC font une seule entrée.
+      - `ledger::Ledger::note`, dans le même rappel et avant la page : une vidéo en échec
+        écrit `.batdetect/echecs/<dossier>.json` à la racine (clé stable de `Failure` :
+        `Cause::key` ou `internal` pour un panic, place, détail, date UTC), une réussite ou
+        « trop de pistes » l'efface. Un échec dont la racine n'existe pas encore attend
+        qu'une autre vidéo du lot la crée ; sinon rien n'est créé pour lui.
+      - Le détail technique n'est montré que pour les causes dont le conseil y renvoie
+        (`failure::REFERS_TO_DETAIL`).
+    - `notify` (#69) ouvre, après le bilan, la page de chaque racine dans la langue du
+      lancement (`written::page_to_open`), et rien pour une racine sans page à nous.
     - Titre : « Bilan : 12 vidéos, 10 réussies, 1 avec trop de pistes, 1 en échec » (les
       états absents ne sont pas nommés). Puis un tableau par dossier de résultats (#86),
       les vidéos dans l'ordre du lot : vidéo, durée, pistes, non analysé, calcul.
@@ -2474,6 +2512,24 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), `me
       274 → 275. Les maxima tombent sur un demi (sur la 092, les surfaces sont des
       multiples de 2,25) : le Rust arrondit à mi-chemin vers le haut, la v0.1.1 au pair.
       Gardé (règle 5).
+  - Lecture d'un dossier de résultats pour la page (#71) :
+    - `results::read_results` : chaque sous-dossier non caché, dans l'ordre des noms.
+      `params.json` lu (`Written`, avec `Deserialize` sur `Finish` et `TrackEntry`) :
+      terminée. Un `params.json` à nous sans `state` (avant #66) : ancienne version. Sans
+      `params.json`, avec une sortie nommée d'après la vidéo (`names_the_video`, nom du
+      dossier pris pour celui de la vidéo ; un dossier `clips/` seul ne compte pas) :
+      inachevée. Ni l'un ni l'autre : ignoré, pour ne jamais lister un dossier de
+      l'utilisateur. Les échecs de
+      `.batdetect/echecs/` s'y ajoutent, avec ou sans dossier.
+    - Les images résumé sont celles que nomment les pistes de `params.json`, dans leur ordre ;
+      sans piste, l'image sans suffixe. Leur taille vient de l'en-tête PNG (`picture`).
+    - `verdicts::read_verdicts` : colonne verdict du CSV, séparateur deviné (`;`, `,`,
+      tabulation), guillemets, en-tête français ou anglais, virgule décimale ; un verdict
+      n'est rendu qu'à la piste de même numéro et de même début (à 6 ms près). Un tableau
+      d'un autre calcul ne donne donc rien.
+    - `failures` : un fichier par vidéo en échec dans `.batdetect/echecs/`, écrit par
+      `.partial` et renommage ; un fichier illisible ne cache que lui-même.
+    - `names::results_page` : `resultats.html` / `results.html`.
 - **`render`** → `media`, `draw`, `types` (#110, #112) : les extraits, du choix
   des images à l'écriture. `clips::render(source, pistes, Outputs { clips, zooms },
   RenderConfig, encodeurs)` en est le point d'entrée ; `cli` l'appelle depuis #112, et

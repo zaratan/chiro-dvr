@@ -57,6 +57,49 @@ Les conseils suivants viennent de la littérature sur l'observation en caméra t
 - débit maximal ;
 - pas de zoom numérique.
 
+## La page des résultats
+
+À la fin du calcul, la page des résultats s'ouvre dans le navigateur. C'est le fichier
+`resultats.html`, dans le dossier `batdetect/` à côté des vidéos, ou dans le dossier choisi au
+lancement. Pour la rouvrir plus tard, double-cliquer dessus. Elle marche sans internet, et
+encore après avoir copié tout le dossier `batdetect/` sur une clé ou sur un autre ordinateur.
+
+Ce qu'elle montre, de haut en bas :
+
+- le total de la soirée : les vidéos, celles réussies, et le nombre de pistes ; quand il y en a,
+  celles qui ont trop de pistes, celles en échec, les inachevées et celles en attente ;
+- une section par vidéo, dans l'ordre alphabétique des noms de leurs dossiers (majuscules
+  d'abord), avec la date du calcul. Les soirées
+  précédentes rangées dans le même dossier y sont aussi. Les vidéos du dernier calcul sont
+  dépliées, les autres repliées : un clic sur le nom ouvre ou ferme la section.
+
+Dans une section, l'image résumé et la liste des pistes. Chaque piste a son numéro, de la
+couleur de sa trajectoire sur l'image, son début, sa durée, le verdict noté dans le tableau
+des pistes, et les boutons « Extrait » et, quand il existe, « Zoom ».
+
+- Un clic sur « Extrait » ou « Zoom » passe la vidéo à la place de l'image.
+  « Revenir à l'image résumé » la remet, « Précédente » et « Suivante » passent
+  d'une piste à l'autre.
+- Un clic sur le numéro d'une piste remet l'image résumé.
+- Un clic sur l'image l'ouvre en taille réelle.
+- Une vidéo chargée a plusieurs images résumé : des onglets « Partie » les séparent, et
+  chaque onglet dit quelles pistes il montre. Choisir une piste affiche la partie qui la
+  contient.
+
+Une vidéo en échec garde sa place dans la liste, marquée en rouge, avec la raison et ce qu'il
+faut faire, comme dans le bilan. Si les résultats d'un calcul précédent sont encore là, un lien
+y mène ; ce n'est pas toujours le cas, car un nouveau calcul commence par les effacer. Une vidéo « inachevée » est une vidéo dont le calcul s'est arrêté
+avant la fin : relancer la même commande la refait. Pendant le calcul, les vidéos pas encore
+traitées sont « en attente ». Une vidéo calculée par une version plus ancienne de l'outil
+est marquée « ancienne version » : relancer la même commande la refait.
+
+La page ne note rien : le verdict se note dans le tableau des pistes ([Noter le
+verdict](#noter-le-verdict)), et la page le montre au calcul suivant.
+
+Limite : les résultats d'une vidéo sont rangés sous son nom. Si deux soirées sont envoyées dans
+le même dossier choisi au lancement et ont des vidéos de même nom, la seconde remplace la
+première, et la page ne montre que la dernière. Gardez un dossier par soirée.
+
 ## Où sont les résultats
 
 Pour chaque vidéo, un dossier à son nom, dans `batdetect/` à côté des vidéos, ou dans le
@@ -95,12 +138,16 @@ calcul efface les fichiers de l'autre langue.
   refusées avant tout calcul, et il faut renommer l'une d'elles. Si la seconde arrive plus tard
   (`video_092.mov` à côté de `video_092.mp4`), les deux sont recalculées dans leurs dossiers
   renommés, et l'ancien dossier `video_092/` reste là, orphelin, à supprimer à la main.
+- À côté des dossiers des vidéos : la [page des résultats](#la-page-des-résultats),
+  `resultats.html` (`results.html` en anglais), et un dossier caché, `.batdetect/`, où l'outil
+  garde la raison des vidéos en échec pour la page. Les laisser avec les dossiers des vidéos :
+  la page en a besoin.
 
 À la fin du calcul, la commande écrit un bilan de la soirée : pour chaque vidéo sa durée, son
 nombre de pistes, le temps non analysé et le temps de calcul, puis à part les vidéos qui ont
 trop de pistes, celles en échec avec ce qu'il faut faire, et les entrées refusées. Sous macOS,
-lancée dans un terminal, elle annonce aussi la fin par une notification et ouvre chaque dossier de
-résultats dans le Finder (`--no-notify` pour s'en passer).
+lancée dans un terminal, elle annonce aussi la fin par une notification et ouvre la page des
+résultats de chaque dossier (`--no-notify` pour s'en passer).
 
 Relancer la même commande ne refait pas une vidéo déjà faite avec les mêmes réglages : son
 dossier reste tel quel, et le bilan la compte « déjà faite » avec ses chiffres d'origine
@@ -220,8 +267,9 @@ pas : il montre ce qui a bougé, et Manon décide si c'est une chauve-souris.
 
 Chaque piste a son extrait, `extraits/piste_01_0m04s.mp4`, sauf au-delà du
 [garde-fou](#garde-fou-du-nombre-de-pistes) : la vidéo en pleine taille et à vitesse réelle,
-par défaut de 1,5 s avant le début de la piste à 1,5 s après sa fin. Le regarder d'abord en
-entier, puis image par image là où la cible passe.
+par défaut de 1,5 s avant le début de la piste à 1,5 s après sa fin. Il se regarde dans la
+[page des résultats](#la-page-des-résultats), ou dans un lecteur vidéo pour avancer image par
+image. Le regarder d'abord en entier, puis image par image là où la cible passe.
 
 Si la cible est petite ou faible, un second fichier l'accompagne, `piste_01_0m04s_zoom.mp4` :
 la même scène recadrée autour du trajet, agrandie jusqu'à quatre fois et ralentie quatre fois.

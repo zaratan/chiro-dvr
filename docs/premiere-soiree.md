@@ -106,12 +106,14 @@ encore été mesuré ([Questions ouvertes](06-questions-ouvertes.md)).
 
 ## 6. Ouvrir les résultats
 
-À la fin du lot, une notification l'annonce et le dossier `batdetect/` de chaque soirée s'ouvre
-dans le Finder. Pour s'en passer, ajouter `--no-notify` à la fin de la commande, après le
-dossier.
+À la fin du lot, une notification l'annonce et la page des résultats de chaque soirée s'ouvre
+dans le navigateur : toutes les vidéos de la soirée, leur image résumé et leurs extraits, à
+regarder sans quitter la page ([La page des résultats](lire-les-resultats.md#la-page-des-résultats)).
+Pour s'en passer, ajouter `--no-notify` à la fin de la commande, après le dossier.
 
-Les résultats sont dans ce dossier `batdetect/`, à côté des vidéos, avec un dossier par vidéo :
-l'image résumé, le tableau des pistes et les extraits. Leurs noms suivent la langue du Mac
+La page, `resultats.html`, est dans le dossier `batdetect/`, à côté des vidéos. Pour la rouvrir
+plus tard, double-cliquer dessus. À côté d'elle, un dossier par vidéo : l'image résumé, le
+tableau des pistes et les extraits. Leurs noms suivent la langue du Mac
 ([Où sont les résultats](lire-les-resultats.md#où-sont-les-résultats)).
 
 Relancer la même commande sur le même dossier saute les vidéos déjà traitées, et les compte

@@ -291,6 +291,7 @@ fn without_an_output_folder_the_results_go_to_a_batdetect_folder_beside_the_vide
             "flight/flight_pistes.csv",
             "flight/flight_resume.png",
             "flight/params.json",
+            "resultats.html",
         ]
     );
 }
@@ -376,6 +377,7 @@ fn two_videos_whose_names_differ_only_by_case_keep_their_own_clips_in_one_output
             "b_vol_mp4/params.json",
             "b_vol_mp4/vol_summary.png",
             "b_vol_mp4/vol_tracks.csv",
+            "results.html",
         ]
     );
 }
@@ -981,6 +983,18 @@ fn skip_refused_does_not_turn_inputs_that_are_all_faulty_into_an_empty_run() {
         format!("error: no video is processed:\n  {}: not found\n", missing.display())
     );
     assert!(!out.exists());
+}
+
+#[test]
+fn a_damaged_video_met_before_a_good_one_leaves_its_failure_beside_the_results() {
+    let (_root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    fs::write(videos.join("abimee.mp4"), "not a video").unwrap();
+    let output = run(&[&videos], "fr_FR.UTF-8");
+    assert_eq!(output.status.code(), Some(1));
+    let record = fs::read(videos.join("batdetect/.batdetect/echecs/abimee.json")).unwrap();
+    let record: serde_json::Value = serde_json::from_slice(&record).unwrap();
+    assert_eq!(record["video"], "abimee.mp4");
+    assert_eq!(record["cause"], "not-a-video");
 }
 
 #[test]

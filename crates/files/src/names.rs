@@ -10,6 +10,8 @@ use unicode_normalization::UnicodeNormalization;
 mod tests;
 
 const PARAMS: &str = "params.json";
+const FRENCH_PAGE: &str = "resultats.html";
+const ENGLISH_PAGE: &str = "results.html";
 pub const RESULTS_FOLDER: &str = "batdetect";
 const ZOOM_SUFFIX: &str = "_zoom";
 const VIDEO_EXTENSION: &str = ".mp4";
@@ -177,6 +179,10 @@ impl Names {
     }
 }
 
+pub fn names_the_video(name: &[u8], stem: &[u8]) -> bool {
+    previous_output(name, stem).is_some_and(|(_, output)| output != Output::ClipsFolder)
+}
+
 pub(crate) fn previous_output(name: &[u8], stem: &[u8]) -> Option<(Names, Output)> {
     let finished = |name: &[u8]| {
         EVERY
@@ -215,6 +221,13 @@ pub fn partial_path(path: &Path) -> PathBuf {
 
 pub fn period_suffix(minutes: Range<u32>) -> String {
     format!("_{:03}m-{:03}m", minutes.start, minutes.end)
+}
+
+pub const fn results_page(language: Language) -> &'static str {
+    match language {
+        Language::French => FRENCH_PAGE,
+        Language::English => ENGLISH_PAGE,
+    }
 }
 
 pub fn params_json(dest: &Path) -> PathBuf {

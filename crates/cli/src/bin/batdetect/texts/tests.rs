@@ -12,10 +12,11 @@ use summary::legend::{column_width, fit_text, legend_width};
 use types::language::Language;
 
 use super::{ENGLISH_SOURCE, FRENCH_SOURCE, Fixed, Message, Shown, Texts, resolved};
+use crate::sheet::{self, Spoken};
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 62;
+const VARIANTS: usize = 65;
 const FIXED: [Fixed; 78] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
@@ -161,6 +162,9 @@ fn rank(message: &Message) -> usize {
         Message::TallySetAside { .. } => 59,
         Message::VideoSkipped { .. } => 60,
         Message::TallyAlreadyDone { .. } => 61,
+        Message::TallyUnwrittenHeading { .. } => 62,
+        Message::FilesPage { .. } => 63,
+        Message::TallyUnwritten { .. } => 64,
     }
 }
 
@@ -273,6 +277,12 @@ fn tally_lines() -> Vec<Message> {
         },
         Message::TallyFailedHeading { failed: 1, total: 12 },
         Message::TallyKeptHeading { count: 1 },
+        Message::TallyUnwrittenHeading { count: 1 },
+        Message::TallyUnwritten {
+            path: text("nuit/batdetect/resultats.html"),
+            taken: false,
+            detail: text("cannot write nuit/batdetect/resultats.html: disk full"),
+        },
         Message::TallyKept {
             video: text("video_092"),
             table: text("video_092_pistes.csv"),
@@ -299,6 +309,9 @@ fn tally_lines() -> Vec<Message> {
         Message::FilesLong {
             period: text("_000m-010m"),
             part: text("_1_sur_3"),
+        },
+        Message::FilesPage {
+            page: text("batdetect/resultats.html"),
         },
     ]
 }
@@ -536,8 +549,17 @@ fn every_argument_of_a_message_is_used_by_at_least_one_language() {
 }
 
 #[test]
-fn every_key_of_both_catalogs_belongs_to_a_message() {
-    let ids: BTreeSet<&str> = samples().iter().map(Message::id).collect();
+fn every_key_of_both_catalogs_belongs_to_a_message_or_a_label_of_the_page() {
+    let mut ids: BTreeSet<&str> = samples().iter().map(Message::id).collect();
+    ids.extend(
+        sheet::tests::samples()
+            .iter()
+            .filter_map(|label| match Texts::new(Language::French).spoken(label) {
+                Spoken::Message(id, _) => Some(id),
+                Spoken::Direct(_) => None,
+            }),
+    );
+    ids.insert(sheet::DATE);
     for language in LANGUAGES {
         assert_eq!(keys(source(language)), ids, "{language:?}");
     }
@@ -820,6 +842,7 @@ fn the_files_produced_are_named_as_the_command_writes_them_in_each_language() {
             ),
             names.annotated_video(here, stem).display().to_string(),
             "params.json".to_owned(),
+            format!("batdetect/{}", files::names::results_page(language)),
         ];
         for name in expected {
             assert!(

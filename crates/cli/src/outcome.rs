@@ -25,6 +25,15 @@ pub struct Panic {
     pub location: Option<String>,
 }
 
+impl Panic {
+    pub fn detail(&self) -> String {
+        match &self.location {
+            Some(location) => format!("{} ({location})", self.message),
+            None => self.message.clone(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Failure {
     Error(process::Error),

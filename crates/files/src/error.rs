@@ -1,5 +1,5 @@
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -41,4 +41,18 @@ pub enum Error {
         #[source]
         source: serde_json::Error,
     },
+}
+
+impl Error {
+    pub fn path(&self) -> &Path {
+        match self {
+            Self::Write { path, .. }
+            | Self::Taken { path }
+            | Self::Read { path, .. }
+            | Self::List { path, .. }
+            | Self::Remove { path, .. }
+            | Self::SetAside { path, .. }
+            | Self::Encode { path, .. } => path,
+        }
+    }
 }

@@ -113,8 +113,8 @@ Windows (MSVC, `/MT`, `+crt-static`) ne se construit que dans les tâches CI
 `rust-windows` et `rust-windows-slow`, par `packaging/ffmpeg-windows.sh` sous MSYS2
 ([docs/11](docs/11-migration-rust.md#windows)).
 
-Workspace virtuel, `members = ["crates/*"]`, toolchain de `rust-toolchain.toml`. Douze
-crates depuis #100, dépendances à sens unique :
+Workspace virtuel, `members = ["crates/*"]`, toolchain de `rust-toolchain.toml`. Treize
+crates depuis #71, dépendances à sens unique :
 
 - `types` : vocabulaire commun (`Rational`, `FrameIndex`, `Pts`, `FrameRate`, `Timeline`,
   `Detection`, `Measures`, `FrameDetections`, `Span`, `Track`, `Language`, `SourceSize`, `WorkScale`).
@@ -130,7 +130,11 @@ crates depuis #100, dépendances à sens unique :
 - `engine` → `media`, `types` (#116), avec la couture du banc (`detect_injected`) ;
   `tracking` → `types` (#120) ; `files` → `types` (#122) ;
   `params.json`, marque d'un dossier terminé : `process` l'écrit en dernier (`files::params`,
-  par `.partial`), le ménage (`files::previous`) l'efface en premier (#66).
+  par `.partial`), le ménage (`files::previous`) l'efface en premier (#66) ;
+  `results` relit un dossier de sortie pour la page (`verdicts` du CSV, taille des PNG par
+  `picture`, échecs de `.batdetect/echecs/` par `failures`, #71).
+- `page` (#71) : la page de résultats d'une soirée en HTML, depuis un modèle sans disque
+  (`model`), libellés par le trait `Labels`, CSS et JS embarqués ; ne dépend d'aucune crate.
 - `draw` : dessin pur sur une toile RGBA opaque, police Roboto embarquée, palette et tailles ; ne dépend d'aucune crate du workspace.
 - `render` → `media`, `draw`, `types` (#110, #112) : images des extraits choisies par `pts`
   (`source`), reprise sur la dernière image-clé saine, un seul fil de décodage sur une plage abîmée ;
@@ -146,7 +150,10 @@ crates depuis #100, dépendances à sens unique :
   binaire `batdetect-bench` (`--targets`, `--replay`, `--against`) ;
   sa feature `testing` porte la vidéo bruitée et la cible lente de ses tests (`noisy`) ;
   `cli` (paquet `batdetect`, binaire `batdetect`) → `engine`, `tracking`, `files`,
-  `summary`, `render`, `draw`, `media`, `types`, et `compare` pour ses tests (#184) ;
+  `summary`, `render`, `draw`, `media`, `page`, `types`, et `compare` pour ses tests (#184) ;
+  `written` (page à la racine de chaque dossier de sortie, au début du lot puis à chaque fin de
+  vidéo, seulement si elle est à nous, #71), `ledger` (échec d'une vidéo gardé dans
+  `.batdetect/echecs/` pour la page, effacé à la réussite, #71),
   `options` (réglages de la commande), `process` (une vidéo de bout en bout ; `tracked` en
   est le suivi, partagé avec les tests figés), `reuse` (vidéo déjà faite, sautée d'après son `params.json`, #70), `consent` (question avant de traiter les vidéos
   valides quand des entrées sont refusées, `--skip-refused`), `language`, `listing` (pistes de `params.json` : temps, couleur, extraits écrits, #66),
@@ -157,7 +164,8 @@ crates depuis #100, dépendances à sens unique :
   sortie, toutes les entrées fautives refusées ensemble avant tout calcul, #55), `progress` (étapes
   d'une vidéo annoncées par `process`, #63), `failure` (cause d'un échec, sans texte, #64), `tally` (modèle du bilan de fin de soirée, #65), dans le binaire `status` (vidéo et étape en
   cours sur la sortie d'erreur, redessinée sur un terminal, #63), `board` (mise en forme du bilan, #65), `notify` (sous macOS dans un terminal, notification par
-  `osascript` et dossiers ouverts par `open` après le bilan, seuls sous-processus du binaire, #69), `style` (couleurs et nom de l'option d'aide, #56) et `parsing` (lecture
+  `osascript` et page de résultats ouverte par `open` après le bilan, seuls sous-processus du binaire, #69, #71), `sheet`
+  (libellés de la page par Fluent, #71), `style` (couleurs et nom de l'option d'aide, #56) et `parsing` (lecture
   des valeurs d'options, erreur typée avec l'option et sa plage, #55) ; usages courants en tête de l'aide et sans argument (#56), version gravée par
   `build.rs` ; textes en Fluent dans `locales/{fr,en}.ftl`, langue de l'aide, des erreurs,
   des lignes et du bandeau (#114).

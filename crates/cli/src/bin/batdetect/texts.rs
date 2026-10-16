@@ -8,7 +8,7 @@ use batdetect::outcome::Rank;
 use batdetect::process::Wording;
 use batdetect::progress::Step;
 use engine::settings::Bound;
-use files::names::{Names, Part, RESULTS_FOLDER, params_json, period_suffix};
+use files::names::{Names, Part, RESULTS_FOLDER, params_json, period_suffix, results_page};
 use files::table::{Column, Headings};
 use fluent_bundle::concurrent::FluentBundle;
 use fluent_bundle::{FluentArgs, FluentError, FluentResource, FluentValue};
@@ -279,6 +279,14 @@ pub(crate) enum Message {
     TallyKeptHeading {
         count: usize,
     },
+    TallyUnwrittenHeading {
+        count: usize,
+    },
+    TallyUnwritten {
+        path: String,
+        taken: bool,
+        detail: String,
+    },
     TallyKept {
         video: String,
         table: String,
@@ -311,6 +319,9 @@ pub(crate) enum Message {
     FilesLong {
         period: String,
         part: String,
+    },
+    FilesPage {
+        page: String,
     },
     SummaryPart {
         number: usize,
@@ -458,6 +469,8 @@ impl Message {
             Self::TallyTooMany { .. } => "tally-too-many",
             Self::TallyFailedHeading { .. } => "tally-failed-heading",
             Self::TallyKeptHeading { .. } => "tally-kept-heading",
+            Self::TallyUnwrittenHeading { .. } => "tally-unwritten-heading",
+            Self::TallyUnwritten { .. } => "tally-unwritten",
             Self::TallyKept { .. } => "tally-kept",
             Self::TallySetAsideHeading { .. } => "tally-set-aside-heading",
             Self::TallySetAside { .. } => "tally-set-aside",
@@ -467,6 +480,7 @@ impl Message {
             Self::UseFolder { .. } => "use-folder",
             Self::FilesHeading { .. } => "files-heading",
             Self::FilesLong { .. } => "files-long",
+            Self::FilesPage { .. } => "files-page",
             Self::SummaryPart { .. } => "summary-part",
             Self::SummaryTracks { .. } => "summary-tracks",
             Self::SummaryNotAnalysed { .. } => "summary-not-analysed",
@@ -588,6 +602,7 @@ impl Message {
             | Self::TallyFailedCount { count }
             | Self::TallyTooManyCell { count }
             | Self::TallyKeptHeading { count }
+            | Self::TallyUnwrittenHeading { count }
             | Self::TallySetAsideHeading { count }
             | Self::TallyRegions { count } => arguments.set("count", *count),
             Self::TallyTooMany { video, count, limit } => {
@@ -621,6 +636,12 @@ impl Message {
             Self::FilesLong { period, part } => {
                 arguments.set("period", period.as_str());
                 arguments.set("part", part.as_str());
+            }
+            Self::FilesPage { page } => arguments.set("page", page.as_str()),
+            Self::TallyUnwritten { path, taken, detail } => {
+                arguments.set("path", path.as_str());
+                arguments.set("taken", if *taken { YES } else { NO });
+                arguments.set("detail", detail.as_str());
             }
             other => other.command_line_arguments(arguments),
         }
@@ -735,6 +756,8 @@ impl Message {
             | Self::TallyTooMany { .. }
             | Self::TallyFailedHeading { .. }
             | Self::TallyKeptHeading { .. }
+            | Self::TallyUnwrittenHeading { .. }
+            | Self::TallyUnwritten { .. }
             | Self::TallyKept { .. }
             | Self::TallySetAsideHeading { .. }
             | Self::TallySetAside { .. }
@@ -744,6 +767,7 @@ impl Message {
             | Self::UseFolder { .. }
             | Self::FilesHeading { .. }
             | Self::FilesLong { .. }
+            | Self::FilesPage { .. }
             | Self::SummaryPart { .. }
             | Self::SummaryTracks { .. }
             | Self::SummaryNotAnalysed { .. }
@@ -883,18 +907,37 @@ impl Texts {
             .iter()
             .map(|(name, meaning)| format!("\n  {placeholder}{name}{placeholder:#}\n      {}", self.text(*meaning)))
             .collect();
+        let page = format!("{RESULTS_FOLDER}/{}", results_page(self.language));
         format!(
-            "{header}{}{header:#}{}\n\n{}\n\n{} {GUIDE}",
+            "{header}{}{header:#}{}\n\n{}\n\n{}\n\n{} {GUIDE}",
             self.say(&Message::FilesHeading {
                 folder: RESULTS_FOLDER.to_owned(),
             }),
             lines.concat(),
+            self.say(&Message::FilesPage {
+                page: format!("{placeholder}{page}{placeholder:#}"),
+            }),
             self.say(&Message::FilesLong {
                 period: period_suffix(EXAMPLE_PERIOD),
                 part: names.part_suffix(EXAMPLE_PART),
             }),
             self.text(Fixed::Guide)
         )
+    }
+
+    pub(crate) fn said(self, id: &'static str, arguments: &FluentArgs<'_>) -> String {
+        match resolved_id(self.language, id, arguments) {
+            Ok(text) | Err(Unresolved::Format { text, .. }) => text,
+            Err(Unresolved::Missing(id)) => id.to_owned(),
+        }
+    }
+
+    pub(crate) fn fixed(self, value: f64, places: usize) -> String {
+        self.grouped(format!("{value:.places$}"))
+    }
+
+    pub(crate) fn decimal(self, written: &str) -> String {
+        self.grouped(written)
     }
 
     pub(crate) fn text(self, fixed: Fixed) -> String {
@@ -990,15 +1033,22 @@ pub(crate) enum Unresolved {
 }
 
 pub(crate) fn resolved(language: Language, message: &Message) -> Result<String, Unresolved> {
+    resolved_id(language, message.id(), &message.arguments())
+}
+
+pub(crate) fn resolved_id(
+    language: Language,
+    id: &'static str,
+    arguments: &FluentArgs<'_>,
+) -> Result<String, Unresolved> {
     let bundle = bundle(language);
-    let id = message.id();
     let pattern = bundle
         .get_message(id)
         .and_then(|found| found.value())
         .ok_or(Unresolved::Missing(id))?;
     let mut errors = Vec::new();
     let text = bundle
-        .format_pattern(pattern, Some(&message.arguments()), &mut errors)
+        .format_pattern(pattern, Some(arguments), &mut errors)
         .into_owned();
     if errors.is_empty() {
         Ok(text)

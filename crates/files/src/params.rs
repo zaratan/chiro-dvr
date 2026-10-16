@@ -48,7 +48,7 @@ pub struct Params<'a, S> {
     pub tracks: Vec<TrackEntry>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TrackEntry {
     pub id: usize,
     pub start_s: f64,

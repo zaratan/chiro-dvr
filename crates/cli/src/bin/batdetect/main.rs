@@ -5,23 +5,29 @@ mod messages;
 mod notify;
 mod numbers;
 mod parsing;
+mod sheet;
 mod status;
 mod style;
 mod texts;
 
 use std::env;
 use std::io::{self, IsTerminal};
+use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
 use std::sync::Arc;
 
 use batdetect::consent::{Asking, Choice};
 use batdetect::jobs::{self, Job, Refused, plan};
 use batdetect::language::system_language;
+use batdetect::ledger::Ledger;
 use batdetect::outcome::{self, Ran, run_all};
-use batdetect::process::{Versions, Wording, process};
+use batdetect::process::Wording as _;
+use batdetect::process::{Versions, process};
 use batdetect::reuse::{self, Run};
 use batdetect::tally::Tally;
 use batdetect::writable::unwritable_folders;
+use batdetect::written::{self, Wording};
+use jiff::Timestamp;
 use media::decode::Threads;
 
 use crate::arguments::Request;
@@ -56,7 +62,9 @@ fn main() -> ExitCode {
     }
     let status = Arc::new(Status::new(texts, io::stderr().is_terminal(), jobs.len()).redoing_all(request.force));
     let watched = Arc::clone(&status);
+    let stopped = jobs.clone();
     let watching = ctrlc::set_handler(move || {
+        settle(&stopped, watched.texts());
         let mut err = io::stderr().lock();
         match watched.interrupted(&mut err) {
             Ok(()) | Err(_) => process::exit(INTERRUPTED),
@@ -108,6 +116,16 @@ fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, request: &Request) 
         program: messages::version(),
         ffmpeg: &ffmpeg,
     };
+    let wording = Wording {
+        labels: &texts,
+        headings: &texts,
+        language: texts.language(),
+    };
+    let mut unwritten: Vec<files::error::Error> = written::roots(jobs)
+        .iter()
+        .filter_map(|root| written::write_page(root, jobs, 0, wording).err())
+        .collect();
+    let mut ledger = Ledger::default();
     let rows = run_all(
         jobs,
         |job, rank| {
@@ -125,25 +143,51 @@ fn run(jobs: &[Job], skipped: Vec<Refused>, status: &Status, request: &Request) 
             process(job, &texts, &video, Threads::Automatic, versions, options).map(Ran::Processed)
         },
         |job, rank, result| {
+            unwritten.extend(ledger.note(job, result.as_ref().err(), options, Timestamp::now()));
+            unwritten.extend(written::write_page(&written::root_of(job), jobs, rank.position, wording).err());
             let video = Video { status, rank, job };
             video.tell(&mut io::stderr().lock(), result, options)
         },
     );
     let Ok(rows) = rows else {
+        settle(jobs, texts);
         return ExitCode::FAILURE;
     };
-    let tally = Tally { rows, refused: skipped };
+    let tally = Tally {
+        rows,
+        refused: skipped,
+        unwritten,
+    };
     let written = board::write(&mut io::stdout().lock(), &tally, options, texts);
     if cfg!(target_os = "macos")
         && !request.no_notify
         && io::stdout().is_terminal()
         && let Some(path) = env::var_os("PATH")
     {
-        let calls = notify::calls(&board::title(&tally, texts), &tally.roots());
+        let pages: Vec<PathBuf> = tally
+            .roots()
+            .iter()
+            .filter_map(|root| written::page_to_open(root, texts.language()))
+            .collect();
+        let pages: Vec<&Path> = pages.iter().map(PathBuf::as_path).collect();
+        let calls = notify::calls(&board::title(&tally, texts), &pages);
         notify::run(&calls, &path);
     }
     match written {
         Ok(()) if tally.all_done() => ExitCode::SUCCESS,
         _ => ExitCode::FAILURE,
+    }
+}
+
+fn settle(jobs: &[Job], texts: Texts) {
+    let wording = Wording {
+        labels: &texts,
+        headings: &texts,
+        language: texts.language(),
+    };
+    for root in written::roots(jobs) {
+        match written::write_page(&root, jobs, jobs.len(), wording) {
+            Ok(()) | Err(_) => {}
+        }
     }
 }

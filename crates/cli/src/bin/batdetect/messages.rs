@@ -2,10 +2,10 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use batdetect::access::Access;
-use batdetect::failure::{self, Cause};
+use batdetect::failure::{self, Cause, INTERNAL, REFERS_TO_DETAIL, TOO_MANY_TRACKS};
 use batdetect::jobs::{self, Job, Reason, Refused};
 use batdetect::options::Options;
-use batdetect::outcome::{Failure, Panic, Rank};
+use batdetect::outcome::{Failure, Rank};
 use batdetect::process;
 use batdetect::progress::Step;
 use batdetect::writable::Unwritable;
@@ -17,14 +17,6 @@ use crate::texts::{Fixed, Message, Shown, Texts};
 
 #[cfg(test)]
 mod tests;
-
-const CAUSE_SEPARATOR: &str = ": ";
-const TOO_MANY_TRACKS: &str = "too-many-tracks";
-const INTERNAL: &str = "internal";
-const UNSUPPORTED: &str = "unsupported";
-const ENCODING: &str = "encoding";
-const UNEXPECTED: &str = "unexpected";
-const REFERS_TO_DETAIL: [&str; 4] = [UNSUPPORTED, ENCODING, UNEXPECTED, INTERNAL];
 
 pub(crate) fn detection_refused(error: &settings::Error) -> Message {
     match *error {
@@ -259,7 +251,7 @@ pub(crate) fn failure_reason(video: String, job: &Job, failure: &Failure, option
                     todo(TOO_MANY_TRACKS, job),
                 ];
             }
-            cause => (named(&cause), place_of(cause, job)),
+            cause => (cause.key(), place_of(cause, job)),
         },
         Failure::Panic(_) => (INTERNAL, job.dest.clone()),
     };
@@ -279,7 +271,7 @@ fn failure_detail(failure: &Failure, options: &Options) -> Option<String> {
             Cause::TooManyTracks { .. } => None,
             _ => Some(causes(error)),
         },
-        Failure::Panic(panic) => Some(panicked(panic)),
+        Failure::Panic(panic) => Some(panic.detail()),
     }
 }
 
@@ -308,38 +300,6 @@ fn todo(cause: &'static str, job: &Job) -> Message {
     }
 }
 
-fn panicked(panic: &Panic) -> String {
-    match &panic.location {
-        Some(location) => format!("{} ({location})", panic.message),
-        None => panic.message.clone(),
-    }
-}
-
-fn named(cause: &Cause) -> &'static str {
-    match cause {
-        Cause::Missing => "missing",
-        Cause::ReadRefused => "read-refused",
-        Cause::NotAVideo => "not-a-video",
-        Cause::UnusableName => "unusable-name",
-        Cause::Damaged => "damaged",
-        Cause::Unsupported => UNSUPPORTED,
-        Cause::Settings => "settings",
-        Cause::DiskFull => "disk-full",
-        Cause::Forbidden => "forbidden",
-        Cause::InUse { .. } => "in-use",
-        Cause::Encoding => ENCODING,
-        Cause::TooManyTracks { .. } => TOO_MANY_TRACKS,
-        Cause::Unexpected => UNEXPECTED,
-    }
-}
-
 pub(crate) fn causes(error: &dyn Error) -> String {
-    let mut text = error.to_string();
-    let mut source = error.source();
-    while let Some(cause) = source {
-        text.push_str(CAUSE_SEPARATOR);
-        text.push_str(&cause.to_string());
-        source = cause.source();
-    }
-    text
+    failure::chain(error)
 }

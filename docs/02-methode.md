@@ -354,7 +354,7 @@ dans le dossier de la vidéo, `params.json` d'abord, puis les sorties des deux l
 où la commande était lancée, restent où elles sont.
 
 Garde-fou : au-delà de `max_tracks` pistes (300 par défaut, 0 désactive), les extraits
-et la vidéo annotée ne sont pas produits, et la vidéo compte en échec. Le CSV,
+et la vidéo annotée ne sont pas produits, et la vidéo est comptée à part au bilan. Le CSV,
 `params.json` (avec le seuil, dans `RenderConfig`, et `"state": "too_many_tracks"`) et l'image
 résumé restent écrits. 300 est au-dessus de la vidéo la plus chargée sans explosion (148
 pistes, 097) et en dessous de la plus petite explosion connue (374 pistes, seuil 12 sans

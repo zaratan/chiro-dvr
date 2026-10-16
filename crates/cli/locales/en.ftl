@@ -175,6 +175,10 @@ tally-kept = { $video }: { $table } does not have the form of a tracks table{ $w
         [no] ; the new table is not written
        *[yes] {""}
     }
+tally-unwritten-heading = { $count ->
+        [one] File not written, the results page may be incomplete:
+       *[other] Files not written, the results page may be incomplete:
+    }
 tally-set-aside-heading = { $count ->
         [one] Table set aside:
        *[other] Tables set aside:
@@ -183,6 +187,10 @@ tally-set-aside = { $video }: { $table } { $reason ->
         [verdicts] holds verdicts
        *[unknown] does not have the form of a tracks table
     }, set aside as { $dated }
+tally-unwritten = { $taken ->
+        [yes] { $path } already exists and is not a batdetect page: rename or move it to get the page
+       *[no] { $path }: { $detail }
+    }
 tally-changed = Changed settings: { $settings }
 tally-regions = { $count ->
         [one] { $count } region
@@ -212,6 +220,7 @@ file-clip = The clip of every track, named by its number and its start
 file-zoom = The same, slowed and magnified, for small or faint tracks
 file-annotated = The whole video with the tracks drawn, with --annotated
 file-params = The settings and the outcome, written last: without it, the video is redone on the next run
+files-page = The results page, to open in a browser, sits beside the folders of the videos: { $page }
 files-long =
     A long or crowded video has several summary images, per 10 min slice ({ $period })
     or per part ({ $part }).
@@ -226,7 +235,7 @@ skip-refused-question = Process { $count ->
     } anyway? (Y/n)
 skip-refused-declined = no video is processed
 skip-refused-help = Processes the valid videos without asking when some inputs are refused
-no-notify-help = Neither notifies the end of the batch nor opens the result folders in the Finder (macOS)
+no-notify-help = Neither notifies the end of the batch nor opens the results page (macOS)
 force-help = Redoes every video, even those already done with the same settings
 tally-refused-count = { $count ->
         [one] { $count } input refused
@@ -253,3 +262,72 @@ table-max-area = max area (px)
 table-amplitude = amplitude (grey levels)
 table-filled-frames = filled frames
 table-start-seconds = start (s)
+page-heading = batdetect results
+page-folder = Folder { $name }
+page-videos = { $count ->
+        [one] { $count } video
+       *[other] { $count } videos
+    }
+page-unfinished-count = { $count } unfinished
+page-waiting-count = { $count } waiting
+page-reminder = A track is what the tool found; whether it is a bat is for you to say, by eye, on the clip.
+page-expand = Expand all
+page-collapse = Collapse all
+page-date = { $day } { $month ->
+        [1] January
+        [2] February
+        [3] March
+        [4] April
+        [5] May
+        [6] June
+        [7] July
+        [8] August
+        [9] September
+        [10] October
+        [11] November
+       *[12] December
+    } { $year }, { $hour }:{ $minute }
+page-computed = computed on { $date }
+page-tried = tried on { $date }
+page-not-analysed = { $duration } not analysed
+page-unfinished-badge = unfinished
+page-too-many-badge = too many tracks
+page-older-badge = older version
+page-older = computed by an older version of the tool; running the same command again redoes it
+page-waiting-badge = waiting
+page-unfinished = the run stopped before the end of this video; running the same command again redoes it
+page-waiting = not processed yet by the current run
+page-previous-results = results of the earlier run
+page-summary-alt = Summary image of { $video }: { $tracks ->
+        [one] { $tracks } track
+       *[other] { $tracks } tracks
+    }, each path numbered and coloured as in the table. Open at full size (new tab)
+page-part-alt = Summary image of { $video }, part { $part } of { $parts }: tracks { $first } to { $last }, each path numbered and coloured as in the table. Open at full size (new tab)
+page-part = Part
+page-parts = Parts of the summary image of { $video }
+page-part-tab = Part { $part } of { $parts }, tracks { $first } to { $last }
+page-column-track = Track
+page-column-start = Start
+page-column-length = Length
+page-column-verdict = Verdict
+page-column-watch = Watch
+page-table-caption = Tracks of { $video }
+page-no-verdict = to note
+page-clip = Clip
+page-zoom = Zoom
+page-play-clip = Play the clip of track { $track }
+page-play-zoom = Play the slowed zoom of track { $track }
+page-show-track = Show track { $track } on the summary image
+page-playing = Track { $track } of { $total } · start { $start } · { $zoom ->
+        [yes] slowed zoom
+       *[no] clip
+    }
+page-unreadable = unreadable clip
+page-back = Back to the summary image
+page-previous = Previous
+page-next = Next
+page-previous-clip = Clip of the previous track
+page-next-clip = Clip of the next track
+page-player = Clip player for { $video }
+page-table-link = Tracks table, for a spreadsheet
+page-annotated-link = Whole video with the tracks drawn

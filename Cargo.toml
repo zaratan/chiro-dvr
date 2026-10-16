@@ -35,6 +35,7 @@ compare = { path = "crates/compare" }
 engine = { path = "crates/engine" }
 files = { path = "crates/files" }
 media = { path = "crates/media" }
+page = { path = "crates/page" }
 reference = { path = "crates/reference" }
 render = { path = "crates/render" }
 summary = { path = "crates/summary" }

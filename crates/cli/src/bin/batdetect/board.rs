@@ -41,6 +41,7 @@ pub(crate) fn write(out: &mut impl Write, tally: &Tally, options: &Options, text
     refused(out, tally, texts)?;
     set_aside(out, tally, texts)?;
     left(out, tally, texts)?;
+    unwritten(out, tally, texts)?;
     let changed = options.changed();
     if !changed.is_empty() {
         let settings: Vec<String> = changed.iter().map(|change| setting(*change, texts)).collect();
@@ -273,6 +274,26 @@ fn left(out: &mut impl Write, tally: &Tally, texts: Texts) -> io::Result<()> {
             video: name(row),
             table: file_name(path),
             written: !ours,
+        };
+        writeln!(out, "{INDENT}{}", texts.say(&message))?;
+    }
+    Ok(())
+}
+
+fn unwritten(out: &mut impl Write, tally: &Tally, texts: Texts) -> io::Result<()> {
+    if tally.unwritten.is_empty() {
+        return Ok(());
+    }
+    writeln!(out)?;
+    let heading = Message::TallyUnwrittenHeading {
+        count: tally.unwritten.len(),
+    };
+    writeln!(out, "{}", texts.say(&heading))?;
+    for error in &tally.unwritten {
+        let message = Message::TallyUnwritten {
+            path: error.path().display().to_string(),
+            taken: matches!(error, files::error::Error::Taken { .. }),
+            detail: messages::causes(error),
         };
         writeln!(out, "{INDENT}{}", texts.say(&message))?;
     }

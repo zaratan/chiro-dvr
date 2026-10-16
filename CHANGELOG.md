@@ -12,8 +12,13 @@ le workflow de release échouera sans elle.
 - Toutes les entrées sont contrôlées avant le calcul, les refusées listées ensemble ;
   `--skip-refused` traite les vidéos valides sans poser la question (#55).
 - Une ligne par étape pendant le calcul, et un bilan de la soirée à la fin (#63, #65).
-- Sous macOS, dans un terminal : notification de fin de lot et dossiers de résultats ouverts dans
-  le Finder ; `--no-notify` les éteint (#69).
+- Sous macOS, dans un terminal : notification de fin de lot et page des résultats ouverte dans le
+  navigateur ; `--no-notify` les éteint (#69, #71).
+- Une page `resultats.html` (`results.html` en anglais) à la racine de chaque dossier de
+  résultats, réécrite à chaque fin de vidéo : total, une section par vidéo, soirées précédentes
+  comprises, image résumé, liste des pistes avec leur verdict et leurs extraits lus dans la
+  page, vidéos en échec avec leur raison. Hors ligne, sans rien écrire ; une page du même nom
+  qui n'est pas la nôtre n'est jamais remplacée (#71).
 - Relancer la même commande saute les vidéos déjà faites avec la même version, la même langue et
   les mêmes réglages, sans toucher à leur dossier ; le bilan les compte « déjà faites ».
   `--force` refait tout (#70).
