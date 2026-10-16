@@ -49,7 +49,9 @@ de comportement du code met à jour ce document-là, dans la même série de cha
 | Carte courte des crates, règles des agents | [CLAUDE.md](../CLAUDE.md) | — |
 | Temps de calcul actuels | [09](09-profilage.md) | les autres citent ses chiffres |
 | Questions ouvertes | [06](06-questions-ouvertes.md) | — |
-| Utilisation, fichiers produits | [README](../README.md) et [lire-les-resultats](lire-les-resultats.md) | — |
+| Utilisation | [README](../README.md) | les détails dans premiere-soiree et lire-les-resultats |
+| Fichiers produits | [lire-les-resultats](lire-les-resultats.md#où-sont-les-résultats) | `params.json` et le ménage des sorties, pour le développeur, dans [02](02-methode.md#sorties) |
+| Construire, vérifier, publier une version | [CONTRIBUTING](../CONTRIBUTING.md) | le détail de la CI et de la distribution dans [05](05-outillage.md) |
 | Provenance et fabrication des images des docs | [images/README](images/README.md) et [tools/docs-images.sh](../tools/docs-images.sh) | les docs pour la naturaliste n'en disent rien |
 | Parcours d'une soirée, des jumelles aux résultats, pour qui n'a jamais lancé l'outil | [premiere-soiree](premiere-soiree.md) | le README y renvoie |
 | Lecture de l'image résumé : bandeau, trait, flèche, pastille, zone masquée, frise du temps, couleurs | [lire-les-resultats](lire-les-resultats.md#lire-limage-résumé) | le README y renvoie |

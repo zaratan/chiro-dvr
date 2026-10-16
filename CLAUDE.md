@@ -1,9 +1,9 @@
 # batdetect — guide pour Claude
 
 Détection et suivi de chauves-souris dans des vidéos de jumelles thermiques. Rust, FFmpeg
-lié en statique. Installation et commandes : [README.md](README.md). Base de
-connaissances : [docs/](docs/README.md), à lire avant de toucher à un réglage
-([docs/02-methode.md](docs/02-methode.md)).
+lié en statique. Mode d'emploi : [README.md](README.md) ; construire, vérifier, publier :
+[CONTRIBUTING.md](CONTRIBUTING.md). Base de connaissances : [docs/](docs/README.md), à lire
+avant de toucher à un réglage ([docs/02-methode.md](docs/02-methode.md)).
 
 ```bash
 mise run check                    # rust:static et rust:test, 20 s à 1 min : vert avant de rendre la main
@@ -62,8 +62,8 @@ qu'un gros fichier à plusieurs rôles.
 
 - Code et identifiants en anglais, docs en français. Une valeur magique devient une constante
   nommée.
-- Les docs pour la naturaliste (`docs/premiere-soiree.md`, `docs/lire-les-resultats.md`, le README
-  côté utilisation) ne contiennent rien de technique : ni commande de reproduction, ni `<details>`,
+- Les docs pour la naturaliste (`docs/premiere-soiree.md`, `docs/lire-les-resultats.md`, le
+  README) ne contiennent rien de technique : ni commande de reproduction, ni `<details>`,
   ni script, ni nom de crate ou de fichier source ; les captures se refont par
   `tools/docs-images.sh` ([docs/images/README.md](docs/images/README.md)).
 - Tests sans commentaire, le nom du test porte le pourquoi. Pas de mock de FFmpeg, ni de couture
