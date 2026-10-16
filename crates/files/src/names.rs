@@ -10,6 +10,7 @@ use unicode_normalization::UnicodeNormalization;
 mod tests;
 
 const PARAMS: &str = "params.json";
+const HIDDEN_FOLDER: &str = ".batdetect";
 const FRENCH_PAGE: &str = "resultats.html";
 const ENGLISH_PAGE: &str = "results.html";
 pub const RESULTS_FOLDER: &str = "batdetect";
@@ -237,6 +238,10 @@ pub const fn results_page(language: Language) -> &'static str {
 
 pub fn params_json(dest: &Path) -> PathBuf {
     dest.join(PARAMS)
+}
+
+pub(crate) fn hidden_dir(root: &Path) -> PathBuf {
+    root.join(HIDDEN_FOLDER)
 }
 
 fn suffixed(stem: &OsStr, suffix: &str) -> OsString {

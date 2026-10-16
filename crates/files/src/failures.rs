@@ -7,12 +7,11 @@ use serde::{Deserialize, Serialize};
 use tempfile::TempPath;
 
 use crate::error::Error;
-use crate::names::partial_path;
+use crate::names::{hidden_dir, partial_path};
 
 #[cfg(test)]
 mod tests;
 
-const HIDDEN_FOLDER: &str = ".batdetect";
 const FAILURES_FOLDER: &str = "echecs";
 const EXTENSION: &str = "json";
 
@@ -26,7 +25,7 @@ pub struct FailureRecord {
 }
 
 pub fn failures_dir(root: &Path) -> PathBuf {
-    root.join(HIDDEN_FOLDER).join(FAILURES_FOLDER)
+    hidden_dir(root).join(FAILURES_FOLDER)
 }
 
 fn record_path(root: &Path, folder: &OsStr) -> PathBuf {

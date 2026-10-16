@@ -136,3 +136,21 @@ fn a_page_of_someone_else_in_the_way_of_two_videos_is_named_once_at_the_end() {
     assert_eq!(fs::read_to_string(&page).unwrap(), "<html>mes notes</html>");
     assert!(results.join("vol").is_dir() && results.join("autre").is_dir());
 }
+
+#[test]
+fn an_input_refused_at_the_start_shows_on_the_page_until_a_launch_without_refusal() {
+    let (_root, night) = evening("nuit", &["vol.mp4"]);
+    let video = night.join("vol.mp4");
+    let missing = night.join("absente.mp4");
+    let page = night.join("batdetect/resultats.html");
+    run(&[&video, &missing, Path::new("--skip-refused")], "fr_FR.UTF-8");
+    let html = fs::read_to_string(&page).unwrap();
+    assert!(html.contains(r#"<section class="video failed refused" id="refused""#));
+    let shown = missing.display().to_string().replace('/', "/<wbr>");
+    assert!(html.contains(&format!("{shown}\u{a0}: introuvable")));
+    assert!(html.contains("à faire\u{a0}: vérifier le chemin"));
+    assert!(html.contains(r##"<a class="count bad" href="#refused">1 entrée refusée</a>"##));
+    assert!(run(&[&video], "fr_FR.UTF-8").status.success());
+    let html = fs::read_to_string(&page).unwrap();
+    assert!(!html.contains(r#"id="refused""#));
+}

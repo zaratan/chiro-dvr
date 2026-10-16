@@ -11,6 +11,7 @@ release échoue sans elle.
 - Chaque entrée refusée au départ, et chaque dossier de résultats où l'on ne peut pas écrire,
   est suivi d'une ligne « à faire », comme une vidéo en échec (#239, #82).
 - Une ligne annonce la soirée avant la première vidéo : nombre de vidéos, durée totale, et combien sont déjà faites (#62).
+- La page de résultats montre les entrées refusées au départ du dernier lancement, avant les vidéos, avec la raison et ce qu'il faut faire, comme le bilan (#267).
 
 ### Modifié
 

@@ -67,7 +67,8 @@ encore après avoir copié tout le dossier `batdetect/` sur une clé ou sur un a
 Ce qu'elle montre, de haut en bas :
 
 - le total de la soirée : les vidéos, celles réussies, et le nombre de pistes ; quand il y en a,
-  celles qui ont trop de pistes, celles en échec, les inachevées et celles en attente ;
+  celles qui ont trop de pistes, celles en échec, les entrées refusées, les inachevées et celles en attente ;
+- quand il y en a eu au dernier lancement, les entrées refusées au départ, avant les vidéos : chaque vidéo, dossier ou fichier écarté avant le calcul, avec la raison et ce qu'il faut faire, les mêmes lignes que dans le bilan. Rien n'a été fait pour elles : les corriger comme indiqué, puis relancer batdetect. Le lancement suivant remplace ces lignes par les siennes, ou les retire s'il n'a rien refusé ;
 - une section par vidéo, dans l'ordre alphabétique des noms de leurs dossiers (majuscules
   d'abord), avec la date du calcul. Les soirées
   précédentes rangées dans le même dossier y sont aussi. Les vidéos du dernier calcul sont

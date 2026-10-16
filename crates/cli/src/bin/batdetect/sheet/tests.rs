@@ -1,7 +1,14 @@
+use std::path::PathBuf;
+
+use batdetect::access::Access;
+use batdetect::failure::Cause;
+use batdetect::jobs::{Reason, Refused};
+use files::refusals::RefusedInput;
 use page::labels::{Label, Labels};
 use page::model::Date;
 use types::language::Language;
 
+use crate::messages::refused_lines;
 use crate::texts::Texts;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
@@ -14,7 +21,7 @@ const DATE: Date = Date {
 };
 
 pub(crate) fn samples() -> Vec<Label<'static>> {
-    vec![
+    let mut samples = vec![
         Label::Language,
         Label::Heading,
         Label::Folder("nuit-12-oct"),
@@ -105,6 +112,23 @@ pub(crate) fn samples() -> Vec<Label<'static>> {
         Label::AnnotatedLink,
         Label::Start(4.8),
         Label::Seconds(9.62),
+    ];
+    samples.extend(refusal_samples());
+    samples
+}
+
+fn refusal_samples() -> Vec<Label<'static>> {
+    vec![
+        Label::RefusedCount(2),
+        Label::RefusedHeading(2),
+        Label::RefusedWhen(DATE),
+        Label::RefusedConsequence(2),
+        Label::RefusedInput {
+            path: "/nuit/video_093.mp4",
+            reason: "missing",
+            cause: None,
+            videos: "",
+        },
     ]
 }
 
@@ -165,4 +189,80 @@ fn a_failure_reads_as_the_reason_and_advice_of_the_summary_without_its_indent() 
         folder: "",
     });
     assert!(todo.starts_with("à faire\u{a0}: s'il vient des jumelles"), "{todo}");
+}
+
+fn every_refusal() -> Vec<Refused> {
+    let accesses = [
+        Access::Refused,
+        Access::NotAFolder,
+        Access::Missing,
+        Access::ReadOnly,
+        Access::DiskFull,
+        Access::Unavailable,
+    ];
+    let causes = [
+        Cause::Missing,
+        Cause::ReadRefused,
+        Cause::NotAVideo,
+        Cause::UnusableName,
+        Cause::Damaged,
+        Cause::Unsupported,
+        Cause::Unexpected,
+    ];
+    let mut reasons = vec![
+        Reason::Missing,
+        Reason::NotAVideo,
+        Reason::NoVideo,
+        Reason::SharedFolder {
+            videos: vec![PathBuf::from("/nuit/v.mp4"), PathBuf::from("/nuit/V.mp4")],
+        },
+    ];
+    reasons.extend(accesses.map(Reason::Unreadable));
+    reasons.extend(causes.map(|cause| Reason::Unopened {
+        cause,
+        detail: "moov atom not found".to_owned(),
+    }));
+    reasons
+        .into_iter()
+        .map(|reason| Refused {
+            path: PathBuf::from("/nuit/video_093.mp4"),
+            reason,
+        })
+        .collect()
+}
+
+fn page_lines(texts: Texts, input: &RefusedInput) -> Vec<String> {
+    let videos = input.videos.join(", ");
+    let mut lines = vec![
+        texts.label(&Label::RefusedInput {
+            path: &input.path,
+            reason: &input.reason,
+            cause: input.cause.as_deref(),
+            videos: &videos,
+        }),
+        texts.label(&Label::Todo {
+            cause: &input.todo,
+            folder: &input.path,
+        }),
+    ];
+    lines.extend(
+        input
+            .detail
+            .as_deref()
+            .map(|detail| texts.label(&Label::Detail(detail))),
+    );
+    lines
+}
+
+#[test]
+fn a_refused_input_reads_on_the_page_as_in_the_terminal_in_both_languages() {
+    for language in LANGUAGES {
+        let texts = Texts::new(language);
+        for refusal in every_refusal() {
+            let terminal = refused_lines(texts, std::slice::from_ref(&refusal));
+            let input = batdetect::refusals::input(&refusal);
+            let terminal: Vec<&str> = terminal.iter().map(|line| line.trim_start()).collect();
+            assert_eq!(page_lines(texts, &input), terminal, "{language:?} {refusal:?}");
+        }
+    }
 }

@@ -2,6 +2,23 @@
 pub struct Page {
     pub title: String,
     pub entries: Vec<Entry>,
+    pub refused: Option<Refusals>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Refusals {
+    pub date: Option<Date>,
+    pub inputs: Vec<RefusedInput>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RefusedInput {
+    pub path: String,
+    pub reason: String,
+    pub cause: Option<String>,
+    pub todo: String,
+    pub videos: String,
+    pub detail: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
