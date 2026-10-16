@@ -114,9 +114,9 @@ jamais d'accent.
 Une fois la détection finie, chaque calcul (pas une vidéo sautée parce que déjà faite) efface,
 dans le dossier de la vidéo, `params.json` d'abord, puis les sorties des deux langues et celles des versions précédentes (`split/`,
 `<nom>.tracks.*`, `<nom>_boxes.mp4`).
-La langue du dernier calcul fait foi. Un CSV qui n'a pas la forme d'un tableau des pistes, ou dont
-une case `verdict` est remplie, est laissé tel quel, et le bilan le dit ; le nouveau tableau n'est
-alors pas écrit.
+La langue du dernier calcul fait foi. Un tableau qui porte des verdicts, ou qui n'a plus la forme
+écrite par l'outil, est mis de côté tel quel sous un nom daté (`<nom>_pistes_2026-10-16_1430.csv`)
+avant que le nouveau tableau s'écrive, et le bilan le dit.
 
 - `<nom>_resume.png` : l'image résumé, toutes les trajectoires sur le fond médian de la
   vidéo. Au-delà de 10 min, une image par tranche de 10 min (`<nom>_resume_000m-010m.png`,
