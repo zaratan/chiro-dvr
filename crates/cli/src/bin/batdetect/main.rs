@@ -20,7 +20,7 @@ use std::env;
 use std::io::{self, IsTerminal, Write as _};
 use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use batdetect::eta::Evening;
 use batdetect::inventory::Stock;
@@ -32,7 +32,7 @@ use batdetect::process::Wording as _;
 use batdetect::process::{Versions, process};
 use batdetect::refusals::Refusals;
 use batdetect::tally::Tally;
-use batdetect::written::{self, Wording};
+use batdetect::written::{self, Run, Wording};
 use jiff::Timestamp;
 use media::decode::Threads;
 
@@ -73,11 +73,13 @@ fn main() -> ExitCode {
             .timed(Evening::new(stock.frames_to_compute())),
     );
     let watched = Arc::clone(&status);
+    let ledger = Arc::new(Mutex::new(Ledger::default()));
+    let kept = Arc::clone(&ledger);
     let stopped = jobs.clone();
     let launched = Timestamp::now();
     let refused = stock.refused.clone();
     let watching = ctrlc::set_handler(move || {
-        settle(&stopped, &refused, launched, watched.texts());
+        settle(&stopped, &refused, launched, watched.texts(), watched.position(), &kept);
         let mut err = io::stderr().lock();
         match watched.interrupted(&mut err) {
             Ok(()) | Err(_) => process::exit(INTERRUPTED),
@@ -89,10 +91,17 @@ fn main() -> ExitCode {
     if writeln!(io::stderr(), "{}", texts.say(&messages::announcement(&stock))).is_err() {
         return ExitCode::FAILURE;
     }
-    run(stock, &jobs, &status, &request, launched)
+    run(stock, &jobs, &status, &request, launched, &ledger)
 }
 
-fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request, launched: Timestamp) -> ExitCode {
+fn run(
+    stock: Stock,
+    jobs: &[Job],
+    status: &Status,
+    request: &Request,
+    launched: Timestamp,
+    ledger: &Mutex<Ledger>,
+) -> ExitCode {
     let texts = status.texts();
     let options = &request.options;
     let ffmpeg = media::library::version();
@@ -110,9 +119,8 @@ fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request, launched:
     unwritten.extend(
         roots
             .iter()
-            .filter_map(|root| written::write_page(root, jobs, 0, wording).err()),
+            .filter_map(|root| written::write_page(root, jobs, Run::Going { finished: 0 }, wording).err()),
     );
-    let mut ledger = Ledger::default();
     let rows = run_all(
         jobs,
         |job, rank| {
@@ -124,9 +132,14 @@ fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request, launched:
             process(job, &texts, &video, Threads::Automatic, versions, options).map(Ran::Processed)
         },
         |job, rank, result| {
-            unwritten.extend(ledger.note(job, result.as_ref().err(), options, Timestamp::now()));
+            if let Ok(mut ledger) = ledger.lock() {
+                unwritten.extend(ledger.note(job, result.as_ref().err(), options, Timestamp::now()));
+            }
             unwritten.extend(refusals.note());
-            unwritten.extend(written::write_page(&written::root_of(job), jobs, rank.position, wording).err());
+            let run = Run::Going {
+                finished: rank.position,
+            };
+            unwritten.extend(written::write_page(&written::root_of(job), jobs, run, wording).err());
             if matches!(result, Ok(Ran::Processed(_))) {
                 status.computed(rank);
             }
@@ -135,7 +148,7 @@ fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request, launched:
         },
     );
     let Ok(rows) = rows else {
-        settle(jobs, &stock.refused, launched, texts);
+        settle(jobs, &stock.refused, launched, texts, status.position(), ledger);
         return ExitCode::FAILURE;
     };
     let tally = Tally {
@@ -164,15 +177,28 @@ fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request, launched:
     }
 }
 
-fn settle(jobs: &[Job], refused: &[Refused], launched: Timestamp, texts: Texts) {
+fn settle(
+    jobs: &[Job],
+    refused: &[Refused],
+    launched: Timestamp,
+    texts: Texts,
+    reached: usize,
+    ledger: &Mutex<Ledger>,
+) {
     let wording = Wording {
         labels: &texts,
         language: texts.language(),
     };
+    match written::create_reached_root(jobs, reached) {
+        Ok(()) | Err(_) => {}
+    }
+    if let Ok(mut ledger) = ledger.lock() {
+        ledger.flush();
+    }
     let roots = written::roots(jobs);
     Refusals::new(roots.clone(), refused, launched).note();
     for root in roots {
-        match written::write_page(&root, jobs, jobs.len(), wording) {
+        match written::write_page(&root, jobs, Run::Stopped { reached }, wording) {
             Ok(()) | Err(_) => {}
         }
     }

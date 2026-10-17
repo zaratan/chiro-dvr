@@ -101,6 +101,10 @@ impl Status {
         }
     }
 
+    pub(crate) fn position(&self) -> usize {
+        self.position.load(Ordering::Relaxed)
+    }
+
     pub(crate) fn computed(&self, rank: Rank) {
         if let Ok(mut pace) = self.pace.lock() {
             let spent_s = pace.elapsed_s();
@@ -124,7 +128,7 @@ impl Status {
     pub(crate) fn interrupted(&self, out: &mut impl Write) -> io::Result<()> {
         self.clear(out)?;
         let rank = Rank {
-            position: self.position.load(Ordering::Relaxed),
+            position: self.position(),
             total: self.total,
         };
         let resumes = self.resumes;

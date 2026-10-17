@@ -30,6 +30,9 @@ fn evening() -> Page {
             Entry::Waiting {
                 name: "video_095".to_owned(),
             },
+            Entry::NotStarted {
+                name: "video_098".to_owned(),
+            },
         ],
     }
 }
@@ -52,10 +55,12 @@ fn a_page_written_by_someone_else_is_not_ours() {
 fn the_total_counts_each_state_and_every_track_and_links_to_the_first_video_of_each_problem() {
     let html = render(&evening(), &Named);
     for count in [
-        "Videos(6)",
+        "Videos(7)",
         "Done(1)",
         "UnfinishedCount(1)",
+        "OlderCount(1)",
         "WaitingCount(1)",
+        "NotStartedCount(1)",
         "Tracks(8)",
     ] {
         assert!(html.contains(count), "{count}");
@@ -74,6 +79,7 @@ fn the_entries_follow_the_order_given_with_their_anchors() {
         "id=\"v4\"",
         "id=\"v5\"",
         "id=\"v6\"",
+        "id=\"v7\"",
     ]
     .iter()
     .map(|anchor| html.find(anchor).unwrap())
@@ -87,6 +93,39 @@ fn a_video_done_by_an_older_version_says_so_rather_than_unfinished() {
     let (_, card) = html.split_once(">video_096</h2>").unwrap();
     assert!(card.starts_with("\n    <span class=\"badge\">OlderBadge</span>"));
     assert!(card.contains("OlderText"));
+}
+
+#[test]
+fn an_older_video_counts_in_the_total_and_is_named_apart() {
+    let mut entries: Vec<Entry> = ["video_092", "video_093", "video_094"]
+        .map(|name| Entry::Video(video(name)))
+        .into();
+    entries.push(Entry::Older {
+        name: "video_096".to_owned(),
+    });
+    let page = Page {
+        title: "nuit".to_owned(),
+        refused: None,
+        verdicts: None,
+        entries,
+    };
+    let html = render(&page, &Named);
+    let (_, tally) = html.split_once(r#"<p class="tally">"#).unwrap();
+    let (tally, _) = tally.split_once("</p>").unwrap();
+    let counts: Vec<&str> = tally
+        .split("</span>")
+        .filter_map(|part| part.rsplit_once('>').map(|(_, count)| count))
+        .filter(|count| !count.is_empty())
+        .collect();
+    assert_eq!(counts, ["Videos(4)", "Done(3)", "OlderCount(1)", "Tracks(12)"]);
+}
+
+#[test]
+fn a_video_the_stopped_run_never_reached_says_so_rather_than_waiting_or_unfinished() {
+    let html = render(&evening(), &Named);
+    let (_, card) = html.split_once(">video_098</h2>").unwrap();
+    assert!(card.starts_with("\n    <span class=\"badge\">NotStartedBadge</span>"));
+    assert!(card.contains("NotStartedText"));
 }
 
 #[test]

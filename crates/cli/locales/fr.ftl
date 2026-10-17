@@ -306,7 +306,12 @@ page-unfinished-count = { $count ->
         [one] { $count } inachevée
        *[other] { $count } inachevées
     }
+page-older-count = { $count } d'une ancienne version
 page-waiting-count = { $count } en attente
+page-not-started-count = { $count ->
+        [one] { $count } pas encore traitée
+       *[other] { $count } pas encore traitées
+    }
 page-reminder = Une piste est ce que l'outil a trouvé ; c'est à l'œil, sur l'extrait, que vous dites si c'est une chauve-souris.
 page-expand = Tout déplier
 page-collapse = Tout replier
@@ -343,6 +348,8 @@ page-older = calculée par une version plus ancienne de l'outil ; relancer la m
 page-waiting-badge = en attente
 page-unfinished = le calcul s'est arrêté avant la fin de cette vidéo ; relancer la même commande la refait
 page-waiting = pas encore traitée par le calcul en cours
+page-not-started-badge = pas encore traitée
+page-not-started = le calcul s'est arrêté avant cette vidéo ; relancer la même commande la traite
 page-previous-results = résultats du calcul précédent
 page-summary-alt = Image résumé de { $video } : { $tracks ->
         [one] { $tracks } piste

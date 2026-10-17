@@ -1,14 +1,16 @@
+#[cfg(unix)]
+const EXTRACT: &str = "video_092_original_3m24-4m05.mp4";
+
 #[cfg(test)]
 #[cfg(unix)]
-fn batdetect(out: &std::path::Path) -> std::process::Command {
+fn batdetect(out: &std::path::Path, videos: &[&str]) -> std::process::Command {
     use std::process::{Command, Stdio};
 
     use reference::fixture::fixture;
 
-    let video = fixture("video_092_original_3m24-4m05.mp4").unwrap();
     let mut command = Command::new(env!("CARGO_BIN_EXE_batdetect"));
     command
-        .arg(&video)
+        .args(videos.iter().map(|video| fixture(video).unwrap()))
         .arg("-o")
         .arg(out)
         .env_remove("LANGUAGE")
@@ -37,12 +39,12 @@ struct Watched {
 #[cfg(test)]
 #[cfg(unix)]
 impl Watched {
-    fn spawn(out: &std::path::Path) -> Self {
+    fn spawn(out: &std::path::Path, videos: &[&str]) -> Self {
         use std::io::{BufRead, BufReader};
         use std::sync::mpsc;
         use std::thread;
 
-        let mut child = batdetect(out).spawn().unwrap();
+        let mut child = batdetect(out, videos).spawn().unwrap();
         let mut errors = BufReader::new(child.stderr.take().unwrap());
         let (sender, lines) = mpsc::channel();
         thread::spawn(move || {
@@ -164,10 +166,10 @@ fn stack_of(pid: u32) -> String {
 
 #[cfg(test)]
 #[cfg(unix)]
-fn interrupted_at(step: &str, out: &std::path::Path) -> (std::process::ExitStatus, String) {
+fn interrupted_at(step: &str, out: &std::path::Path, videos: &[&str]) -> (std::process::ExitStatus, String) {
     use std::process::Command;
 
-    let mut watched = Watched::spawn(out);
+    let mut watched = Watched::spawn(out, videos);
     watched.until_line(&format!("— {step}\n"));
     let signal = Command::new("kill")
         .args(["-INT", &watched.child.id().to_string()])
@@ -182,7 +184,7 @@ fn interrupted_at(step: &str, out: &std::path::Path) -> (std::process::ExitStatu
 #[ignore = "slow"]
 fn ctrl_c_during_the_detection_names_the_video_reached_and_exits_with_130_then_the_same_command_resumes_the_lot() {
     let out = tempfile::tempdir().unwrap();
-    let (status, seen) = interrupted_at("détection", out.path());
+    let (status, seen) = interrupted_at("détection", out.path(), &[EXTRACT]);
     assert_eq!(status.code(), Some(130), "{seen}");
     assert!(
         seen.ends_with(
@@ -190,7 +192,7 @@ fn ctrl_c_during_the_detection_names_the_video_reached_and_exits_with_130_then_t
         ),
         "{seen}"
     );
-    let (again, said) = Watched::spawn(out.path()).finish();
+    let (again, said) = Watched::spawn(out.path(), &[EXTRACT]).finish();
     assert!(again.success(), "{said}");
     let folder = out.path().join("video_092_original_3m24-4m05");
     let mut files = vec![folder.clone()];
@@ -211,7 +213,7 @@ fn ctrl_c_during_the_detection_names_the_video_reached_and_exits_with_130_then_t
 #[ignore = "slow"]
 fn ctrl_c_during_the_clips_leaves_a_folder_without_params_json_that_reads_unfinished() {
     let out = tempfile::tempdir().unwrap();
-    let (status, seen) = interrupted_at("extraits", out.path());
+    let (status, seen) = interrupted_at("extraits", out.path(), &[EXTRACT]);
     assert_eq!(status.code(), Some(130), "{seen}");
     let folder = out.path().join("video_092_original_3m24-4m05");
     assert!(folder.join("video_092_original_3m24-4m05_pistes.csv").is_file());
@@ -219,4 +221,34 @@ fn ctrl_c_during_the_clips_leaves_a_folder_without_params_json_that_reads_unfini
     let page = std::fs::read_to_string(out.path().join("resultats.html")).unwrap();
     assert!(page.contains("inachevée"), "{page}");
     assert!(!page.contains("pas encore traitée"), "{page}");
+}
+
+#[cfg(unix)]
+#[test]
+#[ignore = "slow"]
+fn ctrl_c_in_the_detection_of_the_first_video_of_two_leaves_a_page_where_it_is_unfinished_and_the_second_not_processed_yet()
+ {
+    let videos = tempfile::tempdir().unwrap();
+    let out = videos.path().join("nuit");
+    let (status, seen) = interrupted_at(
+        "détection",
+        &out,
+        &[EXTRACT, "video_092_original_3m24-4m05_720x540.mp4"],
+    );
+    assert_eq!(status.code(), Some(130), "{seen}");
+    let page = std::fs::read_to_string(out.join("resultats.html")).unwrap();
+    let (_, cut) = page.split_once(">video_092_original_3m24-4m05</h2>").unwrap();
+    let (cut, _) = cut.split_once("</section>").unwrap();
+    assert!(
+        cut.contains(">inachevée<") && !cut.contains("pas encore traitée"),
+        "{page}"
+    );
+    let (_, later) = page.split_once(">video_092_original_3m24-4m05_720x540</h2>").unwrap();
+    assert!(
+        later
+            .trim_start()
+            .starts_with(r#"<span class="badge">pas encore traitée</span>"#),
+        "{page}"
+    );
+    assert!(page.contains(r#"<span class="count">2 vidéos</span>"#), "{page}");
 }

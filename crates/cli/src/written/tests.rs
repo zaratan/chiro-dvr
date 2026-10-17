@@ -9,7 +9,7 @@ use files::table::{Column, Headings};
 use page::labels::{Label, Labels};
 use types::language::Language;
 
-use super::{Wording, page_to_open, roots, write_page};
+use super::{Run, Wording, create_reached_root, page_to_open, roots, write_page};
 use crate::jobs::Job;
 
 #[derive(Debug)]
@@ -74,7 +74,13 @@ fn the_page_lists_the_finished_videos_and_opens_only_those_of_this_run() {
     let root = tempfile::tempdir().unwrap();
     finished(root.path(), "video_092", "done", 2);
     finished(root.path(), "video_093", "done", 1);
-    write_page(root.path(), &[job(root.path(), "video_093")], 1, FRENCH).unwrap();
+    write_page(
+        root.path(),
+        &[job(root.path(), "video_093")],
+        Run::Going { finished: 1 },
+        FRENCH,
+    )
+    .unwrap();
     let html = page(root.path());
     assert!(html.contains(r#"<details class="video" id="v1" data-video="video_092">"#));
     assert!(html.contains(r#"<details class="video" id="v2" data-video="video_093" open>"#));
@@ -86,11 +92,73 @@ fn the_page_lists_the_finished_videos_and_opens_only_those_of_this_run() {
 fn a_video_not_yet_processed_waits_and_shows_its_results_once_done() {
     let root = tempfile::tempdir().unwrap();
     let jobs = [job(root.path(), "video_092")];
-    write_page(root.path(), &jobs, 0, FRENCH).unwrap();
+    write_page(root.path(), &jobs, Run::Going { finished: 0 }, FRENCH).unwrap();
     assert!(page(root.path()).contains("WaitingBadge"));
     finished(root.path(), "video_092", "done", 2);
-    write_page(root.path(), &jobs, 1, FRENCH).unwrap();
+    write_page(root.path(), &jobs, Run::Going { finished: 1 }, FRENCH).unwrap();
     assert!(!page(root.path()).contains("WaitingBadge"));
+}
+
+#[test]
+fn a_stopped_run_shows_the_video_it_was_in_as_unfinished_and_the_later_ones_as_not_processed_yet() {
+    let root = tempfile::tempdir().unwrap();
+    finished(root.path(), "video_092", "done", 2);
+    let jobs = ["video_092", "video_093", "video_094"].map(|name| job(root.path(), name));
+    write_page(root.path(), &jobs, Run::Stopped { reached: 2 }, FRENCH).unwrap();
+    let html = page(root.path());
+    assert!(html.contains(r#"<details class="video" id="v1" data-video="video_092" open>"#));
+    let (_, cut) = html.split_once(">video_093</h2>").unwrap();
+    assert!(cut.starts_with("\n    <span class=\"badge\">UnfinishedBadge</span>"));
+    let (_, later) = html.split_once(">video_094</h2>").unwrap();
+    assert!(later.starts_with("\n    <span class=\"badge\">NotStartedBadge</span>"));
+    assert!(!html.contains("WaitingBadge"));
+    assert!(html.contains("Videos(3)") && html.contains("NotStartedCount(1)"));
+}
+
+#[test]
+fn the_video_a_stopped_run_was_in_keeps_the_failure_of_an_earlier_run() {
+    let root = tempfile::tempdir().unwrap();
+    let record = FailureRecord {
+        video: "video_093.mp4".to_owned(),
+        cause: "damaged".to_owned(),
+        place: "/nuit/batdetect/video_093".to_owned(),
+        detail: None,
+        date: "2026-10-16T08:19:00Z".to_owned(),
+    };
+    record_failure(root.path(), OsStr::new("video_093"), &record).unwrap();
+    let jobs = [job(root.path(), "video_093")];
+    write_page(root.path(), &jobs, Run::Stopped { reached: 1 }, FRENCH).unwrap();
+    let html = page(root.path());
+    assert!(html.contains(r#"<section class="video failed" id="v1""#));
+    assert!(!html.contains("UnfinishedBadge"));
+}
+
+#[test]
+fn a_stopped_run_counts_the_position_over_the_whole_lot_not_within_one_results_folder() {
+    let first = tempfile::tempdir().unwrap();
+    let second = tempfile::tempdir().unwrap();
+    let jobs = [
+        job(first.path(), "video_092"),
+        job(second.path(), "video_093"),
+        job(first.path(), "video_094"),
+    ];
+    finished(first.path(), "video_092", "done", 1);
+    write_page(first.path(), &jobs, Run::Stopped { reached: 2 }, FRENCH).unwrap();
+    let html = page(first.path());
+    let (_, later) = html.split_once(">video_094</h2>").unwrap();
+    assert!(later.starts_with("\n    <span class=\"badge\">NotStartedBadge</span>"));
+    assert!(!html.contains("UnfinishedBadge"));
+}
+
+#[test]
+fn a_later_video_keeps_the_results_of_an_earlier_run_when_the_run_stops_before_it() {
+    let root = tempfile::tempdir().unwrap();
+    finished(root.path(), "video_094", "done", 1);
+    let jobs = ["video_093", "video_094"].map(|name| job(root.path(), name));
+    write_page(root.path(), &jobs, Run::Stopped { reached: 1 }, FRENCH).unwrap();
+    let html = page(root.path());
+    assert!(html.contains(r#"data-video="video_094""#));
+    assert!(!html.contains("NotStartedBadge"));
 }
 
 #[test]
@@ -105,7 +173,7 @@ fn a_failure_after_a_success_shows_the_failure_with_the_earlier_results() {
         date: "2026-10-16T08:19:00Z".to_owned(),
     };
     record_failure(root.path(), OsStr::new("video_093"), &record).unwrap();
-    write_page(root.path(), &[], 0, FRENCH).unwrap();
+    write_page(root.path(), &[], Run::Going { finished: 0 }, FRENCH).unwrap();
     let html = page(root.path());
     assert!(html.contains(r#"<section class="video failed" id="v1""#));
     assert!(html.contains(r##"href="#v1-previous""##));
@@ -115,7 +183,7 @@ fn a_failure_after_a_success_shows_the_failure_with_the_earlier_results() {
 fn a_video_with_too_many_tracks_carries_the_limit_it_went_past() {
     let root = tempfile::tempdir().unwrap();
     finished(root.path(), "video_097", "too_many_tracks", 3);
-    write_page(root.path(), &[], 0, FRENCH).unwrap();
+    write_page(root.path(), &[], Run::Going { finished: 0 }, FRENCH).unwrap();
     assert!(page(root.path()).contains("TooMany { video: &quot;v&quot;, count: 3, limit: 2 }"));
 }
 
@@ -124,7 +192,7 @@ fn a_page_of_the_same_name_written_by_someone_else_is_never_replaced() {
     let root = tempfile::tempdir().unwrap();
     finished(root.path(), "video_092", "done", 1);
     fs::write(root.path().join("resultats.html"), "<p>mes notes</p>").unwrap();
-    let refused = write_page(root.path(), &[], 0, FRENCH);
+    let refused = write_page(root.path(), &[], Run::Going { finished: 0 }, FRENCH);
     assert!(matches!(refused, Err(Error::Taken { .. })));
     assert_eq!(page(root.path()), "<p>mes notes</p>");
 }
@@ -136,7 +204,7 @@ fn our_page_in_the_other_language_goes_and_someone_else_s_stays() {
     write_page(
         root.path(),
         &[],
-        0,
+        Run::Going { finished: 0 },
         Wording {
             language: Language::English,
             ..FRENCH
@@ -144,10 +212,10 @@ fn our_page_in_the_other_language_goes_and_someone_else_s_stays() {
     )
     .unwrap();
     assert!(root.path().join("results.html").exists());
-    write_page(root.path(), &[], 0, FRENCH).unwrap();
+    write_page(root.path(), &[], Run::Going { finished: 0 }, FRENCH).unwrap();
     assert!(!root.path().join("results.html").exists());
     fs::write(root.path().join("results.html"), "<p>notes</p>").unwrap();
-    write_page(root.path(), &[], 0, FRENCH).unwrap();
+    write_page(root.path(), &[], Run::Going { finished: 0 }, FRENCH).unwrap();
     assert!(root.path().join("results.html").exists());
 }
 
@@ -155,8 +223,33 @@ fn our_page_in_the_other_language_goes_and_someone_else_s_stays() {
 fn no_results_folder_is_created_for_a_page() {
     let videos = tempfile::tempdir().unwrap();
     let root = videos.path().join("batdetect");
-    write_page(&root, &[job(&root, "video_092")], 0, FRENCH).unwrap();
+    let jobs = [job(&root, "video_092")];
+    write_page(&root, &jobs, Run::Going { finished: 0 }, FRENCH).unwrap();
+    write_page(&root, &jobs, Run::Stopped { reached: 1 }, FRENCH).unwrap();
     assert!(!root.exists());
+}
+
+#[test]
+fn a_stop_creates_the_results_folder_of_the_video_reached_and_of_no_other() {
+    let videos = tempfile::tempdir().unwrap();
+    let (first, second) = (videos.path().join("a"), videos.path().join("b"));
+    let jobs = [job(&first, "video_092"), job(&second, "video_093")];
+    create_reached_root(&jobs, 1).unwrap();
+    assert!(first.is_dir());
+    assert!(!second.exists());
+    create_reached_root(&jobs, 0).unwrap();
+    create_reached_root(&jobs, 3).unwrap();
+    assert!(!second.exists());
+}
+
+#[test]
+fn a_results_folder_that_cannot_be_created_is_an_error_naming_it() {
+    let videos = tempfile::tempdir().unwrap();
+    let file = videos.path().join("nuit");
+    fs::write(&file, "").unwrap();
+    let root = file.join("batdetect");
+    let failed = create_reached_root(&[job(&root, "video_092")], 1);
+    assert!(matches!(failed, Err(Error::Write { path, .. }) if path == root));
 }
 
 #[test]
@@ -166,7 +259,7 @@ fn the_title_is_the_evening_folder_beside_the_videos_or_the_chosen_folder() {
     let chosen = videos.path().join("resultats-octobre");
     for root in [&beside, &chosen] {
         fs::create_dir_all(root).unwrap();
-        write_page(root, &[], 0, FRENCH).unwrap();
+        write_page(root, &[], Run::Going { finished: 0 }, FRENCH).unwrap();
     }
     assert!(page(&beside).contains("<title>Heading — nuit-12-oct</title>"));
     assert!(page(&chosen).contains("<title>Heading — resultats-octobre</title>"));
@@ -183,7 +276,7 @@ fn each_results_folder_of_a_batch_is_listed_once_in_the_order_met() {
 #[test]
 fn the_page_gets_the_same_rights_as_any_file_written_beside_it() {
     let root = tempfile::tempdir().unwrap();
-    write_page(root.path(), &[], 0, FRENCH).unwrap();
+    write_page(root.path(), &[], Run::Going { finished: 0 }, FRENCH).unwrap();
     fs::write(root.path().join("reference.txt"), "").unwrap();
     assert_eq!(
         fs::metadata(root.path().join("resultats.html")).unwrap().permissions(),
@@ -204,7 +297,7 @@ fn the_technical_detail_shows_only_when_the_advice_refers_to_it() {
         };
         record_failure(root.path(), OsStr::new(folder), &record).unwrap();
     }
-    write_page(root.path(), &[], 0, FRENCH).unwrap();
+    write_page(root.path(), &[], Run::Going { finished: 0 }, FRENCH).unwrap();
     let html = page(root.path());
     assert!(!html.contains("chain of video_093"));
     assert!(html.contains("chain of video_094"));
@@ -214,7 +307,7 @@ fn the_technical_detail_shows_only_when_the_advice_refers_to_it() {
 fn the_page_to_open_at_the_end_is_ours_in_the_language_of_the_run_or_none() {
     let root = tempfile::tempdir().unwrap();
     assert_eq!(page_to_open(root.path(), Language::French), None);
-    write_page(root.path(), &[], 0, FRENCH).unwrap();
+    write_page(root.path(), &[], Run::Going { finished: 0 }, FRENCH).unwrap();
     assert_eq!(
         page_to_open(root.path(), Language::French),
         Some(root.path().join("resultats.html"))
@@ -242,7 +335,7 @@ fn two_folders_whose_names_differ_only_by_bytes_that_are_not_utf8_are_two_videos
         fs::create_dir_all(&dest).unwrap();
         fs::write(dest.join("params.json"), params("done", 1)).unwrap();
     }
-    write_page(root.path(), &[], 0, FRENCH).unwrap();
+    write_page(root.path(), &[], Run::Going { finished: 0 }, FRENCH).unwrap();
     assert_eq!(page(root.path()).matches("<details class=\"video\"").count(), 2);
 }
 
@@ -250,7 +343,13 @@ fn two_folders_whose_names_differ_only_by_bytes_that_are_not_utf8_are_two_videos
 fn a_folder_named_by_a_decomposed_accent_is_the_same_video_as_its_composed_job() {
     let root = tempfile::tempdir().unwrap();
     finished(root.path(), "nuit_e\u{301}te\u{301}", "done", 1);
-    write_page(root.path(), &[job(root.path(), "nuit_\u{e9}t\u{e9}")], 1, FRENCH).unwrap();
+    write_page(
+        root.path(),
+        &[job(root.path(), "nuit_\u{e9}t\u{e9}")],
+        Run::Going { finished: 1 },
+        FRENCH,
+    )
+    .unwrap();
     let html = page(root.path());
     assert_eq!(html.matches("<details class=\"video\"").count(), 1);
     let accent = '\u{301}';
@@ -277,7 +376,13 @@ fn the_refusals_of_the_launch_show_on_the_page_of_their_folder() {
         inputs: vec![refused_input("/nuit/video_093.mp4", "damaged")],
     };
     record_refusals(root.path(), &record).unwrap();
-    write_page(root.path(), &[job(root.path(), "video_092")], 1, FRENCH).unwrap();
+    write_page(
+        root.path(),
+        &[job(root.path(), "video_092")],
+        Run::Going { finished: 1 },
+        FRENCH,
+    )
+    .unwrap();
     let html = page(root.path());
     assert!(
         html.contains("RefusedInput { path: &quot;/<wbr>nuit/<wbr>video_093.mp4&quot;, reason: &quot;unopened&quot;")
@@ -295,7 +400,7 @@ fn the_recorded_detail_of_a_refused_video_shows_on_the_page() {
         inputs: vec![refused_input("/nuit/video_094.mp4", "unsupported")],
     };
     record_refusals(root.path(), &record).unwrap();
-    write_page(root.path(), &[], 0, FRENCH).unwrap();
+    write_page(root.path(), &[], Run::Going { finished: 0 }, FRENCH).unwrap();
     assert!(page(root.path()).contains("chain of /nuit/video_094.mp4"));
 }
 
@@ -303,6 +408,12 @@ fn the_recorded_detail_of_a_refused_video_shows_on_the_page() {
 fn a_folder_without_refusals_shows_no_refused_card() {
     let root = tempfile::tempdir().unwrap();
     finished(root.path(), "video_092", "done", 1);
-    write_page(root.path(), &[job(root.path(), "video_092")], 1, FRENCH).unwrap();
+    write_page(
+        root.path(),
+        &[job(root.path(), "video_092")],
+        Run::Going { finished: 1 },
+        FRENCH,
+    )
+    .unwrap();
     assert!(!page(root.path()).contains("RefusedCount"));
 }

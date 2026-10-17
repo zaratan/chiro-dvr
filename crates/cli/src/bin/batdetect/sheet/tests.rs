@@ -31,7 +31,9 @@ pub(crate) fn samples() -> Vec<Label<'static>> {
         Label::TooManyCount(1),
         Label::FailedCount(1),
         Label::UnfinishedCount(1),
+        Label::OlderCount(1),
         Label::WaitingCount(2),
+        Label::NotStartedCount(2),
         Label::Tracks(18),
         Label::Reminder,
         Label::ExpandAll,
@@ -44,6 +46,7 @@ pub(crate) fn samples() -> Vec<Label<'static>> {
         Label::TooManyBadge,
         Label::UnfinishedBadge,
         Label::WaitingBadge,
+        Label::NotStartedBadge,
         Label::Failure {
             video: "video_093",
             cause: "not-a-video",
@@ -59,6 +62,7 @@ pub(crate) fn samples() -> Vec<Label<'static>> {
         Label::OlderBadge,
         Label::OlderText,
         Label::WaitingText,
+        Label::NotStartedText,
         Label::TooMany {
             video: "video_097",
             count: 301,

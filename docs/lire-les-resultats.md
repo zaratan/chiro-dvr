@@ -66,8 +66,7 @@ encore après avoir copié tout le dossier `batdetect/` sur une clé ou sur un a
 
 Ce qu'elle montre, de haut en bas :
 
-- le total de la soirée : les vidéos, celles réussies, et le nombre de pistes ; quand il y en a,
-  celles qui ont trop de pistes, celles en échec, les entrées refusées, les inachevées et celles en attente ;
+- le total de la soirée : les vidéos, celles réussies, et le nombre de pistes ; quand il y en a, celles qui ont trop de pistes, celles en échec, les entrées refusées, les inachevées, celles d'une ancienne version, celles en attente et celles pas encore traitées ;
 - quand il y en a eu au dernier lancement, les entrées refusées au départ, avant les vidéos : chaque vidéo, dossier ou fichier écarté avant le calcul, avec la raison et ce qu'il faut faire, les mêmes lignes que dans le bilan. Rien n'a été fait pour elles : les corriger comme indiqué, puis relancer batdetect. Le lancement suivant remplace ces lignes par les siennes, ou les retire s'il n'a rien refusé ;
 - une section par vidéo, dans l'ordre alphabétique des noms de leurs dossiers (majuscules
   d'abord), avec la date du calcul. Les soirées
@@ -76,7 +75,7 @@ Ce qu'elle montre, de haut en bas :
 
 En haut de la page, une barre reste visible quand on fait défiler : le décompte des verdicts de la soirée (oui, non, doute, à voir), l'état des verdicts, et les boutons « Télécharger les verdicts » et « Recharger un fichier de verdicts… » ([Noter le verdict](#noter-le-verdict)).
 
-Dans une section, l'image résumé et la liste des pistes. Chaque piste a son numéro, de la couleur de sa trajectoire sur l'image, son début, sa durée, son verdict (« à voir » tant qu'il n'est pas donné) et l'espèce notée, et une étiquette « Zoom » quand l'extrait zoomé existe. L'en-tête de la vidéo dit combien de ses pistes sont jugées.
+Dans une section, l'image résumé et la liste des pistes. Chaque piste a son numéro, de la couleur de sa trajectoire sur l'image, son début, sa durée, son verdict (« à voir » tant qu'il n'est pas donné) et l'espèce notée, et une étiquette « Zoom » quand l'extrait zoomé existe. L'en-tête de la vidéo dit combien de ses pistes sont jugées. Une vidéo qui n'a ni extrait ni image résumé, comme une vidéo à trop de pistes, ne se juge pas dans la page : ses pistes sont listées avec leur numéro, leur début et leur durée seulement, et ne comptent pas dans « à voir » ; un verdict noté sur elles lors d'un calcul précédent n'y est pas montré, mais il compte dans le décompte du haut et reste dans le fichier de verdicts.
 
 L'image de la page est redessinée par la page elle-même : sur la scène de la vidéo, sans aucune trace, elle trace les trajectoires, les flèches et les pastilles numérotées aux places que l'outil a choisies pour l'image résumé. Les traits gardent la même épaisseur quelle que soit la taille de l'image, et les numéros sont écrits dans la police de l'ordinateur ; l'image redessinée peut donc différer très légèrement de l'image résumé.
 
@@ -94,9 +93,7 @@ L'image de la page est redessinée par la page elle-même : sur la scène de la 
 Une vidéo en échec garde sa place dans la liste, marquée en rouge, avec la raison et ce qu'il
 faut faire, comme dans le bilan. Si les résultats d'un calcul précédent sont encore là, un lien
 y mène ; ce n'est pas toujours le cas, car un nouveau calcul commence par les effacer. Une vidéo « inachevée » est une vidéo dont le calcul s'est arrêté
-avant la fin : relancer la même commande la refait. Pendant le calcul, les vidéos pas encore
-traitées sont « en attente ». Une vidéo calculée par une version plus ancienne de l'outil
-est marquée « ancienne version » : relancer la même commande la refait.
+avant la fin : relancer la même commande la refait. Pendant le calcul, les vidéos pas encore traitées sont « en attente ». Si le calcul est interrompu avant elles, elles restent sur la page, marquées « pas encore traitée » : relancer la même commande les traite. Une vidéo calculée par une version plus ancienne de l'outil est marquée « ancienne version » et nommée à part dans le total : relancer la même commande la refait.
 
 Limite : les résultats d'une vidéo sont rangés sous son nom. Si deux soirées sont envoyées dans
 le même dossier choisi au lancement et ont des vidéos de même nom, la seconde remplace la

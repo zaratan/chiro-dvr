@@ -37,6 +37,7 @@ pub enum Entry {
     Unfinished { name: String },
     Older { name: String },
     Waiting { name: String },
+    NotStarted { name: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -126,13 +127,27 @@ pub struct Failed {
     pub previous: Option<Video>,
 }
 
+impl Video {
+    pub(crate) fn viewable(&self) -> bool {
+        !self.summaries.is_empty()
+            || self
+                .tracks
+                .iter()
+                .any(|track| track.clip.is_some() || track.zoom.is_some())
+    }
+}
+
 impl Page {
     pub fn tracks(&self) -> usize {
         self.entries
             .iter()
             .map(|entry| match entry {
                 Entry::Video(video) => video.tracks.len(),
-                Entry::Failed(_) | Entry::Unfinished { .. } | Entry::Older { .. } | Entry::Waiting { .. } => 0,
+                Entry::Failed(_)
+                | Entry::Unfinished { .. }
+                | Entry::Older { .. }
+                | Entry::Waiting { .. }
+                | Entry::NotStarted { .. } => 0,
             })
             .sum()
     }
