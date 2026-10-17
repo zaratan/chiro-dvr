@@ -11,6 +11,9 @@ const FLOAT_TOLERANCE: f64 = 1e-9;
 const DURATIONS: &str = "seconds";
 const REJOIN_HIDDEN_SINCE_V020: usize = 19;
 const REJOIN_DISTANCE_SINCE_V020: f64 = 60.0;
+const REJOIN_PIECE_POINTS_SINCE_V020: usize = 2;
+const REJOIN_JUNCTION_PACE_SINCE_V020: f64 = 0.25;
+const REJOIN_PIECE_PACE_SINCE_V020: f64 = 0.45;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Metrics {
@@ -34,8 +37,8 @@ const FROZEN: [(&str, Metrics); 2] = [
             injected_tracks: 162,
             evaluated: 253,
             found: 148,
-            targets_changed: 1,
-            classes_changed: 1,
+            targets_changed: 2,
+            classes_changed: 2,
         },
     ),
     (
@@ -46,9 +49,9 @@ const FROZEN: [(&str, Metrics); 2] = [
             reference_tracks: 14,
             injected_tracks: 499,
             evaluated: 589,
-            found: 454,
-            targets_changed: 13,
-            classes_changed: 9,
+            found: 455,
+            targets_changed: 26,
+            classes_changed: 10,
         },
     ),
 ];
@@ -121,6 +124,9 @@ fn judged_now(recorded: &BenchReport) -> Value {
     let mut settings = settings(recorded);
     settings["track"]["rejoin_hidden"] = serde_json::json!(REJOIN_HIDDEN_SINCE_V020);
     settings["track"]["rejoin_distance"] = serde_json::json!(REJOIN_DISTANCE_SINCE_V020);
+    settings["track"]["rejoin_piece_points"] = serde_json::json!(REJOIN_PIECE_POINTS_SINCE_V020);
+    settings["track"]["rejoin_junction_pace"] = serde_json::json!(REJOIN_JUNCTION_PACE_SINCE_V020);
+    settings["track"]["rejoin_piece_pace"] = serde_json::json!(REJOIN_PIECE_PACE_SINCE_V020);
     settings
 }
 

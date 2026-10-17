@@ -31,7 +31,7 @@ cargo run --release -p bench -- --replay out/bench/video_092_original --max-gap 
   `--bg-window`, `--bg-step`, `--osd-region`, `--merge-radius`, `--work-width`,
   `--noise-factor`, `--target-sigma`), la stabilité (`--max-blobs`, `--unstable-pad`), le suivi
   (`--max-jump`, `--max-gap`, `--min-hits`, `--min-travel`, `--twin-distance`,
-  `--max-median-turn`, `--rejoin-hidden`, `--rejoin-distance`) et l'appariement (`--match-radius`). `batdetect-bench --help` donne
+  `--max-median-turn`, `--rejoin-hidden`, `--rejoin-distance`, `--rejoin-piece-points`, `--rejoin-junction-pace`, `--rejoin-piece-pace`) et l'appariement (`--match-radius`). `batdetect-bench --help` donne
   leurs défauts, ceux de la commande.
 - **Sorties** dans `-o` (`out/bench` par défaut) : un dossier par vidéo, avec le passage
   (`run.json`, `reference.jsonl.gz` et `injected.jsonl.gz`, les détections de référence et

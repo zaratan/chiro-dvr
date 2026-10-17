@@ -12,6 +12,8 @@ pub enum Setting {
     MaxMedianTurn,
     RejoinHidden,
     RejoinDistance,
+    RejoinJunctionPace,
+    RejoinPiecePace,
 }
 
 impl fmt::Display for Setting {
@@ -24,6 +26,8 @@ impl fmt::Display for Setting {
             Self::MaxMedianTurn => "max_median_turn",
             Self::RejoinHidden => "rejoin_hidden",
             Self::RejoinDistance => "rejoin_distance",
+            Self::RejoinJunctionPace => "rejoin_junction_pace",
+            Self::RejoinPiecePace => "rejoin_piece_pace",
         })
     }
 }

@@ -5,7 +5,7 @@ use types::detection::Detection;
 use types::span::Span;
 use types::track::Track;
 
-use super::{Hiding, RejoinConfig, rejoin};
+use super::{Hiding, RejoinConfig, RejoinPace, rejoin};
 use crate::error::Error;
 use crate::fake::{line, size, span};
 use crate::setting::Setting;
@@ -25,7 +25,7 @@ fn hiding(ignored: &[Span]) -> Hiding<'_> {
 }
 
 fn rejoined(tracks: &[Track], max_hidden: usize, max_distance: f64) -> Vec<Track> {
-    rejoin(tracks, hiding(&[]), config(max_hidden, max_distance)).unwrap()
+    rejoin(tracks, &[], hiding(&[]), config(max_hidden, max_distance)).unwrap()
 }
 
 fn track(points: Vec<Detection>) -> Track {
@@ -116,7 +116,7 @@ fn a_hole_touched_by_an_ignored_span_is_never_rejoined() {
     ];
     for (ignored, expected) in cases {
         let parts = [before_the_vegetation(), after_the_vegetation(22, (0.0, 0.0))];
-        let joined = rejoin(&parts, hiding(&[ignored]), config(19, 60.0)).unwrap();
+        let joined = rejoin(&parts, &[], hiding(&[ignored]), config(19, 60.0)).unwrap();
         assert_eq!(joined.len(), expected, "{ignored:?}");
     }
 }
@@ -125,7 +125,7 @@ fn a_hole_touched_by_an_ignored_span_is_never_rejoined() {
 fn a_flight_that_leaves_the_image_and_comes_back_is_never_rejoined() {
     for (end_x, expected) in [(1411.0, 2), (1410.0, 1)] {
         let leaving = track(line(0, 10, (end_x - 90.0, 500.0), (10.0, 0.0)));
-        let coming_back = track(line(22, 10, (end_x, 500.0), (-10.0, 0.0)));
+        let coming_back = track(line(22, 10, (end_x, 540.0), (-10.0, 0.0)));
         assert_eq!(rejoined(&[leaving, coming_back], 19, 60.0).len(), expected, "{end_x}");
     }
 }
@@ -277,4 +277,106 @@ proptest! {
         prop_assert_eq!(every_point(&joined), every_point(&tracks));
     }
 
+}
+
+fn with_pieces(tracks: &[Track], pieces: &[Track]) -> Vec<Track> {
+    rejoin(tracks, pieces, hiding(&[]), RejoinConfig::default()).unwrap()
+}
+
+fn piece(start_frame: usize, frames: usize, start: (f64, f64), step: (f64, f64)) -> Track {
+    track(line(start_frame, frames, start, step))
+}
+
+#[test]
+fn a_piece_seen_between_two_hidings_bridges_tracks_too_far_apart_to_rejoin_directly() {
+    let tracks = [before_the_vegetation(), after_the_vegetation(32, (0.0, 0.0))];
+    assert_eq!(with_pieces(&tracks, &[]).len(), 2);
+    let joined = with_pieces(&tracks, &[piece(20, 2, (300.0, 100.0), (10.0, 0.0))]);
+    assert_eq!(lengths(&joined), [22]);
+}
+
+#[test]
+fn a_bridging_piece_stays_out_of_the_parts_so_it_never_judges_a_zoom() {
+    let tracks = [before_the_vegetation(), after_the_vegetation(32, (0.0, 0.0))];
+    let joined = with_pieces(&tracks, &[piece(20, 2, (300.0, 100.0), (10.0, 0.0))]);
+    let parts: Vec<usize> = joined[0].parts().map(|part| part.points().len()).collect();
+    assert_eq!(parts, [10, 10]);
+}
+
+#[test]
+fn a_piece_extends_a_kept_track_without_becoming_one_of_its_parts() {
+    let joined = with_pieces(&[before_the_vegetation()], &[piece(20, 2, (300.0, 100.0), (10.0, 0.0))]);
+    assert_eq!(lengths(&joined), [12]);
+    let parts: Vec<usize> = joined[0].parts().map(|part| part.points().len()).collect();
+    assert_eq!(parts, [10]);
+    let leading = with_pieces(
+        &[after_the_vegetation(32, (0.0, 0.0))],
+        &[piece(20, 2, (300.0, 100.0), (10.0, 0.0))],
+    );
+    assert_eq!(leading[0].first().frame.get(), 20);
+    assert_eq!(leading[0].parts().count(), 1);
+}
+
+#[test]
+fn a_piece_never_becomes_a_track_alone_nor_with_another_piece() {
+    let pieces = [
+        piece(20, 2, (300.0, 100.0), (10.0, 0.0)),
+        piece(32, 2, (420.0, 100.0), (10.0, 0.0)),
+    ];
+    assert_eq!(with_pieces(&[], &pieces), []);
+}
+
+#[test]
+fn a_piece_that_slows_down_suddenly_bridges_nothing() {
+    let tracks = [before_the_vegetation(), after_the_vegetation(32, (0.0, 0.0))];
+    let slowing = piece(20, 2, (300.0, 100.0), (1.0, 0.0));
+    assert_eq!(lengths(&with_pieces(&tracks, &[slowing])), [10, 10]);
+}
+
+#[test]
+fn a_track_starting_again_where_the_other_vanished_long_after_is_another_animal_in_doubt() {
+    let lingering = track(line(22, 10, (200.0, 100.0), (10.0, 0.0)));
+    let joined = rejoin(
+        &[before_the_vegetation(), lingering],
+        &[],
+        hiding(&[]),
+        config(19, 120.0),
+    )
+    .unwrap();
+    assert_eq!(lengths(&joined), [10, 10]);
+}
+
+#[test]
+fn pieces_bridge_and_extend_a_chain_of_kept_tracks_whose_parts_stay_the_kept_tracks() {
+    let tracks = [before_the_vegetation(), after_the_vegetation(32, (0.0, 0.0))];
+    let pieces = [
+        piece(20, 2, (300.0, 100.0), (10.0, 0.0)),
+        piece(50, 2, (600.0, 100.0), (10.0, 0.0)),
+    ];
+    let joined = with_pieces(&tracks, &pieces);
+    assert_eq!(lengths(&joined), [24]);
+    let parts: Vec<usize> = joined[0].parts().map(|part| part.points()[0].frame.get()).collect();
+    assert_eq!(parts, [0, 32]);
+}
+
+#[test]
+fn a_piece_never_takes_the_end_of_a_track_that_another_kept_track_continues() {
+    let continuing = track(line(21, 10, (310.0, 140.0), (10.0, 0.0)));
+    let closer = piece(20, 2, (300.0, 100.0), (10.0, 0.0));
+    let joined = with_pieces(&[before_the_vegetation(), continuing], &[closer]);
+    assert_eq!(lengths(&joined), [20]);
+}
+
+#[test]
+fn without_pieces_no_short_track_is_set_aside() {
+    let config = RejoinConfig::default().with_pieces(None, RejoinPace::default());
+    assert_eq!(config.piece_points(), None);
+    let short = piece(20, 2, (300.0, 100.0), (10.0, 0.0));
+    assert!(!config.takes_as_piece(&short, NonZeroUsize::new(6).unwrap()));
+    assert!(RejoinConfig::default().takes_as_piece(&short, NonZeroUsize::new(6).unwrap()));
+    assert!(
+        !RejoinConfig::default()
+            .takes_as_piece(&piece(20, 1, (300.0, 100.0), (0.0, 0.0)), NonZeroUsize::new(6).unwrap())
+    );
+    assert!(!RejoinConfig::default().takes_as_piece(&before_the_vegetation(), NonZeroUsize::new(6).unwrap()));
 }

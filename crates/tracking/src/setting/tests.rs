@@ -10,6 +10,8 @@ fn a_setting_is_named_by_its_params_json_key() {
         Setting::MaxMedianTurn,
         Setting::RejoinHidden,
         Setting::RejoinDistance,
+        Setting::RejoinJunctionPace,
+        Setting::RejoinPiecePace,
     ]
     .iter()
     .map(ToString::to_string)
@@ -23,7 +25,9 @@ fn a_setting_is_named_by_its_params_json_key() {
             "twin_distance",
             "max_median_turn",
             "rejoin_hidden",
-            "rejoin_distance"
+            "rejoin_distance",
+            "rejoin_junction_pace",
+            "rejoin_piece_pace"
         ]
     );
 }

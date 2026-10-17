@@ -103,6 +103,28 @@ fn a_flight_hidden_longer_than_max_gap_is_one_track_only_with_the_rejoin() {
     assert_eq!(tracks[0].parts().count(), 2);
 }
 
+fn hidden_twice(between: &[usize]) -> Vec<Detection> {
+    line(0, 46, (200.0, 300.0), (10.0, 0.0))
+        .into_iter()
+        .filter(|point| {
+            let frame = point.frame.get();
+            !(12..34).contains(&frame) || between.contains(&frame)
+        })
+        .collect()
+}
+
+#[test]
+fn a_short_stretch_seen_between_two_hidings_bridges_the_flight_into_one_track() {
+    let tracks = tracked(&hidden_twice(&[22, 23]), TrackConfig::default());
+    assert_eq!(tracks.len(), 1);
+    assert_eq!((tracks[0].points().len(), tracks[0].parts().count()), (26, 2));
+}
+
+#[test]
+fn a_single_detection_between_two_hidings_bridges_nothing() {
+    assert_eq!(tracked(&hidden_twice(&[22]), TrackConfig::default()).len(), 2);
+}
+
 #[test]
 fn the_rejoin_only_takes_holes_longer_than_the_max_gap_it_is_given() {
     let short_hole: Vec<Detection> = line(0, 40, (200.0, 300.0), (10.0, 0.0))

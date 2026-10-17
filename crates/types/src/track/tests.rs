@@ -1,6 +1,6 @@
 use std::f64::consts::{FRAC_PI_2, PI};
 
-use super::{Error, Track, median};
+use super::{Error, Stretch, Track, median};
 use crate::detection::Detection;
 use crate::frame::FrameIndex;
 
@@ -103,7 +103,7 @@ fn a_track_never_rejoined_is_a_single_part_with_all_its_points() {
 fn a_rejoined_track_keeps_each_part_apart_through_renumbering() {
     let before = vec![detection(0, 0.0, 0.0), detection(1, 10.0, 0.0)];
     let after = vec![detection(12, 120.0, 0.0)];
-    let joined = Track::rejoined(0, vec![before.clone(), after.clone()])
+    let joined = Track::rejoined(0, vec![Stretch::Part(before.clone()), Stretch::Part(after.clone())])
         .unwrap()
         .with_id(3);
     let parts: Vec<&[Detection]> = joined.parts().map(|part| part.points()).collect();
@@ -114,22 +114,63 @@ fn a_rejoined_track_keeps_each_part_apart_through_renumbering() {
 #[test]
 fn a_track_rejoined_from_a_single_part_is_the_plain_track() {
     let points = vec![detection(0, 0.0, 0.0), detection(1, 10.0, 0.0)];
-    assert_eq!(Track::rejoined(2, vec![points.clone()]), Track::new(2, points));
+    assert_eq!(
+        Track::rejoined(2, vec![Stretch::Part(points.clone())]),
+        Track::new(2, points)
+    );
     assert_eq!(Track::rejoined(2, Vec::new()), Err(Error::Empty { id: 2 }));
 }
 
 #[test]
 fn a_rejoined_track_with_an_empty_part_is_refused_rather_than_measured_as_nothing() {
     assert_eq!(
-        Track::rejoined(4, vec![vec![detection(0, 0.0, 0.0)], Vec::new()]),
+        Track::rejoined(
+            4,
+            vec![Stretch::Part(vec![detection(0, 0.0, 0.0)]), Stretch::Piece(Vec::new())]
+        ),
         Err(Error::Empty { id: 4 })
+    );
+}
+
+#[test]
+fn the_pieces_of_a_rejoined_track_keep_their_points_but_are_no_part_of_it() {
+    let piece = vec![detection(0, 0.0, 0.0), detection(1, 10.0, 0.0)];
+    let kept = vec![detection(10, 100.0, 0.0), detection(11, 110.0, 0.0)];
+    let bridge = vec![detection(20, 200.0, 0.0)];
+    let later = vec![detection(30, 300.0, 0.0)];
+    let joined = Track::rejoined(
+        0,
+        vec![
+            Stretch::Piece(piece.clone()),
+            Stretch::Part(kept.clone()),
+            Stretch::Piece(bridge.clone()),
+            Stretch::Part(later.clone()),
+        ],
+    )
+    .unwrap();
+    let parts: Vec<&[Detection]> = joined.parts().map(|part| part.points()).collect();
+    assert_eq!(parts, [kept.as_slice(), later.as_slice()]);
+    assert_eq!(joined.points(), [piece, kept, bridge, later].concat());
+}
+
+#[test]
+fn a_track_made_of_pieces_only_is_refused_because_no_kept_track_vouches_for_it() {
+    assert_eq!(
+        Track::rejoined(5, vec![Stretch::Piece(vec![detection(0, 0.0, 0.0)])]),
+        Err(Error::PiecesOnly { id: 5 })
     );
 }
 
 #[test]
 fn rejoined_parts_out_of_time_order_are_refused() {
     assert_eq!(
-        Track::rejoined(4, vec![vec![detection(5, 0.0, 0.0)], vec![detection(2, 0.0, 0.0)]]),
+        Track::rejoined(
+            4,
+            vec![
+                Stretch::Part(vec![detection(5, 0.0, 0.0)]),
+                Stretch::Piece(vec![detection(2, 0.0, 0.0)])
+            ]
+        ),
         Err(Error::Unordered {
             id: 4,
             frame: FrameIndex::new(2)

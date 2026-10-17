@@ -23,6 +23,7 @@ release échoue sans elle.
 
 ### Modifié
 
+- Un bout de vol trop court pour faire une piste, aperçu entre deux passages derrière la végétation, relie maintenant les deux pistes du même vol, ou prolonge une piste au début ou à la fin, s'il va à peu près à la même vitesse ; seul, il ne devient jamais une piste. Deux pistes dont la seconde repart presque là où la première s'est arrêtée, bien plus lentement que l'animal ne volait, ne sont plus réunies (#311).
 - Dans la page de résultats, le début d'une piste s'écrit partout comme dans le tableau des pistes (« 0:00:51 ») : la liste et le survol de la frise ne l'écrivent plus au centième (#304).
 - Le tableau des pistes n'a plus de colonne `verdict` et appartient à l'outil : un recalcul le remplace quoi qu'il contienne. La mise de côté datée d'un tableau annoté (#83) est retirée, ainsi que la section « Tableau mis de côté » du bilan ; les tableaux déjà mis de côté restent où ils sont (#228).
 - Les extraits, les zooms et la vidéo annotée dessinent chaque piste de la couleur qu'elle a sur l'image résumé : boîte et numéro bordés d'un liseré noir, trace de la même couleur, au lieu de la boîte rouge et de la trace jaune orangé (#13).

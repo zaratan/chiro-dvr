@@ -18,7 +18,7 @@ use crate::track::growing::Growing;
 use crate::track::rejoin::{Hiding, rejoin};
 use crate::track::twins::merge_twins;
 
-pub use crate::track::rejoin::RejoinConfig;
+pub use crate::track::rejoin::{RejoinConfig, RejoinPace};
 
 #[cfg(test)]
 mod tests;
@@ -170,16 +170,20 @@ pub fn track_detections(excluded: &Exclusion, size: SourceSize, config: TrackCon
         Some(distance) => merge_twins(finished, distance)?,
         None => finished,
     };
-    let kept: Vec<Track> = merged.into_iter().filter(|track| config.keeps(track)).collect();
+    let (kept, dropped): (Vec<Track>, Vec<Track>) = merged.into_iter().partition(|track| config.keeps(track));
     let mut kept = match config.rejoin {
         Some(rejoining) => {
+            let pieces: Vec<Track> = dropped
+                .into_iter()
+                .filter(|track| rejoining.takes_as_piece(track, config.min_hits))
+                .collect();
             let ignored: Vec<Span> = excluded.ignored_spans().collect();
             let hiding = Hiding {
                 longer_than: config.max_gap.get(),
                 ignored: &ignored,
                 size,
             };
-            rejoin(&kept, hiding, rejoining)?
+            rejoin(&kept, &pieces, hiding, rejoining)?
         }
         None => kept,
     };
