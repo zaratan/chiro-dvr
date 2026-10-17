@@ -4,6 +4,7 @@ use reference::track_matching::{Discrepancy, DiscrepancyKind};
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
+use types::size::SourceSize;
 
 use super::{TrackAgreement, TrackCounts};
 use crate::case::EXTRACT;
@@ -13,6 +14,10 @@ const EXTRACT_VIDEO: &str = "video_092_original_3m24-4m05.mp4";
 
 fn extract() -> Recording {
     Recording::read(&committed(Reference::V011, EXTRACT)).unwrap()
+}
+
+fn size(recording: &Recording) -> SourceSize {
+    recording.summary.stream.size().unwrap()
 }
 
 fn rate() -> FrameRate {
@@ -29,7 +34,13 @@ fn written(write: impl FnOnce(&mut Vec<u8>) -> std::io::Result<()>) -> String {
 fn the_reference_detections_tracked_again_give_back_the_four_tracks_of_the_extract() {
     let recording = extract();
 
-    let agreement = TrackAgreement::of(EXTRACT_VIDEO, recording.frames.detections(), rate(), &recording).unwrap();
+    let agreement = TrackAgreement::of(
+        EXTRACT_VIDEO,
+        recording.frames.detections(),
+        (rate(), size(&recording)),
+        &recording,
+    )
+    .unwrap();
 
     assert_eq!(
         agreement.counts(),
@@ -49,7 +60,7 @@ fn without_detections_every_reference_track_is_lost_and_listed_with_its_time() {
     let recording = extract();
     let empty = nothing_detected(&recording);
 
-    let agreement = TrackAgreement::of(EXTRACT_VIDEO, &empty, rate(), &recording).unwrap();
+    let agreement = TrackAgreement::of(EXTRACT_VIDEO, &empty, (rate(), size(&recording)), &recording).unwrap();
 
     assert_eq!((agreement.counts().lost, agreement.counts().paired), (4, 0));
     assert!(

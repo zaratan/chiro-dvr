@@ -6,28 +6,40 @@ use reference::location::{Reference, recording_directories};
 use reference::recording::Recording;
 use types::rate::FrameRate;
 
+const fn rejoined(reference: usize, joins: usize, tracks_joined: usize) -> Tracks {
+    let tracked = reference - joins;
+    Tracks {
+        reference,
+        tracked,
+        paired: tracked,
+        agreeing: tracked - tracks_joined,
+        lost: joins,
+        added: 0,
+    }
+}
+
 const FROZEN: [(&str, Tracks); 26] = [
     ("video_089.mp4", Tracks::same(1)),
     ("video_090.mp4", Tracks::same(20)),
     ("video_091.mp4", Tracks::same(21)),
     ("video_092.mp4", Tracks::same(14)),
-    ("video_093.mp4", Tracks::same(6)),
-    ("video_094.mp4", Tracks::same(14)),
-    ("video_095.mp4", Tracks::same(78)),
-    ("video_096.mp4", Tracks::same(136)),
-    ("video_097.mp4", Tracks::same(149)),
-    ("video_098.mp4", Tracks::same(131)),
-    ("video_099.mp4", Tracks::same(117)),
-    ("video_100.mp4", Tracks::same(98)),
-    ("video_101.mp4", Tracks::same(32)),
-    ("video_102.mp4", Tracks::same(36)),
+    ("video_093.mp4", rejoined(6, 2, 2)),
+    ("video_094.mp4", rejoined(14, 1, 1)),
+    ("video_095.mp4", rejoined(78, 11, 11)),
+    ("video_096.mp4", rejoined(136, 13, 12)),
+    ("video_097.mp4", rejoined(149, 15, 11)),
+    ("video_098.mp4", rejoined(131, 8, 7)),
+    ("video_099.mp4", rejoined(117, 7, 7)),
+    ("video_100.mp4", rejoined(98, 5, 5)),
+    ("video_101.mp4", rejoined(32, 1, 1)),
+    ("video_102.mp4", rejoined(36, 1, 1)),
     ("video_103.mp4", Tracks::same(10)),
     ("video_120.mp4", Tracks::same(0)),
     ("video_121.mp4", Tracks::same(2)),
     ("video_122.mp4", Tracks::same(0)),
     ("video_123.mp4", Tracks::same(8)),
     ("video_124.mp4", Tracks::same(5)),
-    ("video_125.mp4", Tracks::same(47)),
+    ("video_125.mp4", rejoined(47, 3, 3)),
     ("video_126.mp4", Tracks::same(13)),
     ("video_127.mp4", Tracks::same(7)),
     ("video_128.mp4", Tracks::same(5)),

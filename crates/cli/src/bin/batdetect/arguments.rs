@@ -336,6 +336,7 @@ fn options(matches: &mut ArgMatches, texts: Texts) -> Result<Options, clap::Erro
         default_track.min_travel(),
         default_track.twin_distance(),
         default_track.max_median_turn(),
+        default_track.rejoin(),
     )
     .map_err(|error| refusal(texts, &messages::tracking_refused(MIN_HITS, &error)))?;
     let stability = StabilityConfig::new(

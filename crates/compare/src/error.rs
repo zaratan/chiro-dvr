@@ -26,6 +26,8 @@ pub enum Error {
         #[source]
         source: types::rate::Error,
     },
+    #[error("{video}: the reference has no valid frame size")]
+    Size { video: String },
     #[error("cannot track the detections of {video}")]
     Tracking {
         video: String,

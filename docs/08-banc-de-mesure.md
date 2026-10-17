@@ -24,14 +24,14 @@ cargo run --release -p bench -- --replay out/bench/video_092_original --max-gap 
 - **Rejouer des cibles** : `--targets FICHIER` reprend les cibles d'un `bats.jsonl.gz` au
   lieu de les tirer ; `--against DOSSIER` rejoue un banc enregistré par la v0.1.1 et dresse la
   garde (cibles perdues et gagnées, échec sous la borne basse de Wilson d'une classe ;
-  règles dans [11](11-migration-rust.md#garde)).
+  règles dans [11](11-migration-rust.md#garde)). Le banc enregistré fixe les réglages : la v0.1.1 ne recollait pas les vols cachés, donc `--against` contre elle demande `--rejoin-hidden 0`.
 - **Réévaluer** : `--replay DOSSIER` relit un passage déjà écrit et le réévalue avec d'autres
   réglages de suivi, de stabilité ou d'appariement, sans aucune détection : immédiat.
 - **Réglages** : les dix de la détection (`--threshold`, `--min-area`, `--max-area`,
   `--bg-window`, `--bg-step`, `--osd-region`, `--merge-radius`, `--work-width`,
   `--noise-factor`, `--target-sigma`), la stabilité (`--max-blobs`, `--unstable-pad`), le suivi
   (`--max-jump`, `--max-gap`, `--min-hits`, `--min-travel`, `--twin-distance`,
-  `--max-median-turn`) et l'appariement (`--match-radius`). `batdetect-bench --help` donne
+  `--max-median-turn`, `--rejoin-hidden`, `--rejoin-distance`) et l'appariement (`--match-radius`). `batdetect-bench --help` donne
   leurs défauts, ceux de la commande.
 - **Sorties** dans `-o` (`out/bench` par défaut) : un dossier par vidéo, avec le passage
   (`run.json`, `reference.jsonl.gz` et `injected.jsonl.gz`, les détections de référence et

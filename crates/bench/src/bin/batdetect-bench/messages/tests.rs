@@ -192,6 +192,8 @@ fn every_tracking_setting_is_named_by_its_option() {
         (TrackingSetting::MinTravel, "--min-travel"),
         (TrackingSetting::TwinDistance, "--twin-distance"),
         (TrackingSetting::MaxMedianTurn, "--max-median-turn"),
+        (TrackingSetting::RejoinHidden, "--rejoin-hidden"),
+        (TrackingSetting::RejoinDistance, "--rejoin-distance"),
     ] {
         let refused = TrackingError::Setting { setting, value: -2.0 };
 

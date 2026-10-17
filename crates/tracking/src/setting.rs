@@ -10,6 +10,8 @@ pub enum Setting {
     MinTravel,
     TwinDistance,
     MaxMedianTurn,
+    RejoinHidden,
+    RejoinDistance,
 }
 
 impl fmt::Display for Setting {
@@ -20,6 +22,8 @@ impl fmt::Display for Setting {
             Self::MinTravel => "min_travel",
             Self::TwinDistance => "twin_distance",
             Self::MaxMedianTurn => "max_median_turn",
+            Self::RejoinHidden => "rejoin_hidden",
+            Self::RejoinDistance => "rejoin_distance",
         })
     }
 }

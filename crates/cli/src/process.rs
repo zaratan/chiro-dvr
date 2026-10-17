@@ -155,7 +155,7 @@ pub fn tracked(detected: &Detected, options: &Options) -> Result<Tracked, Error>
         rate,
         options.stability,
     );
-    let tracks = track_detections(&exclusion.detections, options.track).map_err(Error::Tracking)?;
+    let tracks = track_detections(&exclusion, reading.video().size(), options.track).map_err(Error::Tracking)?;
     Ok(Tracked {
         timeline,
         exclusion,

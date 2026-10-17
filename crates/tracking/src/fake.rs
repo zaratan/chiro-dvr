@@ -1,6 +1,11 @@
+use std::num::NonZeroU32;
+
 use types::detection::{Detection, FrameDetections, Measures};
 use types::frame::FrameIndex;
+use types::size::SourceSize;
 use types::span::Span;
+
+use crate::exclusion::Exclusion;
 
 pub(crate) fn span(first: usize, last: usize) -> Span {
     Span::new(FrameIndex::new(first), FrameIndex::new(last)).unwrap()
@@ -56,4 +61,19 @@ pub(crate) fn frames_of(detections: &[Detection], frame_count: usize) -> FrameDe
         frames.push(found);
     }
     frames
+}
+
+pub(crate) fn excluded(detections: FrameDetections, damaged: Vec<Span>) -> Exclusion {
+    Exclusion {
+        detections,
+        damaged,
+        unstable: Vec::new(),
+        reported_frames: 0,
+        ignored_frame_count: 0,
+        damaged_frame_count: 0,
+    }
+}
+
+pub(crate) fn size() -> SourceSize {
+    SourceSize::new(NonZeroU32::new(1440).unwrap(), NonZeroU32::new(1080).unwrap())
 }

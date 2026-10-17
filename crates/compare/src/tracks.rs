@@ -9,6 +9,7 @@ use tracking::stability::StabilityConfig;
 use tracking::track::{TrackConfig, track_detections};
 use types::detection::FrameDetections;
 use types::rate::FrameRate;
+use types::size::SourceSize;
 
 use crate::agreement::clock;
 
@@ -32,7 +33,12 @@ pub struct TrackCounts {
 }
 
 impl TrackAgreement {
-    pub fn of(name: &str, detections: &FrameDetections, rate: FrameRate, recording: &Recording) -> Result<Self, Error> {
+    pub fn of(
+        name: &str,
+        detections: &FrameDetections,
+        (rate, size): (FrameRate, SourceSize),
+        recording: &Recording,
+    ) -> Result<Self, Error> {
         let summary = &recording.summary;
         let exclusion = exclude(
             detections,
@@ -41,7 +47,7 @@ impl TrackAgreement {
             rate,
             StabilityConfig::default(),
         );
-        let tracks = track_detections(&exclusion.detections, TrackConfig::default())?;
+        let tracks = track_detections(&exclusion, size, TrackConfig::default())?;
         let matching = match_tracks(&recording.tracks, &tracks);
         Ok(Self {
             name: name.to_owned(),

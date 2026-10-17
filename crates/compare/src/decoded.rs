@@ -36,7 +36,8 @@ pub fn followed(detected: &Detected) -> Result<Followed, tracking::error::Error>
         detected.reading().video().frame_rate(),
         StabilityConfig::default(),
     );
-    let tracks = track_detections(&exclusion.detections, TrackConfig::default())?;
+    let size = detected.reading().video().size();
+    let tracks = track_detections(&exclusion, size, TrackConfig::default())?;
     Ok(Followed { exclusion, tracks })
 }
 

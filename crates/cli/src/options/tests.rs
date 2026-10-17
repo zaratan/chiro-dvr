@@ -43,6 +43,7 @@ fn each_setting_of_the_detection_that_differs_from_its_default_is_reported_with_
             track.min_travel(),
             track.twin_distance(),
             track.max_median_turn(),
+            track.rejoin(),
         )
         .unwrap(),
         stability: StabilityConfig::new(None, StabilityConfig::default().pad_s()).unwrap(),

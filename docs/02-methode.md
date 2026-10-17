@@ -316,7 +316,15 @@ mesurer la direction sur 3 images comme la vitesse. Avec
 5 détections, environ 16 % des pistes de bruit de 5 points passent le virage par hasard
 (3 virages seulement).
 
-Les pistes restantes sont numérotées par ordre chronologique. Le numéro change dès
+## 7 bis. Recollage
+
+Deux pistes gardées sont un même vol caché un moment quand la seconde démarre après un trou de plus de `max_gap` images et d'au plus `rejoin_hidden` images (qui doit donc dépasser `max_gap`), à au plus `rejoin_distance` px du point attendu : la fin de la première, prolongée sur le trou à la moyenne des vitesses des deux bouts (5 points chacun), comme si l'animal virait au milieu du trou. Jamais à travers une période ignorée, jamais quand un des deux bouts est à moins de 30 px d'un bord. Logique et mesures : [10 § 9 bis](10-logique-de-detection.md#9-bis-recoller-un-vol-caché-derrière-la-végétation).
+
+- `rejoin_hidden` = 19 images (0,63 s ; depuis le 17 octobre 2026) : couvre la traversée des deux zones de végétation de la 095 à la 100 (8 images en médiane, 12 à 18 pour une traversée sur dix) et les 8 passages jugés « même passage » sur la planche (trous de 8 à 13 images). 0 désactive le recollage. Un trou de 5,9 s jugé « non » est hors de portée.
+- `rejoin_distance` = 60 px : le plus grand écart des 8 passages jugés est de 45 px, donc 40 px en perdrait un ; sur les 26 vidéos, 60 px soude 67 paires pour 2,7 au hasard (pistes décalées de 10 ou 20 s), 80 px 74 pour 3,7.
+- La marge de 30 px au bord n'est pas un réglage : c'est là que l'excès de fins de piste près des bords retombe au niveau du reste de l'image.
+
+Les pistes restantes sont numérotées par ordre chronologique, après le recollage. Le numéro change dès
 qu'une piste apparaît ou disparaît plus tôt dans la vidéo : pour désigner un passage,
 utiliser son temps de début.
 

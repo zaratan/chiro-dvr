@@ -45,6 +45,7 @@ pub(crate) struct Comparison {
     pub(crate) discrepancies: Vec<Discrepancy>,
 }
 
+#[cfg(test)]
 pub(crate) fn compare(recording: &Recording, rate: FrameRate) -> Result<Comparison, Error> {
     let summary = &recording.summary;
     let exclusion = exclude(
@@ -54,7 +55,8 @@ pub(crate) fn compare(recording: &Recording, rate: FrameRate) -> Result<Comparis
         rate,
         StabilityConfig::default(),
     );
-    let tracked = track_detections(&exclusion.detections, TrackConfig::default())?;
+    let size = summary.stream.size().unwrap();
+    let tracked = track_detections(&exclusion, size, TrackConfig::default())?;
     let matching = match_tracks(&recording.tracks, &tracked);
     let gaps: Vec<Option<f64>> = matching.pairs.iter().map(|(kept, found)| gap(kept, found)).collect();
     let comparison = Comparison {

@@ -2398,10 +2398,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     la médiane comme cause est une hypothèse, non vérifiée).
   - Sur les 26 vidéos de la référence, plages instables et détections gardées étaient
     égales à la v0.1.1 (test local `crates/tracking/tests/local_exclusion.rs`, jusqu'à #277). Depuis #277, `committed_exclusion` (19 cas du dépôt) et `local_exclusion` (26 vidéos) comparent à la v0.2.0, avec une ligne figée par cas (`Kept`) : détections gardées en moins et en plus (écart net des totaux), et plages instables changées, toutes à 0.
-  - `track` : `track_detections(détections, TrackConfig)` rend des `Track` numérotées à
-    partir de 1, triées par (image de début, `x` du premier point).
+  - `track` : `track_detections(&Exclusion, SourceSize, TrackConfig)` rend des `Track` numérotées à
+    partir de 1, triées par (image de début, `x` du premier point). Depuis #24, elle prend l'`Exclusion` entière (détections et plages ignorées) et la taille de l'image, dont le recollage a besoin.
     - `TrackConfig::new(max_jump, max_gap, min_hits, min_travel, twin_distance,
-      max_median_turn)`, par défaut 120, 6, 6, 45, `Some(36)` et 0,8. Les accesseurs
+      max_median_turn, rejoin)`, par défaut 120, 6, 6, 45, `Some(36)`, 0,8 et `Some(RejoinConfig::default())` (19 images, 60 px) ; `without_rejoin()` rend le suivi d'avant #24, celui des références v0.1.1 et v0.2.0. Les accesseurs
       portent les noms des clés de `params.json`. `max_gap` et `min_hits` sont des
       `NonZeroUsize`, `twin_distance` un `Option<f64>` (`None` coupe la fusion ; la
       commande traduira `0`). Un réglage hors bornes rend `Error::Setting` avec son
@@ -2424,6 +2424,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       barycentre pondéré, amplitude maximale.
     - Filtres après fusion : `min_hits`, corde ≥ `min_travel`, virage médian ≤
       `max_median_turn` (mesures de `types::track::Track`).
+    - Recollage après les filtres (`track/rejoin.rs`, #24) : règle et mesures dans [10 § 9 bis](10-logique-de-detection.md#9-bis-recoller-un-vol-caché-derrière-la-végétation), valeurs dans [02 § 7 bis](02-methode.md#7-bis-recollage). `RejoinConfig::new(max_hidden, max_distance)` refuse une distance hors bornes (`Setting::RejoinDistance`). Les liens se prennent du plus petit écart au plus grand, une fois par fin et par début ; les chaînes donnent une seule piste ; aucun point n'est ajouté dans le trou. `TrackSettings` gagne `rejoin_hidden` et `rejoin_distance` (0 = coupé), lus à 0 dans un fichier écrit avant #24. `--replay` et `--targets` jugent avec les réglages de la commande, donc avec recollage par défaut ; seul `--against` exige les réglages enregistrés, d'où `--rejoin-hidden 0` contre la v0.1.1 (`local_guard` juge avec `without_rejoin()`). `TrackConfig::new` refuse un `max_hidden` qui ne dépasse pas `max_gap` (`Setting::RejoinHidden`) : le recollage n'aurait plus rien à faire.
     - Limite : plusieurs seuils tombent sur une distance exacte, et `f64::hypot` peut
       différer d'un ulp de celui de Python. Le critère des tests est l'appariement avec
       tolérances ; l'identité est mesurée en plus.
@@ -2438,7 +2439,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       est rapportée (décision de l'utilisateur, 11 octobre 2026). Ces mesures contre la v0.1.1 restent l'historique de la parité avec le Python.
     - Gardes depuis #277 : le suivi courant tourne sur les détections, les plages abîmées et le nombre d'images signalées de la [référence v0.2.0](#référence-v020), sans décodage, donc sans dépendre du poste ni du décodeur. Ses pistes se comparent à celles de la v0.2.0 par `track_matching` (début ±5 images, points ±3). Chaque cas a sa ligne figée (`FROZEN`) : pistes de la référence, suivies, appariées, concordantes, perdues et ajoutées, `Tracks::same(n)` tant qu'il n'y a pas d'écart. Les 19 cas du dépôt n'ont aucune plage abîmée, et seul `sigma_0` a des plages instables : en CI, le suivi sur des plages abîmées n'est gardé que par les tests unitaires de `tracking`. Sur des données réelles, il ne l'est que par `local_tracking` et `local_exclusion`.
       - `committed_tracking` : les 19 cas du dépôt (extrait, 092, 1440, 16 réglages), en CI sur les trois systèmes, avec en plus le nombre de pistes identiques au bit près et les numéros 1..n. Sur lumiel, toutes sont identiques (125 pistes) ; la CI de #277 dit si les trois systèmes le tiennent.
-      - `local_tracking` : les 26 vidéos (`BATDETECT_REFERENCE_V020_DIR`), 972 pistes. L'identité est seulement affichée : 972 sur 972 sur lumiel (17 octobre 2026), à confirmer sur le Mac avant de la figer.
+      - `local_tracking` : les 26 vidéos (`BATDETECT_REFERENCE_V020_DIR`), 972 pistes dans la référence, 905 suivies depuis #24. L'identité est seulement affichée : 972 sur 972 sur lumiel avant #24 (17 octobre 2026).
+      - Depuis #24 : les 19 cas du dépôt ne bougent pas. Sur les 26 vidéos, 67 soudures ramènent 972 pistes à 905 sur 11 vidéos ; chacune de ces lignes est `rejoined(référence, soudures, pistes recollées)` : une piste recollée reste appariée à sa première partie mais n'est plus concordante, sa seconde partie compte comme perdue. `committed_metrics` déclare les deux réglages gagnés depuis la v0.2.0 (`judged_now`) et fige l'effet : transit, 1 cible en un fragment au lieu de 2 (162 pistes injectées au lieu de 163) ; chasse, 499 pistes au lieu de 514, 12 cibles moins fragmentées et une cible perdue, dont la piste a été soudée à celle d'une autre cible qui la précédait au même endroit (454 trouvées au lieu de 455).
       - Une PR de suivi (#24, #21) met à jour ces lignes, avec la cause dans la même série de changements, et les colonnes de pistes des gardes de détection, qui disent l'effet.
 - **`files`** → `types` : fichiers écrits par la commande (#122). Reçoit un
   `types::Language`, celle de la commande (#123, #114).

@@ -8,7 +8,7 @@ use clap::error::ErrorKind;
 use engine::config::DetectConfig;
 use engine::settings::{DetectSettings, Region};
 use tracking::stability::StabilityConfig;
-use tracking::track::TrackConfig;
+use tracking::track::{RejoinConfig, TrackConfig};
 
 use super::{Request, Source, command, parse};
 
@@ -136,6 +136,8 @@ fn every_detection_and_tracking_option_reaches_its_setting() {
         "0",
         "--max-median-turn",
         "3.15",
+        "--rejoin-hidden",
+        "0",
     ]);
 
     let expected = DetectSettings {
@@ -169,7 +171,7 @@ fn every_detection_and_tracking_option_reaches_its_setting() {
     let five = NonZeroUsize::new(5).unwrap();
     assert_eq!(
         request.settings.track,
-        TrackConfig::new(100.0, four, five, 30.0, None, 3.15).unwrap()
+        TrackConfig::new(100.0, four, five, 30.0, None, 3.15, None).unwrap()
     );
 }
 
@@ -179,7 +181,19 @@ fn the_default_stability_and_twin_settings_stay_enabled() {
 
     assert_eq!(request.settings.stability.max_blobs(), NonZeroU32::new(20));
     assert_eq!(request.settings.track.twin_distance(), Some(36.0));
+    assert_eq!(request.settings.track.rejoin(), Some(RejoinConfig::default()));
     assert_eq!(request.detect, DetectConfig::default());
+}
+
+#[test]
+fn the_rejoin_is_set_by_its_two_options_and_a_zero_distance_disables_it() {
+    let set = parsed(&["video.mp4", "--rejoin-hidden", "12", "--rejoin-distance", "40"]);
+    let expected = RejoinConfig::new(NonZeroUsize::new(12).unwrap(), 40.0).unwrap();
+    assert_eq!(set.settings.track.rejoin(), Some(expected));
+    assert_eq!(
+        parsed(&["video.mp4", "--rejoin-distance", "0"]).settings.track.rejoin(),
+        None
+    );
 }
 
 #[test]
@@ -254,6 +268,11 @@ fn a_setting_out_of_bounds_is_refused_with_the_option_that_holds_it() {
         ),
         (&["v.mp4", "--osd-region", "0,0,0,1"], "--osd-region 1 does not satisfy"),
         (&["v.mp4", "--max-jump", "0"], "--max-jump is out of bounds: 0"),
+        (
+            &["v.mp4", "--rejoin-distance", "-1"],
+            "--rejoin-distance is out of bounds: -1",
+        ),
+        (&["v.mp4", "--max-gap", "19"], "--rejoin-hidden is out of bounds: 19"),
         (
             &["v.mp4", "--unstable-pad", "-1"],
             "--unstable-pad is out of bounds: -1",

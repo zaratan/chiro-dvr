@@ -291,6 +291,7 @@ fn the_changed_settings_are_written_in_the_order_of_the_help_with_the_decimal_ma
             track.min_travel(),
             track.twin_distance(),
             track.max_median_turn(),
+            track.rejoin(),
         )
         .unwrap(),
         stability: StabilityConfig::new(None, StabilityConfig::default().pad_s()).unwrap(),

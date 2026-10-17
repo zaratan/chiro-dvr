@@ -94,9 +94,14 @@ pub fn compared(
         video: video.clone(),
         source,
     })?;
+    let size = recording
+        .summary
+        .stream
+        .size()
+        .ok_or_else(|| Error::Size { video: video.clone() })?;
     Ok(Comparison {
         detections: Agreement::of(name, detections, rate, recording),
-        tracks: TrackAgreement::of(name, detections, rate, recording).map_err(|source| Error::Tracking {
+        tracks: TrackAgreement::of(name, detections, (rate, size), recording).map_err(|source| Error::Tracking {
             video: video.clone(),
             source,
         })?,
