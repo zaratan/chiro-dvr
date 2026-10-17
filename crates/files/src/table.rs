@@ -3,7 +3,6 @@ use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::path::Path;
 
-use tempfile::TempPath;
 use types::language::Language;
 use types::timeline::Timeline;
 use types::track::Track;
@@ -11,7 +10,7 @@ use types::track::Track;
 use crate::dialect::Dialect;
 use crate::error::Error;
 use crate::exclusive;
-use crate::names::partial_path;
+use crate::names::partial_file;
 use crate::time::{clock, frame_duration, frame_seconds};
 
 #[cfg(test)]
@@ -66,7 +65,7 @@ pub fn write_tracks_csv(
         source,
     };
     let dialect = Dialect::of(language);
-    let partial = TempPath::try_from_path(partial_path(path)).map_err(failed)?;
+    let partial = partial_file(path).map_err(failed)?;
     let mut file = BufWriter::new(File::create(&partial).map_err(failed)?);
     write!(file, "{}{LINE_END}", header(language, headings)).map_err(failed)?;
     for track in tracks {

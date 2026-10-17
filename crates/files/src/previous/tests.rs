@@ -49,10 +49,37 @@ fn the_outputs_of_both_languages_and_of_the_old_names_are_removed_with_their_par
         ".v_annotee.mp4.partial",
         ".v_summary.png.partial",
         ".v_tracks.csv.partial",
+        ".v_pistes.csv.Ab12Cd.partial",
+        ".v_resume.png.x9Y8z7.partial",
     ];
     let dest = folder_with(&outputs, &["extraits", "clips", "split"]);
     assert_eq!(cleaned(dest.path()), []);
     assert_eq!(left_in(dest.path()), Vec::<String>::new());
+}
+
+#[test]
+fn the_files_of_the_user_of_other_videos_and_named_almost_like_ours_are_left() {
+    let others = ["notes.txt", "w_pistes.csv", "v_summary_3_sur_8.png", "w_params.json"];
+    let dest = folder_with(&others, &["autres"]);
+    cleaned(dest.path());
+    assert_eq!(
+        left_in(dest.path()),
+        [
+            "autres",
+            "notes.txt",
+            "v_summary_3_sur_8.png",
+            "w_params.json",
+            "w_pistes.csv"
+        ]
+    );
+}
+
+#[test]
+fn the_params_file_that_marks_a_finished_folder_is_removed_with_its_partial_files() {
+    let partials = [".params.json.partial", ".params.json.Ab12Cd.partial"];
+    let dest = folder_with(&["params.json", partials[0], partials[1], "notes.txt"], &[]);
+    assert_eq!(cleaned(dest.path()), []);
+    assert_eq!(left_in(dest.path()), ["notes.txt"]);
 }
 
 #[test]

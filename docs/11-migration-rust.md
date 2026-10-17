@@ -1069,6 +1069,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     (aucune allocation par image) et rend un `FrameInfo` : `FrameIndex`, `Option<Pts>`,
     image-clé (`is_key`), erreurs de décodage (`DecodeErrors`) et paquets illisibles
     depuis l'image précédente.
+    - Ouverture (#227) : le chemin passe en octets sous unix (`path::location`, comme l'encodeur), puis `avformat_open_input`, `avformat_find_stream_info` et `Input::wrap` (`opened`, un `unsafe` par opération), parce que `ffmpeg_next::format::input` ferait `to_str().unwrap()`. Une vidéo au nom non UTF-8 s'ouvre donc sous Linux, au départ (`engine::input`) comme pour les extraits (`render::source`). `UnusablePath` reste pour un NUL et, sous Windows, pour un nom qui n'est pas de l'Unicode valide.
     - `DecodeErrors` (module `decode_errors`) : les `decode_error_flags` de l'image, lus
       tels quels et nommés par les constantes `FF_DECODE_ERROR_*` de FFmpeg, et non par
       le `DecodeError` de ffmpeg-next, qui perd `CONCEALMENT_ACTIVE` et `DECODE_SLICES`
@@ -1120,9 +1121,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     telle quelle par le muxeur) ; chaque paquet reprend le `pts` de son image, `dts`
     égal (pas d'images B, sinon `Reordered`), et dure jusqu'à l'image suivante, la
     dernière un pas de la cadence de l'encodeur (sur l'extrait, la durée égale celle de
-    la source : 40,959 s). Un premier `pts` non nul est gardé. `partial_path` donne le nom temporaire d'une vidéo
-    (un test de `cli` l'exige égal à `files::names::partial_path`, que `media` ne peut pas
-    appeler) ; `StreamInfo::duration` la durée annoncée du flux.
+    la source : 40,959 s). Un premier `pts` non nul est gardé. `partial_file` crée le
+    fichier temporaire d'une vidéo sous un nom unique (un test de `cli` exige que le
+    ménage de `files::names`, que `media` ne peut pas appeler, le reconnaisse) ;
+    `StreamInfo::duration` la durée annoncée du flux.
     Erreurs de destination (`concerns_the_destination`) : chemin refusé, temporaire non
     créé, fichier non ouvert (`OpenFile`), renommage raté ; une écriture refusée
     (`Writing`) n'en est pas une, pour que la bascule vers openh264 joue.
@@ -1335,7 +1337,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       de 2 rayons : v0.1.1 266 recouvrements, portage fidèle 349, placement retenu 0 ;
       aucune pastille hors cadre. 121 pastilles s'écartent de leur piste de plus d'un
       rayon, presque toutes sur les vidéos denses ; la plus éloignée est à 304 px (096).
-  - PNG écrit dans `.<nom>.partial` à côté (`files::names::partial_path`, #115), puis
+  - PNG écrit dans son partiel à côté (`files::names::partial_file`, #115, #245), puis
     renommé. Une erreur d'entrée-sortie de l'encodeur PNG remonte en `Error::Write` avec
     son `io::Error` (#64) : `png` n'expose sa cause que par `cause()`, et un disque plein
     se perdrait ; droits ordinaires du
@@ -1359,6 +1361,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
   - `labels` : `Label`, chaque texte de la page avec ses arguments, et le trait `Labels`, que `Texts` implémente dans le binaire (`sheet.rs`) avec les textes `page-*` des `.ftl` ; la raison et le conseil d'un échec sont les messages `failure` et `failure-todo` du bilan. `Label::Script(Script)` porte les textes du script de la page.
   - `script` (#228) : `Script`, les textes dont le JS a besoin, chacun avec sa clé, son message Fluent (`page-js-<clé>`) et ses trous (`{count}`, `{track}`…). `sheet` les rend avec chaque trou écrit `{nom}`, la page les embarque en JSON (`<script type="application/json" id="texts">`), et le JS remplit les trous. Les en-têtes et le dialecte du fichier de verdicts (séparateur, virgule décimale) sont aussi des textes de la langue.
   - `escape` : texte échappé (`& < > " '`) et chemins encodés en pourcents segment par segment, tout octet hors de `A-Z a-z 0-9 - . _ ~`, si bien qu'un `#`, un `%` ou un `?` dans un nom reste un nom de fichier. Rien n'est normalisé : le lien suit l'octet du disque. `json` : chaîne JSON qui ne peut pas fermer le `<script>` qui la contient (`<`, `>`, `&` en `\u`). `base64` : les octets du fichier de verdicts, sans dépendance.
+    - Limite (#227) : les noms arrivent au modèle en chaînes lossy. Pour une vidéo au nom non UTF-8 (Linux), la section montre ses pistes, mais ni l'image résumé ni la vidéo annotée (`results` ne les retrouve pas), et les liens vers le tableau, les extraits et le dossier pointent vers `�` et sont cassés.
   - `document` (page entière, total, marque `<meta name="generator" content="batdetect">` et `is_ours`, lue dans le premier Kio), `bar` (la barre des verdicts collée en haut, les textes du script et le fichier de verdicts embarqué en base64 dans `<template id="verdicts-file">`, seulement s'il y a une vidéo), `section` (une vidéo : onglets de parties, images avec `width` et `height` pour que l'onglet ne fasse pas sauter la page, vignette, bloc des verdicts sans piste), `judge` (la zone de jugement, cachée tant qu'aucune piste n'est choisie), `tracks` (le tableau, une ligne par piste avec sa clé : `data-start`, `data-x`, `data-y`, `data-clip`, `data-zoom`), `cards` (échec, inachevée, en attente, entrées refusées).
   - `assets/` : `page.css` et six scripts classiques inclus dans l'ordre par `include_str!` dans un seul `<script>` (un `import` entre fichiers est bloqué en `file://` sous Chrome), chacun exposant un nom global : `csv.js` (`VerdictsCsv` : décodage UTF-8 strict sinon Windows-1252, lecture tolérante, écriture), `store.js` (`VerdictsStore` : l'état des verdicts, le rattachement, les décomptes, les verdicts sans piste et des vidéos absentes, l'écart au fichier lu et au dernier téléchargement), `bar.js`, `list.js`, `judge.js` (les vues) et `page.js` (onglets, tout déplier, brouillon, téléchargement, rechargement). La page tient en un fichier, sans réseau, avec `preload="none"` sur le lecteur de chaque vidéo.
   - Rattachement d'un verdict à sa piste (`store.js`) : candidates les pistes de la même vidéo (`data-video`, nom du dossier) dont le début est à 0,2 s au plus ; paires classées par distance des points de départ quand les deux sont connus, sinon par écart de début ; affectation gloutonne, une piste pour un verdict. Un verdict sans piste libre est gardé et montré, avec la piste la plus proche.
@@ -2028,6 +2031,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
         page est réécrite sans entrée « en attente » avant la sortie.
       - Les clés des vidéos sont les noms de dossier composés en NFC : un dossier créé en NFD
         et la même vidéo tapée en NFC font une seule entrée.
+      - Un nom de dossier non UTF-8 garde ses octets pour la clé, comme dans le ménage et dans `jobs` (#227) : `vol_\xe9` et `vol_\xe8`, tous deux affichés `vol_�`, font deux entrées.
       - `ledger::Ledger::note`, dans le même rappel et avant la page : une vidéo en échec
         écrit `.batdetect/echecs/<dossier>.json` à la racine (clé stable de `Failure` :
         `Cause::key` ou `internal` pour un panic, place, détail, date UTC), une réussite ou
@@ -2095,8 +2099,9 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       sous `--force`, #70) sur la sortie d'erreur et sort en 130,
       même si la ligne ne s'écrit pas, en gardant la sortie d'erreur jusqu'à la sortie.
       `Status` retient la vidéo en cours. Rien
-      d'autre ne se fait : un `.partial` laissé par l'interruption est retiré par le
-      ménage de la relance (#115). La reprise d'un lot interrompu est #70.
+      d'autre ne se fait : un `.partial` laissé par l'interruption dans le dossier d'une
+      vidéo est retiré par le ménage de la relance (#115), les autres restent
+      (`names::partial_file`). La reprise d'un lot interrompu est #70.
     - Les lignes d'événement (extrait refait, cause d'un échec) s'écrivent
       au-dessus de cette dernière ligne.
     - Le mode se choisit par `std::io::IsTerminal` sur la sortie d'erreur.
@@ -2283,6 +2288,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     commit d'un autre worktree ne le relancent pas ; « -dirty » ne voit pas une
     modification de `docs/` ou de `mise.toml`, et toute modification de source recompile
     `cli`, la crate feuille. `ffmpeg` est la version de FFmpeg liée.
+    - `video` est écrit par `to_string_lossy` (#227) : un nom non UTF-8 y garde ses caractères lisibles, ses octets illisibles devenant `�`, au lieu de faire échouer l'écriture. C'est un texte à lire, pas un chemin à rouvrir : la relance compare la taille, la version, la langue et les réglages, jamais ce nom, et la page retrouve le tableau par son nom lossy (`results`). Des octets échappés dans la chaîne auraient changé la forme du champ pour tous les noms et demandé un décodage à chaque lecteur.
     - `RenderConfig` (#112, #103) : `box_pad`, `trail_s`, `clip_margin_s`, `max_tracks`,
       `zoom` (`auto`, `all` ou `none`), `zoom_below_area` (`100.0`),
       `zoom_below_amplitude` (`40.0`), `annotated`, et `encoders`, la liste des encodeurs
@@ -2430,8 +2436,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       - les vidéos annotées ;
       - les images résumé, avec leur période (`_000m-010m`, 3 chiffres au moins) et
         leur partie (`_3_sur_8`, `_3_of_8`) ;
-      - les `.<nom>.partial` des vidéos annotées, des images et des CSV, que laisse un
-        arrêt brutal.
+      - les partiels des vidéos annotées, des images, des CSV et de `params.json`, que laisse un arrêt brutal, sous les deux formes de `names::partial_file`.
 
       `params.json` est réécrit, pas retiré. Le reste du dossier n'est pas touché.
     - Une entrée à ce nom qui n'est pas un fichier ordinaire (dossier, lien) est laissée en
@@ -2439,10 +2444,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       courante) ; le nouveau tableau n'est alors pas écrit.
     - Un lien porte le nom d'un dossier d'extraits : il est retiré, sa cible non (sous
       Windows, un lien de dossier par `remove_dir`).
-  - `names::partial_path` est la seule forme `.<nom>.partial` des fichiers écrits :
-    `table` et `summary::image_file` l'emploient ; celle de `media::path` lui est liée
-    par un test de `cli`.
-  - `table::write_tracks_csv` écrit dans `.<nom>.partial`, puis le renomme sans jamais
+  - `names::partial_file` crée le partiel de tout fichier écrit : un fichier vide `.<nom>.<6 lettres ou chiffres>.partial` à côté du fichier final, au nom tiré au hasard et créé de façon exclusive (`tempfile::Builder::make_in` et `File::create_new`, #245). Deux écrivains du même fichier, comme le fil du Ctrl-C qui réécrit la page pendant que le fil principal l'écrit, ou deux `batdetect -o` sur le même dossier, ont donc chacun le leur : le dernier renommage gagne et chaque fichier final est entier, sauf pour le tableau des pistes, où le premier gagne (voir `table::write_tracks_csv`). Un chemin sans nom de fichier est refusé (`InvalidInput`). `table`, `params`, `failures`, `summary::image_file` et la page de `cli` l'emploient ; `media::path` a la même forme, liée par un test de `cli`. Le ménage reconnaît cette forme, quel que soit le mot de 6 lettres ou chiffres (`.v_pistes.csv.backup.partial` compris), et l'ancienne, `.<nom>.partial`, laissée par la 0.2.0. `tempfile_in` n'est pas employé : il crée le fichier en `0600`, que le fichier final garderait. Un partiel laissé par un arrêt brutal à la racine (page) ou dans `.batdetect/echecs/` n'est plus écrasé au passage suivant : il reste, caché.
+  - `table::write_tracks_csv` écrit dans son partiel, puis le renomme sans jamais
     écraser un fichier présent (`exclusive::rename`, sinon `Error::Taken`).
     - Le renommage exclusif (`TempPath::persist_noclobber`) passe en premier. Sur toute
       autre erreur que « nom déjà pris », dont le refus de macOS sur exFAT (#236), le nom
@@ -2515,6 +2518,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       `.batdetect/echecs/` s'y ajoutent, avec ou sans dossier.
     - Les images résumé sont celles que nomment les pistes de `params.json`, dans leur ordre ;
       sans piste, l'image sans suffixe. Leur taille vient de l'en-tête PNG (`picture`).
+    - Le tableau des pistes se cherche sous le nom tiré de `video` ; absent et si ce nom contient `�`, sous le fichier du dossier dont le nom lossy est le même (`on_disk`, #227 ; à égalité, le premier que liste le système). Une vidéo au nom non UTF-8 retrouve ainsi son tableau ; ses images résumé et sa vidéo annotée, cherchées sous le nom lossy, ne sont pas retrouvées.
     - `verdicts::read_verdicts_file` (#228) : le plus récent des fichiers `verdicts*.csv` de la racine (le navigateur numérote les doubles), son nom, sa date et le nombre de candidats ; les octets seulement, sans décodage ni lecture : c'est le JS de la page qui les lit. batdetect n'écrit jamais ce fichier.
     - `failures` : un fichier par vidéo en échec dans `.batdetect/echecs/`, écrit par
       `.partial` et renommage ; un fichier illisible ne cache que lui-même.
@@ -2688,8 +2692,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       d'erreur nomme la vidéo, et le lancement suivant vide le dossier.
   - Encodeurs (`encoders`) : VideoToolbox pour chaque groupe tant qu'il n'est pas écarté,
     sinon openh264. openh264 pose une image-clé par seconde environ
-    (`with_key_interval(round(cadence))`). Un fichier s'écrit sous `.<nom>.partial`,
-    créé par `File::create` (droits habituels de l'utilisateur, umask compris), puis
+    (`with_key_interval(round(cadence))`). Un fichier s'écrit dans son partiel au nom unique,
+    créé par `File::create_new` (droits habituels de l'utilisateur, umask compris), puis
     renommé ; il n'en reste aucun après une erreur.
   - Reprise : quand VideoToolbox casse en cours d'écriture (hors erreur de destination),
     le groupe entier est noté, VideoToolbox est écarté pour la suite de la vidéo, et le

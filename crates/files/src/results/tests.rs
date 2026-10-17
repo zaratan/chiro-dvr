@@ -56,6 +56,39 @@ fn failure(video: &str) -> FailureRecord {
     }
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn the_table_of_a_video_whose_name_is_not_utf8_is_found_by_its_readable_name() {
+    use std::os::unix::ffi::OsStrExt;
+    let root = tempfile::tempdir().unwrap();
+    let dest = root.path().join(OsStr::from_bytes(b"vol_\xe9"));
+    fs::create_dir_all(&dest).unwrap();
+    let written = params(r#""state": "done","#).replace("/nuit/v.mp4", "/nuit/vol_\u{fffd}.mp4");
+    fs::write(dest.join("params.json"), written).unwrap();
+    fs::write(
+        dest.join(OsStr::from_bytes(b"vol_\xe9_pistes.csv")),
+        "\u{feff}Track;Verdict;StartSeconds\r\n1;oui;4,8\r\n2;;23,48\r\n",
+    )
+    .unwrap();
+    let folders = read_results(root.path());
+    let Found::Finished(finished) = &folders[0].found else {
+        panic!("{:?}", folders[0].found);
+    };
+    assert_eq!(finished.table.as_deref(), Some("vol_\u{fffd}_pistes.csv"));
+}
+
+#[test]
+fn a_table_removed_by_the_user_is_left_out_of_a_finished_folder() {
+    let root = tempfile::tempdir().unwrap();
+    finished_folder(root.path(), "v");
+    fs::remove_file(root.path().join("v").join("v_pistes.csv")).unwrap();
+    let folders = read_results(root.path());
+    let Found::Finished(finished) = &folders[0].found else {
+        panic!("{:?}", folders[0].found);
+    };
+    assert_eq!(finished.table, None);
+}
+
 #[test]
 fn a_finished_folder_brings_its_tracks_images_with_their_size_and_table() {
     let root = tempfile::tempdir().unwrap();

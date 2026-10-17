@@ -3,15 +3,14 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use jiff::Zoned;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
-use tempfile::TempPath;
 use types::language::Language;
 use types::span::Span;
 use types::timeline::Timeline;
 
 use crate::error::Error;
-use crate::names::partial_path;
+use crate::names::partial_file;
 use crate::time::{hundredths, span_seconds};
 
 #[cfg(test)]
@@ -28,6 +27,7 @@ pub enum Finish {
 
 #[derive(Debug, Serialize)]
 pub struct Params<'a, S> {
+    #[serde(serialize_with = "lossy")]
     pub video: &'a Path,
     pub fps: f64,
     #[serde(flatten)]
@@ -73,6 +73,10 @@ pub struct Recorded {
     pub rest: Map<String, Value>,
 }
 
+fn lossy<S: Serializer>(path: &&Path, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(&path.to_string_lossy())
+}
+
 pub fn read_params(path: &Path) -> Option<Recorded> {
     let text = fs::read_to_string(path).ok()?;
     serde_json::from_str(&text).ok()
@@ -95,7 +99,7 @@ pub fn write_params<S: Serialize>(path: &Path, params: &Params<'_, S>) -> Result
         path: path.to_path_buf(),
         source,
     };
-    let partial = TempPath::try_from_path(partial_path(path)).map_err(failed)?;
+    let partial = partial_file(path).map_err(failed)?;
     let mut file = BufWriter::new(File::create(&partial).map_err(failed)?);
     file.write_all(text.as_bytes()).map_err(failed)?;
     file.flush().map_err(failed)?;

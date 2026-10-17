@@ -1,10 +1,10 @@
 use std::ffi::OsStr;
-use std::fs::{self, FileType};
+use std::fs::{self, DirEntry, FileType};
 use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::error::Error;
-use crate::names::{Names, Output, composed, params_json, partial_path, previous_output};
+use crate::names::{Names, Output, is_partial_params, name_key, params_json, previous_output};
 
 #[cfg(test)]
 mod tests;
@@ -30,10 +30,7 @@ struct Found {
 }
 
 pub fn remove_previous_outputs(dest: &Path, stem: &OsStr, ours: Names) -> Result<Vec<Kept>, Error> {
-    let finished = params_json(dest);
-    for mark in [partial_path(&finished), finished] {
-        remove_if_there(&mark)?;
-    }
+    remove_params(dest)?;
     let (mut kept, mut removed) = (Vec::new(), Vec::new());
     for found in previous_outputs(dest, stem)? {
         if found.output == Output::TracksTable && !found.kind.is_file() {
@@ -51,20 +48,32 @@ pub fn remove_previous_outputs(dest: &Path, stem: &OsStr, ours: Names) -> Result
     Ok(kept)
 }
 
-fn previous_outputs(dest: &Path, stem: &OsStr) -> Result<Vec<Found>, Error> {
+fn remove_params(dest: &Path) -> Result<(), Error> {
+    remove_if_there(&params_json(dest))?;
+    for entry in entries(dest)? {
+        if is_partial_params(&name_key(&entry.file_name())) {
+            remove_if_there(&entry.path())?;
+        }
+    }
+    Ok(())
+}
+
+fn entries(dest: &Path) -> Result<Vec<DirEntry>, Error> {
     let listing = |source| Error::List {
         path: dest.to_path_buf(),
         source,
     };
-    let entries = match fs::read_dir(dest) {
-        Err(source) if source.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
-        entries => entries.map_err(listing)?,
-    };
-    let stem = normalized(stem);
+    match fs::read_dir(dest) {
+        Err(source) if source.kind() == io::ErrorKind::NotFound => Ok(Vec::new()),
+        entries => entries.map_err(listing)?.map(|entry| entry.map_err(listing)).collect(),
+    }
+}
+
+fn previous_outputs(dest: &Path, stem: &OsStr) -> Result<Vec<Found>, Error> {
+    let stem = name_key(stem);
     let mut found = Vec::new();
-    for entry in entries {
-        let entry = entry.map_err(listing)?;
-        if let Some((names, output)) = previous_output(&normalized(&entry.file_name()), &stem) {
+    for entry in entries(dest)? {
+        if let Some((names, output)) = previous_output(&name_key(&entry.file_name()), &stem) {
             let path = entry.path();
             let kind = entry.file_type().map_err(|source| Error::List {
                 path: path.clone(),
@@ -104,11 +113,6 @@ fn remove_if_there(path: &Path) -> Result<(), Error> {
         }),
         _ => Ok(()),
     }
-}
-
-fn normalized(name: &OsStr) -> Vec<u8> {
-    name.to_str()
-        .map_or_else(|| name.as_encoded_bytes().to_vec(), |text| composed(text).into_bytes())
 }
 
 #[cfg(windows)]

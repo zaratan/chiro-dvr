@@ -142,7 +142,7 @@ fn finished(dest: &Path, written: Written) -> Finished {
     let names = Names::new(language);
     let stem = written.video.file_stem().unwrap_or_default().to_os_string();
     let present = |path: PathBuf| path.is_file().then(|| file_name(&path));
-    let table_path = names.tracks_csv(dest, &stem);
+    let table_path = on_disk(dest, names.tracks_csv(dest, &stem));
     let mut files: Vec<String> = Vec::new();
     for file in written.tracks.iter().filter_map(|track| track.summary.clone()) {
         if !files.contains(&file) {
@@ -165,6 +165,20 @@ fn finished(dest: &Path, written: Written) -> Finished {
         annotated: present(names.annotated_video(dest, &stem)),
         written,
     }
+}
+
+fn on_disk(dest: &Path, written: PathBuf) -> PathBuf {
+    let wanted = file_name(&written);
+    if written.exists() || !wanted.contains(char::REPLACEMENT_CHARACTER) {
+        return written;
+    }
+    fs::read_dir(dest)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|path| path.file_name().is_some_and(|found| found.to_string_lossy() == wanted))
+        .unwrap_or(written)
 }
 
 fn file_name(path: &Path) -> String {

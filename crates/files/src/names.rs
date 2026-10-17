@@ -1,7 +1,10 @@
 use std::ffi::{OsStr, OsString};
+use std::fs::File;
+use std::io;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
+use tempfile::{Builder, NamedTempFile, TempPath};
 use types::language::Language;
 use types::track::Track;
 use unicode_normalization::UnicodeNormalization;
@@ -20,6 +23,8 @@ const TABLE_EXTENSION: &str = ".csv";
 const IMAGE_EXTENSION: &str = ".png";
 const PARTIAL_PREFIX: &str = ".";
 const PARTIAL_SUFFIX: &str = ".partial";
+const UNIQUE_SEPARATOR: &str = ".";
+const UNIQUE_LENGTH: usize = 6;
 const HIDDEN_PREFIX: &[u8] = b".";
 const PERIOD_DIGITS: usize = 3;
 const MIN_TRACK_DIGITS: usize = 2;
@@ -191,13 +196,28 @@ pub(crate) fn previous_output(name: &[u8], stem: &[u8]) -> Option<(Names, Output
             .into_iter()
             .find_map(|names| Some((names, names.output(name, stem)?)))
     };
-    let partial = name
-        .strip_prefix(PARTIAL_PREFIX.as_bytes())
-        .and_then(|name| name.strip_suffix(PARTIAL_SUFFIX.as_bytes()))
-        .and_then(finished)
-        .filter(|(_, output)| *output != Output::ClipsFolder)
+    let partial = finished_names_of_partial(name)
+        .find_map(|name| finished(name).filter(|(_, output)| *output != Output::ClipsFolder))
         .map(|(names, _)| (names, Output::Partial));
     partial.or_else(|| finished(name))
+}
+
+pub(crate) fn is_partial_params(name: &[u8]) -> bool {
+    finished_names_of_partial(name).any(|finished| finished == PARAMS.as_bytes())
+}
+
+fn finished_names_of_partial(name: &[u8]) -> impl Iterator<Item = &[u8]> {
+    let fixed = name
+        .strip_prefix(PARTIAL_PREFIX.as_bytes())
+        .and_then(|name| name.strip_suffix(PARTIAL_SUFFIX.as_bytes()));
+    let unique = fixed.and_then(without_unique_part);
+    fixed.into_iter().chain(unique)
+}
+
+fn without_unique_part(name: &[u8]) -> Option<&[u8]> {
+    let (finished, unique) = name.split_at_checked(name.len().checked_sub(UNIQUE_LENGTH)?)?;
+    let finished = finished.strip_suffix(UNIQUE_SEPARATOR.as_bytes())?;
+    unique.iter().all(u8::is_ascii_alphanumeric).then_some(finished)
 }
 
 fn after_period(text: &[u8]) -> Option<&[u8]> {
@@ -214,15 +234,28 @@ pub fn composed(name: &str) -> String {
     name.nfc().collect()
 }
 
+pub fn name_key(name: &OsStr) -> Vec<u8> {
+    name.to_str()
+        .map_or_else(|| name.as_encoded_bytes().to_vec(), |text| composed(text).into_bytes())
+}
+
 pub fn is_hidden(name: &OsStr) -> bool {
     name.as_encoded_bytes().starts_with(HIDDEN_PREFIX)
 }
 
-pub fn partial_path(path: &Path) -> PathBuf {
-    let mut name = OsString::from(PARTIAL_PREFIX);
-    name.push(path.file_name().unwrap_or_default());
-    name.push(PARTIAL_SUFFIX);
-    path.with_file_name(name)
+pub fn partial_file(path: &Path) -> io::Result<TempPath> {
+    let (Some(name), Some(folder)) = (path.file_name(), path.parent()) else {
+        return Err(io::Error::from(io::ErrorKind::InvalidInput));
+    };
+    let mut prefix = OsString::from(PARTIAL_PREFIX);
+    prefix.push(name);
+    prefix.push(UNIQUE_SEPARATOR);
+    Builder::new()
+        .prefix(&prefix)
+        .suffix(PARTIAL_SUFFIX)
+        .rand_bytes(UNIQUE_LENGTH)
+        .make_in(folder, |path| File::create_new(path))
+        .map(NamedTempFile::into_temp_path)
 }
 
 pub fn period_suffix(minutes: Range<u32>) -> String {

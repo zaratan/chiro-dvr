@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       code: ${{ steps.diff.outputs.code }}
@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-26.04]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
@@ -89,7 +89,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-26.04]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     env:
@@ -131,7 +131,7 @@ jobs:
   rust-reference:
     needs: changes
     if: needs.changes.outputs.code != 'false'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -167,7 +167,7 @@ jobs:
   rust-settings:
     needs: changes
     if: needs.changes.outputs.code != 'false'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     env:
       EXTRACT: tests/fixtures/video_092_original_3m24-4m05.mp4
@@ -306,7 +306,7 @@ jobs:
   verdict:
     needs: [changes, rust, page-js, rust-slow, rust-reference, rust-settings, rust-windows, rust-windows-slow, package]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - env:
