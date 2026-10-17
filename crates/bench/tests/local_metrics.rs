@@ -23,7 +23,7 @@ const EXACT: f64 = 1e-12;
 fn recorded_run(name: &str) -> (Run, BenchReport) {
     let recording = Recording::read(&committed(Reference::V011, "video_092_original")).unwrap();
     let summary = &recording.summary;
-    let folder = recorded_bench(Reference::V011, name).unwrap();
+    let folder = recorded_bench(name).unwrap();
     let targets = read_targets(&folder.join(TARGETS_FILE))
         .unwrap()
         .iter()

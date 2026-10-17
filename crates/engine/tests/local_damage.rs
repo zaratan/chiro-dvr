@@ -12,15 +12,73 @@ use types::span::Span;
 
 struct Concealed {
     video: &'static str,
-    frame: usize,
+    frames: &'static [usize],
     damaged_frames: usize,
 }
 
 const CONCEALED_WITHOUT_ERROR_MESSAGE: [Concealed; 1] = [Concealed {
     video: "video_124.mp4",
-    frame: 2197,
+    frames: &[2197],
     damaged_frames: 7458,
 }];
+
+const FLAGGED_ONLY_BY_SOME_SYSTEMS: [Concealed; 8] = [
+    Concealed {
+        video: "video_093.mp4",
+        frames: &[1307, 7395],
+        damaged_frames: 449,
+    },
+    Concealed {
+        video: "video_097.mp4",
+        frames: &[5444],
+        damaged_frames: 535,
+    },
+    Concealed {
+        video: "video_120.mp4",
+        frames: &[4589],
+        damaged_frames: 2215,
+    },
+    Concealed {
+        video: "video_121.mp4",
+        frames: &[8844],
+        damaged_frames: 4912,
+    },
+    Concealed {
+        video: "video_122.mp4",
+        frames: &[2264],
+        damaged_frames: 6073,
+    },
+    Concealed {
+        video: "video_123.mp4",
+        frames: &[330, 1250, 2267, 3986, 4902, 5417],
+        damaged_frames: 6627,
+    },
+    Concealed {
+        video: "video_124.mp4",
+        frames: &[2197, 3643],
+        damaged_frames: 7458,
+    },
+    Concealed {
+        video: "video_128.mp4",
+        frames: &[2830],
+        damaged_frames: 1006,
+    },
+];
+
+fn expected(name: &str, extra: &[usize]) -> Option<&'static Concealed> {
+    let concealed = CONCEALED_WITHOUT_ERROR_MESSAGE
+        .iter()
+        .find(|concealed| concealed.video == name);
+    let silent = concealed.map_or(&[][..], |concealed| concealed.frames);
+    let flagged = FLAGGED_ONLY_BY_SOME_SYSTEMS
+        .iter()
+        .find(|flagged| flagged.video == name);
+    if extra == silent {
+        concealed
+    } else {
+        flagged.or(concealed)
+    }
+}
 
 fn set(frames: &[FrameIndex]) -> BTreeSet<usize> {
     frames.iter().map(|frame| frame.get()).collect()
@@ -32,7 +90,7 @@ fn damaged_frames(spans: &[Span]) -> usize {
 
 #[test]
 #[ignore = "local"]
-fn the_twenty_six_videos_are_damaged_where_ffprobe_says_plus_frames_it_conceals_silently() {
+fn the_twenty_six_videos_are_damaged_where_ffprobe_says_plus_frames_it_conceals_silently_or_some_systems_flag() {
     let directories = recording_directories(Reference::V011).unwrap();
     assert_eq!(directories.len(), 26);
     let mut out = io::stdout().lock();
@@ -58,16 +116,9 @@ fn the_twenty_six_videos_are_damaged_where_ffprobe_says_plus_frames_it_conceals_
         .unwrap();
         assert!(found.is_superset(&probed), "{name}");
         assert_eq!(damage.jump_frames(), probe.gap_frames, "{name}");
-        let concealed: Vec<&Concealed> = CONCEALED_WITHOUT_ERROR_MESSAGE
-            .iter()
-            .filter(|concealed| concealed.video == name)
-            .collect();
-        assert_eq!(
-            extra,
-            concealed.iter().map(|concealed| concealed.frame).collect::<Vec<_>>(),
-            "{name}"
-        );
-        match concealed.first() {
+        let concealed = expected(name, &extra);
+        assert_eq!(extra, concealed.map_or(&[][..], |concealed| concealed.frames), "{name}");
+        match concealed {
             None => assert_eq!(damage.spans(), summary.damaged_spans, "{name}"),
             Some(concealed) => {
                 assert_eq!(rust, concealed.damaged_frames, "{name}");

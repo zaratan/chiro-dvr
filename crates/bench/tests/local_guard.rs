@@ -6,7 +6,7 @@ use bench::metrics::Judging;
 use engine::config::DetectConfig;
 use media::decode::Threads;
 use reference::fixture::fixture;
-use reference::location::{Reference, recorded_bench};
+use reference::location::recorded_bench;
 
 #[cfg(test)]
 fn listed(changes: &[Change]) -> String {
@@ -62,7 +62,7 @@ fn the_two_benches_of_the_v011_replayed_on_the_092_fall_below_no_lower_wilson_bo
             Threads::Automatic,
             &DetectConfig::default(),
             Judging::default(),
-            &recorded_bench(Reference::V011, name).unwrap(),
+            &recorded_bench(name).unwrap(),
         )
         .unwrap();
 

@@ -140,6 +140,22 @@ impl VideoSummary {
         Ok(summary)
     }
 
+    /// The same video and stream, described by the decoder of `reference` instead of ffprobe and without a tracks table.
+    #[must_use]
+    pub fn decoded(self, reference: &str, decoder: Decoder) -> Self {
+        Self {
+            format_version: DECODED_FORMAT,
+            reference: reference.to_owned(),
+            ffprobe: None,
+            decoder: Some(decoder),
+            files: Files {
+                csv: None,
+                ..self.files
+            },
+            ..self
+        }
+    }
+
     fn sections_of_its_version(&self, path: &Path) -> Result<(), Error> {
         let probed = self.format_version == PROBED_FORMAT;
         let sections = [

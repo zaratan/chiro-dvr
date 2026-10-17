@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use engine::config::DetectConfig;
 use engine::detection::detect;
+use engine::settings::DetectSettings;
 use files::names::{Names, names_the_video, params_json};
 use files::params::Finish;
 use files::previous::{Kept, Reason};
@@ -28,7 +29,7 @@ use types::timeline::Timeline;
 use types::track::Track;
 
 use super::{
-    Clips, Error, Extent, Versions, Wording, Written, extent, finish, process, process_detected, render_clips,
+    Clips, Error, Extent, Versions, Wording, Written, extent, finish, process, process_detected, render_clips, tracked,
 };
 use crate::flight;
 use crate::jobs::Job;
@@ -741,4 +742,27 @@ fn each_listed_track_names_the_clip_and_zoom_really_written_beside_params_json()
         }
         assert_eq!(track["color"].as_array().unwrap().len(), 3);
     }
+}
+
+#[test]
+fn the_reference_recorder_tracks_a_detection_exactly_as_the_command_does() {
+    let config = DetectConfig::try_from(&DetectSettings {
+        work_width: 240,
+        ..DetectSettings::default()
+    })
+    .unwrap();
+    let detected = detect(
+        &reference::fixture::fixture("spot.mp4").unwrap(),
+        Threads::Automatic,
+        &config,
+    )
+    .unwrap();
+
+    let shipped = tracked(&detected, &Options::default()).unwrap();
+    let recorded = compare::decoded::followed(&detected).unwrap();
+
+    assert_eq!(
+        (shipped.exclusion, shipped.tracks),
+        (recorded.exclusion, recorded.tracks)
+    );
 }

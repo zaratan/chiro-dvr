@@ -146,7 +146,7 @@ crates depuis #71, dépendances à sens unique :
 - `summary` → `draw`, `types`, `files` (#104) : l'image résumé (tranches, couleurs,
   flèches, pastilles, bandeau, frise du temps, PNG), sans FFmpeg.
 - `compare` → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
-  développement, binaire `compare`, non livré ;
+  développement, binaires `compare` et `record` (qui enregistre la référence v0.2.0 depuis un commit propre, #250), non livrés ;
   `bench` → `engine`, `tracking`, `reference`, `media`, `types` (#100) : banc de mesure,
   binaire `batdetect-bench` (`--targets`, `--replay`, `--against`) ;
   sa feature `testing` porte la vidéo bruitée et la cible lente de ses tests (`noisy`) ;
