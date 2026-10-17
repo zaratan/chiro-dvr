@@ -156,10 +156,11 @@ ailleurs, ces commandes se lancent sans lui.
     liaisons de bindgen changent. Un arrêt brutal (SIGKILL, délai de la CI dépassé) peut
     laisser un dossier `.build.*` dans le cache : il se supprime à la main.
 - **Cible processeur** :
-  - macOS arm64 garde le défaut (`apple-m1`) ;
+  - macOS arm64 garde le défaut (`apple-m1`) pour le Rust ;
   - Linux x86_64 compile le Rust en `x86-64-v2` (`.cargo/config.toml`). Sans SSE4.1, le
-    min/max u16 du réseau de médiane ne serait pas vectorisé. FFmpeg choisit ses routines
-    à l'exécution ;
+    min/max u16 du réseau de médiane ne serait pas vectorisé ;
+  - FFmpeg choisit ses routines en assembleur à l'exécution, mais son code C et celui d'openh264 sont compilés pour une cible épinglée dans `ffmpeg-unix.sh`, donc dans l'empreinte (#310) : `-march=x86-64-v2` sous Linux, `-mcpu=apple-m1` sous macOS, par `--extra-cflags` pour FFmpeg et `CFLAGS_OPT="-O3 …"` pour openh264, dont le Makefile met `CFLAGS` dans ses compilations C, C++ et assembleur. Sans elle, ils suivaient la cible par défaut du compilateur du poste : `x86-64-v3` pour le gcc de Rocky 10 (`gcc -Q --help=target`), si bien que le FFmpeg de lumiel s'arrêtait sur un `vmovsd` sous Intel SDE en Nehalem (#251), avec la même empreinte que celui de la CI ;
+  - Windows n'épingle rien : MSVC compile en SSE2 par défaut sur x64, quel que soit le poste ;
   - ne jamais poser `RUSTFLAGS` : la variable remplacerait ce réglage.
 - **macOS 14 au minimum** : `MACOSX_DEPLOYMENT_TARGET=14.0` vaut pour openh264, FFmpeg
   et rustc. Mesuré : `minos` 14.0 sur les 411 objets et sur le binaire.
