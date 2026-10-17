@@ -27,7 +27,7 @@ fn a_band_shows_only_when_it_holds_a_period() {
 }
 
 #[test]
-fn the_starts_of_the_tracks_take_their_colour_and_those_of_the_other_parts_come_first_in_grey() {
+fn the_starts_of_the_tracks_take_their_colour_and_number_and_those_of_the_other_parts_come_first_in_grey_without_one() {
     let one = track(1, "v_resume.png");
     let other = Layout {
         other_starts_s: vec![150.035],
@@ -37,7 +37,7 @@ fn the_starts_of_the_tracks_take_their_colour_and_those_of_the_other_parts_come_
     let grey = html
         .find(r#"<span class="start other" style="left:50.000%"></span>"#)
         .unwrap();
-    let mine = html.find(r#"<span class="start" style="left:1.933%;--dot:rgb(255 214 10)" title="Scene(StartOf { track: 1, start: 5.8 })"></span>"#).unwrap();
+    let mine = html.find(r#"<span class="start" data-id="1" style="left:1.933%;--dot:rgb(255 214 10)" title="Scene(StartOf { track: 1, start: 5.8 })"></span>"#).unwrap();
     assert!(grey < mine, "{html}");
 }
 

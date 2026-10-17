@@ -1,5 +1,5 @@
 "use strict";
-const VerdictsOverlay = ({ section, tracks, store, say, current, onChoose }) => {
+const VerdictsOverlay = ({ section, tracks, store, say, current, shows, onChoose }) => {
   const REACH_PX = 12;
   const KEYS = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
   const byId = new Map(tracks.map((track) => [String(track.id), track]));
@@ -13,7 +13,6 @@ const VerdictsOverlay = ({ section, tracks, store, say, current, onChoose }) => 
     return value.verdict ? say(value.verdict) : say("to-see");
   };
 
-  const shown = (element) => getComputedStyle(element).display !== "none";
 
   const shapesOf = (svg) => {
     if (drawn.has(svg)) return drawn.get(svg);
@@ -23,6 +22,7 @@ const VerdictsOverlay = ({ section, tracks, store, say, current, onChoose }) => 
       return shapes.get(id);
     };
     const number = (element, name) => Number(element.getAttribute(name));
+    const shown = (group) => !svg.closest(".thumb") || group.classList.contains("active");
     svg.querySelectorAll(".lines [data-id]").forEach((line) => {
       shape(line.dataset.id).lines.push(VerdictsHits.points(line.getAttribute("points")));
     });
@@ -51,7 +51,8 @@ const VerdictsOverlay = ({ section, tracks, store, say, current, onChoose }) => 
     const matrix = svg.getScreenCTM();
     if (!matrix || matrix.a === 0) return null;
     const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
-    const id = VerdictsHits.choose([point.x, point.y], shapesOf(svg), {
+    const visible = shapesOf(svg).filter((shape) => shows(byId.get(String(shape.id))));
+    const id = VerdictsHits.choose([point.x, point.y], visible, {
       reach: REACH_PX / matrix.a,
       current: current()?.id ?? null,
     });
@@ -95,6 +96,8 @@ const VerdictsOverlay = ({ section, tracks, store, say, current, onChoose }) => 
 
   const dotsOf = (svg) => [...svg.querySelectorAll(".dots > [data-id]")].filter((dot) => byId.has(dot.dataset.id));
 
+  const reachable = (svg) => dotsOf(svg).filter((dot) => shows(byId.get(dot.dataset.id)));
+
   const label = (dot) => {
     const track = byId.get(dot.dataset.id);
     dot.setAttribute(
@@ -106,23 +109,23 @@ const VerdictsOverlay = ({ section, tracks, store, say, current, onChoose }) => 
   const settle = (dots, dot) => dots.forEach((one) => one.setAttribute("tabindex", one === dot ? "0" : "-1"));
 
   for (const svg of scenes) {
-    const dots = dotsOf(svg);
-    if (dots.length === 0) continue;
+    if (dotsOf(svg).length === 0) continue;
     svg.setAttribute("role", "group");
     svg.querySelector("image")?.setAttribute("aria-hidden", "true");
-    dots.forEach((dot) => {
+    dotsOf(svg).forEach((dot) => {
       dot.setAttribute("role", "button");
       label(dot);
     });
-    settle(dots, dots[0]);
+    settle(dotsOf(svg), dotsOf(svg)[0]);
     const move = (dot) => {
-      settle(dots, dot);
+      settle(dotsOf(svg), dot);
       dot.focus();
     };
     svg.addEventListener("keydown", (event) => {
       const dot = event.target.closest?.(".dots > [data-id]");
       if (!dot || event.metaKey || event.ctrlKey || event.altKey) return;
-      const index = dots.indexOf(dot);
+      const dots = reachable(svg);
+      const index = Math.max(dots.indexOf(dot), 0);
       if (event.key in KEYS) {
         event.preventDefault();
         move(dots[(index + KEYS[event.key] + dots.length) % dots.length]);
@@ -141,16 +144,76 @@ const VerdictsOverlay = ({ section, tracks, store, say, current, onChoose }) => 
 
   if (thumb) followPointer(thumb, () => thumb.querySelector("svg.scene"));
 
+  for (const lane of section.querySelectorAll(".lane.starts")) {
+    const svg = lane.closest(".panel")?.querySelector("svg.scene");
+    const nearest = (event) => {
+      const starts = [...lane.querySelectorAll(".start[data-id]")].filter(
+        (start) => !start.hidden && byId.has(start.dataset.id),
+      );
+      const shapes = starts.map((start) => {
+        const box = start.getBoundingClientRect();
+        return { id: Number(start.dataset.id), lines: [[[box.left + box.width / 2, 0]]], polygons: [], circles: [] };
+      });
+      const id = VerdictsHits.choose([event.clientX, 0], shapes, { reach: REACH_PX, current: current()?.id ?? null });
+      return id === null ? null : byId.get(String(id));
+    };
+    const mark = (track) => {
+      lane.classList.toggle("hovering", Boolean(track));
+      lane.querySelectorAll(".start[data-id]").forEach((start) => {
+        start.classList.toggle("hot", start.dataset.id === String(track?.id));
+      });
+    };
+    lane.addEventListener("pointermove", (event) => {
+      const track = nearest(event);
+      mark(track);
+      if (svg) light(svg, track?.id ?? null);
+    });
+    lane.addEventListener("pointerleave", () => {
+      mark(null);
+      if (svg) light(svg, focused(svg));
+    });
+    lane.addEventListener("click", (event) => {
+      const track = nearest(event);
+      if (track && track !== current()) onChoose(track);
+    });
+  }
+
   const restore = (track) => {
     const svg = scenes.find((one) => !one.closest(".panel")?.hidden);
-    const dots = svg ? dotsOf(svg) : [];
-    const dot = dots.find((one) => one.dataset.id === String(track?.id));
-    if (!dot) return;
-    settle(dots, dot);
+    if (!svg) return;
+    const all = dotsOf(svg);
+    const shownDots = reachable(svg);
+    const at = all.findIndex((one) => one.dataset.id === String(track?.id));
+    const dot = [...all.slice(Math.max(at, 0)), ...all.slice(0, Math.max(at, 0))].find((one) => shownDots.includes(one));
+    if (!dot) {
+      section.querySelector(".pictures .filters [aria-pressed='true']")?.focus();
+      return;
+    }
+    settle(all, dot);
     dot.focus();
   };
 
-  const update = () => scenes.forEach((svg) => dotsOf(svg).forEach(label));
+  const update = () => {
+    const thumbScene = thumb?.querySelector("svg.scene");
+    const verdictOf = (id) => {
+      const track = byId.get(id);
+      return track ? { kind: store.kindOf(track), shown: shows(track) } : null;
+    };
+    [...scenes, ...(thumbScene ? [thumbScene] : [])].forEach((svg) => VerdictsMarks.paint(svg, verdictOf));
+    for (const svg of scenes) {
+      dotsOf(svg).forEach(label);
+      const dots = reachable(svg);
+      if (dots.length > 0 && !dots.some((dot) => dot.getAttribute("tabindex") === "0")) settle(dotsOf(svg), dots[0]);
+    }
+    for (const start of section.querySelectorAll(".start[data-id]")) {
+      const track = byId.get(start.dataset.id);
+      if (!track) continue;
+      VerdictsMarks.tag(start, store.kindOf(track));
+      start.hidden = !shows(track);
+    }
+  };
+
+  update();
 
   return { update, restore };
 };

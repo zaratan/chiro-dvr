@@ -163,10 +163,32 @@ if (savebar) {
       chained,
       onOpen: (opening) => judges.forEach((judge, index) => judge && owned[index].section !== opening && judge.close()),
       onLeave: (track) => overlays[index]?.restore(track),
+      shows: (track) => filters[index]?.shows(track) ?? true,
+      onCurrent: () => repaint(index),
     }),
   );
+  const filters = owned.map(
+    ({ section, tracks: own }, index) =>
+      judges[index] &&
+      VerdictsFilter({
+        section,
+        tracks: own,
+        store,
+        say,
+        current: () => judges[index].current(),
+        onChange: () => repaint(index),
+      }),
+  );
   const lists = owned.map(({ section, tracks: own }, index) =>
-    VerdictsList({ section, tracks: own, store, say, clock, onChoose: (track) => judges[index]?.open(track) }),
+    VerdictsList({
+      section,
+      tracks: own,
+      store,
+      say,
+      clock,
+      shows: (track) => filters[index]?.shows(track) ?? true,
+      onChoose: (track) => judges[index]?.open(track),
+    }),
   );
   const overlays = owned.map(
     ({ section, tracks: own }, index) =>
@@ -177,9 +199,14 @@ if (savebar) {
         store,
         say,
         current: () => judges[index].current(),
+        shows: (track) => filters[index].shows(track),
         onChoose: (track) => judges[index].open(track),
       }),
   );
+  function repaint(index) {
+    lists[index].update();
+    overlays[index]?.update();
+  }
   const names = document.getElementById("species-names");
   const time = () => new Date().toLocaleTimeString(document.documentElement.lang, { hour: "2-digit", minute: "2-digit" });
   let downloadedAt = "";
@@ -197,6 +224,7 @@ if (savebar) {
 
   store.subscribe(() => {
     bar.update();
+    filters.forEach((filter) => filter?.update());
     lists.forEach((list) => list.update());
     overlays.forEach((overlay) => overlay?.update());
     const known = [...new Set(store.rows().map((row) => row.species).filter(Boolean))].sort();

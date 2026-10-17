@@ -6,6 +6,6 @@ export const load = (...files) => {
     vm.runInThisContext(readFileSync(new URL(`../${file}`, import.meta.url), "utf8"), { filename: file });
   }
   return vm.runInThisContext(
-    `({ VerdictsCsv: typeof VerdictsCsv === "undefined" ? undefined : VerdictsCsv, VerdictsStore: typeof VerdictsStore === "undefined" ? undefined : VerdictsStore, VerdictsHits: typeof VerdictsHits === "undefined" ? undefined : VerdictsHits })`,
+    `({ VerdictsCsv: typeof VerdictsCsv === "undefined" ? undefined : VerdictsCsv, VerdictsStore: typeof VerdictsStore === "undefined" ? undefined : VerdictsStore, VerdictsHits: typeof VerdictsHits === "undefined" ? undefined : VerdictsHits, VerdictsFilter: typeof VerdictsFilter === "undefined" ? undefined : VerdictsFilter })`,
   );
 };
