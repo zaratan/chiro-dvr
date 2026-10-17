@@ -1,14 +1,14 @@
 #[path = "shared/comparison.rs"]
 mod comparison;
 
-use reference::location::committed;
+use reference::location::{Reference, committed};
 use reference::recording::Recording;
 use types::rate::FrameRate;
 
 #[test]
 fn the_excerpt_and_the_full_092_give_exactly_the_tracks_of_the_reference() {
     for (name, expected) in [("video_092_original_3m24-4m05", 4), ("video_092_original", 14)] {
-        let recording = Recording::read(&committed(name)).unwrap();
+        let recording = Recording::read(&committed(Reference::V011, name)).unwrap();
         let rate = FrameRate::new(recording.summary.stream.avg_frame_rate).unwrap();
         let found = comparison::compare(&recording, rate).unwrap();
         println!(

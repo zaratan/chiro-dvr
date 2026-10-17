@@ -8,7 +8,7 @@ use engine::settings::DetectSettings;
 use reference::bench::{
     BenchReport, INJECTED_FILE, REPORT_FILE, ReportedClass, TARGETS_FILE, read_detections, read_report, read_targets,
 };
-use reference::location::{committed, recorded_bench};
+use reference::location::{Reference, committed, recorded_bench};
 use reference::recording::Recording;
 use types::rate::FrameRate;
 use types::size::SourceSize;
@@ -21,9 +21,9 @@ const EXACT: f64 = 1e-12;
 
 #[cfg(test)]
 fn recorded_run(name: &str) -> (Run, BenchReport) {
-    let recording = Recording::read(&committed("video_092_original")).unwrap();
+    let recording = Recording::read(&committed(Reference::V011, "video_092_original")).unwrap();
     let summary = &recording.summary;
-    let folder = recorded_bench(name).unwrap();
+    let folder = recorded_bench(Reference::V011, name).unwrap();
     let targets = read_targets(&folder.join(TARGETS_FILE))
         .unwrap()
         .iter()

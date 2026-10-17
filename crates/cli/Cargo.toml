@@ -11,6 +11,7 @@ name = "batdetect"
 
 [dependencies]
 clap.workspace = true
+clap_complete.workspace = true
 ctrlc.workspace = true
 draw.workspace = true
 engine.workspace = true

@@ -16,8 +16,8 @@ use crate::sheet::{self, Spoken};
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 69;
-const FIXED: [Fixed; 79] = [
+const VARIANTS: usize = 76;
+const FIXED: [Fixed; 99] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -97,6 +97,26 @@ const FIXED: [Fixed; 79] = [
     Fixed::TableAmplitude,
     Fixed::TableFilledFrames,
     Fixed::TableStartSeconds,
+    Fixed::OtherCommands,
+    Fixed::CompletionZshOnly,
+    Fixed::CompletionWithHomebrew,
+    Fixed::CompletionWithoutHomebrew,
+    Fixed::CompletionThenProfile,
+    Fixed::DoctorNoArgument,
+    Fixed::DoctorHardware,
+    Fixed::DoctorSoftware,
+    Fixed::DoctorFallback,
+    Fixed::DoctorBroken,
+    Fixed::DoctorReady,
+    Fixed::DoctorTodoFallback,
+    Fixed::DoctorTodoBroken,
+    Fixed::DoctorTodoSpace,
+    Fixed::DoctorTodoWriting,
+    Fixed::DoctorUntried,
+    Fixed::DoctorTodoUntried,
+    Fixed::CompletionCommandsGroup,
+    Fixed::CompletionDoctor,
+    Fixed::CompletionCompletion,
 ];
 
 fn rank(message: &Message) -> usize {
@@ -169,7 +189,14 @@ fn rank(message: &Message) -> usize {
         Message::Announce { .. } => 65,
         Message::DiskShort { .. } => 66,
         Message::DisksShort { .. } => 67,
-        Message::Finish { .. } => 68,
+        Message::DoctorVersion { .. } => 68,
+        Message::DoctorSpace { .. } => 69,
+        Message::DoctorSpaceShort { .. } => 70,
+        Message::DoctorSpaceUnknown { .. } => 71,
+        Message::DoctorWritable { .. } => 72,
+        Message::DoctorUnwritable { .. } => 73,
+        Message::DoctorProblems { .. } => 74,
+        Message::Finish { .. } => 75,
     }
 }
 
@@ -254,6 +281,34 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::TableStartSeconds => 76,
         Fixed::ForceHelp => 77,
         Fixed::IgnoreDiskHelp => 78,
+        Fixed::CompletionCompletion => 98,
+        other => command_rank(other),
+    }
+}
+
+fn command_rank(fixed: Fixed) -> usize {
+    match fixed {
+        Fixed::OtherCommands => 79,
+        Fixed::CompletionZshOnly => 80,
+        Fixed::CompletionWithHomebrew => 81,
+        Fixed::CompletionWithoutHomebrew => 82,
+        Fixed::CompletionThenProfile => 83,
+        Fixed::DoctorNoArgument => 84,
+        Fixed::DoctorHardware => 85,
+        Fixed::DoctorSoftware => 86,
+        Fixed::DoctorFallback => 87,
+        Fixed::DoctorBroken => 88,
+        Fixed::DoctorReady => 89,
+        Fixed::DoctorTodoFallback => 90,
+        Fixed::DoctorTodoBroken => 91,
+        Fixed::DoctorTodoSpace => 92,
+        Fixed::DoctorTodoWriting => 93,
+        Fixed::DoctorUntried => 94,
+        Fixed::DoctorTodoUntried => 95,
+        Fixed::CompletionCommandsGroup => 96,
+        Fixed::CompletionDoctor => 97,
+        Fixed::CompletionCompletion => 98,
+        _ => usize::MAX,
     }
 }
 
@@ -264,6 +319,7 @@ fn samples() -> Vec<Message> {
         .chain(tally_lines())
         .chain(video_lines())
         .chain(command_line())
+        .chain(other_commands())
         .collect()
 }
 
@@ -872,4 +928,30 @@ fn the_files_produced_are_named_as_the_command_writes_them_in_each_language() {
             );
         }
     }
+}
+
+fn other_commands() -> Vec<Message> {
+    let folder = || "/nuit".to_owned();
+    vec![
+        Message::DoctorVersion {
+            version: "0.2.1".to_owned(),
+            ffmpeg: "7.1.1".to_owned(),
+        },
+        Message::DoctorSpace {
+            gigabytes: "412".to_owned(),
+            folder: folder(),
+        },
+        Message::DoctorSpaceShort {
+            gigabytes: "3,2".to_owned(),
+            folder: folder(),
+            least: "20".to_owned(),
+        },
+        Message::DoctorSpaceUnknown { folder: folder() },
+        Message::DoctorWritable { folder: folder() },
+        Message::DoctorUnwritable {
+            folder: folder(),
+            access: "read-only",
+        },
+        Message::DoctorProblems { count: 2 },
+    ]
 }

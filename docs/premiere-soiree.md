@@ -22,6 +22,10 @@ quoi le Terminal ne trouve pas `brew`.
 vérifier, taper `batdetect --version` : la première ligne affichée doit dire
 « batdetect 0.2.0 ». Tout cela ne se fait qu'une fois.
 
+**Vérifier que tout est prêt** (depuis la version 0.2.1) : taper `batdetect doctor`, puis Entrée. Chaque ligne commence par ✓ quand tout va bien ; sous une ligne ✗, la ligne « à faire » dit quoi faire ; une ligne ⚠ ne bloque rien. À refaire avant une soirée importante, dans le dossier où les résultats seront écrits.
+
+**Activer la touche Tab** (depuis la version 0.2.1), qui complète les noms de vidéos et les options : copier dans le Terminal `echo 'autoload -Uz compinit && compinit' >> ~/.zshrc`, puis Entrée, puis ouvrir une nouvelle fenêtre du Terminal (Cmd + N). Cela ne se fait qu'une fois.
+
 ## 2. Brancher les jumelles
 
 Brancher les jumelles **allumées** au Mac par leur câble USB-C. Sur les jumelles, choisir le

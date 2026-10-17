@@ -1,13 +1,13 @@
 use std::fs;
 
-use reference::location::committed;
+use reference::location::{Reference, committed};
 use reference::recording::SUMMARY_FILE;
-use reference::video::VideoSummary;
+use reference::video::{DECODED_FORMAT, Decoder, DecoderThreads, Losses, VideoSummary};
 
 use super::{DetectSettings, Region, RegionShape, Setting};
 
 fn extract_summary() -> String {
-    fs::read_to_string(committed("video_092_original_3m24-4m05").join(SUMMARY_FILE)).unwrap()
+    fs::read_to_string(committed(Reference::V011, "video_092_original_3m24-4m05").join(SUMMARY_FILE)).unwrap()
 }
 
 fn read(text: &str) -> Result<DetectSettings, reference::error::Error> {
@@ -20,6 +20,39 @@ fn read(text: &str) -> Result<DetectSettings, reference::error::Error> {
 #[test]
 fn the_default_settings_are_those_the_v011_recorded() {
     assert_eq!(read(&extract_summary()).unwrap(), DetectSettings::default());
+}
+
+#[test]
+fn settings_written_into_a_summary_of_the_decoder_read_back_unchanged() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().join(SUMMARY_FILE);
+    let tuned = DetectSettings {
+        threshold: 25.0,
+        ..DetectSettings::default()
+    };
+    let mut summary: VideoSummary = serde_json::from_str(&extract_summary()).unwrap();
+    summary.format_version = DECODED_FORMAT;
+    summary.ffprobe = None;
+    summary.decoder = Some(Decoder {
+        error_frames: Vec::new(),
+        gap_frames: Vec::new(),
+        losses: Losses {
+            before_first: 0,
+            after_last: 0,
+        },
+        threads: DecoderThreads::Single,
+    });
+    summary.files.csv = None;
+    summary.recorded["config"]["DetectConfig"] = serde_json::to_value(&tuned).unwrap();
+    summary.write(&path).unwrap();
+
+    assert_eq!(
+        VideoSummary::read(&path)
+            .unwrap()
+            .detect_settings::<DetectSettings>()
+            .unwrap(),
+        tuned
+    );
 }
 
 #[test]

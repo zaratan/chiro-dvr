@@ -1,12 +1,12 @@
 use reference::detection_matching::match_detections;
-use reference::location::{recorded_video, recording_directories};
+use reference::location::{Reference, recorded_video, recording_directories};
 use reference::recording::Recording;
 use reference::track_matching::match_tracks;
 
 #[test]
 #[ignore = "local"]
 fn the_twenty_six_recorded_videos_read_and_match_themselves() {
-    let directories = recording_directories().unwrap();
+    let directories = recording_directories(Reference::V011).unwrap();
     assert_eq!(directories.len(), 26);
     let mut tracks = 0;
     for directory in directories {
@@ -26,7 +26,12 @@ fn the_twenty_six_recorded_videos_read_and_match_themselves() {
             directory.display()
         );
         assert_eq!(recording.tracks.len(), counts.tracks, "{}", directory.display());
-        assert_eq!(recording.rows.len(), counts.tracks, "{}", directory.display());
+        assert_eq!(
+            recording.rows.as_deref().unwrap().len(),
+            counts.tracks,
+            "{}",
+            directory.display()
+        );
         assert!(
             match_detections(detections, detections).is_complete(),
             "{}",

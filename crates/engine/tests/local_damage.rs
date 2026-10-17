@@ -4,7 +4,7 @@ use std::io::{self, Write};
 use engine::damage::Damage;
 use engine::input::{Error, Input};
 use media::decode::Threads;
-use reference::location::{recorded_video, recording_directories};
+use reference::location::{Reference, recorded_video, recording_directories};
 use reference::recording::SUMMARY_FILE;
 use reference::video::VideoSummary;
 use types::frame::FrameIndex;
@@ -33,7 +33,7 @@ fn damaged_frames(spans: &[Span]) -> usize {
 #[test]
 #[ignore = "local"]
 fn the_twenty_six_videos_are_damaged_where_ffprobe_says_plus_frames_it_conceals_silently() {
-    let directories = recording_directories().unwrap();
+    let directories = recording_directories(Reference::V011).unwrap();
     assert_eq!(directories.len(), 26);
     let mut out = io::stdout().lock();
     for directory in directories {
@@ -45,7 +45,8 @@ fn the_twenty_six_videos_are_damaged_where_ffprobe_says_plus_frames_it_conceals_
             .read(|_, _| Ok::<(), Error>(()))
             .unwrap();
         let damage = Damage::of(&reading, summary.background_half_window);
-        let (found, probed) = (set(damage.error_frames()), set(&summary.ffprobe.error_frames));
+        let probe = summary.ffprobe.as_ref().unwrap();
+        let (found, probed) = (set(damage.error_frames()), set(&probe.error_frames));
         let extra: Vec<usize> = found.difference(&probed).copied().collect();
         let (rust, recorded) = (damaged_frames(damage.spans()), damaged_frames(&summary.damaged_spans));
         writeln!(
@@ -56,7 +57,7 @@ fn the_twenty_six_videos_are_damaged_where_ffprobe_says_plus_frames_it_conceals_
         )
         .unwrap();
         assert!(found.is_superset(&probed), "{name}");
-        assert_eq!(damage.jump_frames(), summary.ffprobe.gap_frames, "{name}");
+        assert_eq!(damage.jump_frames(), probe.gap_frames, "{name}");
         let concealed: Vec<&Concealed> = CONCEALED_WITHOUT_ERROR_MESSAGE
             .iter()
             .filter(|concealed| concealed.video == name)

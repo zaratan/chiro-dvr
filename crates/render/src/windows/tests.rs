@@ -59,7 +59,7 @@ fn windows_starting_together_keep_the_order_of_their_tracks() {
 }
 
 fn reference_windows(name: &str) -> (Vec<usize>, usize) {
-    let directory = reference::location::committed(name);
+    let directory = reference::location::committed(reference::location::Reference::V011, name);
     let summary = VideoSummary::read(&directory.join(SUMMARY_FILE)).unwrap();
     let tracks = reference::tracks::read(&directory.join(&summary.files.tracks)).unwrap();
     let rate = FrameRate::new(summary.stream.avg_frame_rate).unwrap();

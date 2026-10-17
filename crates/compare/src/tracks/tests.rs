@@ -1,4 +1,4 @@
-use reference::location::committed;
+use reference::location::{Reference, committed};
 use reference::recording::Recording;
 use reference::track_matching::{Discrepancy, DiscrepancyKind};
 use types::frame::FrameIndex;
@@ -12,7 +12,7 @@ use crate::testing::nothing_detected;
 const EXTRACT_VIDEO: &str = "video_092_original_3m24-4m05.mp4";
 
 fn extract() -> Recording {
-    Recording::read(&committed(EXTRACT)).unwrap()
+    Recording::read(&committed(Reference::V011, EXTRACT)).unwrap()
 }
 
 fn rate() -> FrameRate {

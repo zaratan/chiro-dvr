@@ -3,14 +3,14 @@ use std::io::{self, Write};
 use engine::input::{Error, Input};
 use media::decode::Threads;
 use reference::frames::Frames;
-use reference::location::{recorded_video, recording_directories};
+use reference::location::{Reference, recorded_video, recording_directories};
 use reference::recording::SUMMARY_FILE;
 use reference::video::VideoSummary;
 
 #[test]
 #[ignore = "local"]
 fn the_twenty_six_recorded_videos_read_as_ffprobe_counted_them_without_refusal() {
-    let directories = recording_directories().unwrap();
+    let directories = recording_directories(Reference::V011).unwrap();
     assert_eq!(directories.len(), 26);
     let mut out = io::stdout().lock();
     for directory in directories {

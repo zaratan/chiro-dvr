@@ -204,7 +204,7 @@ pub(crate) fn folders_refused(texts: Texts, refused: &[Unwritable]) -> (Message,
     (Message::FoldersRefused { count: refused.len() }, lines)
 }
 
-const fn write_access(access: Access) -> &'static str {
+pub(crate) const fn write_access(access: Access) -> &'static str {
     match access {
         Access::Refused => "refused",
         Access::NotAFolder => "not-a-folder",

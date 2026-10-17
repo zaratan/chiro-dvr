@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use batdetect::options::Options;
 use clap::builder::{PossibleValuesParser, StyledStr, TypedValueParser};
-use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
+use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 use engine::config::{DetectConfig, MIN_WORK_WIDTH};
 use engine::settings::{Bound, DetectSettings, Region, Setting};
 use render::config::{RenderConfig, Zoom, ZoomConfig};
@@ -87,6 +87,7 @@ fn essential_arguments(texts: Texts) -> Vec<Arg> {
             .required(true)
             .action(ArgAction::Append)
             .value_parser(value_parser!(PathBuf))
+            .value_hint(ValueHint::AnyPath)
             .help_heading(texts.text(Fixed::ArgumentsHeading))
             .help(texts.text(Fixed::InputsHelp)),
         Arg::new("out-dir")
@@ -94,6 +95,7 @@ fn essential_arguments(texts: Texts) -> Vec<Arg> {
             .long("out-dir")
             .value_name(texts.text(Fixed::ValueFolder))
             .value_parser(value_parser!(PathBuf))
+            .value_hint(ValueHint::DirPath)
             .help(with_default(
                 &texts.text(Fixed::OutDirHelp),
                 &texts.text(Fixed::BesideTheVideos),
@@ -247,11 +249,16 @@ pub(crate) fn print_common_uses(texts: Texts) -> io::Result<()> {
         .print_help()
 }
 
+pub(crate) fn full_command(texts: Texts) -> Command {
+    command(Level::Full, texts)
+}
+
 fn command(level: Level, texts: Texts) -> Command {
     let after = match level {
         Level::Essential => texts.all_options(PROGRAM),
         Level::Full => texts.files_produced(),
     };
+    let after = format!("{}\n\n{after}", texts.text(Fixed::OtherCommands));
     Command::new(PROGRAM)
         .version(messages::long_version(
             &media::library::version(),
