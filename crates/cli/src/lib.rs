@@ -1,6 +1,7 @@
 pub mod access;
 pub mod checkup;
 pub mod consent;
+pub mod disk;
 pub mod failure;
 #[cfg(test)]
 #[path = "../tests/support/flight.rs"]
@@ -19,6 +20,10 @@ pub mod refusals;
 pub mod reuse;
 mod settings;
 pub mod space;
+#[cfg(test)]
+#[cfg(unix)]
+#[path = "../tests/support/sparse.rs"]
+mod sparse;
 pub mod tally;
 pub mod writable;
 pub mod written;

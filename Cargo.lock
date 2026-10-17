@@ -470,6 +470,7 @@ dependencies = [
  "rayon",
  "reference",
  "serde",
+ "serde_json",
  "tempfile",
  "thiserror",
  "types",

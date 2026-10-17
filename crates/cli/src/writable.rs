@@ -45,7 +45,7 @@ fn probe(folder: &Path) -> io::Result<()> {
         .and_then(tempfile::NamedTempFile::close)
 }
 
-fn nearest_existing(folder: &Path) -> Option<&Path> {
+pub(crate) fn nearest_existing(folder: &Path) -> Option<&Path> {
     folder
         .ancestors()
         .map(|ancestor| {

@@ -3,11 +3,11 @@ use types::detection::{Detection, FrameDetections, Measures};
 use types::frame::FrameIndex;
 
 use super::{DETECTION_DISTANCE_PX, match_detections};
-use crate::location::committed;
+use crate::location::{Reference, committed};
 use crate::recording::Recording;
 
 fn detections_092() -> FrameDetections {
-    Recording::read(&committed("video_092_original"))
+    Recording::read(&committed(Reference::V011, "video_092_original"))
         .unwrap()
         .frames
         .detections()

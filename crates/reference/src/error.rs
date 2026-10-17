@@ -4,6 +4,8 @@ use std::path::PathBuf;
 
 use types::{rate, timeline, track};
 
+use crate::video::{DECODED_FORMAT, PROBED_FORMAT};
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("cannot read {}", path.display())]
@@ -31,8 +33,20 @@ pub enum Error {
         #[source]
         source: serde_json::Error,
     },
-    #[error("{} has format version {found}, only version {supported} is read", path.display())]
-    Version { path: PathBuf, found: u32, supported: u32 },
+    #[error("{} has format version {found}, only versions {PROBED_FORMAT} and {DECODED_FORMAT} are read", path.display())]
+    Version { path: PathBuf, found: u32 },
+    #[error("{}: format version {version} needs the {section} section", path.display())]
+    MissingSection {
+        path: PathBuf,
+        version: u32,
+        section: &'static str,
+    },
+    #[error("{}: format version {version} has no {section} section", path.display())]
+    ForeignSection {
+        path: PathBuf,
+        version: u32,
+        section: &'static str,
+    },
     #[error("{}:{line} holds frame {found} where frame {expected} was expected", path.display())]
     FrameOrder {
         path: PathBuf,
@@ -78,6 +92,8 @@ pub enum Error {
     Timeline(#[from] timeline::Error),
     #[error("the recording has no valid frame rate")]
     Rate(#[from] rate::Error),
+    #[error("the recording names a tracks table without its rows, or holds rows without naming the table")]
+    TableWithoutFile,
     #[error("the recording has no config.DetectConfig")]
     NoDetectConfig,
     #[error("config.DetectConfig of the recording is not a detection setting")]

@@ -5,13 +5,14 @@ use media::encode::fallback::{self, Fallback};
 use types::rational::Rational;
 
 use crate::access::Access;
-use crate::space::free_bytes;
+use crate::disk;
+use crate::space::GIGABYTE;
 use crate::writable::writing_refused;
 
 #[cfg(test)]
 mod tests;
 
-pub const ENOUGH_FREE_BYTES: u64 = 20_000_000_000;
+pub const ENOUGH_FREE_BYTES: u64 = 20 * GIGABYTE;
 const TRIAL_WIDTH: u32 = 1440;
 const TRIAL_HEIGHT: u32 = 1080;
 const TRIAL_FRAMES_PER_SECOND: i32 = 30;
@@ -56,7 +57,7 @@ pub fn checkup(folder: &Path) -> Checkup {
     Checkup {
         folder: folder.to_path_buf(),
         encoding: encoding(Fallback::for_this_platform()),
-        space: space(free_bytes(folder).ok()),
+        space: space(disk::volume(folder).map(|volume| volume.free)),
         refused_writing: writing_refused(folder),
     }
 }

@@ -11,6 +11,7 @@ use batdetect::outcome::{Failure, Rank};
 use batdetect::process;
 use batdetect::progress::Step;
 use batdetect::refusals::{self, VIDEOS_SEPARATOR};
+use batdetect::space::GIGABYTE;
 use batdetect::writable::Unwritable;
 use engine::settings;
 use render::config;
@@ -22,6 +23,8 @@ use crate::texts::{Fixed, Message, Shown, Texts};
 #[cfg(test)]
 mod tests;
 
+const TENTHS: f64 = 10.0;
+const TENTHS_OF_GIGABYTE: f64 = GIGABYTE as f64 / TENTHS;
 const READ_ONLY: &str = "read-only";
 const OTHER_FOLDER: &str = "other-folder";
 
@@ -101,25 +104,36 @@ pub(crate) fn inputs_refused(texts: Texts, error: &jobs::Error) -> (Message, Vec
     }
 }
 
-pub(crate) fn inputs_skipped(texts: Texts, refused: &[Refused]) -> (Message, Vec<String>) {
-    (
-        Message::InputsSkipped { count: refused.len() },
-        refused_lines(texts, refused),
-    )
+pub(crate) fn inputs_skipped(texts: Texts, refused: &[Refused]) -> Vec<(Message, Vec<String>)> {
+    let (disks, inputs): (Vec<Refused>, Vec<Refused>) = refused
+        .iter()
+        .cloned()
+        .partition(|refusal| matches!(refusal.reason, Reason::DiskShort { .. }));
+    let mut sections = Vec::with_capacity(2);
+    if !inputs.is_empty() {
+        sections.push((
+            Message::InputsSkipped { count: inputs.len() },
+            refused_lines(texts, &inputs),
+        ));
+    }
+    if !disks.is_empty() {
+        sections.push((Message::DisksShort { count: disks.len() }, refused_lines(texts, &disks)));
+    }
+    sections
 }
 
 pub(crate) fn refused_lines(texts: Texts, refused: &[Refused]) -> Vec<String> {
-    refusal_messages(refused)
+    refusal_messages(texts, refused)
         .iter()
         .map(|message| texts.say(message))
         .collect()
 }
 
-fn refusal_messages(refused: &[Refused]) -> Vec<Message> {
+fn refusal_messages(texts: Texts, refused: &[Refused]) -> Vec<Message> {
     let (listed, last) = extensions();
     let mut messages = Vec::with_capacity(refused.len() * 2);
     for refusal in refused {
-        messages.push(input_refused(refusal, &listed, &last));
+        messages.push(input_refused(texts, refusal, &listed, &last));
         messages.push(todo_in(refusal.reason.todo(), &refusal.path));
         if let Some(detail) = refusals::input(refusal).detail {
             messages.push(Message::FailureDetail { detail });
@@ -135,7 +149,7 @@ pub(crate) fn extensions() -> (String, String) {
     }
 }
 
-fn input_refused(refusal: &Refused, listed: &str, last: &str) -> Message {
+fn input_refused(texts: Texts, refusal: &Refused, listed: &str, last: &str) -> Message {
     let path = refusal.path.display().to_string();
     let reason = match &refusal.reason {
         Reason::Missing | Reason::Unreadable(_) => refusal.reason.key(),
@@ -159,6 +173,13 @@ fn input_refused(refusal: &Refused, listed: &str, last: &str) -> Message {
                 video: path.clone(),
                 cause: cause.key(),
                 place: path,
+            };
+        }
+        Reason::DiskShort { needed, free, .. } => {
+            return Message::DiskShort {
+                path,
+                needed: texts.fixed((*needed as f64 / TENTHS_OF_GIGABYTE).ceil() / TENTHS, 1),
+                free: texts.fixed((*free as f64 / TENTHS_OF_GIGABYTE).floor() / TENTHS, 1),
             };
         }
     };

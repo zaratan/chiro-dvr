@@ -3,7 +3,7 @@ use bench::synthetic::injection::{gray_change, inject, window};
 use engine::gray::gray;
 use engine::luma::LumaMut;
 use reference::bench::{TARGETS_FILE, read_targets};
-use reference::location::recorded_bench;
+use reference::location::{Reference, recorded_bench};
 use types::frame::FrameIndex;
 
 const WIDTH: usize = 1440;
@@ -23,7 +23,7 @@ struct Tally {
 
 #[cfg(test)]
 fn tally(name: &str, plane: &mut [u8]) -> Tally {
-    let lines = read_targets(&recorded_bench(name).unwrap().join(TARGETS_FILE)).unwrap();
+    let lines = read_targets(&recorded_bench(Reference::V011, name).unwrap().join(TARGETS_FILE)).unwrap();
     let mut tally = Tally::default();
     for line in &lines {
         let Some(patch) = &line.patch else {

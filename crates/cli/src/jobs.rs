@@ -21,6 +21,8 @@ pub const NO_VIDEO: &str = "no-video";
 pub const SHARED_FOLDER: &str = "shared-folder";
 pub const NOT_A_VIDEO: &str = "not-a-video";
 pub const UNOPENED: &str = "unopened";
+const DISK_SHORT: &str = "disk-short";
+const DISK_SHORT_ANNOTATED: &str = "disk-short-annotated";
 const VIDEO_EXTENSIONS: [&str; 5] = ["mp4", "mov", "avi", "mkv", "m4v"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,6 +39,7 @@ pub enum Reason {
     Unreadable(Access),
     SharedFolder { videos: Vec<PathBuf> },
     Unopened { cause: Cause, detail: String },
+    DiskShort { needed: u64, free: u64, annotated: bool },
 }
 
 impl Reason {
@@ -50,6 +53,7 @@ impl Reason {
             Self::NoVideo => NO_VIDEO,
             Self::SharedFolder { .. } => SHARED_FOLDER,
             Self::Unopened { .. } => UNOPENED,
+            Self::DiskShort { .. } => DISK_SHORT,
         }
     }
 
@@ -62,6 +66,8 @@ impl Reason {
             Self::NoVideo => NO_VIDEO,
             Self::SharedFolder { .. } => SHARED_FOLDER,
             Self::Unopened { cause, .. } => cause.key(),
+            Self::DiskShort { annotated: false, .. } => DISK_SHORT,
+            Self::DiskShort { annotated: true, .. } => DISK_SHORT_ANNOTATED,
         }
     }
 }

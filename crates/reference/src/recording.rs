@@ -20,7 +20,7 @@ pub struct Recording {
     pub summary: VideoSummary,
     pub frames: Frames,
     pub tracks: Vec<Track>,
-    pub rows: Vec<TrackRow>,
+    pub rows: Option<Vec<TrackRow>>,
 }
 
 impl Recording {
@@ -28,7 +28,12 @@ impl Recording {
         let summary = VideoSummary::read(&directory.join(SUMMARY_FILE))?;
         let frames = Frames::read(&directory.join(&summary.files.frames))?;
         let tracks = tracks::read(&directory.join(&summary.files.tracks))?;
-        let rows = table::read(&directory.join(&summary.files.csv))?;
+        let rows = summary
+            .files
+            .csv
+            .as_ref()
+            .map(|csv| table::read(&directory.join(csv)))
+            .transpose()?;
         Ok(Self {
             summary,
             frames,
@@ -38,10 +43,18 @@ impl Recording {
     }
 
     pub fn write(&self, directory: &Path) -> Result<(), Error> {
+        let table = match (&self.summary.files.csv, &self.rows) {
+            (Some(csv), Some(rows)) => Some((csv, rows)),
+            (None, None) => None,
+            (Some(_), None) | (None, Some(_)) => return Err(Error::TableWithoutFile),
+        };
         self.summary.write(&directory.join(SUMMARY_FILE))?;
         self.frames.write(&directory.join(&self.summary.files.frames))?;
         tracks::write(&directory.join(&self.summary.files.tracks), &self.tracks)?;
-        table::write(&directory.join(&self.summary.files.csv), &self.rows)
+        match table {
+            Some((csv, rows)) => table::write(&directory.join(csv), rows),
+            None => Ok(()),
+        }
     }
 
     pub fn timeline(&self) -> Result<Timeline, Error> {

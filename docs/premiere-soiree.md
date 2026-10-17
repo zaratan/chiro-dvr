@@ -48,6 +48,8 @@ Les vidéos doivent être directement dans le dossier : l'outil ne lit que son p
 les sous-dossiers. Il prend les fichiers `.mp4`, `.mov`, `.avi`, `.mkv` et `.m4v` ; les autres
 fichiers du dossier, photos ou notes, sont laissés de côté sans rien dire.
 
+**Prévoir de la place pour les résultats.** Ils s'écrivent à côté des vidéos, sur le même disque, sauf si un autre dossier est choisi. Une soirée calme laisse des résultats plus légers que ses vidéos ; une soirée très active peut en demander jusqu'à sept fois leur taille, et la vidéo annotée près de trois fois de plus.
+
 ## 4. Lancer
 
 Dans le Terminal, **taper `batdetect` suivi d'une espace, puis glisser le dossier de la soirée**
@@ -90,6 +92,15 @@ autoriser le Terminal pour ce dossier (le Bureau, par exemple), puis relancer.
 > nuit-13-oct : introuvable\
 > à faire : vérifier le chemin ; le dossier ou la vidéo a peut-être été déplacé ou renommé\
 > Traiter quand même la vidéo valide ? (O/n)
+
+**Si le disque des résultats semble trop petit**, l'outil le dit avant de calculer, en nommant le dossier de résultats qui s'y trouve, et demande s'il faut lancer quand même :
+
+> erreur : le disque des résultats semble trop petit :\
+> le disque qui contient nuit-12-oct/batdetect : 6,4 Go à prévoir, 4,1 Go libres\
+> à faire : libérer de la place, ou écrire les résultats sur un autre disque avec -o ; --ignore-disk lance quand même le calcul\
+> Traiter quand même les 12 vidéos valides ? (O/n)
+
+Répondre `o` lance la soirée. Chaque vidéo vérifie encore la place avant d'écrire ses extraits : s'il en manque, elle s'arrête et compte en échec, au lieu de remplir le disque, et la vidéo suivante est tentée.
 
 ## 5. Attendre
 

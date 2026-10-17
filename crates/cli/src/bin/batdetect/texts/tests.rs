@@ -16,8 +16,8 @@ use crate::sheet::{self, Spoken};
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 73;
-const FIXED: [Fixed; 98] = [
+const VARIANTS: usize = 75;
+const FIXED: [Fixed; 99] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -57,6 +57,7 @@ const FIXED: [Fixed; 98] = [
     Fixed::SkipRefusedDeclined,
     Fixed::NoNotifyHelp,
     Fixed::ForceHelp,
+    Fixed::IgnoreDiskHelp,
     Fixed::InputsRefused,
     Fixed::TallyVideo,
     Fixed::TallyLength,
@@ -186,13 +187,15 @@ fn rank(message: &Message) -> usize {
         Message::FilesPage { .. } => 63,
         Message::TallyUnwritten { .. } => 64,
         Message::Announce { .. } => 65,
-        Message::DoctorVersion { .. } => 66,
-        Message::DoctorSpace { .. } => 67,
-        Message::DoctorSpaceShort { .. } => 68,
-        Message::DoctorSpaceUnknown { .. } => 69,
-        Message::DoctorWritable { .. } => 70,
-        Message::DoctorUnwritable { .. } => 71,
-        Message::DoctorProblems { .. } => 72,
+        Message::DiskShort { .. } => 66,
+        Message::DisksShort { .. } => 67,
+        Message::DoctorVersion { .. } => 68,
+        Message::DoctorSpace { .. } => 69,
+        Message::DoctorSpaceShort { .. } => 70,
+        Message::DoctorSpaceUnknown { .. } => 71,
+        Message::DoctorWritable { .. } => 72,
+        Message::DoctorUnwritable { .. } => 73,
+        Message::DoctorProblems { .. } => 74,
     }
 }
 
@@ -276,26 +279,35 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::TableFilledFrames => 75,
         Fixed::TableStartSeconds => 76,
         Fixed::ForceHelp => 77,
-        Fixed::OtherCommands => 78,
-        Fixed::CompletionZshOnly => 79,
-        Fixed::CompletionWithHomebrew => 80,
-        Fixed::CompletionWithoutHomebrew => 81,
-        Fixed::CompletionThenProfile => 82,
-        Fixed::DoctorNoArgument => 83,
-        Fixed::DoctorHardware => 84,
-        Fixed::DoctorSoftware => 85,
-        Fixed::DoctorFallback => 86,
-        Fixed::DoctorBroken => 87,
-        Fixed::DoctorReady => 88,
-        Fixed::DoctorTodoFallback => 89,
-        Fixed::DoctorTodoBroken => 90,
-        Fixed::DoctorTodoSpace => 91,
-        Fixed::DoctorTodoWriting => 92,
-        Fixed::DoctorUntried => 93,
-        Fixed::DoctorTodoUntried => 94,
-        Fixed::CompletionCommandsGroup => 95,
-        Fixed::CompletionDoctor => 96,
-        Fixed::CompletionCompletion => 97,
+        Fixed::IgnoreDiskHelp => 78,
+        Fixed::CompletionCompletion => 98,
+        other => command_rank(other),
+    }
+}
+
+fn command_rank(fixed: Fixed) -> usize {
+    match fixed {
+        Fixed::OtherCommands => 79,
+        Fixed::CompletionZshOnly => 80,
+        Fixed::CompletionWithHomebrew => 81,
+        Fixed::CompletionWithoutHomebrew => 82,
+        Fixed::CompletionThenProfile => 83,
+        Fixed::DoctorNoArgument => 84,
+        Fixed::DoctorHardware => 85,
+        Fixed::DoctorSoftware => 86,
+        Fixed::DoctorFallback => 87,
+        Fixed::DoctorBroken => 88,
+        Fixed::DoctorReady => 89,
+        Fixed::DoctorTodoFallback => 90,
+        Fixed::DoctorTodoBroken => 91,
+        Fixed::DoctorTodoSpace => 92,
+        Fixed::DoctorTodoWriting => 93,
+        Fixed::DoctorUntried => 94,
+        Fixed::DoctorTodoUntried => 95,
+        Fixed::CompletionCommandsGroup => 96,
+        Fixed::CompletionDoctor => 97,
+        Fixed::CompletionCompletion => 98,
+        _ => usize::MAX,
     }
 }
 
@@ -516,6 +528,12 @@ fn command_line() -> Vec<Message> {
             path: text("nuit/batdetect"),
             access: "read-only",
         },
+        Message::DiskShort {
+            path: text("/Volumes/BATS/nuit-12-oct/batdetect"),
+            needed: text("12,3"),
+            free: text("4,1"),
+        },
+        Message::DisksShort { count: 2 },
         Message::InputsSkipped { count: 2 },
         Message::SkipRefusedQuestion { count: 3 },
         Message::TallyRefusedCount { count: 2 },

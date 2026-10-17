@@ -1,14 +1,14 @@
 #[path = "shared/comparison.rs"]
 mod comparison;
 
-use reference::location::recording_directories;
+use reference::location::{Reference, recording_directories};
 use reference::recording::Recording;
 use types::rate::FrameRate;
 
 #[test]
 #[ignore = "local"]
 fn the_twenty_six_recorded_videos_give_the_tracks_of_the_reference() {
-    let directories = recording_directories().unwrap();
+    let directories = recording_directories(Reference::V011).unwrap();
     assert_eq!(directories.len(), 26);
     let (mut reference, mut tracked, mut pairs, mut identical) = (0, 0, 0, 0);
     let mut discrepancies = Vec::new();

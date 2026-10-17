@@ -5,7 +5,7 @@ use types::rational::Rational;
 use types::track::Track;
 
 use super::{DiscrepancyKind, match_tracks};
-use crate::location::committed;
+use crate::location::{Reference, committed};
 use crate::recording::Recording;
 
 fn track(id: usize, start: usize, points: usize) -> Track {
@@ -31,7 +31,7 @@ fn rate() -> FrameRate {
 
 #[test]
 fn the_reference_tracks_match_themselves_completely() {
-    let full = Recording::read(&committed("video_092_original")).unwrap();
+    let full = Recording::read(&committed(Reference::V011, "video_092_original")).unwrap();
     let matching = match_tracks(&full.tracks, &full.tracks);
     assert_eq!((matching.pairs.len(), matching.agreeing()), (14, 14));
     let discrepancies = matching.discrepancies("video_092_original.mp4", full.timeline().unwrap().rate());

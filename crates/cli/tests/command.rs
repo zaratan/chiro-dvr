@@ -2,6 +2,9 @@
 mod clips;
 #[path = "support/flight.rs"]
 mod flight;
+#[cfg(unix)]
+#[path = "support/sparse.rs"]
+mod sparse;
 #[path = "support/tree.rs"]
 mod tree;
 
@@ -1267,4 +1270,147 @@ fn a_lot_stopped_before_its_second_video_was_marked_finished_resumes_with_that_v
     assert!(text(&again.stdout).starts_with(title), "{}", text(&again.stdout));
     assert_eq!(modified(&out.join("a")) == first, reuses_earlier_results());
     assert!(out.join("b").join("params.json").is_file());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_lot_too_big_for_the_disk_of_its_results_is_refused_before_any_work_naming_that_disk() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4"]);
+    sparse::stretched_beyond_any_disk(&videos.join("a.mp4"));
+    let out = root.path().join("out");
+    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    assert_eq!(output.status.code(), Some(2));
+    let errors = text(&output.stderr);
+    let lines: Vec<&str> = errors.lines().collect();
+    assert_eq!(lines.len(), 3, "{errors}");
+    assert_eq!(lines[0], "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:", "{errors}");
+    assert!(
+        lines[1].starts_with(&format!("  le disque qui contient {}\u{a0}: ", out.display()))
+            && lines[1].ends_with(" Go libres"),
+        "{errors}"
+    );
+    assert_eq!(
+        lines[2],
+        "    à faire\u{a0}: libérer de la place, ou écrire les résultats sur un autre disque avec -o\u{a0}; \
+         --ignore-disk lance quand même le calcul",
+        "{errors}"
+    );
+    assert!(!out.exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn ignore_disk_starts_the_lot_and_a_video_whose_clips_cannot_fit_fails_as_a_full_disk_without_them() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4"]);
+    sparse::stretched_beyond_any_disk(&videos.join("a.mp4"));
+    let out = root.path().join("out");
+    let output = run(&[&videos, Path::new("-o"), &out, Path::new("--ignore-disk")], "C");
+    assert_eq!(output.status.code(), Some(1));
+    let errors = text(&output.stderr);
+    assert!(
+        errors.lines().any(|line| line.ends_with("a.mp4: the disk is full")),
+        "{errors}"
+    );
+    assert_eq!(
+        text(&output.stdout).lines().next(),
+        Some("Summary: 1 video, 1 failed"),
+        "{}",
+        text(&output.stdout)
+    );
+    assert!(!out.join("a").join("clips").exists());
+    assert!(!out.join("a").join("params.json").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn skip_refused_starts_the_lot_despite_the_disk_and_does_not_count_the_disk_among_the_refused_inputs() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4"]);
+    sparse::stretched_beyond_any_disk(&videos.join("a.mp4"));
+    let out = root.path().join("out");
+    let output = run(&[&videos, Path::new("-o"), &out, Path::new("--skip-refused")], "C");
+    assert_eq!(output.status.code(), Some(1));
+    let errors = text(&output.stderr);
+    assert!(
+        errors.lines().any(|line| line.starts_with("  the disk holding ")),
+        "{errors}"
+    );
+    assert_eq!(
+        text(&output.stdout).lines().next(),
+        Some("Summary: 1 video, 1 failed"),
+        "{}",
+        text(&output.stdout)
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn skip_refused_with_a_missing_input_and_a_disk_too_small_lists_both_but_records_only_the_input_as_refused() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4"]);
+    sparse::stretched_beyond_any_disk(&videos.join("a.mp4"));
+    let (missing, out) = (videos.join("absente.mp4"), root.path().join("out"));
+    let output = run(
+        &[
+            &missing,
+            &videos.join("a.mp4"),
+            Path::new("-o"),
+            &out,
+            Path::new("--skip-refused"),
+        ],
+        "C",
+    );
+    assert_eq!(output.status.code(), Some(1));
+    let errors = text(&output.stderr);
+    assert!(errors.starts_with("error: one input is refused:\n"), "{errors}");
+    assert!(
+        errors
+            .lines()
+            .any(|line| line == "error: the disk of the results looks too small:"),
+        "{errors}"
+    );
+    assert!(
+        errors.lines().any(|line| line.ends_with("absente.mp4: not found")),
+        "{errors}"
+    );
+    assert!(
+        errors.lines().any(|line| line.starts_with("  the disk holding ")),
+        "{errors}"
+    );
+    let summary = text(&output.stdout);
+    assert_eq!(
+        summary.lines().next(),
+        Some("Summary: 1 video, 1 failed, 1 input refused"),
+        "{summary}"
+    );
+    assert!(!summary.contains("the disk holding"), "{summary}");
+    let recorded: Value =
+        serde_json::from_str(&fs::read_to_string(files::refusals::refusals_path(&out)).unwrap()).unwrap();
+    let paths: Vec<&Value> = recorded["inputs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|input| &input["path"])
+        .collect();
+    assert_eq!(paths, [&Value::from(missing.display().to_string())], "{recorded}");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_results_folder_where_nothing_can_be_written_is_refused_for_writing_only_even_on_a_disk_too_small() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let (root, videos) = videos_with_a_flight(&["a.mp4"]);
+    sparse::stretched_beyond_any_disk(&videos.join("a.mp4"));
+    let locked = root.path().join("ro");
+    fs::create_dir(&locked).unwrap();
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o555)).unwrap();
+    let out = locked.join("sortie");
+    let output = run(&[&videos, Path::new("-o"), &out], "C");
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o755)).unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    let errors = text(&output.stderr);
+    assert!(
+        errors.starts_with("error: no video is processed, the results cannot be written in this folder:\n"),
+        "{errors}"
+    );
+    assert!(!errors.contains("the disk holding"), "{errors}");
 }

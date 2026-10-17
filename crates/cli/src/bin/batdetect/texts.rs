@@ -76,6 +76,7 @@ pub(crate) enum Fixed {
     SkipRefusedDeclined,
     NoNotifyHelp,
     ForceHelp,
+    IgnoreDiskHelp,
     InputsRefused,
     TallyVideo,
     TallyLength,
@@ -176,6 +177,7 @@ impl Fixed {
             Self::ArgumentsRefused => "arguments-refused",
             Self::SettingsRefused => "settings-refused",
             Self::SkipRefusedHelp => "skip-refused-help",
+            Self::IgnoreDiskHelp => "ignore-disk-help",
             Self::SkipRefusedDeclined => "skip-refused-declined",
             Self::NoNotifyHelp => "no-notify-help",
             Self::ForceHelp => "force-help",
@@ -218,6 +220,12 @@ impl Fixed {
             Self::TableAmplitude => "table-amplitude",
             Self::TableFilledFrames => "table-filled-frames",
             Self::TableStartSeconds => "table-start-seconds",
+            other => other.command_id(),
+        }
+    }
+
+    const fn command_id(self) -> &'static str {
+        match self {
             Self::OtherCommands => "other-commands",
             Self::CompletionZshOnly => "completion-zsh-only",
             Self::CompletionWithHomebrew => "completion-with-homebrew",
@@ -238,6 +246,7 @@ impl Fixed {
             Self::CompletionCommandsGroup => "completion-commands-group",
             Self::CompletionDoctor => "completion-doctor",
             Self::CompletionCompletion => "completion-completion",
+            _ => "",
         }
     }
 }
@@ -469,6 +478,14 @@ pub(crate) enum Message {
         path: String,
         access: &'static str,
     },
+    DiskShort {
+        path: String,
+        needed: String,
+        free: String,
+    },
+    DisksShort {
+        count: usize,
+    },
     InputsSkipped {
         count: usize,
     },
@@ -581,6 +598,8 @@ impl Message {
             Self::NoVideo { .. } => "no-video",
             Self::FoldersRefused { .. } => "folders-refused",
             Self::FolderRefused { .. } => "folder-refused",
+            Self::DiskShort { .. } => "disk-short",
+            Self::DisksShort { .. } => "disks-short",
             Self::InputsSkipped { .. } => "inputs-skipped",
             Self::SkipRefusedQuestion { .. } => "skip-refused-question",
             Self::TallyRefusedCount { .. } => "tally-refused-count",
@@ -796,6 +815,7 @@ impl Message {
             }
             Self::FoldersRefused { count }
             | Self::InputsSkipped { count }
+            | Self::DisksShort { count }
             | Self::SkipRefusedQuestion { count }
             | Self::TallyRefusedCount { count }
             | Self::TallyRefusedHeading { count } => arguments.set("count", *count),
@@ -803,14 +823,57 @@ impl Message {
                 arguments.set("path", path.as_str());
                 arguments.set("access", *access);
             }
-            Self::DoctorVersion { .. }
-            | Self::DoctorSpace { .. }
-            | Self::DoctorSpaceShort { .. }
-            | Self::DoctorSpaceUnknown { .. }
-            | Self::DoctorWritable { .. }
-            | Self::DoctorUnwritable { .. }
-            | Self::DoctorProblems { .. } => self.doctor_arguments(arguments),
+            Self::DiskShort { path, needed, free } => {
+                arguments.set("path", path.as_str());
+                arguments.set("needed", needed.as_str());
+                arguments.set("free", free.as_str());
+            }
+            other => other.doctor_arguments(arguments),
+        }
+    }
+}
+
+impl Message {
+    fn doctor_arguments<'a>(&'a self, arguments: &mut FluentArgs<'a>) {
+        match self {
+            Self::DoctorVersion { version, ffmpeg } => {
+                arguments.set("version", version.as_str());
+                arguments.set("ffmpeg", ffmpeg.as_str());
+            }
+            Self::DoctorSpace { gigabytes, folder } => {
+                arguments.set("gigabytes", gigabytes.as_str());
+                arguments.set("folder", folder.as_str());
+            }
+            Self::DoctorSpaceShort {
+                gigabytes,
+                folder,
+                least,
+            } => {
+                arguments.set("gigabytes", gigabytes.as_str());
+                arguments.set("folder", folder.as_str());
+                arguments.set("least", least.as_str());
+            }
+            Self::DoctorSpaceUnknown { folder } | Self::DoctorWritable { folder } => {
+                arguments.set("folder", folder.as_str());
+            }
+            Self::DoctorUnwritable { folder, access } => {
+                arguments.set("folder", folder.as_str());
+                arguments.set("access", *access);
+            }
+            Self::DoctorProblems { count } => arguments.set("count", *count),
             Self::Fixed(_)
+            | Self::DiskShort { .. }
+            | Self::DisksShort { .. }
+            | Self::FolderRefused { .. }
+            | Self::FoldersRefused { .. }
+            | Self::InputRefused { .. }
+            | Self::InputsSkipped { .. }
+            | Self::InputWithoutVideo { .. }
+            | Self::NoVideo { .. }
+            | Self::SharedFolder { .. }
+            | Self::SkipRefusedQuestion { .. }
+            | Self::TallyRefusedCount { .. }
+            | Self::TallyRefusedHeading { .. }
             | Self::DefaultValue { .. }
             | Self::RegionShape { .. }
             | Self::PossibleValues { .. }
@@ -866,39 +929,6 @@ impl Message {
             | Self::SummaryMore { .. }
             | Self::SummaryUnreadable { .. }
             | Self::SummaryMoreUnreadable { .. } => {}
-        }
-    }
-}
-
-impl Message {
-    fn doctor_arguments<'a>(&'a self, arguments: &mut FluentArgs<'a>) {
-        match self {
-            Self::DoctorVersion { version, ffmpeg } => {
-                arguments.set("version", version.as_str());
-                arguments.set("ffmpeg", ffmpeg.as_str());
-            }
-            Self::DoctorSpace { gigabytes, folder } => {
-                arguments.set("gigabytes", gigabytes.as_str());
-                arguments.set("folder", folder.as_str());
-            }
-            Self::DoctorSpaceShort {
-                gigabytes,
-                folder,
-                least,
-            } => {
-                arguments.set("gigabytes", gigabytes.as_str());
-                arguments.set("folder", folder.as_str());
-                arguments.set("least", least.as_str());
-            }
-            Self::DoctorSpaceUnknown { folder } | Self::DoctorWritable { folder } => {
-                arguments.set("folder", folder.as_str());
-            }
-            Self::DoctorUnwritable { folder, access } => {
-                arguments.set("folder", folder.as_str());
-                arguments.set("access", *access);
-            }
-            Self::DoctorProblems { count } => arguments.set("count", *count),
-            _ => {}
         }
     }
 }

@@ -5,6 +5,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use batdetect::checkup::{Checkup, ENOUGH_FREE_BYTES, Encoding, Space, checkup};
+use batdetect::space::GIGABYTE;
 use media::encode::Codec;
 
 use crate::arguments;
@@ -16,7 +17,6 @@ use crate::texts::{Fixed, Message, Texts};
 mod tests;
 
 pub(crate) const COMMAND: &str = "doctor";
-const BYTES_PER_GIGABYTE: f64 = 1e9;
 const TENTHS: f64 = 10.0;
 const CURRENT_FOLDER: &str = ".";
 
@@ -92,6 +92,6 @@ fn encoding_lines(encoding: Encoding) -> Vec<Fixed> {
 
 fn gigabytes(bytes: u64, tenths: u8, texts: Texts) -> String {
     let scale = TENTHS.powi(i32::from(tenths));
-    let value = (bytes as f64 / BYTES_PER_GIGABYTE * scale).floor() / scale;
+    let value = (bytes as f64 / GIGABYTE as f64 * scale).floor() / scale;
     texts.fixed(value, usize::from(tenths))
 }

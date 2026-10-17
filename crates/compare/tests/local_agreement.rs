@@ -4,11 +4,12 @@ use compare::case::Target;
 use compare::comparison::{Comparison, Folders, VIDEOS_AT_ONCE, compare_all};
 use compare::report::write_report;
 use compare::tracks::TrackCounts;
+use reference::location::Reference;
 
 #[test]
 #[ignore = "local"]
 fn the_twenty_six_videos_keep_98_percent_of_their_detections_and_lose_three_of_the_966_tracks() {
-    let cases = Target::Recorded.cases().unwrap();
+    let cases = Target::Recorded.cases(Reference::V011).unwrap();
     let comparisons: Vec<Comparison> = compare_all(&cases, VIDEOS_AT_ONCE, &Folders::default())
         .into_iter()
         .collect::<Result<_, _>>()
