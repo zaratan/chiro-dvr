@@ -142,7 +142,7 @@ crates depuis #71, dépendances à sens unique :
 - `draw` : dessin pur sur une toile RGBA opaque, police Roboto embarquée, palette et tailles ; ne dépend d'aucune crate du workspace.
 - `render` → `media`, `draw`, `types` (#110, #112) : images des extraits choisies par `pts`
   (`source`), reprise sur la dernière image-clé saine, un seul fil de décodage sur une plage abîmée ;
-  fenêtres et groupes (`windows`), boîtes, `#N` et traces à la couleur de la piste sur l'image résumé (`ink`, `overlay`, `picture`, #13),
+  fenêtres et groupes (`windows`), boîtes, `#N` et traces à la couleur de la piste sur l'image résumé (`ink`, `overlay`, `picture`, #13), pistes et couleurs réunies, de longueurs contrôlées à la construction (`colored`, #287),
   un encodeur par groupe (`media::encode::fanout`), groupes en parallèle (`clips`,
   `schedule`, `group`, `ahead`, `encoders`) ; zooms ralentis en openh264 (`zoom`, `work`, #103) ; vidéo annotée aux `pts` de la source, lue par tronçons (#103) ;
   `drawn` (feature `testing`) rend les images dessinées sans encodeur, pour les tests figés (#198).
