@@ -1,9 +1,11 @@
 use std::num::{NonZeroU32, NonZeroUsize};
 
 use engine::config::DetectConfig;
-use render::config::RenderConfig;
+use render::config::{RenderConfig, Zoom};
 use tracking::stability::StabilityConfig;
 use tracking::track::TrackConfig;
+
+use crate::settings::{self, DETECT, Leaf, RENDER, STABILITY, TRACK};
 
 #[cfg(test)]
 mod tests;
@@ -17,31 +19,60 @@ pub struct Options {
     pub annotated: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Change {
+    Zoom(Zoom),
+    Annotated,
+    MaxTracks(usize),
+    ClipMargin(f64),
+    OsdRegions(usize),
     Threshold(f64),
     MinHits(NonZeroUsize),
     MaxBlobs(Option<NonZeroU32>),
     WorkWidth(NonZeroU32),
-    OsdRegions(usize),
+    Unnamed(String),
+}
+
+impl Change {
+    const fn order(&self) -> usize {
+        match self {
+            Self::Zoom(_) => 0,
+            Self::Annotated => 1,
+            Self::MaxTracks(_) => 2,
+            Self::ClipMargin(_) => 3,
+            Self::OsdRegions(_) => 4,
+            Self::Threshold(_) => 5,
+            Self::MinHits(_) => 6,
+            Self::MaxBlobs(_) => 7,
+            Self::WorkWidth(_) => 8,
+            Self::Unnamed(_) => 9,
+        }
+    }
 }
 
 impl Options {
     pub fn changed(&self) -> Vec<Change> {
-        let defaults = Self::default();
-        let (detect, default_detect) = (&self.detect, &defaults.detect);
-        [
-            (detect.threshold().to_bits() != default_detect.threshold().to_bits())
-                .then_some(Change::Threshold(detect.threshold())),
-            (self.track.min_hits() != defaults.track.min_hits()).then_some(Change::MinHits(self.track.min_hits())),
-            (self.stability.max_blobs() != defaults.stability.max_blobs())
-                .then_some(Change::MaxBlobs(self.stability.max_blobs())),
-            (detect.work_width() != default_detect.work_width()).then_some(Change::WorkWidth(detect.work_width())),
-            (!detect.osd_regions().is_empty()).then_some(Change::OsdRegions(detect.osd_regions().len())),
-        ]
-        .into_iter()
-        .flatten()
-        .collect()
+        let mut changes: Vec<Change> = settings::differing(self, &Self::default())
+            .iter()
+            .map(|leaf| self.change(leaf))
+            .collect();
+        changes.sort_by_key(Change::order);
+        changes
+    }
+
+    fn change(&self, leaf: &Leaf) -> Change {
+        match (leaf.section.as_str(), leaf.field.as_str()) {
+            (RENDER, "zoom") => Change::Zoom(self.render.zoom().choice()),
+            (RENDER, "annotated") => Change::Annotated,
+            (RENDER, "max_tracks") => Change::MaxTracks(self.render.max_tracks()),
+            (RENDER, "clip_margin_s") => Change::ClipMargin(self.render.clip_margin_s()),
+            (DETECT, "osd_regions") => Change::OsdRegions(self.detect.osd_regions().len()),
+            (DETECT, "threshold") => Change::Threshold(self.detect.threshold()),
+            (TRACK, "min_hits") => Change::MinHits(self.track.min_hits()),
+            (STABILITY, "max_blobs") => Change::MaxBlobs(self.stability.max_blobs()),
+            (DETECT, "work_width") => Change::WorkWidth(self.detect.work_width()),
+            (section, field) => Change::Unnamed(format!("{section}.{field}")),
+        }
     }
 
     pub fn tunes_the_frames(&self) -> bool {

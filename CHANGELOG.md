@@ -23,6 +23,12 @@ release échoue sans elle.
 
 - Le tableau des pistes n'a plus de colonne `verdict` et appartient à l'outil : un recalcul le remplace quoi qu'il contienne. La mise de côté datée d'un tableau annoté (#83) est retirée, ainsi que la section « Tableau mis de côté » du bilan ; les tableaux déjà mis de côté restent où ils sont (#228).
 - Les extraits, les zooms et la vidéo annotée dessinent chaque piste de la couleur qu'elle a sur l'image résumé : boîte et numéro bordés d'un liseré noir, trace de la même couleur, au lieu de la boîte rouge et de la trace jaune orangé (#13).
+- Une vidéo arrêtée pour trop de pistes n'a plus ni image résumé ni fond, seulement son tableau : son « à faire » dit d'ouvrir le tableau et de regarder la vidéo à quelques-uns de ses temps (#221).
+- « Réglages changés » nomme toutes les options qui font recalculer une vidéo, dont `--zoom`, `--annotated`, `--max-tracks` et `--clip-margin`, dans l'ordre de l'aide ; en français, la valeur s'écrit avec une virgule (« --threshold 11,5 ») (#221, #247).
+- Une zone `--osd-region` refusée est nommée par son numéro : « la zone n° 2 de --osd-region ne vérifie pas … » (#221).
+- Une entrée refusée est nommée par le dernier nom de son chemin (« nuit-13-oct : introuvable ») ; le chemin entier passe dans le « à faire » quand il sert à la retrouver : introuvable, lecture refusée, dossier sans vidéo. La page des résultats fait de même (#247).
+- Deux vidéos du lancement qui ont le même nom sans extension sont nommées avec leur extension sur les lignes au fil de l'eau (« video_092.mov », « video_092.mp4 ») ; si le nom est le même extension comprise, dans deux dossiers, avec leur dossier (« nuit-12/video_001.mp4 », « nuit-13/video_001.mp4 ») (#247).
+- Le « à faire » d'un disque plein nomme le disque (« libérer de la place sur le disque qui contient … ») au lieu du dossier (#221).
 - Chaque vidéo est ouverte avant tout calcul : une vidéo illisible ou mal copiée est refusée au départ avec les autres entrées fautives, au lieu d'échouer à son tour. Hors d'un terminal, depuis un script par exemple, une seule vidéo mal copiée arrête donc tout le lot avant le calcul, en code 2, sauf avec `--skip-refused` ; avant, les autres vidéos étaient faites et le code valait 1 (#62).
 
 ### Corrigé

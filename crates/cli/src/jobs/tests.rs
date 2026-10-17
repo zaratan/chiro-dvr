@@ -367,7 +367,7 @@ fn each_refusal_reason_names_the_line_and_the_advice_shared_by_the_terminal_and_
         (Reason::Missing, "missing", "input-missing"),
         (Reason::Unreadable(Access::Missing), "missing", "input-missing"),
         (Reason::Unreadable(Access::NotAFolder), "not-a-folder", "input-missing"),
-        (Reason::Unreadable(Access::Refused), "refused", "read-refused"),
+        (Reason::Unreadable(Access::Refused), "refused", "input-read-refused"),
         (Reason::Unreadable(Access::ReadOnly), "unavailable", "unreachable"),
         (Reason::Unreadable(Access::DiskFull), "unavailable", "unreachable"),
         (Reason::Unreadable(Access::Unavailable), "unavailable", "unreachable"),
@@ -379,6 +379,22 @@ fn each_refusal_reason_names_the_line_and_the_advice_shared_by_the_terminal_and_
             "shared-folder",
         ),
         (unopened, "unopened", "damaged"),
+        (
+            Reason::Unopened {
+                cause: Cause::ReadRefused,
+                detail: String::new(),
+            },
+            "unopened",
+            "input-read-refused",
+        ),
+        (
+            Reason::Unopened {
+                cause: Cause::Missing,
+                detail: String::new(),
+            },
+            "unopened",
+            "input-missing",
+        ),
     ];
     for (reason, key, todo) in reasons {
         assert_eq!((reason.key(), reason.todo()), (key, todo), "{reason:?}");

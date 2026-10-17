@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use batdetect::failure::TOO_MANY_TRACKS;
 use batdetect::jobs::{NO_VIDEO, NOT_A_VIDEO, SHARED_FOLDER, UNOPENED};
 use batdetect::process::Wording;
@@ -8,7 +10,7 @@ use page::model::Date;
 use page::script::Script;
 use summary::header::{clock, duration};
 
-use crate::messages::extensions;
+use crate::messages::{self, extensions};
 use crate::numbers::NO_BREAK_SPACE;
 use crate::texts::Texts;
 
@@ -196,6 +198,7 @@ fn failure<'a>(video: &'a str, cause: &'a str, place: &'a str) -> Spoken<'a> {
 }
 
 fn refused_input<'a>(path: &'a str, reason: &'a str, cause: Option<&'a str>, videos: &'a str) -> Spoken<'a> {
+    let name = messages::last_name(Path::new(path));
     match (reason, cause) {
         (NOT_A_VIDEO | NO_VIDEO, _) => {
             let (listed, last) = extensions();
@@ -203,16 +206,19 @@ fn refused_input<'a>(path: &'a str, reason: &'a str, cause: Option<&'a str>, vid
             message(
                 "input-without-video",
                 [
-                    ("path", path.into()),
+                    ("path", name.into()),
                     ("folder", folder.into()),
                     ("listed", listed.into()),
                     ("last", last.into()),
                 ],
             )
         }
-        (SHARED_FOLDER, _) => message("shared-folder", [("path", path.into()), ("videos", videos.into())]),
-        (UNOPENED, Some(cause)) => failure(path, cause, path),
-        _ => message("input-refused", [("path", path.into()), ("reason", reason.into())]),
+        (SHARED_FOLDER, _) => message("shared-folder", [("path", name.into()), ("videos", videos.into())]),
+        (UNOPENED, Some(cause)) => message(
+            "failure",
+            [("video", name.into()), ("cause", cause.into()), ("place", path.into())],
+        ),
+        _ => message("input-refused", [("path", name.into()), ("reason", reason.into())]),
     }
 }
 

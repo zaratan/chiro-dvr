@@ -12,7 +12,7 @@ use engine::settings::Setting;
 use files::names::composed;
 use files::params::Finish;
 
-use crate::arguments::{MAX_BLOBS, MIN_HITS, OSD_REGION};
+use crate::arguments::{ANNOTATED, CLIP_MARGIN, MAX_BLOBS, MAX_TRACKS, MIN_HITS, OSD_REGION, ZOOM};
 use crate::clock::clock;
 use crate::messages;
 use crate::texts::{Fixed, Message, Texts};
@@ -41,7 +41,7 @@ pub(crate) fn write(out: &mut impl Write, tally: &Tally, options: &Options, text
     unwritten(out, tally, texts)?;
     let changed = options.changed();
     if !changed.is_empty() {
-        let settings: Vec<String> = changed.iter().map(|change| setting(*change, texts)).collect();
+        let settings: Vec<String> = changed.iter().map(|change| setting(change, texts)).collect();
         let settings = settings.join(LIST_SEPARATOR);
         writeln!(out)?;
         writeln!(out, "{}", texts.say(&Message::TallyChanged { settings }))?;
@@ -258,12 +258,20 @@ fn file_name(path: &Path) -> String {
     path.file_name().unwrap_or_default().to_string_lossy().into_owned()
 }
 
-fn setting(change: Change, texts: Texts) -> String {
+fn setting(change: &Change, texts: Texts) -> String {
     match change {
-        Change::Threshold(value) => format!("--{} {value}", Setting::Threshold.flag()),
+        Change::Zoom(zoom) => format!("--{ZOOM} {}", zoom.name()),
+        Change::Annotated => format!("--{ANNOTATED}"),
+        Change::MaxTracks(value) => format!("--{MAX_TRACKS} {value}"),
+        Change::ClipMargin(value) => format!("--{CLIP_MARGIN} {}", texts.number(*value)),
+        Change::Threshold(value) => format!("--{} {}", Setting::Threshold.flag(), texts.number(*value)),
         Change::MinHits(value) => format!("--{MIN_HITS} {value}"),
         Change::MaxBlobs(value) => format!("--{MAX_BLOBS} {}", value.map_or(0, NonZeroU32::get)),
         Change::WorkWidth(value) => format!("--{} {value}", Setting::WorkWidth.flag()),
-        Change::OsdRegions(count) => format!("--{OSD_REGION} ({})", texts.say(&Message::TallyRegions { count })),
+        Change::OsdRegions(count) => format!(
+            "--{OSD_REGION} ({})",
+            texts.say(&Message::TallyRegions { count: *count })
+        ),
+        Change::Unnamed(name) => name.clone(),
     }
 }

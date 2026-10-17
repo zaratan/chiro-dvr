@@ -19,13 +19,40 @@ use serde_json::Value;
 const BINARY: &str = env!("CARGO_BIN_EXE_batdetect");
 const NOT_A_VIDEO_TODO: &str = "    à faire\u{a0}: s'il vient des jumelles, le recopier par le câble USB, sans passer par \
                                 Stream Vision 2\u{a0}; sinon, le retirer du dossier";
-const MISSING_TODO: &str =
-    "    à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé";
-const MISSING_TODO_EN: &str = "    what to do: check the path; the folder or the video may have been moved or renamed";
-const NO_VIDEO_TODO: &str = "    à faire\u{a0}: vérifier que c'est le bon dossier\u{a0}: seules les vidéos posées directement \
-                             dedans sont traitées, pas celles de ses sous-dossiers";
-const NO_VIDEO_TODO_EN: &str = "    what to do: check it is the right folder: only the videos directly inside it are \
-                                processed, not those of its subfolders";
+
+fn missing_todo(path: &Path) -> String {
+    format!(
+        "    à faire\u{a0}: vérifier le chemin {}\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé",
+        path.display()
+    )
+}
+
+fn missing_todo_en(path: &Path) -> String {
+    format!(
+        "    what to do: check the path {}; the folder or the video may have been moved or renamed",
+        path.display()
+    )
+}
+
+fn no_video_todo(path: &Path) -> String {
+    format!(
+        "    à faire\u{a0}: vérifier que {} est le bon dossier\u{a0}: seules les vidéos posées directement dedans sont \
+         traitées, pas celles de ses sous-dossiers",
+        path.display()
+    )
+}
+
+fn no_video_todo_en(path: &Path) -> String {
+    format!(
+        "    what to do: check that {} is the right folder: only the videos directly inside it are processed, not those \
+         of its subfolders",
+        path.display()
+    )
+}
+
+fn name(path: &Path) -> String {
+    path.file_name().unwrap_or_default().to_string_lossy().into_owned()
+}
 
 #[cfg(test)]
 fn command(arguments: &[&Path], lang: &str) -> Command {
@@ -243,7 +270,7 @@ fn a_file_named_like_a_video_that_cannot_be_opened_stops_the_others_before_any_w
             format!(
                 "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:\n  {}\u{a0}: ce fichier n'est pas une vidéo lisible, ou \
                  sa copie est incomplète\n{NOT_A_VIDEO_TODO}\n",
-                fake.display()
+                name(&fake)
             ),
         ),
         (
@@ -252,7 +279,7 @@ fn a_file_named_like_a_video_that_cannot_be_opened_stops_the_others_before_any_w
                 "error: no video is processed:\n  {}: this file is not a readable video, or its copy is incomplete\n    \
                  what to do: if it comes from the binoculars, copy it again over the USB cable, not through Stream \
                  Vision 2; otherwise, move it out of the folder\n",
-                fake.display()
+                name(&fake)
             ),
         ),
     ] {
@@ -300,24 +327,26 @@ fn every_faulty_input_is_refused_at_once_before_any_work_one_line_each_with_what
         videos.join("flight.mp4"),
         root.path().join("out"),
     );
-    let (missing_name, readme_name, empty_name) = (missing.display(), readme.display(), empty.display());
+    let (missing_name, readme_name, empty_name) = (name(&missing), name(&readme), name(&empty));
+    let (missing_fr, missing_en) = (missing_todo(&missing), missing_todo_en(&missing));
+    let (empty_fr, empty_en) = (no_video_todo(&empty), no_video_todo_en(&empty));
     for (lang, expected) in [
         (
             "fr_FR.UTF-8",
             format!(
-                "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:\n  {missing_name}\u{a0}: introuvable\n{MISSING_TODO}\n  \
+                "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:\n  {missing_name}\u{a0}: introuvable\n{missing_fr}\n  \
                  {readme_name}\u{a0}: pas une vidéo (mp4, mov, avi, mkv ou m4v)\n    \
                  à faire\u{a0}: ne donner que des vidéos, ou des dossiers de vidéos\n  \
-                 {empty_name}\u{a0}: aucune vidéo (mp4, mov, avi, mkv ou m4v) dans ce dossier\n{NO_VIDEO_TODO}\n"
+                 {empty_name}\u{a0}: aucune vidéo (mp4, mov, avi, mkv ou m4v) dans ce dossier\n{empty_fr}\n"
             ),
         ),
         (
             "C",
             format!(
-                "error: no video is processed:\n  {missing_name}: not found\n{MISSING_TODO_EN}\n  \
+                "error: no video is processed:\n  {missing_name}: not found\n{missing_en}\n  \
                  {readme_name}: not a video (mp4, mov, avi, mkv or m4v)\n    \
                  what to do: give only videos, or folders of videos\n  \
-                 {empty_name}: no video (mp4, mov, avi, mkv or m4v) in this folder\n{NO_VIDEO_TODO_EN}\n"
+                 {empty_name}: no video (mp4, mov, avi, mkv or m4v) in this folder\n{empty_en}\n"
             ),
         ),
     ] {
@@ -445,8 +474,9 @@ fn a_folder_without_any_video_is_refused_by_name_with_the_extensions_looked_for_
     assert_eq!(
         text(&output.stderr),
         format!(
-            "error: no video (mp4, mov, avi, mkv or m4v) found in this folder:\n  {}\n{NO_VIDEO_TODO_EN}\n",
-            videos.display()
+            "error: no video (mp4, mov, avi, mkv or m4v) found in this folder:\n  {}\n{}\n",
+            name(&videos),
+            no_video_todo_en(&videos)
         )
     );
 }
@@ -507,7 +537,7 @@ fn two_videos_that_would_share_an_output_folder_are_refused_by_that_folder_befor
             "fr_FR.UTF-8",
             format!(
                 "  {}\u{a0}: dossier de résultats commun à {}, {}",
-                shared.display(),
+                name(&shared),
                 first.display(),
                 second.display()
             ),
@@ -516,7 +546,7 @@ fn two_videos_that_would_share_an_output_folder_are_refused_by_that_folder_befor
             "C",
             format!(
                 "  {}: results folder shared by {}, {}",
-                shared.display(),
+                name(&shared),
                 first.display(),
                 second.display()
             ),
@@ -546,16 +576,18 @@ fn a_folder_refused_to_read_is_refused_before_any_work_with_the_advice_given_for
             french,
             format!(
                 "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:\n  {}\u{a0}: lecture refusée\n    à faire\u{a0}: \
-                 vérifier ses droits\u{a0}; sur Mac, autoriser le Terminal dans Réglages Système, Confidentialité et \
-                 sécurité, Fichiers et dossiers\n",
+                 vérifier les droits de {}\u{a0}; sur Mac, autoriser le Terminal dans Réglages Système, Confidentialité \
+                 et sécurité, Fichiers et dossiers\n",
+                name(&videos),
                 videos.display()
             ),
         ),
         (
             english,
             format!(
-                "error: no video is processed:\n  {}: reading refused\n    what to do: check its rights; on a Mac, \
-                 allow the Terminal in System Settings, Privacy & Security, Files and Folders\n",
+                "error: no video is processed:\n  {}: reading refused\n    what to do: check the rights of {}; on a \
+                 Mac, allow the Terminal in System Settings, Privacy & Security, Files and Folders\n",
+                name(&videos),
                 videos.display()
             ),
         ),
@@ -589,8 +621,9 @@ fn a_folder_holding_only_hidden_copies_of_videos_is_refused_as_holding_no_video(
     assert_eq!(
         text(&output.stderr),
         format!(
-            "erreur\u{a0}: aucune vidéo (mp4, mov, avi, mkv ou m4v) trouvée dans ce dossier\u{a0}:\n  {}\n{NO_VIDEO_TODO}\n",
-            videos.display()
+            "erreur\u{a0}: aucune vidéo (mp4, mov, avi, mkv ou m4v) trouvée dans ce dossier\u{a0}:\n  {}\n{}\n",
+            name(&videos),
+            no_video_todo(&videos)
         )
     );
     assert!(!out.exists());
@@ -604,7 +637,7 @@ fn a_video_that_does_not_exist_stops_the_others_before_any_work() {
     let output = run(&[&missing, &videos.join("ok.mp4"), Path::new("-o"), &out], "C");
     assert_eq!(output.status.code(), Some(2));
     assert!(
-        text(&output.stderr).contains(&format!("{}: not found", missing.display())),
+        text(&output.stderr).contains(&format!("{}: not found", name(&missing))),
         "{}",
         text(&output.stderr)
     );
@@ -974,6 +1007,70 @@ fn redirected_the_finish_time_follows_the_last_line_of_each_video_from_the_first
 }
 
 #[test]
+fn two_videos_sharing_a_name_without_extension_are_told_apart_by_it_and_the_others_keep_their_short_name() {
+    let (root, videos) = videos_with_a_flight(&["vol.mov", "vol.mp4", "zz.mp4"]);
+    let out = root.path().join("out");
+    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    assert_eq!(output.status.code(), Some(0));
+    let lines = masked_video_lines(&text(&output.stderr), 3);
+    let last_lines: Vec<&String> = lines.iter().filter(|line| line.contains(" piste")).collect();
+    assert_eq!(
+        last_lines,
+        [
+            "[1/3] vol.mov — 1 piste · fin vers hh:mm",
+            "[2/3] vol.mp4 — 1 piste · fin vers hh:mm",
+            "[3/3] zz — 1 piste",
+        ]
+    );
+}
+
+#[test]
+fn two_videos_of_the_same_name_in_two_evening_folders_are_told_apart_by_their_folder() {
+    let root = tempfile::tempdir().unwrap();
+    let nights = ["nuit-12", "nuit-13"].map(|night| root.path().join(night));
+    for night in &nights {
+        fs::create_dir(night).unwrap();
+        fs::copy(flight(), night.join("video_001.mp4")).unwrap();
+    }
+    let output = run(&[&nights[0], &nights[1]], "fr_FR.UTF-8");
+    assert_eq!(output.status.code(), Some(0));
+    let lines = masked_video_lines(&text(&output.stderr), 2);
+    let last_lines: Vec<&String> = lines.iter().filter(|line| line.contains(" piste")).collect();
+    let [first, second] =
+        ["nuit-12", "nuit-13"].map(|night| Path::new(night).join("video_001.mp4").display().to_string());
+    assert_eq!(
+        last_lines,
+        [
+            &format!("[1/2] {first} — 1 piste · fin vers hh:mm"),
+            &format!("[2/2] {second} — 1 piste"),
+        ]
+    );
+}
+
+#[test]
+fn a_track_limit_of_zero_is_named_among_the_changed_settings_since_it_makes_the_video_recalculated() {
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    let out = root.path().join("out");
+    let output = run(
+        &[
+            &videos,
+            Path::new("--max-tracks"),
+            Path::new("0"),
+            Path::new("-o"),
+            &out,
+        ],
+        "fr_FR.UTF-8",
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let summary = text(&output.stdout);
+    assert_eq!(
+        summary.lines().last(),
+        Some("Réglages changés\u{a0}: --max-tracks 0"),
+        "{summary}"
+    );
+}
+
+#[test]
 fn the_summary_alone_goes_to_the_standard_output_with_a_row_per_video_and_the_failures_below() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4", "zz_broken.mp4"]);
     let out = root.path().join("out");
@@ -1071,8 +1168,9 @@ fn without_a_terminal_valid_videos_among_refused_inputs_are_not_processed_and_no
     assert_eq!(
         text(&output.stderr),
         format!(
-            "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:\n  {}\u{a0}: introuvable\n{MISSING_TODO}\n",
-            missing.display()
+            "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:\n  {}\u{a0}: introuvable\n{}\n",
+            name(&missing),
+            missing_todo(&missing)
         )
     );
     assert!(!out.exists());
@@ -1097,8 +1195,9 @@ fn skip_refused_processes_the_valid_videos_without_asking_and_lists_the_refused_
     let errors = text(&output.stderr);
     assert!(
         errors.starts_with(&format!(
-            "erreur\u{a0}: une entrée est refusée\u{a0}:\n  {}\u{a0}: introuvable\n{MISSING_TODO}\n",
-            missing.display()
+            "erreur\u{a0}: une entrée est refusée\u{a0}:\n  {}\u{a0}: introuvable\n{}\n",
+            name(&missing),
+            missing_todo(&missing)
         )),
         "{errors}"
     );
@@ -1110,10 +1209,13 @@ fn skip_refused_processes_the_valid_videos_without_asking_and_lists_the_refused_
         lines[0], "Bilan\u{a0}: 1 vidéo, 1 réussie, 1 entrée refusée",
         "{summary}"
     );
-    let refusal = format!("  {}\u{a0}: introuvable", missing.display());
+    let (refusal, todo) = (
+        format!("  {}\u{a0}: introuvable", name(&missing)),
+        missing_todo(&missing),
+    );
     assert_eq!(
         lines[lines.len() - 3..],
-        ["Entrée refusée, non traitée\u{a0}:", refusal.as_str(), MISSING_TODO],
+        ["Entrée refusée, non traitée\u{a0}:", refusal.as_str(), todo.as_str()],
         "{summary}"
     );
 }
@@ -1127,8 +1229,9 @@ fn skip_refused_does_not_turn_inputs_that_are_all_faulty_into_an_empty_run() {
     assert_eq!(
         text(&output.stderr),
         format!(
-            "error: no video is processed:\n  {}: not found\n{MISSING_TODO_EN}\n",
-            missing.display()
+            "error: no video is processed:\n  {}: not found\n{}\n",
+            name(&missing),
+            missing_todo_en(&missing)
         )
     );
     assert!(!out.exists());
@@ -1165,7 +1268,7 @@ fn a_video_refused_at_the_start_in_a_folder_of_its_own_leaves_neither_a_folder_n
     );
     let refusal = format!(
         "  {}\u{a0}: ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète",
-        traps.join("abimee.mp4").display()
+        name(&traps.join("abimee.mp4"))
     );
     assert!(summary.lines().any(|line| line == refusal), "{summary}");
 }
@@ -1387,7 +1490,7 @@ fn skip_refused_with_a_missing_input_and_a_disk_too_small_lists_both_but_records
         Some("Summary: 1 video, 1 failed, 1 input refused"),
         "{summary}"
     );
-    assert!(!summary.contains("the disk holding"), "{summary}");
+    assert!(!summary.contains("GB needed"), "{summary}");
     let recorded: Value =
         serde_json::from_str(&fs::read_to_string(files::refusals::refusals_path(&out)).unwrap()).unwrap();
     let paths: Vec<&Value> = recorded["inputs"]

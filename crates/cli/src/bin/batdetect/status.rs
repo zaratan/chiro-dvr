@@ -10,7 +10,7 @@ use batdetect::outcome::{Failure, Ran, Rank};
 use batdetect::progress::{Progress, Step};
 use jiff::{SignedDuration, Zoned};
 
-use crate::messages;
+use crate::messages::{self, Homonyms};
 use crate::texts::{Message, Texts};
 
 #[cfg(test)]
@@ -28,6 +28,7 @@ pub(crate) struct Status {
     resumes: bool,
     columns: fn() -> Option<usize>,
     pace: Mutex<Pace>,
+    homonyms: Homonyms,
 }
 
 #[derive(Debug)]
@@ -60,6 +61,14 @@ impl Status {
                 evening: Evening::new(Vec::new()),
                 entered: None,
             }),
+            homonyms: Homonyms::none(),
+        }
+    }
+
+    pub(crate) fn naming(self, jobs: &[Job]) -> Self {
+        Self {
+            homonyms: messages::homonyms(jobs),
+            ..self
         }
     }
 
@@ -174,12 +183,16 @@ impl Progress for Video<'_> {
 impl Video<'_> {
     pub(crate) fn step_on(&self, out: &mut impl Write, step: Step) -> io::Result<()> {
         let (status, texts) = (self.status, self.status.texts);
-        let line = texts.say(&messages::video_step(self.rank, self.job, step));
+        let line = texts.say(&messages::video_step(self.rank, self.name(), step));
         let line = match status.finish_during(self.rank) {
             Some(at) if status.terminal => texts.say(&messages::finish(line, &at)),
             _ => line,
         };
         status.show(out, &line)
+    }
+
+    fn name(&self) -> String {
+        messages::shown_name(self.job, &self.status.homonyms)
     }
 
     fn last_line(&self, err: &mut impl Write, message: &Message) -> io::Result<()> {
@@ -202,18 +215,20 @@ impl Video<'_> {
         self.status.clear(err)?;
         let mut say = |message: &Message| writeln!(err, "{}", texts.say(message));
         match result {
-            Ok(Ran::Skipped(earlier)) => self.last_line(err, &messages::video_skipped(rank, job, earlier.tracks)),
+            Ok(Ran::Skipped(earlier)) => {
+                self.last_line(err, &messages::video_skipped(rank, self.name(), earlier.tracks))
+            }
             Ok(Ran::Processed(processed)) => {
                 for redone in &processed.rendered.redone {
                     say(&messages::redone(job, &redone.paths, &redone.cause))?;
                 }
-                self.last_line(err, &messages::video_done(rank, job, processed.tracks.len()))
+                self.last_line(err, &messages::video_done(rank, self.name(), processed.tracks.len()))
             }
             Err(failure) => {
                 for message in messages::failure_lines(job, failure, options) {
                     say(&message)?;
                 }
-                self.last_line(err, &messages::video_failed(rank, job, failure))
+                self.last_line(err, &messages::video_failed(rank, self.name(), failure))
             }
         }
     }

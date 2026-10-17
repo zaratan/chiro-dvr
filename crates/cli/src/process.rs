@@ -32,7 +32,7 @@ use crate::disk;
 use crate::jobs::Job;
 use crate::listing::{listed, relative};
 use crate::options::Options;
-use crate::overview::{self, Overview, write_overview};
+use crate::overview::{self, Drawn, Overview, write_overview};
 use crate::progress::{Progress, Step};
 use crate::settings::Settings;
 use crate::sheets::summaries;
@@ -77,7 +77,7 @@ pub enum Error {
     Clips(#[source] clips::Error),
     #[error("{needed} bytes are needed on the disk of {}, {free} are free", dest.display())]
     DiskSpace { dest: PathBuf, needed: u64, free: u64 },
-    #[error("{count} tracks, above {limit}: clips skipped")]
+    #[error("{count} tracks, above {limit}: no clips, no summary image")]
     TooManyTracks {
         count: usize,
         limit: usize,
@@ -234,8 +234,8 @@ fn processed_since(
         ignored: &ignored_s,
         damaged: &damaged_s,
     };
-    progress.step(Step::Summary).map_err(Error::Progress)?;
-    let drawn = write_overview(overview, detected, &summary).map_err(Error::Overview)?;
+    let renders = render.renders_clips_for(tracks.len());
+    let drawn = drawn_if(renders, progress, overview, detected, &summary)?;
     let colors = drawn.colors(&tracks);
     let clips = Clips {
         job,
@@ -248,7 +248,7 @@ fn processed_since(
         kept: &kept,
     };
     room_for_clips(&clips, &tracks, video_bytes)?;
-    progress.step(Step::Clips).map_err(Error::Progress)?;
+    announce(progress, Step::Clips, renders)?;
     let written = render_clips(&clips, &tracks, trial);
     if let Some(state) = finish(&written) {
         let outputs = written.as_ref().ok().map(|written| &written.outputs);
@@ -284,6 +284,27 @@ fn processed_since(
         summaries: drawn.sheets.into_iter().map(|sheet| sheet.page).collect(),
         rendered,
     })
+}
+
+fn drawn_if(
+    renders: bool,
+    progress: &dyn Progress,
+    overview: Overview<'_>,
+    detected: &Detected,
+    summary: &Summary<'_>,
+) -> Result<Drawn, Error> {
+    if !renders {
+        return Ok(Drawn::default());
+    }
+    progress.step(Step::Summary).map_err(Error::Progress)?;
+    write_overview(overview, detected, summary).map_err(Error::Overview)
+}
+
+fn announce(progress: &dyn Progress, step: Step, rendered: bool) -> Result<(), Error> {
+    if rendered {
+        progress.step(step).map_err(Error::Progress)?;
+    }
+    Ok(())
 }
 
 #[derive(Debug)]

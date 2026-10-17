@@ -332,7 +332,7 @@ nombre de pistes, la durée, le temps non analysé et le temps de calcul (`track
 `length_s`, `not_analysed_s`, `elapsed_s`, en secondes non arrondies), la taille de la vidéo en
 octets (`video_bytes`), la langue des noms (`language`, `fr` ou `en`) et l'heure locale de la fin
 du calcul (`date`). `tracks` liste les pistes : numéro (`id`), début et durée non arrondis
-(`start_s`, `duration_s`), couleur de la trajectoire sur l'image résumé en RVB (`color`), image
+(`start_s`, `duration_s`), couleur de la trajectoire sur l'image résumé en RVB (`color`, `null` au-delà du garde-fou, qui n'a pas d'image résumé), image
 résumé qui la dessine (`summary`, par exemple `video_097_resume_3_sur_8.png`), et chemins de
 l'extrait et du zoom écrits, relatifs au dossier de la vidéo (`null` quand il n'y en a pas), et point de départ de la piste en pixels entiers de la vidéo d'origine (`start_xy`, absent avant #228), qui aide la page à rattacher un verdict à sa piste.
 Pour que la page redessine l'image résumé sans rien recalculer (#259), `params.json` donne aussi le fond, la scène sans trace (`background`, par exemple `video_097_fond.png`), la mise en page de chaque image résumé (`summaries` : `file`, la tranche `window_s`, la partie `part` en `[n, total]` ou `null`, les périodes ignorées et illisibles coupées à la tranche `ignored_s` et `damaged_s`, les débuts des pistes des autres parties `other_starts_s`, au centième, et le rayon des pastilles `radius` en pixels de la vidéo), et pour chaque piste dessinée sa trace (`trace` : `points` et `head`, la trajectoire et les trois points de la flèche en chaîne `"x,y x,y …"` de pixels entiers de la vidéo, sans point répété ; `dot`, le centre de la pastille ; `anchor`, le départ du trait de rappel quand la pastille est écartée de la trajectoire, sinon `null`). Une piste non dessinée a `trace` à `null`, et un dossier écrit avant #259 n'a ni `background` ni `summaries` : la page montre alors l'image résumé.
@@ -352,10 +352,7 @@ dans le dossier de la vidéo, `params.json` d'abord, puis les sorties des deux l
 `<nom>.tracks.*`, `<nom>_boxes.mp4`). Les sorties de la v0.1.1, écrites dans `out/` du dossier
 où la commande était lancée, restent où elles sont.
 
-Garde-fou : au-delà de `max_tracks` pistes (300 par défaut, 0 désactive), les extraits
-et la vidéo annotée ne sont pas produits, et la vidéo est comptée à part au bilan. Le CSV,
-`params.json` (avec le seuil, dans `RenderConfig`, et `"state": "too_many_tracks"`) et l'image
-résumé restent écrits. 300 est au-dessus de la vidéo la plus chargée sans explosion (148
+Garde-fou : au-delà de `max_tracks` pistes (300 par défaut, 0 désactive), ni les extraits, ni l'image résumé, ni son fond, ni la vidéo annotée ne sont produits (`background` à `null`, `summaries` vide, `trace` à `null`), et la vidéo est comptée à part au bilan. Le CSV et `params.json` (avec le seuil, dans `RenderConfig`, et `"state": "too_many_tracks"`) restent écrits ; l'image résumé n'est plus écrite depuis #221, car sur une vidéo de bruit elle se coupait en dizaines de parties. 300 est au-dessus de la vidéo la plus chargée sans explosion (148
 pistes, 097) et en dessous de la plus petite explosion connue (374 pistes, seuil 12 sans
 facteur de bruit). Le
 seuil est fixe, pas un taux par minute : il suppose des clips d'environ 5 min, comme ceux

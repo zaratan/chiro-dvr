@@ -687,7 +687,7 @@ fn a_video_with_too_many_tracks_brings_back_its_measures_and_replaces_the_earlie
 }
 
 #[test]
-fn a_video_with_too_many_tracks_is_marked_finished_with_that_state_its_measures_and_its_tracks_without_clips_before_it_fails()
+fn a_video_with_too_many_tracks_is_marked_finished_with_that_state_its_measures_and_its_tracks_without_clips_or_summary_image_before_it_fails()
  {
     let folder = tempfile::tempdir().unwrap();
     let (job, options) = two_tracks_above_a_limit_of_one(folder.path());
@@ -703,8 +703,17 @@ fn a_video_with_too_many_tracks_is_marked_finished_with_that_state_its_measures_
     assert!(
         listed
             .iter()
-            .all(|track| track["clip"].is_null() && track["zoom"].is_null() && track["color"].is_array())
+            .all(|track| track["clip"].is_null() && track["zoom"].is_null() && track["color"].is_null())
     );
+    let images: Vec<PathBuf> = fs::read_dir(&job.dest)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("png"))
+        })
+        .collect();
+    assert_eq!(images, Vec::<PathBuf>::new());
     assert_eq!(params["length_s"], extent.length_s);
     assert_eq!(params["not_analysed_s"], extent.not_analysed_s);
 }
@@ -805,6 +814,16 @@ fn each_listed_track_names_the_clip_and_zoom_really_written_beside_params_json()
         }
         assert_eq!(track["color"].as_array().unwrap().len(), 3);
     }
+}
+
+#[test]
+fn a_video_with_too_many_tracks_announces_neither_the_summary_nor_the_clips_it_does_not_write() {
+    let folder = tempfile::tempdir().unwrap();
+    let (job, options) = two_tracks_above_a_limit_of_one(folder.path());
+    let recorded = Recorded::default();
+    let failed = process(&job, &Plain, &recorded, Threads::Automatic, VERSIONS, &options);
+    assert!(matches!(failed, Err(Error::TooManyTracks { .. })), "{failed:?}");
+    assert_eq!(recorded.0.into_inner(), [Step::Detection, Step::Tracking]);
 }
 
 #[test]

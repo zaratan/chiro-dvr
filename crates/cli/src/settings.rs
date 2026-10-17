@@ -2,12 +2,26 @@ use engine::settings::DetectSettings;
 use media::decode::ActiveThreads;
 use media::encode::Codec;
 use serde::Serialize;
+use serde_json::{Map, Value};
 use tracking::settings::{StabilitySettings, TrackSettings};
 
 use crate::options::Options;
 
 #[cfg(test)]
 mod tests;
+
+pub(crate) const DETECT: &str = "DetectConfig";
+pub(crate) const TRACK: &str = "TrackConfig";
+pub(crate) const STABILITY: &str = "StabilityConfig";
+pub(crate) const RENDER: &str = "RenderConfig";
+const MACHINE: &str = "threads";
+const ENCODERS: &str = "encoders";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Leaf {
+    pub(crate) section: String,
+    pub(crate) field: String,
+}
 
 #[derive(Debug, Serialize)]
 pub(crate) struct Settings {
@@ -79,6 +93,54 @@ impl Settings {
             },
         }
     }
+}
+
+pub(crate) fn compared(options: &Options) -> Option<Map<String, Value>> {
+    let Ok(Value::Object(mut settings)) = serde_json::to_value(Settings::of(options, &[], ActiveThreads::Single, 0))
+    else {
+        return None;
+    };
+    settings.remove(MACHINE);
+    Some(
+        settings
+            .into_iter()
+            .map(|(section, value)| {
+                let value = comparable(&section, &value);
+                (section, value)
+            })
+            .collect(),
+    )
+}
+
+pub(crate) fn comparable(section: &str, value: &Value) -> Value {
+    let mut value = value.clone();
+    if section == RENDER
+        && let Some(render) = value.as_object_mut()
+    {
+        render.remove(ENCODERS);
+    }
+    value
+}
+
+pub(crate) fn differing(options: &Options, reference: &Options) -> Vec<Leaf> {
+    let (Some(current), Some(reference)) = (compared(options), compared(reference)) else {
+        return Vec::new();
+    };
+    current
+        .iter()
+        .flat_map(|(section, value)| {
+            let reference = reference.get(section);
+            value
+                .as_object()
+                .into_iter()
+                .flatten()
+                .filter(move |(field, value)| reference.and_then(|fields| fields.get(field.as_str())) != Some(*value))
+                .map(|(field, _)| Leaf {
+                    section: section.clone(),
+                    field: field.clone(),
+                })
+        })
+        .collect()
 }
 
 fn encoder_name(codec: Codec) -> &'static str {
