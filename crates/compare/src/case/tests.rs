@@ -61,3 +61,25 @@ fn the_092_worked_at_1440_pixels_is_named_by_its_folder_so_as_not_to_overwrite_t
     assert!(wide.recording().ends_with(WHOLE_AT_1440));
     assert_eq!(wide.name("video_092_original.mp4"), WHOLE_AT_1440);
 }
+
+#[test]
+fn each_case_lands_in_the_folder_it_has_under_its_reference_so_a_new_reference_keeps_the_same_tree() {
+    let folders: Vec<PathBuf> = [Target::Extract, Target::Whole, Target::WholeAt1440, Target::Settings]
+        .into_iter()
+        .flat_map(|target| target.cases(Reference::V011).unwrap())
+        .map(|case| case.folder())
+        .chain([Case::recorded(PathBuf::from("/somewhere/data/video_120")).folder()])
+        .collect();
+
+    assert_eq!(folders.len(), 20);
+    assert_eq!(
+        folders[..4],
+        [
+            PathBuf::from(EXTRACT),
+            PathBuf::from(WHOLE),
+            PathBuf::from(WHOLE_AT_1440),
+            PathBuf::from("settings/max_area_400"),
+        ]
+    );
+    assert_eq!(folders[19], PathBuf::from("data/video_120"));
+}

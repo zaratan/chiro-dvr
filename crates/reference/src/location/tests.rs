@@ -2,8 +2,8 @@ use std::ffi::OsString;
 use std::fs;
 
 use super::{
-    REFERENCE_DIR_VARIABLE, Reference, bench_under, committed, outputs_under, recording_directories_under,
-    reference_video_under, video_under,
+    REFERENCE_DIR_VARIABLE, Reference, bench_under, committed, committed_bench, outputs_under,
+    recording_directories_under, reference_video_under, video_under,
 };
 use crate::error::Error;
 use crate::fixture::fixtures;
@@ -30,9 +30,17 @@ fn the_v020_reference_lives_in_its_own_folder_beside_the_v011() {
 }
 
 #[test]
-fn each_reference_reads_its_recordings_and_benches_from_its_own_variable() {
+fn each_reference_reads_its_recordings_from_its_own_variable() {
     assert_eq!(Reference::V011.variable(), "BATDETECT_REFERENCE_DIR");
     assert_eq!(Reference::V020.variable(), "BATDETECT_REFERENCE_V020_DIR");
+}
+
+#[test]
+fn the_benches_of_the_v020_are_committed_beside_its_recordings_since_they_weigh_little() {
+    assert_eq!(
+        committed_bench("hunt"),
+        fixtures().join("reference-v0.2.0").join("bench").join("hunt")
+    );
 }
 
 #[test]
@@ -103,13 +111,10 @@ fn an_unset_or_empty_videos_variable_names_the_variable() {
 fn a_recorded_bench_lives_under_bench_by_its_name_and_needs_the_variable() {
     let root = tempfile::tempdir().unwrap();
 
-    let found = bench_under(Some(root.path().into()), REFERENCE_DIR_VARIABLE, "transit").unwrap();
+    let found = bench_under(Some(root.path().into()), "transit").unwrap();
 
     assert_eq!(found, root.path().join("bench").join("transit"));
-    assert!(matches!(
-        bench_under(None, REFERENCE_DIR_VARIABLE, "transit"),
-        Err(Error::UnsetVariable { .. })
-    ));
+    assert!(matches!(bench_under(None, "transit"), Err(Error::UnsetVariable { .. })));
 }
 
 #[test]

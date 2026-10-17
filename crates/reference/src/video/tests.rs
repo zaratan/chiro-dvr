@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 use types::frame::FrameIndex;
 use types::rational::Rational;
 
-use super::{DECODED_FORMAT, Decoder, DecoderThreads, Losses, VideoSummary};
+use super::{DECODED_FORMAT, Decoder, DecoderThreads, Losses, PROBED_FORMAT, VideoSummary};
 use crate::error::Error;
 use crate::location::{Reference, committed};
 
@@ -12,21 +12,19 @@ fn summary_092() -> VideoSummary {
     VideoSummary::read(&committed(Reference::V011, "video_092_original").join("video.json")).unwrap()
 }
 
-fn decoded(mut summary: VideoSummary) -> VideoSummary {
-    summary.format_version = DECODED_FORMAT;
-    summary.reference = "v0.2.0".to_owned();
-    summary.ffprobe = None;
-    summary.decoder = Some(Decoder {
-        error_frames: vec![FrameIndex::new(1290)],
-        gap_frames: vec![FrameIndex::new(1301)],
-        losses: Losses {
-            before_first: 2,
-            after_last: 0,
+fn decoded(summary: VideoSummary) -> VideoSummary {
+    summary.decoded(
+        "v0.2.0",
+        Decoder {
+            error_frames: vec![FrameIndex::new(1290)],
+            gap_frames: vec![FrameIndex::new(1301)],
+            losses: Losses {
+                before_first: 2,
+                after_last: 0,
+            },
+            threads: DecoderThreads::Frame(NonZeroUsize::new(13).unwrap()),
         },
-        threads: DecoderThreads::Frame(NonZeroUsize::new(13).unwrap()),
-    });
-    summary.files.csv = None;
-    summary
+    )
 }
 
 fn written(summary: &VideoSummary) -> (tempfile::TempDir, std::path::PathBuf) {
@@ -107,6 +105,31 @@ fn a_summary_of_the_decoder_keeps_its_losses_and_threads_and_names_no_table() {
     );
     assert!(json.get("ffprobe").is_none() && json["files"].get("csv").is_none());
     assert_eq!(VideoSummary::read(&path).unwrap(), summary);
+}
+
+#[test]
+fn a_summary_turned_to_the_decoder_keeps_its_video_and_stream_and_drops_only_what_ffprobe_and_the_table_gave() {
+    let probed = summary_092();
+    assert_eq!(probed.format_version, PROBED_FORMAT);
+
+    let summary = decoded(probed.clone());
+
+    assert_eq!(
+        (summary.format_version, summary.reference.as_str()),
+        (DECODED_FORMAT, "v0.2.0")
+    );
+    assert!(summary.ffprobe.is_none() && summary.files.csv.is_none());
+    assert_eq!(
+        VideoSummary {
+            format_version: PROBED_FORMAT,
+            reference: probed.reference.clone(),
+            ffprobe: probed.ffprobe.clone(),
+            decoder: None,
+            files: probed.files.clone(),
+            ..summary
+        },
+        probed
+    );
 }
 
 #[test]

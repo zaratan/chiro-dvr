@@ -323,6 +323,8 @@ dependencies = [
  "engine",
  "media",
  "reference",
+ "serde",
+ "serde_json",
  "tempfile",
  "thiserror",
  "tracking",

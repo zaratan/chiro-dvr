@@ -2,7 +2,7 @@ use std::fs;
 
 use reference::location::{Reference, committed};
 use reference::recording::SUMMARY_FILE;
-use reference::video::{DECODED_FORMAT, Decoder, DecoderThreads, Losses, VideoSummary};
+use reference::video::{Decoder, DecoderThreads, Losses, VideoSummary};
 
 use super::{DetectSettings, Region, RegionShape, Setting};
 
@@ -30,19 +30,19 @@ fn settings_written_into_a_summary_of_the_decoder_read_back_unchanged() {
         threshold: 25.0,
         ..DetectSettings::default()
     };
-    let mut summary: VideoSummary = serde_json::from_str(&extract_summary()).unwrap();
-    summary.format_version = DECODED_FORMAT;
-    summary.ffprobe = None;
-    summary.decoder = Some(Decoder {
-        error_frames: Vec::new(),
-        gap_frames: Vec::new(),
-        losses: Losses {
-            before_first: 0,
-            after_last: 0,
+    let probed: VideoSummary = serde_json::from_str(&extract_summary()).unwrap();
+    let mut summary = probed.decoded(
+        "v0.2.0",
+        Decoder {
+            error_frames: Vec::new(),
+            gap_frames: Vec::new(),
+            losses: Losses {
+                before_first: 0,
+                after_last: 0,
+            },
+            threads: DecoderThreads::Single,
         },
-        threads: DecoderThreads::Single,
-    });
-    summary.files.csv = None;
+    );
     summary.recorded["config"]["DetectConfig"] = serde_json::to_value(&tuned).unwrap();
     summary.write(&path).unwrap();
 
