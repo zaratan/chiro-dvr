@@ -22,7 +22,7 @@ pub(crate) fn track(id: usize, summary: &str) -> Track {
         summary: Some(summary.to_owned()),
         clip: Some(format!("extraits/piste_{id:02}_0m04s.mp4")),
         zoom: None,
-        verdict: None,
+        start_xy: None,
     }
 }
 

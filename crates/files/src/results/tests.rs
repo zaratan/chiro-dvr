@@ -2,20 +2,8 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::Path;
 
-use types::language::Language;
-
 use super::{Found, read_results};
 use crate::failures::{FailureRecord, record_failure};
-use crate::table::{Column, Headings};
-
-#[derive(Debug)]
-struct Named;
-
-impl Headings for Named {
-    fn heading(&self, column: Column, _language: Language) -> String {
-        format!("{column:?}")
-    }
-}
 
 fn png(width: u32, height: u32) -> Vec<u8> {
     let mut bytes = b"\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR".to_vec();
@@ -70,7 +58,7 @@ fn failure(video: &str) -> FailureRecord {
 
 #[cfg(target_os = "linux")]
 #[test]
-fn the_table_of_a_video_whose_name_is_not_utf8_is_found_by_its_readable_name_with_its_verdicts() {
+fn the_table_of_a_video_whose_name_is_not_utf8_is_found_by_its_readable_name() {
     use std::os::unix::ffi::OsStrExt;
     let root = tempfile::tempdir().unwrap();
     let dest = root.path().join(OsStr::from_bytes(b"vol_\xe9"));
@@ -82,12 +70,11 @@ fn the_table_of_a_video_whose_name_is_not_utf8_is_found_by_its_readable_name_wit
         "\u{feff}Track;Verdict;StartSeconds\r\n1;oui;4,8\r\n2;;23,48\r\n",
     )
     .unwrap();
-    let folders = read_results(root.path(), &Named);
+    let folders = read_results(root.path());
     let Found::Finished(finished) = &folders[0].found else {
         panic!("{:?}", folders[0].found);
     };
     assert_eq!(finished.table.as_deref(), Some("vol_\u{fffd}_pistes.csv"));
-    assert_eq!(finished.verdicts, [Some("oui".to_owned()), None]);
 }
 
 #[test]
@@ -95,19 +82,18 @@ fn a_table_removed_by_the_user_is_left_out_of_a_finished_folder() {
     let root = tempfile::tempdir().unwrap();
     finished_folder(root.path(), "v");
     fs::remove_file(root.path().join("v").join("v_pistes.csv")).unwrap();
-    let folders = read_results(root.path(), &Named);
+    let folders = read_results(root.path());
     let Found::Finished(finished) = &folders[0].found else {
         panic!("{:?}", folders[0].found);
     };
     assert_eq!(finished.table, None);
-    assert_eq!(finished.verdicts, [None, None]);
 }
 
 #[test]
-fn a_finished_folder_brings_its_tracks_images_with_their_size_table_and_verdicts() {
+fn a_finished_folder_brings_its_tracks_images_with_their_size_and_table() {
     let root = tempfile::tempdir().unwrap();
     finished_folder(root.path(), "v");
-    let folders = read_results(root.path(), &Named);
+    let folders = read_results(root.path());
     assert_eq!(folders.len(), 1);
     let Found::Finished(finished) = &folders[0].found else {
         panic!("{:?}", folders[0].found);
@@ -121,7 +107,6 @@ fn a_finished_folder_brings_its_tracks_images_with_their_size_table_and_verdicts
         .collect();
     assert_eq!(images, [("v_resume_1_sur_2.png", 1989), ("v_resume_2_sur_2.png", 1989)]);
     assert_eq!(finished.table.as_deref(), Some("v_pistes.csv"));
-    assert_eq!(finished.verdicts, [Some("oui".to_owned()), None]);
     assert_eq!(finished.annotated, None);
 }
 
@@ -132,7 +117,7 @@ fn a_folder_with_our_outputs_but_no_parameters_is_unfinished() {
     fs::create_dir_all(dest.join("extraits")).unwrap();
     fs::write(dest.join("extraits/piste_01_0m04s.mp4"), "").unwrap();
     fs::write(dest.join(".v_pistes.csv.partial"), "").unwrap();
-    assert_eq!(read_results(root.path(), &Named)[0].found, Found::Unfinished);
+    assert_eq!(read_results(root.path())[0].found, Found::Unfinished);
 }
 
 #[test]
@@ -141,7 +126,7 @@ fn parameters_written_by_an_older_version_mean_a_video_done_by_it_not_an_interru
     let dest = root.path().join("v");
     fs::create_dir_all(&dest).unwrap();
     fs::write(dest.join("params.json"), params("")).unwrap();
-    assert_eq!(read_results(root.path(), &Named)[0].found, Found::Older);
+    assert_eq!(read_results(root.path())[0].found, Found::Older);
 }
 
 #[test]
@@ -155,7 +140,7 @@ fn a_folder_of_the_user_or_a_hidden_one_is_not_a_video() {
     fs::write(root.path().join("Vacances/clips/plongee.mp4"), "").unwrap();
     fs::create_dir_all(root.path().join(".cache/v")).unwrap();
     fs::write(root.path().join("resultats.html"), "").unwrap();
-    assert_eq!(read_results(root.path(), &Named), []);
+    assert_eq!(read_results(root.path()), []);
 }
 
 #[test]
@@ -164,7 +149,7 @@ fn a_failure_without_a_folder_stands_alone_and_one_beside_results_keeps_both() {
     finished_folder(root.path(), "b");
     record_failure(root.path(), OsStr::new("a"), &failure("a.mp4")).unwrap();
     record_failure(root.path(), OsStr::new("b"), &failure("b.mp4")).unwrap();
-    let folders = read_results(root.path(), &Named);
+    let folders = read_results(root.path());
     assert_eq!(folders.len(), 2);
     assert_eq!(folders[0].name, "a");
     assert_eq!(folders[0].found, Found::Absent);
@@ -178,7 +163,7 @@ fn an_image_listed_but_missing_on_the_disk_is_left_out() {
     let root = tempfile::tempdir().unwrap();
     finished_folder(root.path(), "v");
     fs::remove_file(root.path().join("v/v_resume_2_sur_2.png")).unwrap();
-    let folders = read_results(root.path(), &Named);
+    let folders = read_results(root.path());
     let Found::Finished(finished) = &folders[0].found else {
         panic!("{:?}", folders[0].found);
     };
@@ -191,9 +176,23 @@ fn the_folders_come_in_the_order_of_their_names() {
     for name in ["video_097", "video_089", "video_092"] {
         finished_folder(root.path(), name);
     }
-    let names: Vec<_> = read_results(root.path(), &Named)
+    let names: Vec<_> = read_results(root.path())
         .into_iter()
         .map(|folder| folder.name)
         .collect();
     assert_eq!(names, ["video_089", "video_092", "video_097"]);
+}
+
+#[test]
+fn a_folder_written_by_v0_2_0_without_starting_points_is_still_a_finished_video() {
+    let root = tempfile::tempdir().unwrap();
+    let dest = root.path().join("video_092_original");
+    fs::create_dir(&dest).unwrap();
+    fs::write(dest.join("params.json"), include_str!("params_v0.2.0.json")).unwrap();
+    let folders = read_results(root.path());
+    let Found::Finished(finished) = &folders[0].found else {
+        panic!("{:?}", folders[0].found);
+    };
+    assert_eq!(finished.written.tracks.len(), 2);
+    assert_eq!(finished.written.tracks[0].start_xy, None);
 }

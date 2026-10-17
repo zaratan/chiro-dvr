@@ -92,7 +92,7 @@ fn a_video_gives_its_tracks_table_and_params_in_a_folder_named_after_it() {
     assert!(output.status.success(), "{}", text(&output.stderr));
     let table = fs::read_to_string(out.join("flight").join("flight_pistes.csv")).unwrap();
     assert_eq!(table.lines().count(), 2, "{table}");
-    assert!(table.starts_with("\u{feff}piste;début;fin;durée (s);verdict;points;corde (px);"));
+    assert!(table.starts_with("\u{feff}piste;début;fin;durée (s);points;corde (px);"));
     assert!(out.join("flight").join("params.json").is_file());
     assert!(
         text(&output.stdout).starts_with("Bilan\u{a0}: 1 vidéo, 1 réussie\n"),
@@ -120,7 +120,7 @@ fn outside_a_french_locale_the_table_clips_and_summary_are_named_in_english_with
         read(french.join("flight").join("flight_pistes.csv")),
     );
     assert!(
-        english_table.starts_with("track,start,end,duration (s),verdict,points,"),
+        english_table.starts_with("track,start,end,duration (s),points,"),
         "{english_table}"
     );
     let rows = |table: &str| table.lines().skip(1).map(str::to_owned).collect::<Vec<_>>();
@@ -799,97 +799,32 @@ fn a_run_in_french_then_in_english_then_in_french_in_the_same_folder_leaves_only
     }
 }
 
-#[cfg(test)]
-fn dated(folder: &Path, table: &str) -> Vec<String> {
-    let prefix = format!("{table}_20");
-    let mut names: Vec<String> = fs::read_dir(folder)
-        .unwrap()
-        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
-        .filter(|name| name.starts_with(&prefix))
-        .collect();
-    names.sort();
-    names
-}
-
 #[test]
-fn a_table_annotated_by_hand_is_set_aside_and_named_in_the_summary_in_the_language_of_the_messages() {
+fn a_table_written_by_hand_is_replaced_at_the_next_run_without_a_word_in_the_summary() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let out = root.path().join("out");
     let folder = out.join("flight");
     fs::create_dir_all(&folder).unwrap();
-    let annotated = "id;start;verdict\r\n1;0:00.00;oui\r\n";
-    fs::write(folder.join("flight_pistes.csv"), annotated).unwrap();
+    fs::write(
+        folder.join("flight_pistes.csv"),
+        "id;start;verdict\r\n1;0:00.00;oui\r\n",
+    )
+    .unwrap();
     let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
     assert!(output.status.success(), "{}", text(&output.stderr));
-    let [french] = dated(&folder, "flight_pistes").try_into().unwrap();
-    let summary = text(&output.stdout);
-    let lines: Vec<&str> = summary.lines().collect();
-    let heading = lines
-        .iter()
-        .position(|line| *line == "Tableau mis de côté\u{a0}:")
-        .unwrap_or_else(|| panic!("{summary}"));
-    assert_eq!(
-        lines[heading + 1],
-        format!("  flight\u{a0}: flight_pistes.csv porte des verdicts, mis de côté sous {french}")
-    );
-    assert!(!summary.contains("laissé"), "{summary}");
-    assert!(
-        !text(&output.stderr).contains("flight_pistes"),
-        "{}",
-        text(&output.stderr)
-    );
-    assert_eq!(fs::read_to_string(folder.join(&french)).unwrap(), annotated);
     assert!(
         fs::read_to_string(folder.join("flight_pistes.csv"))
             .unwrap()
             .starts_with("\u{feff}piste;")
     );
-    let unknown = "id,start,end,start_s,duration_s,hits,chord_px,path_px,speed_px_s,max_area_px,peak_amplitude,filled_frames,notes\r\n";
-    fs::write(folder.join("flight_tracks.csv"), unknown).unwrap();
-    let output = run(&[&videos, Path::new("-o"), &out], "C");
-    assert!(output.status.success(), "{}", text(&output.stderr));
-    let [english] = dated(&folder, "flight_tracks").try_into().unwrap();
     let summary = text(&output.stdout);
-    assert!(
-        summary.lines().any(|line| line
-            == format!("  flight: flight_tracks.csv does not have the form of a tracks table, set aside as {english}")),
-        "{summary}"
-    );
-    assert_eq!(fs::read_to_string(folder.join(&english)).unwrap(), unknown);
-    assert_eq!(fs::read_to_string(folder.join(&french)).unwrap(), annotated);
-    assert!(!folder.join("flight_pistes.csv").exists());
-}
-
-#[test]
-fn a_verdict_written_in_the_table_of_an_earlier_run_is_set_aside_once_and_a_blank_table_written_beside_it() {
-    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
-    let out = root.path().join("out");
-    let folder = out.join("flight");
-    let table = folder.join("flight_pistes.csv");
-    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
-    assert!(output.status.success(), "{}", text(&output.stderr));
-    let blank = fs::read(&table).unwrap();
-    let annotated = String::from_utf8(blank.clone()).unwrap().replacen(";;", ";oui;", 1);
-    fs::write(&table, &annotated).unwrap();
-    let output = run(&[&videos, Path::new("-o"), &out, Path::new("--force")], "fr_FR.UTF-8");
-    assert!(output.status.success(), "{}", text(&output.stderr));
-    assert!(
-        text(&output.stdout).contains("Tableau mis de côté\u{a0}:"),
-        "{}",
-        text(&output.stdout)
-    );
-    let [aside] = dated(&folder, "flight_pistes").try_into().unwrap();
-    assert_eq!(fs::read(folder.join(&aside)).unwrap(), annotated.as_bytes());
-    assert_eq!(fs::read(&table).unwrap(), blank);
-    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
-    assert!(output.status.success(), "{}", text(&output.stderr));
-    assert!(
-        !text(&output.stdout).contains("Tableau mis de côté"),
-        "{}",
-        text(&output.stdout)
-    );
-    assert_eq!(dated(&folder, "flight_pistes"), [aside]);
-    assert_eq!(fs::read(&table).unwrap(), blank);
+    assert!(!summary.contains("Tableau"), "{summary}");
+    let names: Vec<String> = fs::read_dir(&folder)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| Path::new(name).extension().is_some_and(|extension| extension == "csv"))
+        .collect();
+    assert_eq!(names, ["flight_pistes.csv"]);
 }
 
 #[cfg(unix)]

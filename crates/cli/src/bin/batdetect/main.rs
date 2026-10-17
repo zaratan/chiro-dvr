@@ -101,7 +101,6 @@ fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request, launched:
     };
     let wording = Wording {
         labels: &texts,
-        headings: &texts,
         language: texts.language(),
     };
     let roots = written::roots(jobs);
@@ -167,7 +166,6 @@ fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request, launched:
 fn settle(jobs: &[Job], refused: &[Refused], launched: Timestamp, texts: Texts) {
     let wording = Wording {
         labels: &texts,
-        headings: &texts,
         language: texts.language(),
     };
     let roots = written::roots(jobs);

@@ -3,6 +3,15 @@ pub struct Page {
     pub title: String,
     pub entries: Vec<Entry>,
     pub refused: Option<Refusals>,
+    pub verdicts: Option<VerdictsFile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VerdictsFile {
+    pub name: String,
+    pub modified: Option<Date>,
+    pub candidates: usize,
+    pub bytes: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -76,7 +85,7 @@ pub struct Track {
     pub summary: Option<String>,
     pub clip: Option<String>,
     pub zoom: Option<String>,
-    pub verdict: Option<String>,
+    pub start_xy: Option<[i64; 2]>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

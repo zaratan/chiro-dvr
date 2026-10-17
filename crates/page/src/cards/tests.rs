@@ -38,7 +38,7 @@ fn a_failure_after_a_success_links_to_the_results_of_the_earlier_run() {
     night.previous = Some(video("video_093"));
     let card = failed(&night, "v3", &Named);
     assert!(card.contains(r##"<a class="previous" href="#v3-previous">"##));
-    assert!(card.contains(r#"<details class="video" id="v3-previous">"#));
+    assert!(card.contains(r#"<details class="video" id="v3-previous" data-video="video_093">"#));
 }
 
 #[test]

@@ -78,6 +78,7 @@ fn each_track_takes_its_times_its_colour_the_summary_part_that_draws_it_and_the_
                 summary: Some("v_resume_1_sur_2.png".to_owned()),
                 clip: Some("extraits/piste_01_0m01s.mp4".to_owned()),
                 zoom: None,
+                start_xy: Some([10, 10]),
             },
             TrackEntry {
                 id: 2,
@@ -87,6 +88,7 @@ fn each_track_takes_its_times_its_colour_the_summary_part_that_draws_it_and_the_
                 summary: Some("v_resume_2_sur_2.png".to_owned()),
                 clip: Some("extraits/piste_02_0m04s.mp4".to_owned()),
                 zoom: Some("extraits/piste_02_0m04s_zoom.mp4".to_owned()),
+                start_xy: Some([10, 10]),
             },
         ]
     );
@@ -122,4 +124,15 @@ fn a_track_missing_from_the_summary_has_no_colour_nor_image_and_a_clip_outside_t
         ),
         (None, None, None)
     );
+}
+
+#[test]
+fn the_starting_point_of_a_track_is_its_first_point_to_the_nearest_pixel_of_the_video() {
+    let mut track = seen(1, [3, 4]);
+    let mut points = track.points().to_vec();
+    points[0].x = 1436.06;
+    points[0].y = 887.6;
+    track = Track::new(1, points).unwrap();
+    let entries = listed(Path::new("out/v"), &[track], &ten_per_second(), &[], None);
+    assert_eq!(entries[0].start_xy, Some([1436, 888]));
 }

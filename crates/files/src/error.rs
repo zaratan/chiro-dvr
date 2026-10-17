@@ -11,12 +11,6 @@ pub enum Error {
     },
     #[error("{} is already there", path.display())]
     Taken { path: PathBuf },
-    #[error("cannot read {}", path.display())]
-    Read {
-        path: PathBuf,
-        #[source]
-        source: io::Error,
-    },
     #[error("cannot list {}", path.display())]
     List {
         path: PathBuf,
@@ -25,12 +19,6 @@ pub enum Error {
     },
     #[error("cannot remove {}", path.display())]
     Remove {
-        path: PathBuf,
-        #[source]
-        source: io::Error,
-    },
-    #[error("cannot set aside {}", path.display())]
-    SetAside {
         path: PathBuf,
         #[source]
         source: io::Error,
@@ -48,10 +36,8 @@ impl Error {
         match self {
             Self::Write { path, .. }
             | Self::Taken { path }
-            | Self::Read { path, .. }
             | Self::List { path, .. }
             | Self::Remove { path, .. }
-            | Self::SetAside { path, .. }
             | Self::Encode { path, .. } => path,
         }
     }

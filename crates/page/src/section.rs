@@ -1,4 +1,5 @@
 use crate::escape::{href, text};
+use crate::judge;
 use crate::labels::{Label, Labels};
 use crate::model::Video;
 use crate::tracks;
@@ -48,37 +49,29 @@ fn rendered(video: &Video, anchor: &str, labels: &dyn Labels, open: bool, previo
         })
         .unwrap_or_default();
     format!(
-        r#"<details class="video" id="{anchor}"{open}>
+        r#"<details class="video" id="{anchor}" data-video="{folder}"{open}>
   <summary class="video-head">
     <span class="chevron" aria-hidden="true"></span>
     <h2 class="name">{name}</h2>{badge}
-    <span class="meta">{meta}</span>
+    <span class="meta">{meta}<span class="judged"></span></span>
   </summary>{notice}
   <div class="body">
-    <p class="sr announce" role="status"></p>
     <div class="stage">
       <div class="pictures">
         {pictures}
       </div>
-      <div class="player" hidden data-unreadable="{unreadable}">
-        <div class="bar">
-          <button type="button" class="back"><span aria-hidden="true">← </span>{back}</button>
-          <p class="now"></p>
-          <span class="steps">
-            <button type="button" class="step" data-step="-1" aria-label="{previous_clip}"><span aria-hidden="true">‹ </span>{previous}</button>
-            <button type="button" class="step" data-step="1" aria-label="{next_clip}">{next}<span aria-hidden="true"> ›</span></button>
-          </span>
-        </div>
-        <video controls preload="none" playsinline aria-label="{player}"></video>
-      </div>
+{judge}
     </div>
     <div class="review">
+      <a class="thumb" hidden target="_blank"><img alt=""></a>
+      <div class="orphans" hidden></div>
       <div class="tracks">
 {table}
       </div>
     </div>
   </div>
 </details>"#,
+        folder = text(&video.folder),
         open = if open { " open" } else { "" },
         badge = if video.too_many.is_some() {
             format!(
@@ -92,13 +85,7 @@ fn rendered(video: &Video, anchor: &str, labels: &dyn Labels, open: bool, previo
         name = text(&video.name),
         meta = text(&meta.join(META_SEPARATOR)),
         pictures = pictures(video, anchor, labels),
-        unreadable = say(Label::Unreadable),
-        back = say(Label::Back),
-        previous_clip = say(Label::PreviousClip),
-        previous = say(Label::Previous),
-        next_clip = say(Label::NextClip),
-        next = say(Label::Next),
-        player = say(Label::Player(&video.name)),
+        judge = judge::render(video, labels),
         table = tracks::render(video, labels),
     )
 }

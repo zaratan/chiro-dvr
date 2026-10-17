@@ -5,6 +5,7 @@ use files::params::language_code;
 use fluent_bundle::{FluentArgs, FluentValue};
 use page::labels::{Label, Labels};
 use page::model::Date;
+use page::script::Script;
 use summary::header::duration;
 
 use crate::messages::extensions;
@@ -40,6 +41,8 @@ impl Texts {
     pub(crate) fn spoken<'a>(self, label: &Label<'a>) -> Spoken<'a> {
         match *label {
             Label::Language => Spoken::Direct(language_code(self.language()).to_owned()),
+            Label::Day(date) => Spoken::Direct(self.date(date)),
+            Label::Script(script) => scripted(script),
             Label::Length(seconds) => Spoken::Direct(unbroken(&duration(seconds))),
             Label::Start(seconds) => Spoken::Direct(self.clock(seconds)),
             Label::Seconds(seconds) => Spoken::Direct(unbroken(&format!("{} s", self.fixed(seconds, 1)))),
@@ -90,15 +93,6 @@ impl Texts {
             Label::Parts(video) => message("page-parts", [("video", video.into())]),
             Label::TableCaption(video) => message("page-table-caption", [("video", video.into())]),
             Label::Player(video) => message("page-player", [("video", video.into())]),
-            Label::PlayClip(track) => message("page-play-clip", [("track", track.into())]),
-            Label::PlayZoom(track) => message("page-play-zoom", [("track", track.into())]),
-            Label::ShowTrack(track) => message("page-show-track", [("track", track.into())]),
-            Label::Playing {
-                track,
-                total,
-                start,
-                zoom,
-            } => playing(track, total, start, zoom),
             Label::Heading => message("page-heading", []),
             Label::Reminder => message("page-reminder", []),
             Label::ExpandAll => message("page-expand", []),
@@ -117,16 +111,6 @@ impl Texts {
             Label::ColumnStart => message("page-column-start", []),
             Label::ColumnLength => message("page-column-length", []),
             Label::ColumnVerdict => message("page-column-verdict", []),
-            Label::ColumnWatch => message("page-column-watch", []),
-            Label::NoVerdict => message("page-no-verdict", []),
-            Label::Clip => message("page-clip", []),
-            Label::Zoom => message("page-zoom", []),
-            Label::Unreadable => message("page-unreadable", []),
-            Label::Back => message("page-back", []),
-            Label::Previous => message("page-previous", []),
-            Label::Next => message("page-next", []),
-            Label::PreviousClip => message("page-previous-clip", []),
-            Label::NextClip => message("page-next-clip", []),
             Label::TableLink => message("page-table-link", []),
             Label::AnnotatedLink => message("page-annotated-link", []),
         }
@@ -226,17 +210,12 @@ fn parted<'a>(id: &'static str, video: Option<&'a str>, [part, parts, first, las
     Spoken::Message(id, values)
 }
 
-fn playing(track: usize, total: usize, start: &str, zoom: bool) -> Spoken<'_> {
-    let zoom = if zoom { YES } else { NO };
-    message(
-        "page-playing",
-        [
-            ("track", track.into()),
-            ("total", total.into()),
-            ("start", start.into()),
-            ("zoom", zoom.into()),
-        ],
-    )
+fn scripted<'a>(script: Script) -> Spoken<'a> {
+    let mut values = FluentArgs::new();
+    for name in script.placeholders() {
+        values.set(*name, format!("{{{name}}}"));
+    }
+    Spoken::Message(script.message_id(), values)
 }
 
 fn message<'a, const N: usize>(id: &'static str, values: [(&'static str, FluentValue<'a>); N]) -> Spoken<'a> {

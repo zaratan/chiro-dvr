@@ -6,6 +6,7 @@ use batdetect::jobs::{Reason, Refused};
 use files::refusals::RefusedInput;
 use page::labels::{Label, Labels};
 use page::model::Date;
+use page::script::Script;
 use types::language::Language;
 
 use crate::messages::refused_lines;
@@ -87,26 +88,7 @@ pub(crate) fn samples() -> Vec<Label<'static>> {
         Label::ColumnStart,
         Label::ColumnLength,
         Label::ColumnVerdict,
-        Label::ColumnWatch,
         Label::TableCaption("video_092"),
-        Label::NoVerdict,
-        Label::Clip,
-        Label::Zoom,
-        Label::PlayClip(3),
-        Label::PlayZoom(3),
-        Label::ShowTrack(3),
-        Label::Playing {
-            track: 3,
-            total: 14,
-            start: "0:51,62",
-            zoom: true,
-        },
-        Label::Unreadable,
-        Label::Back,
-        Label::Previous,
-        Label::Next,
-        Label::PreviousClip,
-        Label::NextClip,
         Label::Player("video_092"),
         Label::TableLink,
         Label::AnnotatedLink,
@@ -114,6 +96,8 @@ pub(crate) fn samples() -> Vec<Label<'static>> {
         Label::Seconds(9.62),
     ];
     samples.extend(refusal_samples());
+    samples.extend(Script::ALL.iter().map(|&script| Label::Script(script)));
+    samples.push(Label::Day(DATE));
     samples
 }
 
@@ -137,7 +121,13 @@ fn every_label_of_the_page_reads_in_both_languages_with_all_its_arguments() {
     for language in LANGUAGES {
         let texts = Texts::new(language);
         for label in samples() {
-            let said = texts.label(&label);
+            let holes = match label {
+                Label::Script(script) => script.placeholders(),
+                _ => &[],
+            };
+            let said = holes.iter().fold(texts.label(&label), |said, name| {
+                said.replace(&format!("{{{name}}}"), "")
+            });
             assert!(!said.is_empty(), "{language:?} {label:?}");
             assert!(!said.contains('{'), "{language:?} {label:?}: {said}");
             assert!(!said.starts_with("page-"), "{language:?} {label:?}: {said}");
@@ -263,6 +253,19 @@ fn a_refused_input_reads_on_the_page_as_in_the_terminal_in_both_languages() {
             let input = batdetect::refusals::input(&refusal);
             let terminal: Vec<&str> = terminal.iter().map(|line| line.trim_start()).collect();
             assert_eq!(page_lines(texts, &input), terminal, "{language:?} {refusal:?}");
+        }
+    }
+}
+
+#[test]
+fn every_text_of_the_page_script_keeps_the_holes_the_script_fills_in_both_languages() {
+    for language in LANGUAGES {
+        let texts = Texts::new(language);
+        for &script in Script::ALL {
+            let text = texts.label(&Label::Script(script));
+            for name in script.placeholders() {
+                assert!(text.contains(&format!("{{{name}}}")), "{language:?} {script:?} {text}");
+            }
         }
     }
 }

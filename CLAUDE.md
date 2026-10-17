@@ -132,10 +132,11 @@ crates depuis #71, dépendances à sens unique :
   `tracking` → `types` (#120) ; `files` → `types` (#122) ;
   `params.json`, marque d'un dossier terminé : `process` l'écrit en dernier (`files::params`,
   par `.partial`), le ménage (`files::previous`) l'efface en premier (#66) ;
-  `results` relit un dossier de sortie pour la page (`verdicts` du CSV, taille des PNG par
+  `results` relit un dossier de sortie pour la page (taille des PNG par
   `picture`, échecs de `.batdetect/echecs/` par `failures`, #71).
 - `page` (#71) : la page de résultats d'une soirée en HTML, depuis un modèle sans disque
   (`model`), libellés par le trait `Labels`, CSS et JS embarqués ; ne dépend d'aucune crate.
+  Les verdicts se saisissent dans la page (#228) : `verdicts.csv` à côté d'elle, lu en octets par `files::verdicts` et embarqué ; lecture, rattachement et brouillon en JS (`assets/csv.js`, `assets/store.js`, testés par `mise run page:js`, `node --test`, dans `check`).
 - `draw` : dessin pur sur une toile RGBA opaque, police Roboto embarquée, palette et tailles ; ne dépend d'aucune crate du workspace.
 - `render` → `media`, `draw`, `types` (#110, #112) : images des extraits choisies par `pts`
   (`source`), reprise sur la dernière image-clé saine, un seul fil de décodage sur une plage abîmée ;

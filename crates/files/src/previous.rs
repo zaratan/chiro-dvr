@@ -3,37 +3,21 @@ use std::fs::{self, DirEntry, FileType};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::annotation::carries_verdicts;
-use crate::aside::{Stamp, set_aside};
 use crate::error::Error;
 use crate::names::{Names, Output, is_partial_params, name_key, params_json, previous_output};
-use crate::table::{Headings, is_tracks_table};
 
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Reason {
-    Verdicts,
-    UnknownForm,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Kept {
-    Left {
-        path: PathBuf,
-        ours: bool,
-    },
-    SetAside {
-        path: PathBuf,
-        dated: PathBuf,
-        reason: Reason,
-    },
+pub struct Kept {
+    pub path: PathBuf,
+    pub ours: bool,
 }
 
 impl Kept {
     pub const fn blocks_our_table(&self) -> bool {
-        matches!(self, Self::Left { ours: true, .. })
+        self.ours
     }
 }
 
@@ -45,52 +29,23 @@ struct Found {
     kind: FileType,
 }
 
-pub fn remove_previous_outputs(
-    dest: &Path,
-    stem: &OsStr,
-    ours: Names,
-    headings: &dyn Headings,
-    stamp: Stamp,
-) -> Result<Vec<Kept>, Error> {
+pub fn remove_previous_outputs(dest: &Path, stem: &OsStr, ours: Names) -> Result<Vec<Kept>, Error> {
     remove_params(dest)?;
-    let (mut kept, mut aside, mut removed) = (Vec::new(), Vec::new(), Vec::new());
+    let (mut kept, mut removed) = (Vec::new(), Vec::new());
     for found in previous_outputs(dest, stem)? {
-        if found.output != Output::TracksTable {
-            removed.push(found);
-        } else if !found.kind.is_file() {
-            kept.push(Kept::Left {
+        if found.output == Output::TracksTable && !found.kind.is_file() {
+            kept.push(Kept {
                 path: found.path,
                 ours: found.names == ours,
             });
         } else {
-            match foreign(&found.path, headings)? {
-                Some(reason) => aside.push((found.path, reason)),
-                None => removed.push(found),
-            }
+            removed.push(found);
         }
-    }
-    for (path, reason) in aside {
-        let dated = set_aside(&path, stamp)?;
-        kept.push(Kept::SetAside { path, dated, reason });
     }
     for found in &removed {
         remove(found)?;
     }
     Ok(kept)
-}
-
-fn foreign(path: &Path, headings: &dyn Headings) -> Result<Option<Reason>, Error> {
-    let bytes = fs::read(path).map_err(|source| Error::Read {
-        path: path.to_path_buf(),
-        source,
-    })?;
-    Ok(if is_tracks_table(&bytes, headings) {
-        None
-    } else if carries_verdicts(&bytes, headings) {
-        Some(Reason::Verdicts)
-    } else {
-        Some(Reason::UnknownForm)
-    })
 }
 
 fn remove_params(dest: &Path) -> Result<(), Error> {

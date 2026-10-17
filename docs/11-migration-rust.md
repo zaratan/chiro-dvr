@@ -1356,25 +1356,17 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     totale, tirés des plages elles-mêmes et non du bandeau. Une tranche coupée par #157
     est comparée pages réunies : numéros et en-tête ; ses couleurs, attribuées par
     paquet, ne le sont pas.
-- **`page`** (#71) : la page de résultats d'une soirée, en HTML, sans aucune dépendance (ni
-  crate du workspace, ni FFmpeg). Elle ne lit pas le disque : `cli::written` lui donne un
-  `model::Page`, et elle rend une chaîne.
-  - `model` : la page (titre, entrées dans l'ordre), une entrée par vidéo : `Video` (images
-    résumé avec leur taille, pistes avec couleur, image, extrait, zoom et verdict), `Failed`
-    (clé de la cause, place, détail, résultats d'avant s'il y en a), `Unfinished`, `Waiting`.
-  - `labels` : `Label`, chaque texte de la page avec ses arguments, et le trait `Labels`, que
-    `Texts` implémente dans le binaire (`sheet.rs`) avec les textes `page-*` des `.ftl` ; la
-    raison et le conseil d'un échec sont les messages `failure` et `failure-todo` du bilan.
-  - `escape` : texte échappé (`& < > " '`) et chemins encodés en pourcents segment par segment,
-    tout octet hors de `A-Z a-z 0-9 - . _ ~`, si bien qu'un `#`, un `%` ou un `?` dans un nom
-    reste un nom de fichier. Rien n'est normalisé : le lien suit l'octet du disque.
-    - Limite (#227) : les noms arrivent au modèle en chaînes lossy. Pour une vidéo au nom non UTF-8 (Linux), la section montre le tableau et ses verdicts, mais ni l'image résumé ni la vidéo annotée (`results` ne les retrouve pas), et les liens vers le tableau, les extraits et le dossier pointent vers `�` et sont cassés.
-  - `document` (page entière, total, marque `<meta name="generator" content="batdetect">` et
-    `is_ours`, lue dans le premier Kio), `section` (une vidéo : onglets de parties, images
-    avec `width` et `height` pour que l'onglet ne fasse pas sauter la page, lecteur),
-    `tracks` (le tableau), `cards` (échec, inachevée, en attente).
-  - `assets/page.css` et `assets/page.js`, inclus par `include_str!` : la page tient en un
-    fichier, sans réseau, avec `preload="none"` sur le seul lecteur de chaque vidéo.
+- **`page`** (#71) : la page de résultats d'une soirée, en HTML, sans aucune dépendance (ni crate du workspace, ni FFmpeg). Elle ne lit pas le disque : `cli::written` lui donne un `model::Page`, et elle rend une chaîne.
+  - `model` : la page (titre, entrées dans l'ordre, entrées refusées, fichier de verdicts), une entrée par vidéo : `Video` (images résumé avec leur taille, pistes avec couleur, image, extrait, zoom et point de départ `start_xy`), `Failed` (clé de la cause, place, détail, résultats d'avant s'il y en a), `Unfinished`, `Waiting`. `VerdictsFile` : nom, date, nombre de fichiers `verdicts*.csv` trouvés et octets du plus récent (#228).
+  - `labels` : `Label`, chaque texte de la page avec ses arguments, et le trait `Labels`, que `Texts` implémente dans le binaire (`sheet.rs`) avec les textes `page-*` des `.ftl` ; la raison et le conseil d'un échec sont les messages `failure` et `failure-todo` du bilan. `Label::Script(Script)` porte les textes du script de la page.
+  - `script` (#228) : `Script`, les textes dont le JS a besoin, chacun avec sa clé, son message Fluent (`page-js-<clé>`) et ses trous (`{count}`, `{track}`…). `sheet` les rend avec chaque trou écrit `{nom}`, la page les embarque en JSON (`<script type="application/json" id="texts">`), et le JS remplit les trous. Les en-têtes et le dialecte du fichier de verdicts (séparateur, virgule décimale) sont aussi des textes de la langue.
+  - `escape` : texte échappé (`& < > " '`) et chemins encodés en pourcents segment par segment, tout octet hors de `A-Z a-z 0-9 - . _ ~`, si bien qu'un `#`, un `%` ou un `?` dans un nom reste un nom de fichier. Rien n'est normalisé : le lien suit l'octet du disque. `json` : chaîne JSON qui ne peut pas fermer le `<script>` qui la contient (`<`, `>`, `&` en `\u`). `base64` : les octets du fichier de verdicts, sans dépendance.
+    - Limite (#227) : les noms arrivent au modèle en chaînes lossy. Pour une vidéo au nom non UTF-8 (Linux), la section montre ses pistes, mais ni l'image résumé ni la vidéo annotée (`results` ne les retrouve pas), et les liens vers le tableau, les extraits et le dossier pointent vers `�` et sont cassés.
+  - `document` (page entière, total, marque `<meta name="generator" content="batdetect">` et `is_ours`, lue dans le premier Kio), `bar` (la barre des verdicts collée en haut, les textes du script et le fichier de verdicts embarqué en base64 dans `<template id="verdicts-file">`, seulement s'il y a une vidéo), `section` (une vidéo : onglets de parties, images avec `width` et `height` pour que l'onglet ne fasse pas sauter la page, vignette, bloc des verdicts sans piste), `judge` (la zone de jugement, cachée tant qu'aucune piste n'est choisie), `tracks` (le tableau, une ligne par piste avec sa clé : `data-start`, `data-x`, `data-y`, `data-clip`, `data-zoom`), `cards` (échec, inachevée, en attente, entrées refusées).
+  - `assets/` : `page.css` et six scripts classiques inclus dans l'ordre par `include_str!` dans un seul `<script>` (un `import` entre fichiers est bloqué en `file://` sous Chrome), chacun exposant un nom global : `csv.js` (`VerdictsCsv` : décodage UTF-8 strict sinon Windows-1252, lecture tolérante, écriture), `store.js` (`VerdictsStore` : l'état des verdicts, le rattachement, les décomptes, les verdicts sans piste et des vidéos absentes, l'écart au fichier lu et au dernier téléchargement), `bar.js`, `list.js`, `judge.js` (les vues) et `page.js` (onglets, tout déplier, brouillon, téléchargement, rechargement). La page tient en un fichier, sans réseau, avec `preload="none"` sur le lecteur de chaque vidéo.
+  - Rattachement d'un verdict à sa piste (`store.js`) : candidates les pistes de la même vidéo (`data-video`, nom du dossier) dont le début est à 0,2 s au plus ; paires classées par distance des points de départ quand les deux sont connus, sinon par écart de début ; affectation gloutonne, une piste pour un verdict. Un verdict sans piste libre est gardé et montré, avec la piste la plus proche.
+  - Brouillon (`page.js`) : à chaque changement qui s'écarte du fichier lu, les lignes du fichier à écrire vont dans `localStorage` sous `batdetect:verdicts:<chemin de la page>`, avec l'empreinte (nom, date, taille) du fichier lu et l'heure du dernier téléchargement. À la réouverture, sur le même fichier, elles sont reprises et la page le dit ; sur un autre fichier, la page demande. `beforeunload` demande confirmation tant que des changements ne sont pas téléchargés. Un seul endroit écrit le texte (`VerdictsCsv.write(store.rows())`) et un seul l'envoie (le lien de téléchargement) : c'est là que #252 branchera l'enregistrement par un serveur local.
+  - Tests du JS : `node --test` sur `csv.js` et `store.js` (`assets/tests/*.test.mjs`, qui chargent les scripts par `vm`), tâche `page:js` de `mise`, dans `check` et dans la tâche CI `page-js`, sous Linux seulement : ce sont des fonctions pures. Les vues se vérifient dans un navigateur.
 - **`reference`** → `types` : la référence v0.1.1 en Rust. Gelée pendant le lot 6
   (#124), comme `types`.
   - `fixture` : chemins des fixtures et garde LFS. `location` : `committed(référence, nom)` pour
@@ -2048,7 +2040,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       `rows_in`, `done`, `too_many`, `failed`, `kept` et `all_done`. Il servira à #69 et
       #71. Mise en forme dans le binaire : `board::write`.
     - Page de résultats (#71), à la racine de chaque dossier de résultats.
-      - `written::write_page` relit la racine (`files::results`), y ajoute les vidéos du lot
+      - `written::write_page` relit la racine (`files::results`, et le fichier de verdicts par `files::verdicts`, passé tel quel à la page, #228), y ajoute les vidéos du lot
         pas encore traitées (« en attente »), ouvre celles du lot, et écrit `resultats.html`
         ou `results.html` par `.partial` puis renommage ; il retire la page de l'autre langue.
         Il n'écrit ni ne retire une page qui n'a pas la marque de `page`, et ne crée jamais
@@ -2094,11 +2086,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
         détail anglais, qui reste sur la sortie d'erreur. Le « à faire » qui renvoie au
         détail ci-dessous devient, dans le bilan, « avec le détail écrit pendant le
         traitement » (`tally-failure-todo`) ;
-      - « Tableau mis de côté » (#83) : « {vidéo} : {csv} porte des verdicts, mis de côté
-        sous {nom daté} », ou « n'a pas la forme d'un tableau des pistes » ;
-      - « Tableau laissé tel quel » (#115), pour une entrée qui n'a pas pu être mise de
-        côté parce qu'elle n'est pas un fichier, ou pour un fichier qui occupe encore le
-        nom (autre casse) ;
+      - « Tableau laissé tel quel » (#115), pour une entrée au nom du tableau qui n'est
+        pas un fichier, ou pour un fichier qui occupe encore le nom (autre casse) ;
       - « Réglages changés : --threshold 11, --max-blobs 0 ». Ce sont les cinq réglages de
         la détection (`--threshold`, `--min-hits`, `--max-blobs`, `--work-width`,
         `--osd-region` avec son nombre de zones), donnés par `Options::changed`, avec
@@ -2156,8 +2145,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - Il retire les sorties des deux langues et des anciens noms : sur l'extrait, une
       passe en français, puis en anglais, puis en français dans le même `-o`, ne laisse
       que les fichiers de la dernière, sous les noms de la v0.1.1.
-    - Un CSV qui n'a pas notre forme, ou qui porte des verdicts, est mis de côté sous un
-      nom daté (#83), et le bilan le dit sous « Tableau mis de côté ».
+    - Le tableau des pistes appartient à l'outil (#228) : un fichier à son nom est retiré, quoi qu'il contienne. La mise de côté datée de #83 est retirée ; les tableaux qu'elle a datés gardent un nom que le ménage ne reconnaît pas, et restent.
     - Une entrée au nom du tableau qui n'est pas un fichier est laissée, et le bilan le
       dit (#65) sous « Tableau laissé tel quel » : « {vidéo} : {csv} n'a pas la forme
       d'un tableau des pistes ». Si elle porte le nom de la langue courante, ou si un
@@ -2475,43 +2463,9 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       - les partiels des vidéos annotées, des images, des CSV et de `params.json`, que laisse un arrêt brutal, sous les deux formes de `names::partial_file`.
 
       `params.json` est réécrit, pas retiré. Le reste du dossier n'est pas touché.
-    - Un CSV n'est retiré que s'il a exactement l'une de nos trois formes
-      (`table::is_tracks_table`), en UTF-8, fins de ligne CRLF ou LF : l'en-tête
-      français (BOM compris) puis des lignes de 13 champs séparés par des points-virgules,
-      l'en-tête anglais puis 13 champs séparés par des virgules, ou l'en-tête de 12
-      colonnes de la v0.1.1 puis 12 champs séparés par des virgules. Dans les deux formes
-      d'aujourd'hui, la case `verdict` est vide. Sinon il est mis de côté (#83), quel
-      que soit son nom (langue courante, autre langue, v0.1.1). Suffisent à le mettre de
-      côté :
-      - un verdict écrit ;
-      - un tableur qui change de séparateur ou retire le BOM ;
-      - une colonne ajoutée, une case remplie au-delà de la dernière ;
-      - un fichier vide ou qui n'est pas en UTF-8.
-
-      Un tableur qui réenregistre le fichier à l'identique, verdict vide, donne un CSV à
-      notre forme : il est retiré.
-    - Mise de côté (`aside::set_aside`) : le fichier est renommé, identique à l'octet, en
-      `<nom>_<AAAA-MM-JJ>_<HHMM>.csv` à l'heure locale du calcul (`aside::Stamp`, crate
-      `jiff`), puis `_2`, `_3`… dans la même minute ; `v.tracks.csv` devient
-      `v.tracks_<AAAA-MM-JJ>_<HHMM>.csv`. Le nom daté est d'abord réservé par une
-      création exclusive (`exclusive::reserve`, `create_new`), puis le fichier est
-      renommé par-dessus : rien n'est écrasé, et cela marche aussi sur exFAT, où le
-      renommage exclusif de macOS (`renameatx_np`, celui de `persist_noclobber`)
-      échoue. En cas d'échec, le fichier reste à sa place et la réservation vide est
-      retirée (`Error::SetAside`). Le nom daté échappe au motif du ménage : il n'est
-      jamais retiré ni remis de côté. Rendu dans `Kept::SetAside`, avec sa raison.
-    - Raison (`annotation::carries_verdicts`) : lecture tolérante, qui ne sert qu'au
-      message. Décodage « lossy » (MacRoman, Windows-1252), fins de ligne CR, LF ou CRLF,
-      BOM ignoré, séparateur deviné parmi `;`, `,` et tabulation par la cellule d'en-tête
-      `verdict` (en-têtes Fluent des deux langues, sans tenir compte de la casse ni des
-      guillemets), où qu'elle soit. Une case non vide, même faite d'espaces, est un verdict
-      (`Reason::Verdicts`) ; sinon `Reason::UnknownForm`. Un fichier UTF-16 n'est pas lu.
     - Une entrée à ce nom qui n'est pas un fichier ordinaire (dossier, lien) est laissée en
       place et rendue (`Kept::Left`, avec `ours` vrai s'il porte le nom de la langue
       courante) ; le nouveau tableau n'est alors pas écrit.
-    - Toutes les entrées sont classées, CSV lus, avant la première mise de côté, et les
-      mises de côté passent avant la première suppression : un CSV illisible arrête le
-      ménage sans rien avoir retiré (`Error::Read`).
     - Un lien porte le nom d'un dossier d'extraits : il est retiré, sa cible non (sous
       Windows, un lien de dossier par `remove_dir`).
   - `names::partial_file` crée le partiel de tout fichier écrit : un fichier vide `.<nom>.<6 lettres ou chiffres>.partial` à côté du fichier final, au nom tiré au hasard et créé de façon exclusive (`tempfile::Builder::make_in` et `File::create_new`, #245). Deux écrivains du même fichier, comme le fil du Ctrl-C qui réécrit la page pendant que le fil principal l'écrit, ou deux `batdetect -o` sur le même dossier, ont donc chacun le leur : le dernier renommage gagne et chaque fichier final est entier, sauf pour le tableau des pistes, où le premier gagne (voir `table::write_tracks_csv`). Un chemin sans nom de fichier est refusé (`InvalidInput`). `table`, `params`, `failures`, `summary::image_file` et la page de `cli` l'emploient ; `media::path` a la même forme, liée par un test de `cli`. Le ménage reconnaît cette forme, quel que soit le mot de 6 lettres ou chiffres (`.v_pistes.csv.backup.partial` compris), et l'ancienne, `.<nom>.partial`, laissée par la 0.2.0. `tempfile_in` n'est pas employé : il crée le fichier en `0600`, que le fichier final garderait. Un partiel laissé par un arrêt brutal à la racine (page) ou dans `.batdetect/echecs/` n'est plus écrasé au passage suivant : il reste, caché.
@@ -2519,17 +2473,16 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     écraser un fichier présent (`exclusive::rename`, sinon `Error::Taken`).
     - Le renommage exclusif (`TempPath::persist_noclobber`) passe en premier. Sur toute
       autre erreur que « nom déjà pris », dont le refus de macOS sur exFAT (#236), le nom
-      final est réservé (`exclusive::reserve`) puis le partiel renommé par-dessus, comme
-      pour la mise de côté. Si la réservation échoue, c'est son erreur qui remonte ; si
+      final est réservé (`exclusive::reserve`) puis le partiel renommé par-dessus. Si la réservation échoue, c'est son erreur qui remonte ; si
       le renommage échoue, la réservation vide est retirée, et si ce retrait échoue,
       c'est son erreur qui remonte.
     - Un arrêt brutal pendant l'écriture ne laisse qu'un partiel, que le ménage retire,
       et jamais un CSV tronqué qui passerait pour étranger.
     - La réservation ne sert qu'en repli : un arrêt brutal entre elle et le renommage
-      laisserait un CSV vide, que le ménage mettrait de côté comme étranger.
+      laisserait un CSV vide, que le ménage retirerait au calcul suivant.
     - `tests/slow_exfat.rs`, sous macOS seulement : une image exFAT montée par `hdiutil`
       sans `sudo` ; `persist_noclobber` y est refusé, le tableau s'y écrit, refuse
-      d'écraser un tableau annoté, se met de côté avec son verdict et se réécrit à côté.
+      d'écraser un tableau annoté, est retiré par le ménage et se réécrit.
     - Sur un disque insensible à la casse (APFS, NTFS), un `vol_pistes.csv` annoté et la
       vidéo `VOL.mp4` ont le même chemin. Le ménage, qui compare les octets, ne
       reconnaît pas ce fichier ; le renommage refuse de l'écraser.
@@ -2540,12 +2493,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - La fin d'une plage est le début de l'image suivante.
     - Le temps n'est pas rapporté au premier `pts` : les 26 vidéos de la référence
       commencent à `pts` 0. Un `pts` négatif reste à décider avec #116.
-  - `table` : CSV des pistes pour un tableur (#84), 13 colonnes dans l'ordre de
+  - `table` : CSV des pistes pour un tableur (#84), 12 colonnes dans l'ordre de
     `table::COLUMNS` ([docs/02](02-methode.md#sorties)). Les en-têtes sont des textes
     Fluent, donnés par le binaire à travers le trait `table::Headings` ; `files` ne les
-    connaît pas. Le ménage reconnaît nos tableaux à ces en-têtes : changer un libellé
-    dans un `.ftl` demande d'ajouter l'ancien en-tête comme une forme de plus, comme
-    `LEGACY_HEADER`.
+    connaît pas. La colonne `verdict` est retirée (#228) : les verdicts vivent dans `verdicts.csv`.
     - `dialect` porte la forme d'une langue : BOM, point-virgule et virgule décimale en
       français ; ni BOM, virgule et point en anglais. CRLF dans les deux.
     - Une case qui contient le séparateur ou un guillemet est mise entre guillemets ; les
@@ -2591,11 +2542,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       `.batdetect/echecs/` s'y ajoutent, avec ou sans dossier.
     - Les images résumé sont celles que nomment les pistes de `params.json`, dans leur ordre ;
       sans piste, l'image sans suffixe. Leur taille vient de l'en-tête PNG (`picture`).
-    - Le tableau des pistes se cherche sous le nom tiré de `video` ; absent et si ce nom contient `�`, sous le fichier du dossier dont le nom lossy est le même (`on_disk`, #227 ; à égalité, le premier que liste le système). Une vidéo au nom non UTF-8 retrouve ainsi son tableau et ses verdicts ; ses images résumé et sa vidéo annotée, cherchées sous le nom lossy, ne sont pas retrouvées.
-    - `verdicts::read_verdicts` : colonne verdict du CSV, séparateur deviné (`;`, `,`,
-      tabulation), guillemets, en-tête français ou anglais, virgule décimale ; un verdict
-      n'est rendu qu'à la piste de même numéro et de même début (à 6 ms près). Un tableau
-      d'un autre calcul ne donne donc rien.
+    - Le tableau des pistes se cherche sous le nom tiré de `video` ; absent et si ce nom contient `�`, sous le fichier du dossier dont le nom lossy est le même (`on_disk`, #227 ; à égalité, le premier que liste le système). Une vidéo au nom non UTF-8 retrouve ainsi son tableau ; ses images résumé et sa vidéo annotée, cherchées sous le nom lossy, ne sont pas retrouvées.
+    - `verdicts::read_verdicts_file` (#228) : le plus récent des fichiers `verdicts*.csv` de la racine (le navigateur numérote les doubles), son nom, sa date et le nombre de candidats ; les octets seulement, sans décodage ni lecture : c'est le JS de la page qui les lit. batdetect n'écrit jamais ce fichier.
     - `failures` : un fichier par vidéo en échec dans `.batdetect/echecs/`, écrit par
       `.partial` et renommage ; un fichier illisible ne cache que lui-même.
     - `refusals` (#267) : `.batdetect/refus.json`, les entrées refusées au dernier lancement, écrit par `.partial` et renommage ; illisible ou vide, il ne donne rien.

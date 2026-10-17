@@ -107,7 +107,6 @@ pub(crate) enum Fixed {
     TableStart,
     TableEnd,
     TableDuration,
-    TableVerdict,
     TableHits,
     TableChord,
     TablePath,
@@ -211,7 +210,6 @@ impl Fixed {
             Self::TableStart => "table-start",
             Self::TableEnd => "table-end",
             Self::TableDuration => "table-duration",
-            Self::TableVerdict => "table-verdict",
             Self::TableHits => "table-hits",
             Self::TableChord => "table-chord",
             Self::TablePath => "table-path",
@@ -340,15 +338,6 @@ pub(crate) enum Message {
         video: String,
         table: String,
         written: bool,
-    },
-    TallySetAsideHeading {
-        count: usize,
-    },
-    TallySetAside {
-        video: String,
-        table: String,
-        dated: String,
-        reason: &'static str,
     },
     TallyChanged {
         settings: String,
@@ -564,8 +553,6 @@ impl Message {
             Self::TallyUnwrittenHeading { .. } => "tally-unwritten-heading",
             Self::TallyUnwritten { .. } => "tally-unwritten",
             Self::TallyKept { .. } => "tally-kept",
-            Self::TallySetAsideHeading { .. } => "tally-set-aside-heading",
-            Self::TallySetAside { .. } => "tally-set-aside",
             Self::TallyChanged { .. } => "tally-changed",
             Self::TallyRegions { .. } => "tally-regions",
             Self::TallyFailureTodo { .. } => "tally-failure-todo",
@@ -715,7 +702,6 @@ impl Message {
             | Self::TallyTooManyCell { count }
             | Self::TallyKeptHeading { count }
             | Self::TallyUnwrittenHeading { count }
-            | Self::TallySetAsideHeading { count }
             | Self::TallyRegions { count } => arguments.set("count", *count),
             Self::TallyTooMany { video, count, limit } => {
                 arguments.set("video", video.as_str());
@@ -730,17 +716,6 @@ impl Message {
                 arguments.set("video", video.as_str());
                 arguments.set("table", table.as_str());
                 arguments.set("written", if *written { YES } else { NO });
-            }
-            Self::TallySetAside {
-                video,
-                table,
-                dated,
-                reason,
-            } => {
-                arguments.set("video", video.as_str());
-                arguments.set("table", table.as_str());
-                arguments.set("dated", dated.as_str());
-                arguments.set("reason", *reason);
             }
             Self::TallyChanged { settings } => arguments.set("settings", settings.as_str()),
             Self::TallyFailureTodo { cause } => arguments.set("cause", *cause),
@@ -924,8 +899,6 @@ impl Message {
             | Self::TallyUnwrittenHeading { .. }
             | Self::TallyUnwritten { .. }
             | Self::TallyKept { .. }
-            | Self::TallySetAsideHeading { .. }
-            | Self::TallySetAside { .. }
             | Self::TallyChanged { .. }
             | Self::TallyRegions { .. }
             | Self::TallyFailureTodo { .. }
@@ -1161,7 +1134,6 @@ impl Headings for Texts {
             Column::Start => Fixed::TableStart,
             Column::End => Fixed::TableEnd,
             Column::Duration => Fixed::TableDuration,
-            Column::Verdict => Fixed::TableVerdict,
             Column::Hits => Fixed::TableHits,
             Column::Chord => Fixed::TableChord,
             Column::Path => Fixed::TablePath,

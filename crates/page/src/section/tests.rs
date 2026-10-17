@@ -6,7 +6,7 @@ use crate::testing::{Named, summary, track, video};
 fn a_video_with_one_summary_image_has_no_tabs() {
     let section = render(&video("v"), "v1", &Named);
     assert!(!section.contains("role=\"tab\""));
-    assert_eq!(section.matches("<img ").count(), 1);
+    assert_eq!(section.matches(r#"<div class="panel">"#).count(), 1);
 }
 
 #[test]
@@ -64,14 +64,29 @@ fn a_folded_video_with_too_many_tracks_still_says_so_in_its_heading() {
 #[test]
 fn a_video_of_the_last_run_opens_and_one_of_an_earlier_evening_stays_folded() {
     let mut night = video("v");
-    assert!(render(&night, "v1", &Named).starts_with(r#"<details class="video" id="v1" open>"#));
+    assert!(render(&night, "v1", &Named).starts_with(r#"<details class="video" id="v1" data-video="v" open>"#));
     night.open = false;
-    assert!(render(&night, "v1", &Named).starts_with(r#"<details class="video" id="v1">"#));
+    assert!(render(&night, "v1", &Named).starts_with(r#"<details class="video" id="v1" data-video="v">"#));
 }
 
 #[test]
 fn the_results_kept_from_before_a_failure_stay_folded_and_say_where_they_come_from() {
     let section = render_previous(&video("v"), "v3-previous", &Named);
-    assert!(section.starts_with(r#"<details class="video" id="v3-previous">"#));
+    assert!(section.starts_with(r#"<details class="video" id="v3-previous" data-video="v">"#));
     assert!(section.contains("PreviousResults"));
+}
+
+#[test]
+fn a_section_names_its_folder_so_the_verdicts_find_their_video() {
+    let section = render(&video("nuit <12>"), "v1", &Named);
+    assert!(section.contains(r#"data-video="nuit &lt;12&gt;""#));
+}
+
+#[test]
+fn the_judging_area_replaces_the_picture_in_the_same_column() {
+    let section = render(&video("v"), "v1", &Named);
+    let stage = section.split(r#"<div class="review">"#).next().unwrap();
+    assert!(stage.contains(r#"<div class="judge" hidden"#));
+    assert!(section.contains(r#"<a class="thumb" hidden target="_blank">"#));
+    assert!(section.contains(r#"<div class="orphans" hidden></div>"#));
 }

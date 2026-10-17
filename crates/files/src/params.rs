@@ -57,6 +57,7 @@ pub struct TrackEntry {
     pub summary: Option<String>,
     pub clip: Option<String>,
     pub zoom: Option<String>,
+    pub start_xy: Option<[i64; 2]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
