@@ -16,16 +16,9 @@ use types::span::Span;
 use types::timeline::Timeline;
 use types::track::Track;
 
+const RECORDED_VIDEOS: usize = 26;
 const DAMAGED: [(&str, usize); 3] = [("video_103", 0), ("video_123", 0), ("video_124", 0)];
 type Frames = (usize, usize);
-const DIVERGING: [(&str, &[Frames], &[Frames]); 2] = [
-    (
-        "video_097",
-        &[(574, 748), (2942, 3068), (4827, 4943), (4861, 5018)],
-        &[(567, 748), (2946, 3068), (4827, 5018)],
-    ),
-    ("video_125", &[], &[]),
-];
 
 #[derive(Debug)]
 struct Engine {
@@ -118,12 +111,17 @@ fn groups_over_damaged_spans_serve_the_pixels_of_a_single_threaded_reading_from_
 
 #[test]
 #[ignore = "local"]
-fn the_windows_differ_from_the_reference_only_at_the_known_divergences() {
-    let directories = recording_directories(Reference::V011).unwrap();
-    for (name, expected_here, expected_there) in DIVERGING {
-        let directory = directories.iter().find(|directory| directory.ends_with(name)).unwrap();
-        let recording = Recording::read(directory).unwrap();
-        let engine = through_the_engine(name);
+fn the_windows_of_the_twenty_six_videos_are_those_of_the_v020_tracks() {
+    let mut videos = Vec::new();
+    let mut diverging = Vec::new();
+    for directory in recording_directories(Reference::V020).unwrap() {
+        let recording = Recording::read(&directory).unwrap();
+        let name = Path::new(&recording.summary.video.name)
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        let engine = through_the_engine(&name);
         let frames = |windows: Vec<Window>| -> Vec<Frames> {
             windows
                 .iter()
@@ -139,10 +137,12 @@ fn the_windows_differ_from_the_reference_only_at_the_known_divergences() {
             ours.len(),
             theirs.len()
         );
-        assert_eq!(
-            (added.as_slice(), missing.as_slice()),
-            (expected_here, expected_there),
-            "{name}"
-        );
+        if ours != theirs {
+            diverging.push((name.clone(), added, missing));
+        }
+        videos.push(name);
     }
+
+    assert_eq!(videos.len(), RECORDED_VIDEOS, "{videos:?}");
+    assert_eq!(diverging, []);
 }

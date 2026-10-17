@@ -1405,7 +1405,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - La version 2 remplace `ffprobe` par `decoder`, ce que voit `media` : `error_frames`, `gap_frames`, `losses` (`before_first`, `after_last`) et `threads`. Ces pertes au bord ouvrent une plage abîmée, et `frames.jsonl` ne les garde pas (#176). `threads` (`DecoderThreads`, comme `media::decode::ActiveThreads`) vaut `{"kind": "single"}`, ou `{"kind": "frame"|"slice", "count": n}` avec n ≥ 1 : le nombre de fils change ce que le décodeur dissimule dans les plages abîmées. Un nombre nul, un genre inconnu ou un nombre sur `single` sont refusés à la lecture. La version 2 n'a pas de `tracks.csv` : le CSV du Rust (13 colonnes, en-têtes Fluent de `cli`) ne s'écrirait pas depuis `compare`, qui enregistrera la référence, sans faire de cycle avec `cli`.
     - `VideoSummary::read` refuse toute autre version, avant de lire les champs. `read` et `write` refusent aussi un résumé dont les blocs ne sont pas ceux de sa version (`MissingSection`, `ForeignSection`), et `write` le fait avant d'écrire.
     - `Recording` donne `rows` en `Option`. Il refuse d'écrire des lignes sans nom de fichier, ou l'inverse (`TableWithoutFile`), avant d'écrire le moindre fichier.
-    - `location::Reference` (`V011`, `V020`) choisit le dossier du dépôt (`tests/fixtures/reference/` ou `tests/fixtures/reference-v0.2.0/`) et la variable des données hors dépôt (`BATDETECT_REFERENCE_DIR` ou `BATDETECT_REFERENCE_V020_DIR`). `committed`, `committed_settings` et `recording_directories` prennent la référence, comme `compare::case::Target::cases` et `Case::committed`. Les bancs de la v0.1.1 restent hors dépôt (`recorded_bench(nom)`, `$BATDETECT_REFERENCE_DIR/bench/<nom>/`), ceux de la v0.2.0, 2,7 Mo, sont dans git (`committed_bench(nom)`, `tests/fixtures/reference-v0.2.0/bench/<nom>/`, #250). Les gardes du suivi lisent `V020` depuis #277 ; celles de la détection passent à la v0.2.0 à #276.
+    - `location::Reference` (`V011`, `V020`) choisit le dossier du dépôt (`tests/fixtures/reference/` ou `tests/fixtures/reference-v0.2.0/`) et la variable des données hors dépôt (`BATDETECT_REFERENCE_DIR` ou `BATDETECT_REFERENCE_V020_DIR`). `committed`, `committed_settings` et `recording_directories` prennent la référence, comme `compare::case::Target::cases` et `Case::committed`. Les bancs de la v0.1.1 restent hors dépôt (`recorded_bench(nom)`, `$BATDETECT_REFERENCE_DIR/bench/<nom>/`), ceux de la v0.2.0, 2,7 Mo, sont dans git (`committed_bench(nom)`, `tests/fixtures/reference-v0.2.0/bench/<nom>/`, #250). Les gardes de détection lisent `V020` depuis #276 ([Gardes de détection](#gardes-de-détection-276)), celles du suivi depuis #277 ; les autres restent sur `V011`.
   - Pas d'affirmation « points d'une piste ⊂ détections » : les points des pistes
     jumelles fusionnées sont combinés (17 sur 358 dans l'extrait, 63 sur 610 dans la
     092).
@@ -2354,13 +2354,13 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - Comme la v0.1.1, le Rust ne fait aucun zoom sur l'extrait (`--zoom auto`).
     - Environ 20 s (18,5 et 23,7 s le 14 octobre 2026, ce test ne mesure pas de temps).
   - Comparaison sur les 26 vidéos (`tests/local_command.rs`, `#[ignore = "local"]`,
-    `BATDETECT_REFERENCE_DIR` et `BATDETECT_VIDEOS_DIR`). Elle passe `process` (la
+    `BATDETECT_REFERENCE_DIR` et `BATDETECT_VIDEOS_DIR`, plus `BATDETECT_REFERENCE_V020_DIR` depuis #276 ; contre la v0.2.0 depuis #276, voir [Gardes de détection](#gardes-de-détection-276)). Elle passe `process` (la
     fonction qui écrit le CSV) et apparie ses pistes à `tracks.jsonl` par
     `match_tracks`.
     - Mesure du 12 octobre 2026 : 966 pistes de référence, 963 appariées
       (958 concordantes), 3 perdues, 9 ajoutées, les chiffres de #118 et #119.
     - Les 17 écarts tombent tous sur les 9 divergences connues (#97), figées dans le
-      test :
+      test jusqu'à #276 :
       - 094 1:42 : perdue, revient 26 images plus tard ;
       - 097 0:20 : perdue, revient 7 images plus tard ;
       - 097 2:42 : 24 points au lieu de 86, et une piste ajoutée à 2:43 ;
@@ -2786,7 +2786,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       sans session VideoToolbox, de la fenêtre de son extrait, à la cadence ÷ 4 ; un
       échec d'openh264 sur un zoom nomme le zoom ; `--zoom` et ses clés dans
       `params.json` (`cli`) ;
-    - mêmes zooms que la v0.1.1 (`local_command`) : décision Rust sur les pistes Rust
+    - mêmes zooms que la v0.1.1 (`local_command`, jusqu'à #276) : décision Rust sur les pistes Rust
       contre décision v0.1.1 sur les pistes appariées de la référence, sur les 26 vidéos.
       Une seule bascule, figée : la 097, piste 88, zoomée en Rust (aire maximale 94,5 px²
       contre 117), conséquence de la divergence connue de 4872 (24 points contre 86),
@@ -2829,10 +2829,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       moteur, et chaque groupe qui touche une plage abîmée (1, 6 et 3 groupes) est servi
       avec les pixels d'une lecture séquentielle à un fil. Aucun n'est relu depuis le
       début (`Origin::Start` : 0, épinglé). Fenêtres contre la v0.1.1, figées dans le
-      test : la 125 a ses 47 fenêtres égales ; la 097 en a 149 contre 148, et ses écarts
+      test jusqu'à #276 : la 125 a ses 47 fenêtres égales ; la 097 en a 149 contre 148, et ses écarts
       sont les divergences connues des pistes (0:20, fenêtre qui commence 7 images plus
       tard ; 2:42, une fenêtre devenue deux) plus un début 4 images plus tôt à 1:39,
-      dans la tolérance de l'appariement.
+      dans la tolérance de l'appariement. Depuis #276, les fenêtres des 26 vidéos se comparent à celles des pistes de la v0.2.0 (`BATDETECT_REFERENCE_V020_DIR`), après une détection de chacune : la durée de 300 s ne vaut plus que pour les trois vidéos abîmées.
 - **`compare`** → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré. `media` n'y sert qu'à choisir les fils du
   décodeur (`Threads::Automatic`), et, dans `slow_same_as`, à couper l'extrait (`payload::wipe`, #176).
@@ -2842,7 +2842,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - **Plages abîmées.** Les images en erreur, les sauts et les pertes aux bords des deux côtés (`decoder` de la v0.2.0, `ffprobe` de la v0.1.1, `Detected::damage` de la lecture courante) sont réunis, puis tracés en plages par la règle courante (`Damage::reported`, marge = demi-fenêtre de la référence ; `damaged::joined`). Une plage que la règle change (#140) se voit donc dans les pistes.
     - **Détections**, hors de la réunion des plages abîmées de la référence et des plages retracées, fondue avant d'être comptée (`span::merged`) : dans les plages de la référence, ses détections viennent de pixels dissimulés. D'abord l'égalité exacte, image par image : nombre d'images qui diffèrent, dix au plus listées. Puis l'appariement à moins de 3 px (`reference::detection_matching`) : paires, perdues, ajoutées, taux dans les deux sens. Les plages instables ne sont plus écartées : elles se déduisent des détections, qu'on compare brutes.
     - **Pistes** : `exclude` avec les plages retracées et le nombre d'images signalées de la réunion, puis `track_detections` aux réglages par défaut, puis `match_tracks` (début à ±5 images, points à ±3).
-    - Plus de seuil : le 98 % de `MIN_RATE` a disparu. Un écart se lit dans le rapport ; les gardes figent les leurs par vidéo (`Agreement::counts`, `TrackAgreement::counts`, #276, #277).
+    - Plus de seuil : le 98 % de `MIN_RATE` a disparu. Un écart se lit dans le rapport ; les gardes figent les leurs par vidéo (`Comparison::gaps` pour la détection, #276 ; #277 pour le suivi).
   - Sortie, dans l'ordre :
     - par vidéo, les entrées : erreurs de décodage de chaque côté et images où elles diffèrent, plages écartées et leurs images ;
     - par vidéo, les détections : images qui diffèrent, nombres de chaque côté, paires, taux dans les deux sens, détections perdues (dont celles qui sont un point d'une piste de la référence) et ajoutées, puis leur total ;
@@ -3082,10 +3082,7 @@ l'intérieur du verrou (CPU = utilisateur + système).
     appariées (début ±5 images, points ±3), chaque écart listé (cas, temps) et jugé par
     l'utilisateur.
   - Un cas sous 98 % bloque tant que sa cause n'est pas isolée, par ablation comme à #118.
-  - Test de réglages : `crates/compare/tests/settings_agreement.rs` exige les 16 cas comparés sans
-    échec, 98 % dans les deux sens (sauf `sigma_0` et `window_2s`, figés à 98 % sous la
-    bande d'affichage, voir #150 et #151) et toutes les pistes appariées et
-    concordantes. `crates/reference/tests/committed_settings.rs` relit les 16
+  - Test de réglages : `crates/compare/tests/settings_agreement.rs` exige les 16 cas comparés sans échec, et, depuis #276, aucun écart à la [référence v0.2.0](#gardes-de-détection-276) ; jusque-là, 98 % dans les deux sens contre la v0.1.1 (sauf `sigma_0` et `window_2s`, figés à 98 % sous la bande d'affichage, voir #150 et #151) et toutes les pistes appariées et concordantes. `crates/reference/tests/committed_settings.rs` relit les 16
     cas en test rapide.
 - **Niveau 2, sans Python** : invariances en tests rapides. Faits à #150 : même flux
   remuxé en plage pleine (`tests/full_range.rs`), noyau et disque contre la formule,
@@ -3162,7 +3159,7 @@ Les 76 pistes des 12 cas sont appariées et concordantes.
     pixels à 3 niveaux ou plus) ; ailleurs, l'écart est nul (U = V = 128). Sans flou,
     rien n'atténue cet écart.
   - Décision de l'utilisateur : la table `GRAY` reste (exception de #118), l'écart est
-    documenté, `settings_agreement` fige 98 % sous la bande d'affichage. L'idée de le revoir
+    documenté, `settings_agreement` fige 98 % sous la bande d'affichage (retiré à #276 : contre la v0.2.0, `sigma_0` n'a aucun écart). L'idée de le revoir
     avec les masques de #151 ne tient pas : `sigma_0` n'a pas de zone OSD, les masques
     ne s'y appliquent pas (voir la mesure de #151).
 
@@ -3191,7 +3188,7 @@ par vidéo (963 / 3 / 9).
   de 00:02.50 à 00:36.43 (amplitudes de 40 à 120) ; dessous : 100 % et 100 %. Même
   cause que `sigma_0` : la table `GRAY` face à la chrominance colorée de l'affichage,
   ici sur les chiffres qui changent pendant la fenêtre de 2 s. Décision de
-  l'utilisateur : même traitement que `sigma_0`, 98 % exigés sous la bande.
+  l'utilisateur : même traitement que `sigma_0`, 98 % exigés sous la bande (retiré à #276 : contre la v0.2.0, `window_2s` n'a aucun écart).
 - `sigma_0` : inchangé ; sans zone OSD, les masques n'y peuvent rien. Sous la bande :
   99,93 % et 99,98 %.
 
@@ -3392,4 +3389,21 @@ Ce que la v0.2.0 en Rust détecte et suit, enregistré par `record` (#250) le 17
 
 - Preuve par le binaire de `v0.2.0`, construit à part : les 19 cas du dépôt ont les mêmes `frames.jsonl` à l'octet ; les 26 vidéos ont les mêmes entrées et les mêmes détections hors plages abîmées (`--same-as`) ; les pistes de l'extrait et de la 092 sont celles du CSV de `batdetect` de `v0.2.0`, par valeurs ; les deux bancs donnent les mêmes fichiers, `bench.json` par valeurs hors `code` et durées.
 - Reproduction : hors des plages abîmées seulement, comme le dit #176 ; `SHA256SUMS` change à chaque enregistrement des 26 vidéos.
-- Les gardes du suivi (`committed_tracking`, `committed_exclusion`, `local_tracking`, `local_exclusion`, `committed_metrics`) lisent la v0.2.0 depuis #277 ; celles de la détection y passent à #275 et #276.
+- Les gardes passent à la v0.2.0 avec #275 (`compare`), #276 (détection) et #277 (suivi : `committed_tracking`, `committed_exclusion`, `local_tracking`, `local_exclusion`, `committed_metrics`).
+
+### Gardes de détection (#276)
+
+Chaque garde compare à la v0.2.0 par la règle de `compare` (#275) et fige ses écarts **par vidéo et par cas** (`Comparison::gaps`) : images qui diffèrent, détections perdues et ajoutées, puis pistes appariées, concordantes, perdues et ajoutées. Ils valent tous 0 sur lumiel : `Gaps::agreeing(n)`, n pistes appariées et concordantes et aucun autre écart. Une PR qui change la détection les met à jour avec leur cause ([05](05-outillage.md)). Les gardes `local_*` lisent la v0.2.0 des 26 vidéos par `BATDETECT_REFERENCE_V020_DIR`, les vidéos par `BATDETECT_VIDEOS_DIR`, et `local_command` les zooms et la 103 annotée de la v0.1.1 par `BATDETECT_REFERENCE_DIR`.
+
+- `compare/tests/slow_extract` : l'extrait, `Gaps::agreeing(4)`, plus le bit près de `tests/fixtures/rust/` et `--same-as`, inchangés.
+- `compare/tests/settings_agreement` : les 16 cas, détections égales et toutes les pistes appariées et concordantes, `sigma_0` (30 pistes) et `window_2s` compris. Le test qui figeait 98 % sous la bande d'affichage pour ces deux cas contre la v0.1.1 est retiré : contre la v0.2.0, ils n'ont aucun écart ; l'écart de la table `GRAY` à la v0.1.1 reste expliqué dans la mesure de #150.
+- `compare/tests/local_agreement` : 26 lignes figées, une par vidéo, 972 pistes.
+- `cli/tests/reference_092` :
+  - la 092 et la 092 à 1440 pixels : `Gaps::agreeing(14)` ;
+  - la commande sur la 092 : 14 pistes appariées et concordantes, sans écart, ses 15 extraits figés et son zoom ;
+  - les faits de la naturaliste, seuls affirmés sans référence : les 13 chauves-souris confirmées le 9 octobre ([03](03-resultats-092.md)) ont chacune leur piste, qui commence à ±5 images de leur début (temps aux `pts` de la lecture du calcul), et à côté d'elles, au plus une piste à chacun de ces deux endroits : l'objet lent de 3:29, qui n'en est pas une, et la cible connue de 3:42.10, objet réel manqué aujourd'hui par le réglage par défaut et pas encore vu par la naturaliste ([03](03-resultats-092.md#cibles-connues-pour-les-issues-suivantes)). Toute autre piste nouvelle fait échouer le test : c'est une question pour elle. Le nombre de pistes n'est plus affirmé que par les écarts figés : un recollage (#24) peut passer de 14 à 13 pistes sans perdre un passage.
+- `cli/tests/slow_command` : les 4 pistes de l'extrait, sans écart ; la colonne des détections du CSV est celle de `tests/fixtures/rust/…/tracks.csv`, en-tête exclu.
+- `cli/tests/local_command` : les pistes de la commande sur les 26 vidéos, une ligne figée par vidéo (`[référence, appariées, concordantes, perdues, ajoutées]`), sans changement de zoom automatique par rapport aux pistes de la v0.2.0. Les 17 divergences et le changement de zoom de la 097 connus contre la v0.1.1 disparaissent. Les zooms enregistrés par la v0.1.1, décidés sur ses propres pistes, se vérifient à part (`the_zooms_recorded_with_the_v011_are_those_its_own_tracks_ask_for`, sans décodage).
+- `cli/tests/local_clips` : les fenêtres des extraits des 26 vidéos, toutes exigées, sont égales à celles des pistes de la v0.2.0, vidéo par vidéo ; les divergences de la 097 contre la v0.1.1 disparaissent.
+- `process` et `tracked` n'écartent que les plages du décodeur courant : `reference_092`, `slow_command`, `local_command` et `local_clips` dépendent donc du poste sur les 8 vidéos où lumiel voit 14 images en erreur de plus que le Mac. Leurs lignes sont figées sur lumiel, et à vérifier sur le Mac. `compare` réunit les deux lectures (#275) et n'en dépend pas.
+- Restent sur la v0.1.1 : les entrées, avec ffprobe pour témoin (`slow_extract`, entrées de l'extrait ; `reference_092`, 9 011 images de la 092 ; `local_command`, `pts` de la 103 annotée ; `engine` : `slow_input`, `local_input`, `local_damage`, dont la règle de lumiel reste celle de #250), l'aval nourri des pistes de la v0.1.1 (`summary`, `files`, `render`), les sorties (`local_outputs`), le banc (`local_guard`) et le format v1.

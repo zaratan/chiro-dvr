@@ -14,7 +14,7 @@ use batdetect::process::{Processed, process};
 use batdetect::progress::Silent;
 use files::table::{COLUMNS, Column};
 use media::decode::Threads;
-use reference::fixture::fixture;
+use reference::fixture::{fixture, fixtures};
 use reference::location::{Reference, committed};
 use reference::recording::Recording;
 use types::frame::FrameIndex;
@@ -38,7 +38,7 @@ struct ExtractRun {
 fn extract() -> &'static ExtractRun {
     static EXTRACT_RUN: OnceLock<ExtractRun> = OnceLock::new();
     EXTRACT_RUN.get_or_init(|| {
-        let recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
+        let recording = Recording::read(&committed(Reference::V020, EXTRACT)).unwrap();
         let rate = FrameRate::new(recording.summary.stream.avg_frame_rate).unwrap();
         let out = tempfile::tempdir().unwrap();
         let video = fixture(&format!("{EXTRACT}.mp4")).unwrap();
@@ -78,23 +78,18 @@ fn the_extract_gives_the_four_tracks_of_the_reference_in_its_table() {
     assert_eq!((found.lost, found.added), (0, 0));
     assert_eq!(found.discrepancies, []);
     let hits = COLUMNS.iter().position(|&column| column == Column::Hits).unwrap();
-    let hits: Vec<usize> = run
-        .table
-        .as_ref()
-        .unwrap()
-        .lines()
-        .skip(1)
-        .map(|line| line.split(',').nth(hits).unwrap().parse().unwrap())
-        .collect();
-    let expected: Vec<usize> = run
-        .recording
-        .rows
-        .as_deref()
-        .unwrap()
-        .iter()
-        .map(|row| row.hits)
-        .collect();
-    assert_eq!(hits, expected);
+    let column = |table: &str| -> Vec<usize> {
+        table
+            .lines()
+            .skip(1)
+            .map(|line| line.split(',').nth(hits).unwrap().parse().unwrap())
+            .collect()
+    };
+    let committed_table = fs::read_to_string(fixtures().join("rust").join(EXTRACT).join("tracks.csv")).unwrap();
+    let found = column(run.table.as_ref().unwrap());
+    let expected = column(&committed_table);
+    assert_eq!(found.len(), 4);
+    assert_eq!(found, expected);
 }
 
 #[test]
