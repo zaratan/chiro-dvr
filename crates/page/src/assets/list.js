@@ -1,5 +1,5 @@
 "use strict";
-const VerdictsList = ({ section, tracks, store, say, clock, onChoose }) => {
+const VerdictsList = ({ section, tracks, store, say, clock, shows, onChoose }) => {
   const judged = section.querySelector(".judged");
   const orphans = section.querySelector(".orphans");
   const video = section.dataset.video;
@@ -13,6 +13,7 @@ const VerdictsList = ({ section, tracks, store, say, clock, onChoose }) => {
   const update = () => {
     for (const track of tracks) {
       const value = store.get(track);
+      track.row.hidden = !shows(track);
       const cell = track.row.querySelector(".verdict");
       if (!cell) continue;
       const chip = document.createElement("span");

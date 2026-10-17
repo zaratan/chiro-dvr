@@ -125,9 +125,11 @@ const VerdictsStore = (() => {
 
     const judgeable = tracks.filter((track) => track.judgeable);
 
-    const counts = () => {
+    const kindOf = (track) => get(track).verdict || "todo";
+
+    const counts = (video = null) => {
       const totals = { yes: 0, no: 0, doubt: 0, other: 0, todo: 0 };
-      for (const track of tracks) {
+      for (const track of tracks.filter((one) => video === null || one.video === video)) {
         const { verdict } = get(track);
         if (verdict) totals[verdict] += 1;
         else if (track.judgeable) totals.todo += 1;
@@ -194,6 +196,7 @@ const VerdictsStore = (() => {
       drifted,
       markSaved,
       counts,
+      kindOf,
       judged,
       rows,
       orphansOf,
