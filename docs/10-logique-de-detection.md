@@ -287,7 +287,7 @@ suivent un trou (196 sur la 122), pas les images écartées (6 043).
 
 **Ce que ça coûte.** Mesuré avec la v0.1.1 ; le Rust donne les mêmes plages sur 25 des
 26 vidéos de la référence, et 43 images de plus sur la 124, que le décodeur signale par
-sa dissimulation ([11](11-migration-rust.md)).
+sa dissimulation ([11](11-migration-rust.md)). Ce sont les chiffres du Mac : sous Linux (lumiel), le même décodeur signale 14 images de plus sur 8 vidéos, toujours les mêmes d'une lecture à l'autre.
 
 | Vidéo | Images signalées | Illisible | Instable restant | Union | Pistes avant → après |
 | --- | --- | --- | --- | --- | --- |

@@ -4,7 +4,7 @@ use types::track::Track;
 use super::Recording;
 use crate::error::Error;
 use crate::location::{Reference, committed};
-use crate::video::{DECODED_FORMAT, Decoder, DecoderThreads, Losses};
+use crate::video::{Decoder, DecoderThreads, Losses};
 
 const EXCERPT: &str = "video_092_original_3m24-4m05";
 const FULL: &str = "video_092_original";
@@ -141,21 +141,23 @@ fn a_recording_with_an_unknown_frame_rate_has_no_timeline() {
     assert!(matches!(excerpt.timeline(), Err(crate::error::Error::Timeline(_))));
 }
 
-fn decoded(mut recording: Recording) -> Recording {
-    recording.summary.format_version = DECODED_FORMAT;
-    recording.summary.ffprobe = None;
-    recording.summary.decoder = Some(Decoder {
-        error_frames: Vec::new(),
-        gap_frames: Vec::new(),
-        losses: Losses {
-            before_first: 0,
-            after_last: 0,
-        },
-        threads: DecoderThreads::Single,
-    });
-    recording.summary.files.csv = None;
-    recording.rows = None;
-    recording
+fn decoded(recording: Recording) -> Recording {
+    Recording {
+        summary: recording.summary.decoded(
+            "v0.2.0",
+            Decoder {
+                error_frames: Vec::new(),
+                gap_frames: Vec::new(),
+                losses: Losses {
+                    before_first: 0,
+                    after_last: 0,
+                },
+                threads: DecoderThreads::Single,
+            },
+        ),
+        rows: None,
+        ..recording
+    }
 }
 
 #[test]

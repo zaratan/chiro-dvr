@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use engine::config::DetectConfig;
 use engine::detection::detect;
+use engine::settings::DetectSettings;
 use files::names::{Names, names_the_video, params_json};
 use files::params::Finish;
 use files::picture::png_size;
@@ -30,7 +31,7 @@ use types::track::Track;
 
 use super::{
     Clips, Error, Extent, Versions, Wording, Written, extent, finish, process, process_detected, render_clips,
-    room_for_clips,
+    room_for_clips, tracked,
 };
 use crate::flight;
 use crate::jobs::Job;
@@ -823,4 +824,29 @@ fn a_video_with_too_many_tracks_announces_neither_the_summary_nor_the_clips_it_d
     let failed = process(&job, &Plain, &recorded, Threads::Automatic, VERSIONS, &options);
     assert!(matches!(failed, Err(Error::TooManyTracks { .. })), "{failed:?}");
     assert_eq!(recorded.0.into_inner(), [Step::Detection, Step::Tracking]);
+}
+
+#[test]
+fn the_reference_recorder_tracks_a_detection_exactly_as_the_command_does() {
+    let config = DetectConfig::try_from(&DetectSettings {
+        work_width: 240,
+        ..DetectSettings::default()
+    })
+    .unwrap();
+    let detected = detect(
+        &reference::fixture::fixture("spot.mp4").unwrap(),
+        Threads::Automatic,
+        &config,
+    )
+    .unwrap();
+
+    let shipped = tracked(&detected, &Options::default()).unwrap();
+    let recorded = compare::decoded::followed(&detected).unwrap();
+
+    assert_ne!(recorded.tracks, []);
+
+    assert_eq!(
+        (shipped.exclusion, shipped.tracks),
+        (recorded.exclusion, recorded.tracks)
+    );
 }
