@@ -171,7 +171,7 @@ crates depuis #71, dépendances à sens unique :
   `osascript` et page de résultats ouverte par `open` après le bilan, seuls sous-processus du binaire, #69, #71), `sheet`
   (libellés de la page par Fluent, #71), `style` (couleurs et nom de l'option d'aide, #56) et `parsing` (lecture
   des valeurs d'options, erreur typée avec l'option et sa plage, #55) ; usages courants en tête de l'aide et sans argument (#56), version gravée par
-  `build.rs` ; textes en Fluent dans `locales/{fr,en}.ftl`, langue de l'aide, des erreurs,
+  `build/engraved.rs` (partagé avec `compare`, #295) ; textes en Fluent dans `locales/{fr,en}.ftl`, langue de l'aide, des erreurs,
   des lignes et du bandeau (#114).
 
 Charte (23 règles numérotées, lints et raisons dans
