@@ -112,13 +112,13 @@ pub(crate) fn rejoin(tracks: &[Track], hiding: Hiding<'_>, config: RejoinConfig)
     }
     let mut rejoined = Vec::new();
     for head in (0..tracks.len()).filter(|&index| !continued[index]) {
-        let mut points: Vec<Detection> = Vec::new();
+        let mut parts: Vec<Vec<Detection>> = Vec::new();
         let mut part = Some(head);
         while let Some(index) = part {
-            points.extend_from_slice(tracks[index].points());
+            parts.push(tracks[index].points().to_vec());
             part = next[index];
         }
-        rejoined.push(Track::new(0, points)?);
+        rejoined.push(Track::rejoined(0, parts)?);
     }
     Ok(rejoined)
 }

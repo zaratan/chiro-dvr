@@ -271,7 +271,7 @@ image. Le regarder d'abord en entier, puis image par image là où la cible pass
 Si la cible est petite ou faible, un second fichier l'accompagne, `piste_01_0m04s_zoom.mp4` :
 la même scène recadrée autour du trajet, agrandie jusqu'à quatre fois et ralentie quatre fois.
 Par défaut, il n'existe que pour les pistes dont la plus grande tache fait moins de 100 px
-ou dont l'amplitude est sous 40 ; `--zoom all` en fait un pour chaque piste, `--zoom none` aucun
+ou dont l'amplitude est sous 40. Quand l'outil a recollé une piste après un passage derrière la végétation, elle a son zoom si l'un des morceaux, seul, l'aurait eu : le morceau net ne fait pas perdre le zoom au morceau faible. `--zoom all` en fait un pour chaque piste, `--zoom none` aucun
 ([docs/02](02-methode.md#extrait-zoomé-et-ralenti)). Le regarder après l'extrait normal : une
 cible de 3:42 sur la 092, jugée fausse à vitesse normale, s'est révélée un objet réel une fois
 agrandie et ralentie dans un lecteur ; c'est de là que vient le zoom.
@@ -472,7 +472,7 @@ réglage de détection ou de suivi peut changer les pistes trouvées et leurs nu
 La surface de la plus grande tache de la piste, comptée en pixels de la vidéo d'origine qui
 se détachent du fond, dans le tableau des pistes
 ([docs/10](10-logique-de-detection.md#5-regrouper-les-pixels-en-taches)). Elle dépend de la
-distance et du contraste de l'animal autant que de sa taille.
+distance et du contraste de l'animal autant que de sa taille. Une piste qui a été cachée en cours de vol, par exemple derrière la végétation, garde son extrait zoomé si une de ses parties est petite ou pâle, même si cette colonne montre une grande tache.
 
 ### Verdict
 

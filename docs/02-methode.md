@@ -258,7 +258,7 @@ ralentissant dans le lecteur, #37). Pour ces pistes, un second fichier
   réglage le trouve (1440 px sans seuil par pixel : 70 px², 22,0), l'aurait aussi. Sur
   le balayage du 7 octobre (14 vidéos, 848 pistes), 384 pistes ont leur zoom (45 %),
   de 0 sur la 089 à 83 sur 136 pour la 096 ; sur 095 à 099, c'est surtout l'aire qui
-  déclenche. `--zoom all` en fait un pour chaque piste, `--zoom none` aucun. Les seuils
+  déclenche. Une piste recollée ([10 § 9 bis](10-logique-de-detection.md#9-bis-recoller-un-vol-caché-derrière-la-végétation)) a son zoom si l'un de ses bouts l'aurait eu seul. `--zoom all` en fait un pour chaque piste, `--zoom none` aucun. Les seuils
   (`zoom_below_area`, `zoom_below_amplitude`) sont dans `params.json` mais pas en option.
   **L'amplitude dépend du filtre (`target_sigma`), du seuil et de `--work-width`** : le
   seuil de 40 se remesure quand ces réglages changent.

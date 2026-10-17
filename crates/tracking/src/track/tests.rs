@@ -100,6 +100,7 @@ fn a_flight_hidden_longer_than_max_gap_is_one_track_only_with_the_rejoin() {
     let tracks = tracked(&hidden_behind_vegetation(), TrackConfig::default());
     assert_eq!(tracks.len(), 1);
     assert_eq!((tracks[0].id(), tracks[0].points().len()), (1, 28));
+    assert_eq!(tracks[0].parts().count(), 2);
 }
 
 #[test]

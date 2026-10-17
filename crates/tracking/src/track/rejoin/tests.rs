@@ -197,6 +197,14 @@ fn a_flight_hidden_twice_becomes_one_track() {
     let second_hiding = track(line(44, 10, (540.0, 100.0), (10.0, 0.0)));
     let joined = rejoined(&[second_hiding, before_the_vegetation(), first_hiding], 19, 60.0);
     assert_eq!(lengths(&joined), [30]);
+    let starts: Vec<usize> = joined[0].parts().map(|part| part.points()[0].frame.get()).collect();
+    assert_eq!(starts, [0, 22, 44]);
+}
+
+#[test]
+fn a_track_left_alone_by_the_rejoin_stays_a_single_part() {
+    let joined = rejoined(&[before_the_vegetation()], 19, 60.0);
+    assert_eq!(joined[0].parts().count(), 1);
 }
 
 #[test]

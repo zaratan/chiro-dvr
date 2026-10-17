@@ -13,7 +13,6 @@ use media::decode::{Decoder, Threads};
 use media::frame::{ColorRange, YuvFrame};
 use reference::location::{Reference, committed, recorded_video, recording_directories};
 use reference::recording::Recording;
-use reference::track_matching::match_tracks;
 use render::config::{RenderConfig, Zoom, ZoomConfig};
 use types::language::Language;
 use types::rate::FrameRate;
@@ -64,19 +63,6 @@ const FROZEN: [(&str, [usize; 5]); 26] = [
     ("video_130.mp4", agreeing(6)),
 ];
 
-const UNZOOMED_BY_THE_REJOIN: [(&str, usize, usize, bool); 10] = [
-    ("video_095.mp4", 33, 30, false),
-    ("video_095.mp4", 60, 53, false),
-    ("video_095.mp4", 23, 22, false),
-    ("video_096.mp4", 130, 118, false),
-    ("video_096.mp4", 54, 48, false),
-    ("video_096.mp4", 19, 17, false),
-    ("video_097.mp4", 16, 14, false),
-    ("video_097.mp4", 82, 72, false),
-    ("video_098.mp4", 128, 121, false),
-    ("video_100.mp4", 93, 89, false),
-];
-
 #[test]
 #[ignore = "local"]
 fn the_twenty_six_videos_by_the_command_keep_their_tracks_and_zooms_frozen_against_the_v020_video_by_video() {
@@ -84,6 +70,7 @@ fn the_twenty_six_videos_by_the_command_keep_their_tracks_and_zooms_frozen_again
     let out = tempfile::tempdir().unwrap();
     let mut found = Vec::new();
     let mut switches = Vec::new();
+    let mut unheld = Vec::new();
     for directory in directories {
         let recording = Recording::read(&directory).unwrap();
         let name = recording.summary.video.name.clone();
@@ -100,6 +87,7 @@ fn the_twenty_six_videos_by_the_command_keep_their_tracks_and_zooms_frozen_again
         .unwrap();
         let agreement = agreement::agreement(&processed, &recording, rate);
         switches.extend(zoom_switches(&name, &recording, &processed.tracks));
+        unheld.extend(not_held_once(&name, &recording, &processed.tracks));
         println!(
             "{name}\treference {}\ttracked {}\tpaired {} (agreeing {})\tlost {}\tadded {}",
             agreement.reference,
@@ -123,34 +111,11 @@ fn the_twenty_six_videos_by_the_command_keep_their_tracks_and_zooms_frozen_again
             ],
         ));
     }
-    for switch in &switches {
-        println!(
-            "zoom switch {} reference #{} (area {:.2}, amplitude {:.2}) -> #{} (area {:.2}, amplitude {:.2}) zoomed {}",
-            switch.video,
-            switch.reference_id,
-            switch.reference.0,
-            switch.reference.1,
-            switch.candidate_id,
-            switch.candidate.0,
-            switch.candidate.1,
-            switch.zoomed
-        );
-    }
     let found: Vec<(&str, [usize; 5])> = found.iter().map(|(name, counts)| (name.as_str(), *counts)).collect();
 
     assert_eq!(found, FROZEN);
-    let by_track: Vec<(&str, usize, usize, bool)> = switches
-        .iter()
-        .map(|switch| {
-            (
-                switch.video.as_str(),
-                switch.reference_id,
-                switch.candidate_id,
-                switch.zoomed,
-            )
-        })
-        .collect();
-    assert_eq!(by_track, UNZOOMED_BY_THE_REJOIN);
+    assert!(unheld.is_empty(), "{unheld:?}");
+    assert!(switches.is_empty(), "{switches:?}");
 }
 
 #[test]
@@ -166,32 +131,39 @@ fn the_zooms_recorded_with_the_v011_are_those_its_own_tracks_ask_for() {
     assert_eq!(checked, RECORDED_OUTPUTS);
 }
 
-#[derive(Debug)]
-struct Switch {
-    video: String,
-    reference_id: usize,
-    candidate_id: usize,
-    zoomed: bool,
-    reference: (f64, f64),
-    candidate: (f64, f64),
-}
+type Switch = (String, Vec<usize>, usize, bool);
 
-#[cfg(test)]
 fn zoom_switches(video: &str, recording: &Recording, tracks: &[Track]) -> Vec<Switch> {
     let auto = ZoomConfig::default();
-    let measures = |track: &Track| (track.max_area(), track.peak_amplitude());
-    match_tracks(&recording.tracks, tracks)
-        .pairs
-        .into_iter()
-        .filter(|(reference, candidate)| auto.wants(reference) != auto.wants(candidate))
-        .map(|(reference, candidate)| Switch {
-            video: video.to_owned(),
-            reference_id: reference.id(),
-            candidate_id: candidate.id(),
-            zoomed: auto.wants(candidate),
-            reference: measures(reference),
-            candidate: measures(candidate),
+    tracks
+        .iter()
+        .filter_map(|candidate| {
+            let covering: Vec<&Track> = recording
+                .tracks
+                .iter()
+                .filter(|reference| candidate.points().contains(reference.first()))
+                .collect();
+            let zoomed = auto.wants(candidate);
+            (covering.iter().any(|reference| auto.wants(reference)) != zoomed).then(|| {
+                let reference_ids = covering.iter().map(|reference| reference.id()).collect();
+                (video.to_owned(), reference_ids, candidate.id(), zoomed)
+            })
         })
+        .collect()
+}
+
+fn not_held_once(video: &str, recording: &Recording, tracks: &[Track]) -> Vec<(String, usize, usize)> {
+    recording
+        .tracks
+        .iter()
+        .map(|reference| {
+            let holders = tracks
+                .iter()
+                .filter(|candidate| candidate.points().contains(reference.first()))
+                .count();
+            (video.to_owned(), reference.id(), holders)
+        })
+        .filter(|&(_, _, holders)| holders != 1)
         .collect()
 }
 

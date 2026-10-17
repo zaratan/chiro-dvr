@@ -93,6 +93,51 @@ fn renumbering_a_track_keeps_its_points() {
 }
 
 #[test]
+fn a_track_never_rejoined_is_a_single_part_with_all_its_points() {
+    let whole = track(&[(0.0, 0.0), (10.0, 0.0), (20.0, 0.0)]);
+    let parts: Vec<&[Detection]> = whole.parts().map(|part| part.points()).collect();
+    assert_eq!(parts, [whole.points()]);
+}
+
+#[test]
+fn a_rejoined_track_keeps_each_part_apart_through_renumbering() {
+    let before = vec![detection(0, 0.0, 0.0), detection(1, 10.0, 0.0)];
+    let after = vec![detection(12, 120.0, 0.0)];
+    let joined = Track::rejoined(0, vec![before.clone(), after.clone()])
+        .unwrap()
+        .with_id(3);
+    let parts: Vec<&[Detection]> = joined.parts().map(|part| part.points()).collect();
+    assert_eq!(parts, [before.as_slice(), after.as_slice()]);
+    assert_eq!(joined.points(), [before, after].concat());
+}
+
+#[test]
+fn a_track_rejoined_from_a_single_part_is_the_plain_track() {
+    let points = vec![detection(0, 0.0, 0.0), detection(1, 10.0, 0.0)];
+    assert_eq!(Track::rejoined(2, vec![points.clone()]), Track::new(2, points));
+    assert_eq!(Track::rejoined(2, Vec::new()), Err(Error::Empty { id: 2 }));
+}
+
+#[test]
+fn a_rejoined_track_with_an_empty_part_is_refused_rather_than_measured_as_nothing() {
+    assert_eq!(
+        Track::rejoined(4, vec![vec![detection(0, 0.0, 0.0)], Vec::new()]),
+        Err(Error::Empty { id: 4 })
+    );
+}
+
+#[test]
+fn rejoined_parts_out_of_time_order_are_refused() {
+    assert_eq!(
+        Track::rejoined(4, vec![vec![detection(5, 0.0, 0.0)], vec![detection(2, 0.0, 0.0)]]),
+        Err(Error::Unordered {
+            id: 4,
+            frame: FrameIndex::new(2)
+        })
+    );
+}
+
+#[test]
 fn largest_area_and_peak_amplitude_may_come_from_different_detections() {
     let measures = [(40.0, 22.5), (12.0, 61.0), (25.0, 30.0)];
     let points = measures
