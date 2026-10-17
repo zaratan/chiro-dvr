@@ -1303,6 +1303,7 @@ dependencies = [
  "reference",
  "serde",
  "serde_json",
+ "summary",
  "tempfile",
  "thiserror",
  "types",

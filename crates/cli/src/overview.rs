@@ -11,6 +11,7 @@ use summary::header::Labels;
 use summary::image_file::{self, write_png};
 use summary::layout::Summary;
 use summary::pages;
+use types::track::Track;
 
 #[cfg(test)]
 mod tests;
@@ -49,6 +50,20 @@ pub(crate) struct Drawing {
     pub(crate) track: usize,
     pub(crate) color: Rgb,
     pub(crate) page: PathBuf,
+}
+
+impl Drawn {
+    pub(crate) fn colors(&self, tracks: &[Track]) -> Vec<Option<Rgb>> {
+        tracks
+            .iter()
+            .map(|track| {
+                self.painted
+                    .iter()
+                    .find(|drawing| drawing.track == track.id())
+                    .map(|drawing| drawing.color)
+            })
+            .collect()
+    }
 }
 
 pub(crate) fn write_overview(

@@ -1254,7 +1254,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
   - Modules : `geometry` (chemins en `f64`, point à une longueur, rééchantillonnage,
     point le plus proche), `colors`, `arrows`, `placement`, `periods`, `header`,
     `marker`, `legend`, `layout` (les données d'une page), `compose` (le dessin),
-    `image_file` (PNG).
+    `image_file` (PNG). `assigned::track_colors(summary, largeur, hauteur)` (#13, feature `testing`, tests seulement) rend, dans l'ordre des pistes, la couleur de chacune sur l'image résumé de cette taille, par la même mise en page sans dessin : les tests figés de `cli` la passent au rendu des extraits, comme `process` y passe les couleurs de l'image dessinée.
   - Mêmes règles que la v0.1.1 pour les couleurs (indice le moins employé autour), les
     flèches (25°, 3 % de la longueur), la légende (colonnes, coupe par « ... ») et les
     tranches. Les tris Python deviennent des clés entières ; les points ne sont pas
@@ -2570,11 +2570,11 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       `.partial` et renommage ; un fichier illisible ne cache que lui-même.
     - `names::results_page` : `resultats.html` / `results.html`.
 - **`render`** → `media`, `draw`, `types` (#110, #112) : les extraits, du choix
-  des images à l'écriture. `clips::render(source, pistes, Outputs { clips, zooms },
+  des images à l'écriture. `clips::render(source, pistes, couleurs, Outputs { clips, zooms },
   RenderConfig, encodeurs)` en est le point d'entrée ; `cli` l'appelle depuis #112, et
   choisit les zooms par `ZoomConfig::wants` (#103).
   - `drawn`, derrière la feature `testing` (tests seulement, #198) : `drawn(source,
-    pistes, Outputs, RenderConfig)` passe par le même rendu, sur un fil, mais chaque
+    pistes, couleurs, Outputs, RenderConfig)` passe par le même rendu, sur un fil, mais chaque
     encodeur est remplacé par un enregistreur qui garde l'empreinte de chaque image
     poussée, fichier par fichier. Les tests figés de `cli` s'en servent.
   - `source` : `Source::new(chemin, Timeline, images-clés, images en erreur)`, puis
@@ -2649,8 +2649,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     touchent forment un groupe, décodé une fois sur son enveloppe et encodé une fois.
   - `overlay` et `picture` : sur chaque image, toutes les pistes présentes sont dessinées,
     une fois, et l'image dessinée est partagée par les extraits du groupe (comme
-    `overlay.py` de la v0.1.1). Boîte rouge de 2 px sur un point détecté, de 1 px sur un
-    point interpolé, `#N` au-dessus, trace jaune sur `trail_s`. Les couleurs et les
+    `overlay.py` de la v0.1.1). Boîte de 2 px sur un point détecté, de 1 px sur un
+    point interpolé, `#N` au-dessus, trace sur `trail_s`. Depuis #13, chaque piste a son encre (`ink`) : la couleur que `cli` lui passe, celle de l'image résumé, pour la boîte, le numéro et la trace, avec un liseré `INK` de 1 px de part et d'autre de la boîte et autour du numéro ; sans couleur, `BOX` et `TRAIL` sans liseré, le dessin d'avant. Les couleurs et les
     tailles viennent de `draw` ; les constantes propres aux extraits restent dans
     `overlay`. `Picture::draw` prend tout ce qui implémente `Marks` (ses zones, son
     dessin) : l'`Overlay` des extraits et la trace du zoom. Les zones viennent de
@@ -2672,7 +2672,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - Agrandissement au plus proche, en YUV : pixel de sortie `x` ← `gauche + x ×
       largeur du cadre / largeur de sortie` (entiers), chroma de sortie `cx` ← chroma de
       la source de la luma `2·cx`. Les lignes répétées se recopient.
-    - Trace seule, 1 px, jaune : centres des points détectés sur `trail_s` et position
+    - Trace seule, 1 px, de la couleur de la piste (#13) : centres des points détectés sur `trail_s` et position
       courante (boîte bornée, interpolée entre deux points), coupée dans la boîte
       courante élargie de 16 px (Liang-Barsky), placée à `(x − gauche + 0,5) × échelle`.
       Ni boîte ni `#N`. Affichage et conversion par zones comme les extraits.

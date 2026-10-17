@@ -3,6 +3,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use draw::color::Rgb;
 use engine::detection::{self, Detected, detect};
 use engine::input::Video;
 use files::aside::Stamp;
@@ -230,10 +231,12 @@ fn processed_since(
     };
     progress.step(Step::Summary).map_err(Error::Progress)?;
     let drawn = write_overview(overview, detected, &summary).map_err(Error::Overview)?;
+    let colors = drawn.colors(&tracks);
     let clips = Clips {
         job,
         names,
         detected,
+        colors: &colors,
         timeline: &timeline,
         options,
         extent: extent(&timeline, &exclusion),
@@ -333,6 +336,7 @@ struct Clips<'a> {
     job: &'a Job,
     names: Names,
     detected: &'a Detected,
+    colors: &'a [Option<Rgb>],
     timeline: &'a Timeline,
     options: &'a Options,
     extent: Extent,
@@ -384,6 +388,6 @@ fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, E
             source,
         })?;
     }
-    let rendered = clips::render(&source, tracks, &outputs, render, &encoders).map_err(Error::Clips)?;
+    let rendered = clips::render(&source, tracks, clips.colors, &outputs, render, &encoders).map_err(Error::Clips)?;
     Ok(Written { rendered, outputs })
 }

@@ -84,6 +84,7 @@ fn written_with(
     let video = Video {
         source,
         tracks,
+        colors: &[],
         config: tenth_of_a_second(),
     };
     render_with(&fake, threads, &video, &only(clips), codecs)
@@ -108,7 +109,15 @@ fn each_clip_holds_every_frame_of_its_window_bounded_by_the_video() {
     let (_, source) = source(folder.path());
     let tracks = tracks(&[(3..=7, 1), (8..=12, 1), (15..=17, 1), (40..=46, 1)]);
     let clips = clips(folder.path(), &tracks);
-    let rendered = render(&source, &tracks, &only(&clips), tenth_of_a_second(), &[Codec::OpenH264]).unwrap();
+    let rendered = render(
+        &source,
+        &tracks,
+        &[],
+        &only(&clips),
+        tenth_of_a_second(),
+        &[Codec::OpenH264],
+    )
+    .unwrap();
     assert_eq!((rendered.restarts, rendered.redone.len()), (0, 0));
     let counts: Vec<usize> = clips.iter().map(|clip| frame_count(&clip.path)).collect();
     assert_eq!(counts, [11, 11, 9, 11]);
@@ -124,7 +133,15 @@ fn only_the_requested_clips_are_written() {
         track: 1,
         path: wanted.clone(),
     }];
-    render(&source, &tracks, &only(&clips), tenth_of_a_second(), &[Codec::OpenH264]).unwrap();
+    render(
+        &source,
+        &tracks,
+        &[],
+        &only(&clips),
+        tenth_of_a_second(),
+        &[Codec::OpenH264],
+    )
+    .unwrap();
     assert_eq!(frame_count(&wanted), 11);
     assert_eq!(names_in(folder.path()), ["binoculars.mp4", "second.mp4"]);
 }
@@ -136,7 +153,15 @@ fn a_window_read_again_from_the_first_frame_is_counted() {
     let source = Source::new(&path, &read.timeline, &[], &read.errors).unwrap();
     let tracks = tracks(&[(3..=7, 1), (20..=24, 1)]);
     let clips = clips(folder.path(), &tracks);
-    let rendered = render(&source, &tracks, &only(&clips), tenth_of_a_second(), &[Codec::OpenH264]).unwrap();
+    let rendered = render(
+        &source,
+        &tracks,
+        &[],
+        &only(&clips),
+        tenth_of_a_second(),
+        &[Codec::OpenH264],
+    )
+    .unwrap();
     assert_eq!(rendered.restarts, 2);
 }
 
@@ -153,6 +178,7 @@ fn a_clip_for_a_track_the_video_does_not_hold_is_refused_before_any_writing() {
         let error = render(
             &source,
             &tracks,
+            &[],
             &only(&[clip]),
             tenth_of_a_second(),
             &[Codec::OpenH264],
@@ -178,7 +204,15 @@ fn a_clip_that_cannot_be_written_there_stops_the_video_and_leaves_no_partial_fil
             path: folder.path().join("missing").join("clip_1.mp4"),
         },
     ];
-    let error = render(&source, &tracks, &only(&clips), tenth_of_a_second(), &[Codec::OpenH264]).unwrap_err();
+    let error = render(
+        &source,
+        &tracks,
+        &[],
+        &only(&clips),
+        tenth_of_a_second(),
+        &[Codec::OpenH264],
+    )
+    .unwrap_err();
     assert!(matches!(error, Error::Destination { path: refused, .. } if refused == clips[1].path));
     assert_eq!(names_in(folder.path()), ["binoculars.mp4"]);
 }
@@ -201,6 +235,7 @@ fn groups_and_zooms_written_in_parallel_give_the_same_bytes_as_a_single_thread()
             let video = Video {
                 source: &source,
                 tracks: &tracks,
+                colors: &[],
                 config: tenth_of_a_second(),
             };
             render_with(&Ffmpeg, *threads, &video, &outputs, &[Codec::OpenH264]).unwrap();
@@ -357,6 +392,7 @@ fn with_zooms(
     let video = Video {
         source,
         tracks,
+        colors: &[],
         config: tenth_of_a_second(),
     };
     let outputs = Outputs {
@@ -418,7 +454,7 @@ fn a_zoom_for_a_track_the_video_does_not_hold_is_refused_before_any_writing() {
         }],
         annotated: None,
     };
-    let error = render(&source, &tracks, &outputs, tenth_of_a_second(), &[Codec::OpenH264]).unwrap_err();
+    let error = render(&source, &tracks, &[], &outputs, tenth_of_a_second(), &[Codec::OpenH264]).unwrap_err();
     assert!(matches!(error, Error::UnknownTrack { track: 1 }));
     assert_eq!(names_in(folder.path()), ["binoculars.mp4"]);
 }
@@ -427,6 +463,7 @@ fn annotated_by(fake: &Fake, source: &Source, tracks: &[Track], folder: &Path) -
     let video = Video {
         source,
         tracks,
+        colors: &[],
         config: tenth_of_a_second(),
     };
     let outputs = Outputs {
@@ -487,7 +524,7 @@ fn the_annotated_video_spaces_its_key_frames_up_to_a_second_apart_rather_than_tw
         annotated: Some(annotated.clone()),
     };
     for codecs in [&BOTH[..], &[Codec::OpenH264]] {
-        render(&source, &[], &outputs, tenth_of_a_second(), codecs).unwrap();
+        render(&source, &[], &[], &outputs, tenth_of_a_second(), codecs).unwrap();
         let keys: Vec<usize> = sequential::read(&annotated).keys.iter().map(|key| key.get()).collect();
         let gaps: Vec<usize> = keys.windows(2).map(|pair| pair[1] - pair[0]).collect();
         assert_eq!(keys.first(), Some(&0), "{codecs:?}");

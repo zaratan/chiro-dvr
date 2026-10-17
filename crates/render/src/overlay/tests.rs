@@ -1,5 +1,5 @@
 use draw::canvas::Canvas;
-use draw::color::{BOX, INK, Rgb, TRAIL};
+use draw::color::{BOX, INK, PALETTE, Rgb, TRAIL};
 use draw::text::Typeface;
 use types::detection::Detection;
 use types::frame::FrameIndex;
@@ -7,16 +7,23 @@ use types::track::Track;
 
 use super::Overlay;
 use crate::config::RenderConfig;
+use crate::ink::inks;
 use crate::picture::Marks;
 use crate::testing::{thirty, track};
 
 const WIDTH: u32 = 400;
 const HEIGHT: u32 = 300;
 
+const GREY: Rgb = Rgb::new(90, 100, 110);
+
 fn drawn(tracks: &[Track], config: RenderConfig, frame: usize) -> Canvas {
+    painted(tracks, &[], config, frame, INK)
+}
+
+fn painted(tracks: &[Track], colors: &[Option<Rgb>], config: RenderConfig, frame: usize, background: Rgb) -> Canvas {
     let typeface = Typeface::roboto().unwrap();
-    let overlay = Overlay::new(tracks, 10, config, thirty(), &typeface);
-    let mut canvas = Canvas::new(WIDTH, HEIGHT, INK).unwrap();
+    let overlay = Overlay::new(tracks, &inks(colors, tracks.len()), 10, config, thirty(), &typeface);
+    let mut canvas = Canvas::new(WIDTH, HEIGHT, background).unwrap();
     overlay.draw(&mut canvas, FrameIndex::new(frame));
     canvas
 }
@@ -41,6 +48,26 @@ fn a_detected_point_gets_a_two_pixel_box_and_an_interpolated_one_a_one_pixel_box
     let interpolated = drawn(&tracks, RenderConfig::default(), 2);
     let row: Vec<Rgb> = (102..=104).map(|x| pixel(&interpolated, x, 140)).collect();
     assert_eq!(row, [INK, BOX, INK]);
+}
+
+#[test]
+fn a_coloured_track_has_its_box_in_its_colour_between_two_one_pixel_dark_rims() {
+    let tracks = [track(1, &[(0, 100.0, 150.0), (4, 140.0, 150.0)])];
+    let cyan = PALETTE[1];
+    let detected = painted(&tracks, &[Some(cyan)], RenderConfig::default(), 0, GREY);
+    let row: Vec<Rgb> = (80..=85).map(|x| pixel(&detected, x, 140)).collect();
+    assert_eq!(row, [GREY, INK, cyan, cyan, INK, GREY]);
+    let interpolated = painted(&tracks, &[Some(cyan)], RenderConfig::default(), 2, GREY);
+    let row: Vec<Rgb> = (101..=105).map(|x| pixel(&interpolated, x, 140)).collect();
+    assert_eq!(row, [GREY, INK, cyan, INK, GREY]);
+}
+
+#[test]
+fn a_track_without_a_colour_keeps_the_red_box_without_a_rim() {
+    let tracks = [track(1, &[(0, 100.0, 150.0)]), track(2, &[(0, 300.0, 150.0)])];
+    let canvas = painted(&tracks, &[Some(PALETTE[1])], RenderConfig::default(), 0, GREY);
+    let row: Vec<Rgb> = (281..=284).map(|x| pixel(&canvas, x, 140)).collect();
+    assert_eq!(row, [GREY, BOX, BOX, GREY]);
 }
 
 #[test]
@@ -74,6 +101,17 @@ fn the_trail_joins_the_detected_points_of_the_last_trail_frames_to_the_current_o
 }
 
 #[test]
+fn the_trail_of_a_coloured_track_is_drawn_in_its_colour() {
+    let points: Vec<(usize, f64, f64)> = (0..6)
+        .map(|frame| (frame, 100.0 + 10.0 * frame as f64, 150.0))
+        .collect();
+    let two_frames = RenderConfig::new(12, 2.0 / 30.0, 1.5, 300).unwrap();
+    let orange = PALETTE[2];
+    let canvas = painted(&[track(1, &points)], &[Some(orange)], two_frames, 5, INK);
+    assert_eq!(pixel(&canvas, 135, 150), orange);
+}
+
+#[test]
 fn a_track_seen_once_draws_no_trail() {
     let canvas = drawn(&[track(1, &[(0, 100.0, 150.0)])], RenderConfig::default(), 0);
     assert!(canvas.rgba().as_chunks::<4>().0.iter().all(|pixel| pixel[1] == 0));
@@ -84,6 +122,25 @@ fn the_track_number_stands_six_pixels_above_its_box() {
     let canvas = drawn(&[track(7, &[(0, 100.0, 150.0)])], RenderConfig::default(), 0);
     assert!(reddish(&canvas, 83..=120, 105..=127));
     assert!(!reddish(&canvas, 83..=120, 128..=131));
+}
+
+#[test]
+fn the_number_of_a_coloured_track_is_written_in_its_colour_on_a_dark_halo_in_place_of_the_red() {
+    let cyan = PALETTE[1];
+    let canvas = painted(
+        &[track(7, &[(0, 100.0, 150.0)])],
+        &[Some(cyan)],
+        RenderConfig::default(),
+        0,
+        GREY,
+    );
+    let label: Vec<Rgb> = (104..=128)
+        .flat_map(|y| (82..=121).map(move |x| (x, y)))
+        .map(|(x, y)| pixel(&canvas, x, y))
+        .collect();
+    assert!(label.contains(&cyan));
+    assert!(label.contains(&INK));
+    assert!(!label.contains(&BOX));
 }
 
 #[test]
@@ -169,8 +226,15 @@ fn the_zones_of_a_frame_cover_every_drawn_pixel_and_are_even_disjoint_and_inside
         track(3, &[(1, 395.0, 295.0), (4, 380.0, 280.0), (8, 360.0, 270.0)]),
     ];
     let typeface = Typeface::roboto().unwrap();
-    let overlay = Overlay::new(&tracks, 10, RenderConfig::default(), thirty(), &typeface);
-    let grey = Rgb::new(90, 100, 110);
+    let colors = [Some(PALETTE[0]), None, Some(PALETTE[5])];
+    let overlay = Overlay::new(
+        &tracks,
+        &inks(&colors, 3),
+        10,
+        RenderConfig::default(),
+        thirty(),
+        &typeface,
+    );
     for frame in 0..10 {
         let zones = overlay.zones(FrameIndex::new(frame), WIDTH, HEIGHT);
         for zone in &zones {
@@ -194,7 +258,7 @@ fn the_zones_of_a_frame_cover_every_drawn_pixel_and_are_even_disjoint_and_inside
                 assert!(apart, "{zone:?} {other:?}");
             }
         }
-        let mut canvas = Canvas::new(WIDTH, HEIGHT, grey).unwrap();
+        let mut canvas = Canvas::new(WIDTH, HEIGHT, GREY).unwrap();
         overlay.draw(&mut canvas, FrameIndex::new(frame));
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
@@ -202,7 +266,7 @@ fn the_zones_of_a_frame_cover_every_drawn_pixel_and_are_even_disjoint_and_inside
                     (zone.left..zone.left + zone.width).contains(&x) && (zone.top..zone.top + zone.height).contains(&y)
                 });
                 assert!(
-                    covered || pixel(&canvas, x, y) == grey,
+                    covered || pixel(&canvas, x, y) == GREY,
                     "frame {frame}: ({x}, {y}) drawn outside {zones:?}"
                 );
             }

@@ -219,11 +219,9 @@ peu contrastée sortait en fragments écartés de 18 à 24 px, trop pour `merge_
 
 ## Rendu
 
-Entre deux détections d'une même piste, la boîte est interpolée linéairement à chaque
-image et dessinée en trait fin, pour qu'elle ne clignote pas ; la trace jaune orangé de la
-dernière seconde la suit jusqu'à cette position. Ces positions servent
-uniquement à l'affichage : le CSV et le banc ne comptent que les vraies détections, et la
-colonne `images comblées` indique combien d'images ont été comblées.
+Entre deux détections d'une même piste, la boîte est interpolée linéairement à chaque image et dessinée en trait fin, pour qu'elle ne clignote pas ; la trace de la dernière seconde la suit jusqu'à cette position. Ces positions servent uniquement à l'affichage : le CSV et le banc ne comptent que les vraies détections, et la colonne `images comblées` indique combien d'images ont été comblées.
+
+Boîte, numéro et trace prennent la couleur de la piste sur l'image résumé, dans les extraits, les zooms et la vidéo annotée (#13). La boîte (2 px, 1 px interpolée) est bordée d'un liseré noir de 1 px de chaque côté, et le numéro, 6 px au-dessus, d'un liseré noir de 1 px : la couleur se détache de la roche claire comme du ciel sombre, même la plus claire de la palette (235, 235, 235). Le numéro garde sa place au-dessus de la boîte (choix de l'utilisateur, 16 octobre 2026). L'autre place essayée, à 24 px en diagonale de la boîte, ne cachait aucun pixel à moins de 30 px de la cible sur trois images sur quatre, et 16 pixels sur la quatrième ; à sa place, le numéro en cache de 13 à 277 sur ces quatre images. La trace n'a pas de liseré. Une piste absente de l'image résumé garderait la boîte rouge (255, 0, 0) et la trace jaune orangé (255, 200, 0) sans liseré ; cela n'arrive pas aujourd'hui, chaque piste étant dessinée sur une image résumé.
 
 Chaque côté de la boîte dessinée est borné à 4 fois la médiane du même côté sur les points
 détectés de la piste, et la boîte bornée est recentrée sur le barycentre : une tache étalée
