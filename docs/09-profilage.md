@@ -173,6 +173,37 @@ résidente au plus haut.
 - Sur l'extrait, les 4 zooms de `--zoom all`, encodés par openh264, ajoutent 1,5 s réelles,
   24,4 s de CPU et 448 Mo au pic.
 
+### Préparation vectorisée (#214, 17 octobre 2026)
+
+#214 calcule le gris par sa forme close et réduit les rapports courants (3:2 au défaut de 960) par blocs fixes, sans changer un pixel (docs/11). Mesures avant (a868062) et après (23fa9b4), binaires `release`, `LANG=fr_FR.UTF-8`, un dossier de sortie neuf à chaque passage, sous `verrou chrono` (`/usr/bin/time -v` sur lumiel, `-l` sur le M1 Max). La détection est l'écart entre les lignes « détection » et « suivi » de la sortie d'erreur, horodatées.
+
+- **lumiel** : Ryzen 5 3600X (6 cœurs, 12 fils), Rocky Linux 10, Rust 1.99.0, cible `x86-64-v2`. D'autres sessions y tournent : le CPU des autres processus est compté par `/proc/stat` pendant chaque passage, et un passage pendant une compilation hors verrou est écarté (6 passages).
+- **M1 Max** : la machine du protocole ci-dessus, calme vérifié avant chaque série (somme des `%CPU` des autres processus de 19 à 85 %).
+
+Préparation d'une image (gris, réduction, flou), un fil, 200 images de l'extrait, par une sonde temporaire hors du dépôt (meilleur de 5 passes) :
+
+| Machine | Largeur | Avant | Après | Gain |
+| --- | ---: | ---: | ---: | ---: |
+| lumiel | 960 | 2,85 ms | 1,88 ms | 34 % |
+| lumiel | 1440 | 3,73 ms | 3,34 ms | 10 % |
+| M1 Max | 960 | 1,74 ms | 1,00 ms | 43 % |
+| M1 Max | 1440 | 2,18 ms | 1,92 ms | 12 % |
+
+- Sur lumiel, à 960 : le gris passe de 0,54 à 0,18 ms, la réduction hors gris de 1,23 à 0,63 ms ; les deux flous (0,44 et 0,63 ms), déjà vectorisés, ne changent pas.
+- Sur le M1 Max, à 960 : la réduction gris compris passe de 1,18 à 0,44 ms ; le flou horizontal reste à 0,19 ms.
+- À 1440, la réduction n'est que le gris : seul lui gagne.
+
+Détection de la 092 entière, paires avant / après alternées :
+
+| Machine | Paires | Avant | Après | Gain médian | CPU | Pic |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| lumiel | 6 | 19,31 à 20,85 s | 18,47 à 19,97 s | 4,4 % (3,5 à 10,2) | 240 à 241 → 233 à 235 s | 1,30 à 1,34 Go des deux côtés |
+| M1 Max | 3 | 12,09 à 12,91 s | 11,26 à 11,57 s | 10,4 % (6,7 à 10,4) | 125 à 127 → 119 à 120 s | 1,05 → 1,05 à 1,10 Go |
+
+- Sur lumiel, la préparation ne fait qu'environ 11 % du CPU (2,85 ms × 9 011 images = 25,7 s sur 241 s), contre 20,3 % des échantillons sur le M1 Max (« Où passe le CPU ») : le décodage y pèse plus, d'où un gain moitié moindre.
+- Sur l'extrait, lumiel gagne 3,9 % en médiane (2,94 à 2,99 s avant, 2,84 à 2,96 s après, 3 paires), puis 2,8 % sur une paire.
+- Les pistes ne changent pas : CSV identique à l'octet sur la 092 du M1 Max, empreinte de l'extrait identique (`slow_extract`), aucun écart de `compare local` sur les 26 vidéos de lumiel.
+
 ## v0.1.1 (Python)
 
 Historique des optimisations du Python jusqu'à la v0.1.1, mesuré du 4 au 6 octobre 2026

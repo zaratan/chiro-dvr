@@ -1,6 +1,10 @@
 #[cfg(test)]
 mod tests;
 
+const SCALE: i32 = 4769;
+const OFFSET: i32 = 81_520;
+const FRACTION_BITS: u32 = 12;
+
 pub(crate) const GRAY: [u8; 256] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19,
     20, 22, 23, 24, 25, 26, 27, 28, 30, 31, 32, 33, 34, 35, 37, 38, 39, 40, 41, 42, 44, 45, 46, 47, 48, 49, 51, 52, 53,
@@ -16,4 +20,8 @@ pub(crate) const GRAY: [u8; 256] = [
 
 pub const fn gray(luma: u8) -> u8 {
     GRAY[luma as usize]
+}
+
+pub(crate) fn computed(luma: u8) -> u8 {
+    ((i32::from(luma) * SCALE - OFFSET) >> FRACTION_BITS).clamp(0, i32::from(u8::MAX)) as u8
 }

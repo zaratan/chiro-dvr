@@ -1616,26 +1616,27 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       `u32::MAX` pixels. Seul `WorkScale` passe aux pixels d'origine, avec l'échelle des
       largeurs pour les deux axes, comme la v0.1.1 : quand la hauteur de travail est
       arrondie, y s'écarte de moins de 0,5 pixel d'origine en bas de l'image.
-    - `reduction` (#150) : Y → gris par la table `GRAY`, puis réduction par aire, par
+    - `reduction` (#150) : Y → gris par la forme close de la table `GRAY` (#214), puis réduction par aire, par
       axe : le rapport source / travail réduit à p/q, le pixel de travail i couvre la
       source de i·p à (i+1)·p en unités de 1/q, et chaque pixel source pèse la longueur
       de son intersection. Les deux axes ont leur propre rapport (hauteur arrondie,
       comme `fx` et `fy` d'`INTER_AREA`). Un seul arrondi à 8 bits, `(total + T/2) / T`
-      avec T = p_x × p_y, par l'inverse sur 64 bits (exact pour un total sur 32 bits,
+      avec T = p_x × p_y, par un inverse sur 32 bits dans les blocs fixes ci-dessous, sinon par l'inverse sur 64 bits (exact pour un total sur 32 bits,
       méthode de Lemire), par une vraie division au-delà. En 3:2, T = 9 et les poids 2, 1
       puis 1, 2 : les sommes et l'arrondi du premier moteur, testés par un proptest
       contre l'ancienne réduction et contre un calcul brut des aires. La passe
       horizontale va par blocs de q pixels de travail, le nombre de poids par pixel fixé
       à la compilation de 1 à 4.
+      - Blocs fixes (#214) : pour les rapports 2:1, 3:1, 3:2 et 4:3 (largeurs de travail 720 et 480, le défaut 960, et 960 sur une source de 1280), quand T ≤ 128, la passe horizontale prend des blocs, choisis à la construction, de p pixels source et q pixels de travail fixés à la compilation, avec les poids de chaque pixel de travail sur tout le bloc, en tableaux fixes (zéro hors de son aire). Le total tient sur 32 bits et s'arrondit par `((total + T/2) × (⌊2²³ / T⌋ + 1)) >> 23`, sans dépasser 32 bits ; un test exhaustif le vérifie contre `(total + T/2) / T` pour chaque T de 1 à 128 et chaque total de 0 à 255 × T. LLVM vectorise alors la boucle des blocs dans le binaire livré, que la forme générale laissait scalaire (poids lus par indice, inverse sur 128 bits) : en `x86-64-v2`, 4 blocs 3:2 par tour, lus au pas de 3 par `pinsrd` ; en aarch64, lus au pas de 3 par `ld3.4s`, puis `mla.4s` et `ushr.4s #23`. Sans LTO, la crate seule reste scalaire en aarch64 : la vectorisation ne se juge que sur le binaire. Les autres rapports gardent la forme générale. Un fil, `release` : sur lumiel, 0,63 ms par image à 960 hors gris contre 1,23 ; sur le M1 Max, 0,44 ms gris compris contre 1,18 (docs/09).
       - Taille inchangée (1:1, #159) : quand la source a déjà la largeur et la hauteur
-        de travail, la réduction n'est que la table `GRAY`, sans aire, sans arrondi et
+        de travail, la réduction n'est que le gris, sans aire, sans arrondi et
         sans copie du gris de la source. Un fil, `release` : 0,41 ms par image à 1440
         contre 1,84. Sur `092-1440` : 158,5 s de CPU contre 166,1 (−4,6 %, trois paires
         A/B en alternance avec `main`), 613 Mo de mémoire résidente contre 628.
       - Essayés et écartés par #159, mesurés à 960 contre 1,17 ms par image : les
         champs de l'arrondi pris dans les fermetures (1,18 ms, LLVM le faisait déjà) ;
         des poids contigus avec totaux et inverse sur 32 bits (1,39 ms) ; l'inverse
-        sur 32 bits seul (1,21 ms).
+        sur 32 bits seul (1,21 ms). Ces chiffres sont ceux du M1 Max, où les blocs fixes de #214 passent à 0,44 ms gris compris.
     - `blur` (#150) : noyau gaussien de σ = `target_sigma / échelle` pixels de travail,
       portée ⌈4σ⌉ (la même qu'OpenCV pour tous les σ du banc), poids
       `exp(−d²/2σ²)` (le poids central posé à 1, sans formule) partagés en 4 096 parts
@@ -1812,7 +1813,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     table de 256 gris mesurée sur OpenCV (`GRAY` dans `gray`, privée, lue par
     `gray::gray(y)`, `const fn` publique depuis #107 : une rampe Y = 0 à
     255, U = V = 128, encodée sans perte en plage `tv`, lue par `cv2.VideoCapture`
-    puis `COLOR_BGR2GRAY`), puis la réduction
+    puis `COLOR_BGR2GRAY`). Le calcul passe par sa forme close (`gray::computed`, #214), `clamp((Y × 4769 − 81 520) >> 12, 0, 255)`, égale à la table sur les 256 valeurs (test exhaustif), ajustée sur la table : sa lecture restait scalaire en `x86-64-v2`, la forme close se vectorise dans le binaire livré (`pmaddwd` en `x86-64-v2` ; `ushll`, `mla.4s` et `sshr.4s #12` en aarch64, 16 octets par tour). Puis la réduction
     pondère ces gris et arrondit à 8 bits avant la gaussienne. La table suit
     `(Y − 16) × 255 / 219` de 1,2 à 2,3 niveaux en dessous, en dents de scie, à 0
     jusqu'à Y = 17 et à 255 dès Y = 237. Ablation (P1, M1 Max, un choix à la fois,
