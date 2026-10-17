@@ -3,9 +3,8 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
-use compare::agreement::Agreement;
 use compare::case::{Case, EXTRACT};
-use compare::comparison::{Comparison, Folders, compare, frames_path};
+use compare::comparison::{Comparison, Folders, Gaps, compare, frames_path};
 use compare::report::write_report;
 use compare::sameness::Verdict;
 use reference::fixture::fixtures;
@@ -27,7 +26,7 @@ fn run() -> &'static Run {
     RUN.get_or_init(|| {
         let folder = TempDir::new().unwrap();
         let comparison = compare(
-            &Case::committed(Reference::V011, EXTRACT),
+            &Case::committed(Reference::V020, EXTRACT),
             &Folders {
                 frames: Some(folder.path().to_path_buf()),
                 same_as: None,
@@ -36,7 +35,7 @@ fn run() -> &'static Run {
         .unwrap();
         write_report(std::slice::from_ref(&comparison), &mut io::stdout().lock()).unwrap();
         let again = compare(
-            &Case::committed(Reference::V011, EXTRACT),
+            &Case::committed(Reference::V020, EXTRACT),
             &Folders {
                 frames: None,
                 same_as: Some(folder.path().to_path_buf()),
@@ -53,20 +52,14 @@ fn run() -> &'static Run {
     })
 }
 
-const V011_RATE: f64 = 0.98;
-
-fn within_the_v011_rate(detections: &Agreement) -> bool {
-    detections.reference_rate() >= V011_RATE && detections.candidate_rate() >= V011_RATE
-}
-
 fn committed_detections() -> PathBuf {
     frames_path(&fixtures().join("rust"), &format!("{EXTRACT}.mp4"))
 }
 
 #[test]
 #[ignore = "slow"]
-fn the_extract_agrees_with_the_reference_on_98_percent_of_its_detections_both_ways() {
-    assert!(within_the_v011_rate(&run().comparison.detections));
+fn the_extract_has_no_gap_to_the_v020_on_its_detections_or_its_four_tracks() {
+    assert_eq!(run().comparison.gaps(), Gaps::agreeing(4));
 }
 
 #[test]

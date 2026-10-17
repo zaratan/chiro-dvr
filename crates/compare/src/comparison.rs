@@ -44,9 +44,48 @@ pub struct Folders {
     pub same_as: Option<PathBuf>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Gaps {
+    pub differing_frames: usize,
+    pub lost_detections: usize,
+    pub added_detections: usize,
+    pub paired_tracks: usize,
+    pub agreeing_tracks: usize,
+    pub lost_tracks: usize,
+    pub added_tracks: usize,
+}
+
+impl Gaps {
+    pub fn agreeing(tracks: usize) -> Self {
+        Self {
+            differing_frames: 0,
+            lost_detections: 0,
+            added_detections: 0,
+            paired_tracks: tracks,
+            agreeing_tracks: tracks,
+            lost_tracks: 0,
+            added_tracks: 0,
+        }
+    }
+}
+
 impl Comparison {
     pub fn differs(&self) -> bool {
         self.detections.differs() || self.tracks.differs()
+    }
+
+    pub fn gaps(&self) -> Gaps {
+        let detections = self.detections.counts();
+        let tracks = self.tracks.counts();
+        Gaps {
+            differing_frames: detections.differing_frames,
+            lost_detections: detections.lost,
+            added_detections: detections.added,
+            paired_tracks: tracks.paired,
+            agreeing_tracks: tracks.agreeing,
+            lost_tracks: tracks.lost,
+            added_tracks: tracks.added,
+        }
     }
 }
 

@@ -5,6 +5,7 @@ mod clips;
 #[path = "support/panics.rs"]
 mod panics;
 
+use std::collections::BTreeSet;
 use std::error::Error;
 use std::io;
 use std::iter::successors;
@@ -16,14 +17,12 @@ use std::thread;
 use std::time::Instant;
 
 use batdetect::options::Options;
-use batdetect::process::{Processed, process_detected};
+use batdetect::process::{Processed, process_detected, tracked};
 use batdetect::progress::Silent;
-use compare::agreement::Agreement;
 use compare::case::{Case, WHOLE, WHOLE_AT_1440};
-use compare::comparison::{Comparison, Folders, compare, compared};
+use compare::comparison::{Comparison, Folders, Gaps, compare, compared};
 use compare::frames::pass_of;
 use compare::report::write_report;
-use compare::tracks::TrackCounts;
 use engine::config::DetectConfig;
 use engine::damage::Damage;
 use engine::detection::{Detected, detect};
@@ -34,7 +33,9 @@ use reference::fixture::fixture;
 use reference::frames::Frames;
 use reference::location::{Reference, committed};
 use reference::recording::{Recording, SUMMARY_FILE};
+use reference::track_matching::START_TOLERANCE_FRAMES;
 use reference::video::VideoSummary;
+use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
 
@@ -57,11 +58,11 @@ struct Shared {
     at_1440: Result<Comparison, String>,
 }
 
-const V011_RATE: f64 = 0.98;
-
-fn within_the_v011_rate(detections: &Agreement) -> bool {
-    detections.reference_rate() >= V011_RATE && detections.candidate_rate() >= V011_RATE
-}
+const BATS_MANON_CONFIRMED_S: [f64; 13] = [
+    7.39, 33.93, 51.62, 53.75, 72.59, 108.92, 122.81, 144.62, 156.98, 163.94, 228.27, 230.87, 237.16,
+];
+const SLOW_OBJECT_S: f64 = 209.59;
+const KNOWN_TARGET_S: f64 = 222.10;
 
 fn shared() -> &'static Shared {
     static SHARED: OnceLock<Shared> = OnceLock::new();
@@ -134,21 +135,61 @@ fn command(video: &Path, detected: &Detected, options: &Options) -> Result<Comma
 
 fn at_1440() -> Result<Comparison, Box<dyn Error>> {
     Ok(compare(
-        &Case::setting(committed(Reference::V011, WHOLE_AT_1440)),
+        &Case::setting(committed(Reference::V020, WHOLE_AT_1440)),
         &Folders::default(),
     )?)
 }
 
 #[test]
 #[ignore = "reference"]
-fn the_092_gives_the_fourteen_tracks_and_clips_of_the_reference_and_its_single_zoom() {
+fn the_092_tracks_the_thirteen_bats_manon_confirmed_from_their_start_and_nothing_new_beside_the_slow_object_at_3_29_and_the_known_target_at_3_42()
+ {
+    let run = tracked(&shared().defaults.as_ref().unwrap().detected, &Options::default()).unwrap();
+    let tolerance = run.timeline.rate().seconds(FrameIndex::new(START_TOLERANCE_FRAMES));
+    let starts: Vec<f64> = run
+        .tracks
+        .iter()
+        .map(|track| run.timeline.seconds_by_pts(track.first().frame).unwrap())
+        .collect();
+
+    let found: Vec<Option<usize>> = BATS_MANON_CONFIRMED_S
+        .iter()
+        .map(|bat| starts.iter().position(|start| (start - bat).abs() <= tolerance))
+        .collect();
+
+    assert!(found.iter().all(Option::is_some), "{found:?} among {starts:?}");
+    let bats: BTreeSet<usize> = found.into_iter().flatten().collect();
+    assert_eq!(bats.len(), BATS_MANON_CONFIRMED_S.len());
+    let others: Vec<f64> = starts
+        .iter()
+        .enumerate()
+        .filter(|(track, _)| !bats.contains(track))
+        .map(|(_, start)| *start)
+        .collect();
+    let tolerated: Vec<Option<usize>> = others
+        .iter()
+        .map(|start| {
+            [SLOW_OBJECT_S, KNOWN_TARGET_S]
+                .iter()
+                .position(|known| (start - known).abs() <= tolerance)
+        })
+        .collect();
+    assert!(tolerated.iter().all(Option::is_some), "{others:?}");
+    let places: BTreeSet<usize> = tolerated.into_iter().flatten().collect();
+    assert_eq!(places.len(), others.len(), "{others:?}");
+}
+
+#[test]
+#[ignore = "reference"]
+fn the_092_by_the_command_keeps_its_tracks_frozen_against_the_v020_with_their_clips_and_single_zoom() {
     let command = shared().defaults.as_ref().unwrap().command.as_ref().unwrap();
-    let recording = Recording::read(&committed(Reference::V011, WHOLE)).unwrap();
+    let recording = Recording::read(&committed(Reference::V020, WHOLE)).unwrap();
     let rate = FrameRate::new(recording.summary.stream.avg_frame_rate).unwrap();
     let found = agreement::agreement(&command.processed_in_removed_folder, &recording, rate);
-    assert_eq!(command.processed_in_removed_folder.tracks.len(), 14);
-    assert_eq!((found.reference, found.paired, found.agreeing), (14, 14, 14));
-    assert_eq!((found.lost, found.added), (0, 0));
+    assert_eq!(
+        [found.reference, found.paired, found.agreeing, found.lost, found.added],
+        [14, 14, 14, 0, 0]
+    );
     assert_eq!(found.discrepancies, []);
     let expected = [
         ("track_01_0m07s.mp4", 113),
@@ -177,9 +218,9 @@ fn the_092_gives_the_fourteen_tracks_and_clips_of_the_reference_and_its_single_z
 
 #[test]
 #[ignore = "reference"]
-fn the_whole_092_agrees_with_the_reference_on_98_percent_of_its_detections_both_ways() {
+fn the_whole_092_keeps_the_gaps_frozen_against_the_v020_on_its_detections_and_tracks() {
     let defaults = shared().defaults.as_ref().unwrap();
-    let recording = Recording::read(&committed(Reference::V011, WHOLE)).unwrap();
+    let recording = Recording::read(&committed(Reference::V020, WHOLE)).unwrap();
     assert_eq!(recording.summary.video.name, format!("{WHOLE}.mp4"));
     let settings = recording.summary.detect_settings::<DetectSettings>().unwrap();
     assert_eq!(DetectConfig::try_from(&settings).unwrap(), Options::default().detect);
@@ -187,7 +228,7 @@ fn the_whole_092_agrees_with_the_reference_on_98_percent_of_its_detections_both_
         defaults.detected.half_window().get(),
         recording.summary.background_half_window
     );
-    let name = Case::committed(Reference::V011, WHOLE).name(&recording.summary.video.name);
+    let name = Case::committed(Reference::V020, WHOLE).name(&recording.summary.video.name);
     let comparison = compared(
         &name,
         &pass_of(&defaults.detected).unwrap(),
@@ -197,26 +238,16 @@ fn the_whole_092_agrees_with_the_reference_on_98_percent_of_its_detections_both_
     .unwrap();
 
     write_report(slice::from_ref(&comparison), &mut io::stdout().lock()).unwrap();
-    assert!(within_the_v011_rate(&comparison.detections));
+    assert_eq!(comparison.gaps(), Gaps::agreeing(14));
 }
 
 #[test]
 #[ignore = "reference"]
-fn the_whole_092_worked_at_1440_pixels_agrees_with_its_reference_on_98_percent_of_its_detections_and_on_every_track() {
+fn the_whole_092_worked_at_1440_pixels_keeps_the_gaps_frozen_against_the_v020() {
     let comparison = shared().at_1440.as_ref().unwrap();
 
     write_report(slice::from_ref(comparison), &mut io::stdout().lock()).unwrap();
-    assert!(within_the_v011_rate(&comparison.detections));
-    assert_eq!(
-        comparison.tracks.counts(),
-        TrackCounts {
-            reference: 14,
-            paired: 14,
-            agreeing: 14,
-            lost: 0,
-            added: 0,
-        }
-    );
+    assert_eq!(comparison.gaps(), Gaps::agreeing(14));
 }
 
 #[test]

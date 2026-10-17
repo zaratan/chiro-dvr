@@ -61,6 +61,7 @@ matrice, les six tâches `rust*` font huit exécutions, et `package` six de plus
   niveau le plus bas). Ils restent : la forme `$/…` qu'il propose est refusée par
   actionlint 1.7.12.
 - actionlint 1.7.12 ne connaît pas le label `ubuntu-26.04` : `.github/actionlint.yaml` le déclare (`self-hosted-runner`), à retirer quand une version le connaîtra.
+- **PR de détection.** Une PR qui change la détection (#276) met à jour les écarts figés contre la référence v0.2.0, vidéo par vidéo et cas par cas, de `slow_extract`, `settings_agreement`, `reference_092`, `local_agreement`, `local_command` et `local_clips`, avec la cause de chaque écart dans la PR ; joint le rapport de `compare local --reference v0.1.1`, contre l'implémentation indépendante du Python ; met à jour [03](03-resultats-092.md) si les pistes de la 092 bougent, et [10](10-logique-de-detection.md) pour l'étape changée. Les passages de la naturaliste sur la 092 (`reference_092`) ne bougent pas : un passage manqué est une régression, pas un écart à figer.
 - **Trois workflows pour la publication**, parce qu'un workflow appelé ne peut pas
   recevoir plus de droits que celui qui l'appelle (`ci.yml` n'a que `contents: read`) :
   - `package.yml` (`workflow_call` et `workflow_dispatch`, lecture seule) :
