@@ -1,33 +1,43 @@
-use reference::location::{Reference, committed};
-use reference::recording::Recording;
-use tracking::exclusion::{Exclusion, exclude};
-use tracking::stability::StabilityConfig;
+#[path = "shared/committed.rs"]
+mod committed;
+#[path = "shared/kept.rs"]
+mod kept;
+
+use kept::{Kept, UNCHANGED};
 use types::rate::FrameRate;
 
-fn excluded(recording: &Recording, rate: FrameRate) -> Exclusion {
-    let summary = &recording.summary;
-    exclude(
-        recording.frames.detections(),
-        summary.damaged_spans.clone(),
-        summary.counts.damaged_frames_reported,
-        rate,
-        StabilityConfig::default(),
-    )
-}
+const FROZEN: [(&str, Kept); 19] = [
+    ("video_092_original_3m24-4m05", UNCHANGED),
+    ("video_092_original", UNCHANGED),
+    ("video_092_original_width_1440", UNCHANGED),
+    ("max_area_400", UNCHANGED),
+    ("merge_radius_0", UNCHANGED),
+    ("min_area_9", UNCHANGED),
+    ("noise_factor_0", UNCHANGED),
+    ("osd", UNCHANGED),
+    ("quick", UNCHANGED),
+    ("sigma_0", UNCHANGED),
+    ("sigma_3", UNCHANGED),
+    ("size_720x540", UNCHANGED),
+    ("step_1", UNCHANGED),
+    ("threshold_25", UNCHANGED),
+    ("width_1440", UNCHANGED),
+    ("width_1440_osd", UNCHANGED),
+    ("width_480", UNCHANGED),
+    ("width_720", UNCHANGED),
+    ("window_2s", UNCHANGED),
+];
 
 #[test]
-fn the_excerpt_and_the_full_092_keep_every_detection_as_the_reference_does() {
-    for (name, kept) in [("video_092_original_3m24-4m05", 402), ("video_092_original", 780)] {
-        let recording = Recording::read(&committed(Reference::V011, name)).unwrap();
-        let rate = FrameRate::new(recording.summary.stream.avg_frame_rate).unwrap();
-        let exclusion = excluded(&recording, rate);
-        assert_eq!(exclusion.unstable, recording.summary.unstable_spans);
-        assert_eq!(exclusion.unstable, []);
-        assert_eq!(
-            exclusion.detections.detection_count(),
-            recording.summary.counts.detections_kept
-        );
-        assert_eq!(exclusion.detections.detection_count(), kept);
-        assert_eq!(exclusion.ignored_frame_count, 0);
-    }
+fn each_committed_case_keeps_the_detections_and_unstable_spans_of_the_v020_up_to_its_frozen_gaps() {
+    let found: Vec<(String, Kept)> = committed::recordings()
+        .iter()
+        .map(|(name, recording)| {
+            let rate = FrameRate::new(recording.summary.stream.avg_frame_rate).unwrap();
+            (name.clone(), kept::kept(recording, rate))
+        })
+        .collect();
+
+    let frozen: Vec<(String, Kept)> = FROZEN.iter().map(|(name, kept)| ((*name).to_owned(), *kept)).collect();
+    assert_eq!(found, frozen);
 }
