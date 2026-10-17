@@ -18,7 +18,7 @@ pub(crate) fn render(video: &Video, labels: &dyn Labels) -> String {
     format!(
         r#"      <div class="judge" hidden tabindex="-1">
         <div class="judge-head">
-          <span class="who"><span class="dot" aria-hidden="true"></span><span class="now"></span></span>
+          <span class="who"><span class="dot" aria-hidden="true"></span><span class="now" aria-hidden="true"></span><span class="sr now-aloud"></span></span>
           <span class="view" role="group" aria-label="{view}"><button type="button" class="view-clip" aria-pressed="true">{clip}</button><button type="button" class="view-zoom" aria-pressed="false">{zoom}</button></span><span class="no-zoom" hidden>{no_zoom}</span>
           <button type="button" class="back">{picture}</button>
           <label class="chain"><input type="checkbox" checked> {chain}</label>

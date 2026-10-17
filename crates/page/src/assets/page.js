@@ -3,11 +3,6 @@ const motion = matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" :
 const texts = JSON.parse(document.getElementById("texts")?.textContent ?? "{}");
 const say = (key, values = {}) =>
   Object.entries(values).reduce((text, [name, value]) => text.replaceAll(`{${name}}`, () => String(value)), texts[key] ?? key);
-const pad = (value) => String(value).padStart(2, "0");
-const clock = (seconds) => {
-  const whole = Math.max(Math.floor(seconds), 0);
-  return `${Math.floor(whole / 3600)}:${pad(Math.floor((whole % 3600) / 60))}:${pad(whole % 60)}`;
-};
 const storage = {
   get: (key) => {
     try {
@@ -102,6 +97,7 @@ if (savebar) {
       x: row.dataset.x ? Number(row.dataset.x) : null,
       y: row.dataset.y ? Number(row.dataset.y) : null,
       clock: row.querySelector(".clock")?.textContent ?? "",
+      aloud: row.querySelector(".clock + .sr")?.textContent ?? "",
       clip: row.dataset.clip ?? "",
       zoom: row.dataset.zoom ?? "",
       part: row.dataset.part ?? "",
@@ -186,7 +182,6 @@ if (savebar) {
       tracks: own,
       store,
       say,
-      clock,
       shows: (track) => filters[index]?.shows(track) ?? true,
       onChoose: (track) => judges[index]?.open(track),
     }),

@@ -178,6 +178,14 @@ fn a_duration_reads_in_minutes_and_seconds() {
 }
 
 #[test]
+fn a_duration_beyond_an_hour_counts_its_hours_as_the_start_of_a_track_does() {
+    assert_eq!(
+        (duration(3600), duration(3725), duration(7384)),
+        ("1 h 0 min 0 s".into(), "1 h 2 min 5 s".into(), "2 h 3 min 4 s".into())
+    );
+}
+
+#[test]
 fn spans_given_out_of_order_are_all_kept() {
     assert_eq!(whole_seconds(&[[10.0, 12.0], [4.0, 5.0]]), [[4, 5], [10, 12]]);
 }
