@@ -50,8 +50,9 @@ fn rendered(video: &Video, anchor: &str, labels: &dyn Labels, open: bool, previo
             )
         })
         .unwrap_or_default();
+    let viewable = video.viewable();
     format!(
-        r#"<details class="video" id="{anchor}" data-video="{folder}"{open}>
+        r#"<details class="{class}" id="{anchor}" data-video="{folder}"{open}>
   <summary class="video-head">
     <span class="chevron" aria-hidden="true"></span>
     <h2 class="name">{name}</h2>{badge}
@@ -73,6 +74,7 @@ fn rendered(video: &Video, anchor: &str, labels: &dyn Labels, open: bool, previo
     </div>
   </div>
 </details>"#,
+        class = if viewable { "video" } else { "video no-viewer" },
         folder = text(&video.folder),
         open = if open { " open" } else { "" },
         badge = if video.too_many.is_some() {
@@ -87,8 +89,12 @@ fn rendered(video: &Video, anchor: &str, labels: &dyn Labels, open: bool, previo
         name = text(&video.name),
         meta = text(&meta.join(META_SEPARATOR)),
         pictures = pictures(video, anchor, labels),
-        judge = judge::render(video, labels),
-        table = tracks::render(video, labels),
+        judge = if viewable {
+            judge::render(video, labels)
+        } else {
+            String::new()
+        },
+        table = tracks::render(video, viewable, labels),
         complete = say(Label::Scene(SceneText::CompleteNewTab)),
     )
 }

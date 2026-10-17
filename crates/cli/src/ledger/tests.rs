@@ -144,3 +144,20 @@ fn a_failure_is_kept_once_a_later_video_of_the_batch_creates_the_results_folder(
         .collect();
     assert_eq!(kept, ["video_093.mp4"]);
 }
+
+#[test]
+fn a_waiting_failure_is_written_by_a_flush_once_its_results_folder_exists() {
+    let videos = tempfile::tempdir().unwrap();
+    let root = videos.path().join("batdetect");
+    let mut ledger = Ledger::default();
+    assert!(
+        ledger
+            .note(&job(&root), Some(&damaged()), &Options::default(), now())
+            .is_empty()
+    );
+    assert!(ledger.flush().is_empty());
+    assert!(!root.exists());
+    std::fs::create_dir_all(&root).unwrap();
+    assert!(ledger.flush().is_empty());
+    assert_eq!(read_failures(&root).len(), 1);
+}

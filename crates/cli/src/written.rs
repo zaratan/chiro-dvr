@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fs::{self, File};
@@ -30,6 +31,12 @@ mod tests;
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
 const MARKER_WINDOW: usize = 1024;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Run {
+    Going { finished: usize },
+    Stopped { reached: usize },
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Wording<'a> {
     pub labels: &'a dyn Labels,
@@ -50,11 +57,11 @@ pub fn root_of(job: &Job) -> PathBuf {
     job.dest.parent().unwrap_or(&job.dest).to_path_buf()
 }
 
-pub fn write_page(root: &Path, jobs: &[Job], finished: usize, wording: Wording<'_>) -> Result<(), Error> {
+pub fn write_page(root: &Path, jobs: &[Job], run: Run, wording: Wording<'_>) -> Result<(), Error> {
     if !root.is_dir() {
         return Ok(());
     }
-    let page = page_of(root, jobs, finished);
+    let page = page_of(root, jobs, run);
     let html = page::render(&page, wording.labels);
     let target = root.join(results_page(wording.language));
     replace(&target, &html)?;
@@ -65,6 +72,14 @@ pub fn write_page(root: &Path, jobs: &[Job], finished: usize, wording: Wording<'
         }
     }
     Ok(())
+}
+
+pub fn create_reached_root(jobs: &[Job], reached: usize) -> Result<(), Error> {
+    let Some(job) = reached.checked_sub(1).and_then(|index| jobs.get(index)) else {
+        return Ok(());
+    };
+    let root = root_of(job);
+    fs::create_dir_all(&root).map_err(|source| Error::Write { path: root, source })
 }
 
 pub fn page_to_open(root: &Path, language: Language) -> Option<PathBuf> {
@@ -96,12 +111,8 @@ fn ours(path: &Path) -> bool {
         .is_ok_and(|_| page::is_ours(&head))
 }
 
-fn page_of(root: &Path, jobs: &[Job], finished: usize) -> Page {
-    let in_batch: Vec<(usize, &Job)> = jobs
-        .iter()
-        .enumerate()
-        .filter(|(_, job)| root_of(job) == root)
-        .collect();
+fn page_of(root: &Path, jobs: &[Job], run: Run) -> Page {
+    let in_batch: Vec<(usize, &Job)> = (1..).zip(jobs).filter(|(_, job)| root_of(job) == root).collect();
     let in_batch_names: Vec<Vec<u8>> = in_batch
         .iter()
         .map(|(_, job)| name_key(job.dest.file_name().unwrap_or_default()))
@@ -121,14 +132,23 @@ fn page_of(root: &Path, jobs: &[Job], finished: usize) -> Page {
         };
         entries.insert(name_key(&folder.name), entry);
     }
-    for &(rank, job) in &in_batch {
-        if rank >= finished {
-            entries.insert(
-                name_key(job.dest.file_name().unwrap_or_default()),
-                Entry::Waiting {
-                    name: shown(job.video.file_stem().unwrap_or_default()),
-                },
-            );
+    for &(position, job) in &in_batch {
+        let key = name_key(job.dest.file_name().unwrap_or_default());
+        let name = shown(job.video.file_stem().unwrap_or_default());
+        match run {
+            Run::Going { finished } if position > finished => {
+                entries.insert(key, Entry::Waiting { name });
+            }
+            Run::Stopped { reached } => match position.cmp(&reached) {
+                Ordering::Equal => {
+                    entries.entry(key).or_insert(Entry::Unfinished { name });
+                }
+                Ordering::Greater => {
+                    entries.entry(key).or_insert(Entry::NotStarted { name });
+                }
+                Ordering::Less => {}
+            },
+            Run::Going { .. } => {}
         }
     }
     Page {

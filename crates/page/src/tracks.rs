@@ -7,9 +7,13 @@ use crate::script::Script;
 #[cfg(test)]
 mod tests;
 
-pub(crate) fn render(video: &Video, labels: &dyn Labels) -> String {
+pub(crate) fn render(video: &Video, viewable: bool, labels: &dyn Labels) -> String {
     let say = |label: Label<'_>| text(&labels.label(&label));
-    let rows: Vec<String> = video.tracks.iter().map(|track| row(video, track, labels)).collect();
+    let rows: Vec<String> = video
+        .tracks
+        .iter()
+        .map(|track| row(video, track, viewable, labels))
+        .collect();
     let mut links = Vec::new();
     if let Some(table) = &video.table {
         links.push(format!(
@@ -37,9 +41,7 @@ pub(crate) fn render(video: &Video, labels: &dyn Labels) -> String {
           <thead><tr>
             <th scope="col" class="c-dot">{track}</th>
             <th scope="col" class="num c-start">{start}</th>
-            <th scope="col" class="num c-length">{length}</th>
-            <th scope="col">{verdict}</th>
-            <th scope="col" class="c-zoom"><span class="sr">{zoom}</span></th>
+            <th scope="col" class="num c-length">{length}</th>{judging}
           </tr></thead>
           <tbody>
 {rows}
@@ -50,13 +52,22 @@ pub(crate) fn render(video: &Video, labels: &dyn Labels) -> String {
         track = say(Label::ColumnTrack),
         start = say(Label::ColumnStart),
         length = say(Label::ColumnLength),
-        verdict = say(Label::ColumnVerdict),
-        zoom = say(Label::Script(Script::Zoom)),
+        judging = if viewable {
+            format!(
+                r#"
+            <th scope="col">{}</th>
+            <th scope="col" class="c-zoom"><span class="sr">{}</span></th>"#,
+                say(Label::ColumnVerdict),
+                say(Label::Script(Script::Zoom))
+            )
+        } else {
+            String::new()
+        },
         rows = rows.join("\n"),
     )
 }
 
-fn row(video: &Video, track: &Track, labels: &dyn Labels) -> String {
+fn row(video: &Video, track: &Track, viewable: bool, labels: &dyn Labels) -> String {
     let say = |label: Label<'_>| text(&labels.label(&label));
     let part = track
         .summary
@@ -79,27 +90,37 @@ fn row(video: &Video, track: &Track, labels: &dyn Labels) -> String {
     } else {
         format!(r#" style="--dot: {colour}""#)
     };
-    let zoom = if track.zoom.is_some() {
-        format!(r#"<span class="zoom-tag">{}</span>"#, say(Label::Script(Script::Zoom)))
-    } else {
-        String::new()
-    };
     let id = track.id.to_string();
+    let judge = text(&filled(labels, Script::JudgeTrack, &[("track", &id)]));
+    let (number, judging) = if viewable {
+        let zoom = if track.zoom.is_some() {
+            format!(r#"<span class="zoom-tag">{}</span>"#, say(Label::Script(Script::Zoom)))
+        } else {
+            String::new()
+        };
+        (
+            format!(r#"<button type="button" class="dot"{dot} aria-label="{judge}">{id}</button>"#),
+            format!(
+                r#"
+              <td class="verdict"><span class="chip todo">{}</span></td>
+              <td class="zoom">{zoom}</td>"#,
+                say(Label::Script(Script::ToSee))
+            ),
+        )
+    } else {
+        (format!(r#"<span class="dot"{dot}>{id}</span>"#), String::new())
+    };
     format!(
         r#"            <tr data-id="{id}" data-start="{start_s:.2}"{point}{clip}{zoom_source}{part}>
-              <th scope="row"><button type="button" class="dot"{dot} aria-label="{judge}">{id}</button></th>
+              <th scope="row">{number}</th>
               <td class="num">{start}</td>
-              <td class="num">{duration}</td>
-              <td class="verdict"><span class="chip todo">{to_see}</span></td>
-              <td class="zoom">{zoom}</td>
+              <td class="num">{duration}</td>{judging}
             </tr>"#,
         start_s = track.start_s,
         clip = source("data-clip", &track.clip),
         zoom_source = source("data-zoom", &track.zoom),
-        judge = text(&filled(labels, Script::JudgeTrack, &[("track", &id)])),
         start = text(&labels.label(&Label::Start(track.start_s))),
         duration = say(Label::Seconds(track.duration_s)),
-        to_see = say(Label::Script(Script::ToSee)),
     )
 }
 

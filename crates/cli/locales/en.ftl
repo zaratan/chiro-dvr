@@ -283,7 +283,9 @@ page-videos = { $count ->
        *[other] { $count } videos
     }
 page-unfinished-count = { $count } unfinished
+page-older-count = { $count } from an older version
 page-waiting-count = { $count } waiting
+page-not-started-count = { $count } not processed yet
 page-reminder = A track is what the tool found; whether it is a bat is for you to say, by eye, on the clip.
 page-expand = Expand all
 page-collapse = Collapse all
@@ -320,6 +322,8 @@ page-older = computed by an older version of the tool; running the same command 
 page-waiting-badge = waiting
 page-unfinished = the run stopped before the end of this video; running the same command again redoes it
 page-waiting = not processed yet by the current run
+page-not-started-badge = not processed yet
+page-not-started = the run stopped before this video; running the same command again processes it
 page-previous-results = results of the earlier run
 page-summary-alt = Summary image of { $video }: { $tracks ->
         [one] { $tracks } track

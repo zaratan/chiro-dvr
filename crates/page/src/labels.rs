@@ -13,7 +13,9 @@ pub enum Label<'a> {
     TooManyCount(usize),
     FailedCount(usize),
     UnfinishedCount(usize),
+    OlderCount(usize),
     WaitingCount(usize),
+    NotStartedCount(usize),
     Tracks(usize),
     Reminder,
     ExpandAll,
@@ -27,6 +29,7 @@ pub enum Label<'a> {
     UnfinishedBadge,
     OlderBadge,
     WaitingBadge,
+    NotStartedBadge,
     Failure {
         video: &'a str,
         cause: &'a str,
@@ -51,6 +54,7 @@ pub enum Label<'a> {
     UnfinishedText,
     OlderText,
     WaitingText,
+    NotStartedText,
     TooMany {
         video: &'a str,
         count: usize,

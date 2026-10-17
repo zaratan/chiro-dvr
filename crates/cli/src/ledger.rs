@@ -28,14 +28,17 @@ impl Ledger {
             Some(record) => self.waiting.push((root, folder, record)),
             None => errors.extend(clear_failure(&root, &folder).err()),
         }
+        errors.extend(self.flush());
+        errors
+    }
+
+    pub fn flush(&mut self) -> Vec<Error> {
         let (ready, waiting): (Vec<_>, Vec<_>) = self.waiting.drain(..).partition(|(root, _, _)| root.is_dir());
         self.waiting = waiting;
-        errors.extend(
-            ready
-                .iter()
-                .filter_map(|(root, folder, record)| record_failure(root, folder, record).err()),
-        );
-        errors
+        ready
+            .iter()
+            .filter_map(|(root, folder, record)| record_failure(root, folder, record).err())
+            .collect()
     }
 }
 
