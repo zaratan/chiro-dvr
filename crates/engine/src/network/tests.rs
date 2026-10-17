@@ -45,14 +45,24 @@ fn every_zero_one_input_of_up_to_twenty_samples_gives_the_two_middle_values() {
 }
 
 #[test]
-fn the_eleven_samples_of_the_binoculars_keep_only_the_comparisons_that_reach_the_middle() {
-    let network = Network::median(NonZeroUsize::new(11).unwrap());
+fn the_pruned_sort_of_eleven_samples_keeps_only_the_comparisons_that_reach_the_middle() {
+    let network = Network::pruned(NonZeroUsize::new(11).unwrap());
     let sorting = odd_even_merge_sort(16)
         .into_iter()
         .filter(|&(_, upper)| upper < 11)
         .count();
 
     assert!(network.pairs.len() < sorting, "{} {sorting}", network.pairs.len());
+    assert_eq!((network.low(), network.high()), (5, 5));
+}
+
+#[test]
+fn the_eleven_samples_of_the_binoculars_select_their_middle_with_four_comparisons_fewer_than_the_pruned_sort() {
+    let eleven = NonZeroUsize::new(11).unwrap();
+    let network = Network::median(eleven);
+
+    assert_eq!(network.pairs.len(), 28);
+    assert_eq!(Network::pruned(eleven).pairs.len(), 32);
     assert_eq!((network.low(), network.high()), (5, 5));
 }
 

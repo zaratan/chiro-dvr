@@ -14,8 +14,52 @@ pub(crate) struct Network {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Networks(Vec<Network>);
 
+const ELEVEN: usize = 11;
+const MIDDLE_OF_ELEVEN: usize = 5;
+const MEDIAN_OF_ELEVEN: [(usize, usize); 28] = [
+    (0, 1),
+    (2, 3),
+    (4, 5),
+    (6, 7),
+    (8, 9),
+    (0, 2),
+    (1, 3),
+    (4, 6),
+    (5, 7),
+    (8, 10),
+    (1, 2),
+    (5, 6),
+    (9, 10),
+    (0, 4),
+    (1, 5),
+    (2, 6),
+    (3, 7),
+    (2, 4),
+    (3, 5),
+    (1, 2),
+    (3, 4),
+    (2, 10),
+    (4, 8),
+    (5, 9),
+    (6, 10),
+    (3, 5),
+    (6, 8),
+    (5, 6),
+];
+
 impl Network {
     pub(crate) fn median(inputs: NonZeroUsize) -> Self {
+        if inputs.get() == ELEVEN {
+            return Self {
+                pairs: MEDIAN_OF_ELEVEN.into(),
+                low: MIDDLE_OF_ELEVEN,
+                high: MIDDLE_OF_ELEVEN,
+            };
+        }
+        Self::pruned(inputs)
+    }
+
+    fn pruned(inputs: NonZeroUsize) -> Self {
         let inputs = inputs.get();
         let (low, high) = ((inputs - 1) / 2, inputs / 2);
         let mut needed = vec![false; inputs];
