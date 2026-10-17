@@ -221,14 +221,6 @@ tally-unwritten-heading = { $count ->
         [one] Fichier non écrit, la page de résultats peut être incomplète :
        *[other] Fichiers non écrits, la page de résultats peut être incomplète :
     }
-tally-set-aside-heading = { $count ->
-        [one] Tableau mis de côté :
-       *[other] Tableaux mis de côté :
-    }
-tally-set-aside = { $video } : { $table } { $reason ->
-        [verdicts] porte des verdicts
-       *[unknown] n'a pas la forme d'un tableau des pistes
-    }, mis de côté sous { $dated }
 tally-unwritten = { $taken ->
         [yes] { $path } existe déjà et n'est pas une page de batdetect : la renommer ou la déplacer pour avoir la page
        *[no] { $path } : { $detail }
@@ -296,7 +288,6 @@ table-track = piste
 table-start = début
 table-end = fin
 table-duration = durée (s)
-table-verdict = verdict
 table-hits = points
 table-chord = corde (px)
 table-path = chemin (px)
@@ -358,6 +349,25 @@ page-summary-alt = Image résumé de { $video } : { $tracks ->
        *[other] { $tracks } pistes
     }, chaque trajectoire numérotée et colorée comme dans le tableau. Ouvrir en taille réelle (nouvel onglet)
 page-part-alt = Image résumé de { $video }, partie { $part } sur { $parts } : pistes { $first } à { $last }, chaque trajectoire numérotée et colorée comme dans le tableau. Ouvrir en taille réelle (nouvel onglet)
+page-scene-alt = Image résumé de { $video } : { $tracks ->
+        [one] { $tracks } piste
+       *[other] { $tracks } pistes
+    }, chaque trajectoire numérotée et colorée comme dans le tableau
+page-scene-part-alt = Image résumé de { $video }, partie { $part } sur { $parts } : pistes { $first } à { $last }, chaque trajectoire numérotée et colorée comme dans le tableau
+page-scene-window = De { $start } à { $end }
+page-scene-span = { $start } – { $end }
+page-scene-nothing-not-analysed = rien hors analyse
+page-scene-nothing-unreadable = rien d'illisible
+page-scene-not-analysed = hors analyse { $periods }
+page-scene-unreadable = illisible { $periods }
+page-scene-more = + { $count } { $count ->
+        [one] autre
+       *[other] autres
+    }
+page-scene-complete = Ouvrir l'image complète
+page-scene-new-tab = (nouvel onglet)
+page-scene-complete-new-tab = Ouvrir l'image complète (nouvel onglet)
+page-strip-start = Piste { $track } · { $start }
 page-part = Partie
 page-parts = Parties de l'image résumé de { $video }
 page-part-tab = Partie { $part } sur { $parts }, pistes { $first } à { $last }
@@ -365,24 +375,117 @@ page-column-track = Piste
 page-column-start = Début
 page-column-length = Durée
 page-column-verdict = Verdict
-page-column-watch = Voir
 page-table-caption = Pistes de { $video }
-page-no-verdict = à noter
-page-clip = Extrait
-page-zoom = Zoom
-page-play-clip = Lire l'extrait de la piste { $track }
-page-play-zoom = Lire le zoom ralenti de la piste { $track }
-page-show-track = Montrer la piste { $track } sur l'image résumé
-page-playing = Piste { $track } sur { $total } · début { $start } · { $zoom ->
-        [yes] zoom ralenti
-       *[no] extrait
-    }
-page-unreadable = extrait illisible
-page-back = Revenir à l'image résumé
-page-previous = Précédente
-page-next = Suivante
-page-previous-clip = Extrait de la piste précédente
-page-next-clip = Extrait de la piste suivante
 page-player = Lecteur des extraits de { $video }
 page-table-link = Tableau des pistes, pour un tableur
 page-annotated-link = Vidéo entière avec les pistes dessinées
+page-js-bar = Verdicts de la soirée
+page-js-yes = Oui
+page-js-no = Non
+page-js-doubt = Doute
+page-js-key-yes = O
+page-js-key-no = N
+page-js-key-doubt = D
+page-js-value-yes = oui
+page-js-value-no = non
+page-js-value-doubt = ?
+page-js-to-see = à voir
+page-js-other = autre : { $value }
+page-js-counts = Verdicts : { $yes } oui · { $no } non · { $doubt } doute · { $todo } à voir
+page-js-judged = jugées : { $done } sur { $total }
+page-js-pending = ● Changements non téléchargés : { $count }
+page-js-downloaded = Téléchargé à { $time } : à glisser à côté de cette page
+page-js-current = Verdicts à jour
+page-js-download = Télécharger les verdicts
+page-js-reload = Recharger un fichier de verdicts…
+page-js-read-from = Verdicts lus dans { $name }, du { $date } ; fichiers de verdicts dans le dossier : { $count }
+page-js-read-file = Verdicts lus dans { $name }, du { $date }
+page-js-steps-heading = Dernière étape : poser le fichier à côté de la page
+page-js-step-one = Le fichier verdicts.csv est dans Téléchargements ; le navigateur l'a peut-être appelé verdicts (1).csv ou verdicts-2.csv. Si le navigateur demande où l'enregistrer, choisir le dossier { $folder }.
+page-js-step-two = Le glisser dans le dossier { $folder }, à côté de cette page. S'il y en a plusieurs, la page lit le plus récent.
+page-js-understood = Compris
+page-js-replace-unsaved = Des changements ne sont pas téléchargés. Les remplacer par ce fichier ?
+page-js-not-verdicts = { $name } n'est pas un fichier de verdicts.
+page-js-draft-same = Verdicts non téléchargés depuis { $time }, repris dans la page.
+page-js-draft-other = Des verdicts n'ont pas été téléchargés (depuis { $time }), sur un autre fichier de verdicts que celui que la page vient de lire.
+page-js-draft-keep = Les reprendre
+page-js-draft-drop = Les abandonner
+page-js-orphans = Verdicts sans piste : { $count }
+page-js-orphans-why = Ces verdicts ne correspondent plus à aucune piste depuis le dernier calcul. Ils restent dans le fichier de verdicts ; vérifier sur l'extrait la piste la plus proche.
+page-js-orphan = { $start }, ancienne piste { $track } : { $verdict }
+page-js-nearest = Voir la piste la plus proche (piste { $track }, { $start })
+page-js-absent = Verdicts de vidéos absentes de la page, gardés dans le fichier : { $count }
+page-js-track-of = Piste { $track } sur { $total } · { $start }
+page-js-judge-track = Juger la piste { $track }
+page-js-announce = Piste { $track } : { $verdict }
+page-js-announce-species = Piste { $track } : { $verdict }, { $species }
+page-js-species = espèce
+page-js-species-then-enter = espèce, puis Entrée
+page-js-species-of = Espèce de la piste { $track }
+page-js-verdict-of = Verdict de la piste { $track }
+page-js-view = Vue
+page-js-clip = Extrait
+page-js-zoom = Zoom
+page-js-no-zoom = pas de zoom
+page-js-no-clip = Pas d'extrait pour cette piste.
+page-js-picture = Image résumé
+page-js-chain = Enchaîner
+page-js-previous-track = Piste précédente
+page-js-next-track = Piste suivante
+page-js-next-to-see = À voir »
+page-js-blocked = Le navigateur a bloqué la lecture : cliquer sur ▶
+page-js-unreadable = Extrait illisible.
+page-js-changed = modifié
+page-js-column-video = vidéo
+page-js-column-track = piste
+page-js-column-start = début
+page-js-column-start-seconds = début (s)
+page-js-column-verdict = verdict
+page-js-column-species = espèce
+page-js-column-start-x = départ x (px)
+page-js-column-start-y = départ y (px)
+page-js-separator = ;
+page-js-decimal-mark = ,
+page-js-key-species = E
+page-js-draft-drop-confirm = Abandonner ces verdicts non téléchargés ? Ils seront perdus.
+page-js-download-now = Télécharger maintenant
+page-js-cleared = Piste { $track } : verdict effacé
+page-js-value-yes-other = yes
+page-js-value-no-other = no
+other-commands = Autres commandes : « batdetect doctor » vérifie que tout est prêt avant une soirée, « batdetect completion zsh » écrit la complétion de la touche Tab. Un dossier nommé doctor ou completion se donne en ./doctor ou ./completion.
+completion-zsh-only = seul zsh est pris en charge : batdetect completion zsh
+completion-with-homebrew = Avec Homebrew, le script est déjà installé : ajouter à ~/.zshrc la ligne
+completion-without-homebrew = Sans Homebrew : enregistrer le script par
+completion-then-profile = puis ajouter à ~/.zshrc ces deux lignes, dans cet ordre :
+doctor-no-argument = doctor ne prend aucun argument : le lancer dans le dossier à vérifier
+doctor-version = batdetect { $version } — FFmpeg { $ffmpeg } inclus
+doctor-hardware = ✓ encodeur : VideoToolbox (matériel)
+doctor-software = ✓ encodeur : openh264 (logiciel)
+doctor-fallback = ⚠ encodeur : openh264 seulement, VideoToolbox ne répond pas
+doctor-broken = ✗ encodeur : aucun ne fonctionne
+doctor-space = ✓ place libre : { $gigabytes } Go dans { $folder }
+doctor-space-short = ✗ place libre : { $gigabytes } Go dans { $folder }, moins de { $least } Go
+doctor-space-unknown = ⚠ place libre : non mesurée dans { $folder }
+doctor-writable = ✓ écriture : permise dans { $folder }
+doctor-unwritable = ✗ écriture : refusée dans { $folder } ({ $access ->
+        [refused] droits insuffisants
+        [not-a-folder] pas un dossier
+        [missing] introuvable
+        [read-only] lecture seule
+        [disk-full] disque plein
+       *[unavailable] inaccessible
+    })
+doctor-todo-fallback = {"  "}à faire : rien d'obligatoire, les extraits seront plus lents à écrire ; redémarrer le Mac peut rétablir VideoToolbox
+doctor-todo-broken = {"  "}à faire : réinstaller batdetect
+doctor-todo-space = {"  "}à faire : libérer de la place, ou choisir un autre dossier avec -o
+doctor-todo-writing = {"  "}à faire : choisir un dossier où l'écriture est permise, avec -o
+doctor-ready = Tout est prêt.
+doctor-problems = { $count ->
+        [one] 1 point à corriger.
+       *[other] { $count } points à corriger.
+    }
+doctor-untried = ✗ encodeur : non essayé, le dossier temporaire du système refuse l'écriture
+doctor-todo-untried = {"  "}à faire : libérer de la place sur le disque du système, puis relancer batdetect doctor
+completion-commands-group = commande
+completion-doctor = vérifie que tout est prêt avant une soirée
+completion-completion = écrit la complétion de la touche Tab

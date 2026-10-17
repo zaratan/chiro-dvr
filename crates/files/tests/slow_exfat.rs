@@ -7,12 +7,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::thread;
 
-use files::aside::Stamp;
 use files::error::Error;
 use files::names::Names;
-use files::previous::{Kept, Reason, remove_previous_outputs};
+use files::previous::remove_previous_outputs;
 use files::table::{Column, Headings, write_tracks_csv};
-use jiff::civil::date;
 use tempfile::{TempDir, TempPath};
 use types::frame::Pts;
 use types::language::Language;
@@ -134,29 +132,19 @@ fn macos_refuses_the_exclusive_rename_on_exfat_so_the_table_needs_another_way_no
 
 #[test]
 #[ignore = "slow"]
-fn on_exfat_a_table_is_written_then_set_aside_with_its_verdict_and_written_again_beside_it() {
+fn on_exfat_a_table_written_by_hand_is_removed_by_the_cleanup_and_written_again() {
     let volume = Attached::exfat();
     let dest = volume.mount().join("out");
     fs::create_dir(&dest).unwrap();
     let names = Names::new(Language::English);
     let table = names.tracks_csv(&dest, OsStr::new("v"));
     write_table(&table);
-    assert_eq!(left_in(&dest), ["v_tracks.csv"]);
     fs::write(&table, ANNOTATED).unwrap();
-    let stamp = Stamp::at(date(2026, 10, 16).at(14, 30, 0, 0));
-    let kept = remove_previous_outputs(&dest, OsStr::new("v"), names, &Debugged, stamp).unwrap();
-    let dated = dest.join("v_tracks_2026-10-16_1430.csv");
-    assert_eq!(
-        kept,
-        [Kept::SetAside {
-            path: table.clone(),
-            dated: dated.clone(),
-            reason: Reason::Verdicts,
-        }]
-    );
+    let kept = remove_previous_outputs(&dest, OsStr::new("v"), names).unwrap();
+    assert_eq!(kept, []);
+    assert_eq!(left_in(&dest), Vec::<String>::new());
     write_table(&table);
-    assert_eq!(left_in(&dest), ["v_tracks.csv", "v_tracks_2026-10-16_1430.csv"]);
-    assert_eq!(fs::read_to_string(&dated).unwrap(), ANNOTATED);
+    assert_eq!(left_in(&dest), ["v_tracks.csv"]);
 }
 
 #[test]

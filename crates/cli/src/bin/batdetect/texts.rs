@@ -107,7 +107,6 @@ pub(crate) enum Fixed {
     TableStart,
     TableEnd,
     TableDuration,
-    TableVerdict,
     TableHits,
     TableChord,
     TablePath,
@@ -116,6 +115,26 @@ pub(crate) enum Fixed {
     TableAmplitude,
     TableFilledFrames,
     TableStartSeconds,
+    OtherCommands,
+    CompletionZshOnly,
+    CompletionWithHomebrew,
+    CompletionWithoutHomebrew,
+    CompletionThenProfile,
+    DoctorNoArgument,
+    DoctorHardware,
+    DoctorSoftware,
+    DoctorFallback,
+    DoctorBroken,
+    DoctorReady,
+    DoctorTodoFallback,
+    DoctorTodoBroken,
+    DoctorTodoSpace,
+    DoctorTodoWriting,
+    DoctorUntried,
+    DoctorTodoUntried,
+    CompletionCommandsGroup,
+    CompletionDoctor,
+    CompletionCompletion,
 }
 
 impl Fixed {
@@ -191,7 +210,6 @@ impl Fixed {
             Self::TableStart => "table-start",
             Self::TableEnd => "table-end",
             Self::TableDuration => "table-duration",
-            Self::TableVerdict => "table-verdict",
             Self::TableHits => "table-hits",
             Self::TableChord => "table-chord",
             Self::TablePath => "table-path",
@@ -200,6 +218,33 @@ impl Fixed {
             Self::TableAmplitude => "table-amplitude",
             Self::TableFilledFrames => "table-filled-frames",
             Self::TableStartSeconds => "table-start-seconds",
+            other => other.command_id(),
+        }
+    }
+
+    const fn command_id(self) -> &'static str {
+        match self {
+            Self::OtherCommands => "other-commands",
+            Self::CompletionZshOnly => "completion-zsh-only",
+            Self::CompletionWithHomebrew => "completion-with-homebrew",
+            Self::CompletionWithoutHomebrew => "completion-without-homebrew",
+            Self::CompletionThenProfile => "completion-then-profile",
+            Self::DoctorNoArgument => "doctor-no-argument",
+            Self::DoctorHardware => "doctor-hardware",
+            Self::DoctorSoftware => "doctor-software",
+            Self::DoctorFallback => "doctor-fallback",
+            Self::DoctorBroken => "doctor-broken",
+            Self::DoctorReady => "doctor-ready",
+            Self::DoctorTodoFallback => "doctor-todo-fallback",
+            Self::DoctorTodoBroken => "doctor-todo-broken",
+            Self::DoctorTodoSpace => "doctor-todo-space",
+            Self::DoctorTodoWriting => "doctor-todo-writing",
+            Self::DoctorUntried => "doctor-untried",
+            Self::DoctorTodoUntried => "doctor-todo-untried",
+            Self::CompletionCommandsGroup => "completion-commands-group",
+            Self::CompletionDoctor => "completion-doctor",
+            Self::CompletionCompletion => "completion-completion",
+            _ => "",
         }
     }
 }
@@ -293,15 +338,6 @@ pub(crate) enum Message {
         video: String,
         table: String,
         written: bool,
-    },
-    TallySetAsideHeading {
-        count: usize,
-    },
-    TallySetAside {
-        video: String,
-        table: String,
-        dated: String,
-        reason: &'static str,
     },
     TallyChanged {
         settings: String,
@@ -460,6 +496,32 @@ pub(crate) enum Message {
         length: String,
         done: usize,
     },
+    DoctorVersion {
+        version: String,
+        ffmpeg: String,
+    },
+    DoctorSpace {
+        gigabytes: String,
+        folder: String,
+    },
+    DoctorSpaceShort {
+        gigabytes: String,
+        folder: String,
+        least: String,
+    },
+    DoctorSpaceUnknown {
+        folder: String,
+    },
+    DoctorWritable {
+        folder: String,
+    },
+    DoctorUnwritable {
+        folder: String,
+        access: &'static str,
+    },
+    DoctorProblems {
+        count: usize,
+    },
     Finish {
         line: String,
         time: String,
@@ -491,8 +553,6 @@ impl Message {
             Self::TallyUnwrittenHeading { .. } => "tally-unwritten-heading",
             Self::TallyUnwritten { .. } => "tally-unwritten",
             Self::TallyKept { .. } => "tally-kept",
-            Self::TallySetAsideHeading { .. } => "tally-set-aside-heading",
-            Self::TallySetAside { .. } => "tally-set-aside",
             Self::TallyChanged { .. } => "tally-changed",
             Self::TallyRegions { .. } => "tally-regions",
             Self::TallyFailureTodo { .. } => "tally-failure-todo",
@@ -537,6 +597,13 @@ impl Message {
             Self::TallyRefusedHeading { .. } => "tally-refused-heading",
             Self::Interrupted { .. } => "interrupted",
             Self::Announce { .. } => "announce",
+            Self::DoctorVersion { .. } => "doctor-version",
+            Self::DoctorSpace { .. } => "doctor-space",
+            Self::DoctorSpaceShort { .. } => "doctor-space-short",
+            Self::DoctorSpaceUnknown { .. } => "doctor-space-unknown",
+            Self::DoctorWritable { .. } => "doctor-writable",
+            Self::DoctorUnwritable { .. } => "doctor-unwritable",
+            Self::DoctorProblems { .. } => "doctor-problems",
             Self::Finish { .. } => "finish",
         }
     }
@@ -635,7 +702,6 @@ impl Message {
             | Self::TallyTooManyCell { count }
             | Self::TallyKeptHeading { count }
             | Self::TallyUnwrittenHeading { count }
-            | Self::TallySetAsideHeading { count }
             | Self::TallyRegions { count } => arguments.set("count", *count),
             Self::TallyTooMany { video, count, limit } => {
                 arguments.set("video", video.as_str());
@@ -650,17 +716,6 @@ impl Message {
                 arguments.set("video", video.as_str());
                 arguments.set("table", table.as_str());
                 arguments.set("written", if *written { YES } else { NO });
-            }
-            Self::TallySetAside {
-                video,
-                table,
-                dated,
-                reason,
-            } => {
-                arguments.set("video", video.as_str());
-                arguments.set("table", table.as_str());
-                arguments.set("dated", dated.as_str());
-                arguments.set("reason", *reason);
             }
             Self::TallyChanged { settings } => arguments.set("settings", settings.as_str()),
             Self::TallyFailureTodo { cause } => arguments.set("cause", *cause),
@@ -757,7 +812,52 @@ impl Message {
                 arguments.set("needed", needed.as_str());
                 arguments.set("free", free.as_str());
             }
+            other => other.doctor_arguments(arguments),
+        }
+    }
+}
+
+impl Message {
+    fn doctor_arguments<'a>(&'a self, arguments: &mut FluentArgs<'a>) {
+        match self {
+            Self::DoctorVersion { version, ffmpeg } => {
+                arguments.set("version", version.as_str());
+                arguments.set("ffmpeg", ffmpeg.as_str());
+            }
+            Self::DoctorSpace { gigabytes, folder } => {
+                arguments.set("gigabytes", gigabytes.as_str());
+                arguments.set("folder", folder.as_str());
+            }
+            Self::DoctorSpaceShort {
+                gigabytes,
+                folder,
+                least,
+            } => {
+                arguments.set("gigabytes", gigabytes.as_str());
+                arguments.set("folder", folder.as_str());
+                arguments.set("least", least.as_str());
+            }
+            Self::DoctorSpaceUnknown { folder } | Self::DoctorWritable { folder } => {
+                arguments.set("folder", folder.as_str());
+            }
+            Self::DoctorUnwritable { folder, access } => {
+                arguments.set("folder", folder.as_str());
+                arguments.set("access", *access);
+            }
+            Self::DoctorProblems { count } => arguments.set("count", *count),
             Self::Fixed(_)
+            | Self::DiskShort { .. }
+            | Self::DisksShort { .. }
+            | Self::FolderRefused { .. }
+            | Self::FoldersRefused { .. }
+            | Self::InputRefused { .. }
+            | Self::InputsSkipped { .. }
+            | Self::InputWithoutVideo { .. }
+            | Self::NoVideo { .. }
+            | Self::SharedFolder { .. }
+            | Self::SkipRefusedQuestion { .. }
+            | Self::TallyRefusedCount { .. }
+            | Self::TallyRefusedHeading { .. }
             | Self::DefaultValue { .. }
             | Self::RegionShape { .. }
             | Self::PossibleValues { .. }
@@ -799,8 +899,6 @@ impl Message {
             | Self::TallyUnwrittenHeading { .. }
             | Self::TallyUnwritten { .. }
             | Self::TallyKept { .. }
-            | Self::TallySetAsideHeading { .. }
-            | Self::TallySetAside { .. }
             | Self::TallyChanged { .. }
             | Self::TallyRegions { .. }
             | Self::TallyFailureTodo { .. }
@@ -1036,7 +1134,6 @@ impl Headings for Texts {
             Column::Start => Fixed::TableStart,
             Column::End => Fixed::TableEnd,
             Column::Duration => Fixed::TableDuration,
-            Column::Verdict => Fixed::TableVerdict,
             Column::Hits => Fixed::TableHits,
             Column::Chord => Fixed::TableChord,
             Column::Path => Fixed::TablePath,

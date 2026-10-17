@@ -219,11 +219,9 @@ peu contrastée sortait en fragments écartés de 18 à 24 px, trop pour `merge_
 
 ## Rendu
 
-Entre deux détections d'une même piste, la boîte est interpolée linéairement à chaque
-image et dessinée en trait fin, pour qu'elle ne clignote pas ; la trace jaune orangé de la
-dernière seconde la suit jusqu'à cette position. Ces positions servent
-uniquement à l'affichage : le CSV et le banc ne comptent que les vraies détections, et la
-colonne `images comblées` indique combien d'images ont été comblées.
+Entre deux détections d'une même piste, la boîte est interpolée linéairement à chaque image et dessinée en trait fin, pour qu'elle ne clignote pas ; la trace de la dernière seconde la suit jusqu'à cette position. Ces positions servent uniquement à l'affichage : le CSV et le banc ne comptent que les vraies détections, et la colonne `images comblées` indique combien d'images ont été comblées.
+
+Boîte, numéro et trace prennent la couleur de la piste sur l'image résumé, dans les extraits, les zooms et la vidéo annotée (#13). La boîte (2 px, 1 px interpolée) est bordée d'un liseré noir de 1 px de chaque côté, et le numéro, 6 px au-dessus, d'un liseré noir de 1 px : la couleur se détache de la roche claire comme du ciel sombre, même la plus claire de la palette (235, 235, 235). Le numéro garde sa place au-dessus de la boîte (choix de l'utilisateur, 16 octobre 2026). L'autre place essayée, à 24 px en diagonale de la boîte, ne cachait aucun pixel à moins de 30 px de la cible sur trois images sur quatre, et 16 pixels sur la quatrième ; à sa place, le numéro en cache de 13 à 277 sur ces quatre images. La trace n'a pas de liseré. Une piste absente de l'image résumé garderait la boîte rouge (255, 0, 0) et la trace jaune orangé (255, 200, 0) sans liseré ; cela n'arrive pas aujourd'hui, chaque piste étant dessinée sur une image résumé.
 
 Chaque côté de la boîte dessinée est borné à 4 fois la médiane du même côté sur les points
 détectés de la piste, et la boîte bornée est recentrée sur le barycentre : une tache étalée
@@ -336,7 +334,8 @@ octets (`video_bytes`), la langue des noms (`language`, `fr` ou `en`) et l'heure
 du calcul (`date`). `tracks` liste les pistes : numéro (`id`), début et durée non arrondis
 (`start_s`, `duration_s`), couleur de la trajectoire sur l'image résumé en RVB (`color`, `null` au-delà du garde-fou, qui n'a pas d'image résumé), image
 résumé qui la dessine (`summary`, par exemple `video_097_resume_3_sur_8.png`), et chemins de
-l'extrait et du zoom écrits, relatifs au dossier de la vidéo (`null` quand il n'y en a pas).
+l'extrait et du zoom écrits, relatifs au dossier de la vidéo (`null` quand il n'y en a pas), et point de départ de la piste en pixels entiers de la vidéo d'origine (`start_xy`, absent avant #228), qui aide la page à rattacher un verdict à sa piste.
+Pour que la page redessine l'image résumé sans rien recalculer (#259), `params.json` donne aussi le fond, la scène sans trace (`background`, par exemple `video_097_fond.png`), la mise en page de chaque image résumé (`summaries` : `file`, la tranche `window_s`, la partie `part` en `[n, total]` ou `null`, les périodes ignorées et illisibles coupées à la tranche `ignored_s` et `damaged_s`, les débuts des pistes des autres parties `other_starts_s`, au centième, et le rayon des pastilles `radius` en pixels de la vidéo), et pour chaque piste dessinée sa trace (`trace` : `points` et `head`, la trajectoire et les trois points de la flèche en chaîne `"x,y x,y …"` de pixels entiers de la vidéo, sans point répété ; `dot`, le centre de la pastille ; `anchor`, le départ du trait de rappel quand la pastille est écartée de la trajectoire, sinon `null`). Une piste non dessinée a `trace` à `null`, et un dossier écrit avant #259 n'a ni `background` ni `summaries` : la page montre alors l'image résumé.
 Les périodes ignorées sont dans `ignored_s`, les illisibles dans `damaged_s`, avec
 `damaged_frames` (nombre d'images signalées par le décodeur ou qui suivent un trou dans les
 horodatages, pas le nombre d'images écartées).
@@ -353,7 +352,7 @@ dans le dossier de la vidéo, `params.json` d'abord, puis les sorties des deux l
 `<nom>.tracks.*`, `<nom>_boxes.mp4`). Les sorties de la v0.1.1, écrites dans `out/` du dossier
 où la commande était lancée, restent où elles sont.
 
-Garde-fou : au-delà de `max_tracks` pistes (300 par défaut, 0 désactive), ni les extraits, ni l'image résumé, ni la vidéo annotée ne sont produits, et la vidéo est comptée à part au bilan. Le CSV et `params.json` (avec le seuil, dans `RenderConfig`, et `"state": "too_many_tracks"`) restent écrits ; l'image résumé n'est plus écrite depuis #221, car sur une vidéo de bruit elle se coupait en dizaines de parties. 300 est au-dessus de la vidéo la plus chargée sans explosion (148
+Garde-fou : au-delà de `max_tracks` pistes (300 par défaut, 0 désactive), ni les extraits, ni l'image résumé, ni son fond, ni la vidéo annotée ne sont produits (`background` à `null`, `summaries` vide, `trace` à `null`), et la vidéo est comptée à part au bilan. Le CSV et `params.json` (avec le seuil, dans `RenderConfig`, et `"state": "too_many_tracks"`) restent écrits ; l'image résumé n'est plus écrite depuis #221, car sur une vidéo de bruit elle se coupait en dizaines de parties. 300 est au-dessus de la vidéo la plus chargée sans explosion (148
 pistes, 097) et en dessous de la plus petite explosion connue (374 pistes, seuil 12 sans
 facteur de bruit). Le
 seuil est fixe, pas un taux par minute : il suppose des clips d'environ 5 min, comme ceux
@@ -362,10 +361,7 @@ soirée compte ces vidéos à part, avec leur nombre de pistes ; une relance ide
 pas et les compte encore ainsi.
 
 Colonnes du CSV, dans cet ordre : `piste` (numéro), `début` et `fin` (`h:mm:ss`, tronqués
-à la seconde comme le nom de l'extrait), `durée (s)`, `verdict` (vide, rempli à l'œil ;
-l'outil n'en tire rien ; un tableau dont une cellule verdict est remplie, ou qui n'a plus notre
-forme, est mis de côté sous un nom daté (`<nom>_pistes_AAAA-MM-JJ_HHMM.csv`) et le tableau neuf
-s'écrit, ce que dit le bilan ; une vidéo sautée n'y touche pas), `points`
+à la seconde comme le nom de l'extrait), `durée (s)`, `points`
 (nombre de détections), `corde (px)` (distance de bout en bout), `chemin (px)` (chemin parcouru), `vitesse (px/s)` (chemin ÷ durée), `surface max (px)`
 (plus grande tache, en pixels d'origine), `amplitude (niveaux de gris)` (plus fort écart au
 fond ; avec le filtre à la taille de la cible, écart mesuré sur l'image filtrée, donc plus
@@ -374,10 +370,12 @@ interpolation à l'affichage) et `début (s)` (début en secondes, au centième)
 dans le dernier centième d'une seconde s'écrit `0:00:04` d'un côté et `5,0` de l'autre :
 `début` tronque, `début (s)` arrondit.
 
+Le tableau appartient à l'outil : un recalcul le remplace sans le lire. Les verdicts n'y sont pas : ils se notent dans la page et vivent dans `verdicts.csv`, à côté d'elle, que l'outil lit sans jamais l'écrire (docs/11, crate `page`).
+
 Le CSV suit la langue des messages. En français, `_pistes.csv` commence par un BOM UTF-8
 (pour qu'Excel lise les accents), sépare par un point-virgule et écrit la virgule
 décimale. En anglais, `_tracks.csv` n'a pas de BOM, sépare par une virgule et écrit le
-point, avec les en-têtes `track`, `start`, `end`, `duration (s)`, `verdict`, `points`,
+point, avec les en-têtes `track`, `start`, `end`, `duration (s)`, `points`,
 `chord (px)`, `path (px)`, `speed (px/s)`, `max area (px)`, `amplitude (grey levels)`,
 `filled frames`, `start (s)`. Fins de ligne CRLF dans les deux langues. `0:04` serait lu
 par LibreOffice comme 0 h 04 min : d'où `0:00:04`.

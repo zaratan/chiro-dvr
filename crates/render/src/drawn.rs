@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
 
+use draw::color::Rgb;
 use media::encode::{self, Codec, Stamps};
 use media::fingerprint;
 use media::frame::YuvFrame;
@@ -21,9 +22,20 @@ pub struct Drawn {
 }
 
 /// The frames `clips::render` would hand to its encoders, as fingerprints, without encoding them.
-pub fn drawn(source: &Source, tracks: &[Track], outputs: &Outputs, config: RenderConfig) -> Result<Vec<Drawn>, Error> {
+pub fn drawn(
+    source: &Source,
+    tracks: &[Track],
+    colors: &[Option<Rgb>],
+    outputs: &Outputs,
+    config: RenderConfig,
+) -> Result<Vec<Drawn>, Error> {
     let recorder = Recorder::default();
-    let video = Video { source, tracks, config };
+    let video = Video {
+        source,
+        tracks,
+        colors,
+        config,
+    };
     let open = &recorder;
     render_with(&open, 1, &video, outputs, &[Codec::OpenH264])?;
     let mut drawn = recorder.drawn.into_inner().unwrap_or_else(PoisonError::into_inner);

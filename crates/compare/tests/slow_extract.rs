@@ -9,7 +9,7 @@ use compare::report::write_report;
 use compare::sameness::Verdict;
 use reference::fixture::fixtures;
 use reference::frames::Frames;
-use reference::location::committed;
+use reference::location::{Reference, committed};
 use reference::recording::Recording;
 use tempfile::TempDir;
 
@@ -26,7 +26,7 @@ fn run() -> &'static Run {
     RUN.get_or_init(|| {
         let folder = TempDir::new().unwrap();
         let comparison = compare(
-            &Case::committed(EXTRACT),
+            &Case::committed(Reference::V011, EXTRACT),
             &Folders {
                 frames: Some(folder.path().to_path_buf()),
                 same_as: None,
@@ -35,7 +35,7 @@ fn run() -> &'static Run {
         .unwrap();
         write_report(std::slice::from_ref(&comparison), &mut io::stdout().lock()).unwrap();
         let again = compare(
-            &Case::committed(EXTRACT),
+            &Case::committed(Reference::V011, EXTRACT),
             &Folders {
                 frames: None,
                 same_as: Some(folder.path().to_path_buf()),
@@ -80,7 +80,7 @@ fn the_extract_gives_the_detections_committed_from_the_mac_bit_for_bit_on_every_
 #[test]
 #[ignore = "slow"]
 fn the_extract_has_the_timestamps_key_frames_and_decoding_errors_of_the_reference() {
-    let recording = Recording::read(&committed(EXTRACT)).unwrap();
+    let recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
 
     assert_eq!(run().frames.as_ref().unwrap().entries(), recording.frames.entries());
 }

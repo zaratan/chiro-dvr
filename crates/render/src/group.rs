@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use draw::color::Rgb;
 use media::encode::{self, Codec, Stamps};
 use media::frame::YuvFrame;
 use types::frame::FrameIndex;
@@ -8,6 +9,7 @@ use types::track::Track;
 use crate::ahead::serve_ahead;
 use crate::clips::Error;
 use crate::encoders::{Encoders, Open, Purpose, Sink};
+use crate::ink::{Ink, ink_at};
 use crate::overlay::Overlay;
 use crate::picture::{Marks, Picture};
 use crate::schedule::Hold;
@@ -26,6 +28,7 @@ pub(crate) struct Rendering<'a, O> {
     pub(crate) encoders: &'a Encoders<'a, O>,
     pub(crate) paths: Paths<'a>,
     pub(crate) tracks: &'a [Track],
+    pub(crate) inks: &'a [Ink],
     pub(crate) trail_frames: usize,
 }
 
@@ -155,7 +158,11 @@ impl<O: Open> Rendering<'_, O> {
                 None => match self.start(path, (pixels.width(), pixels.height()), Purpose::Zoom, |sink| {
                     sink.open(path, window.span.frame_count())
                 })? {
-                    Ok((sink, codec)) => writer.insert((sink, codec, self.view(track, pixels))),
+                    Ok((sink, codec)) => writer.insert((
+                        sink,
+                        codec,
+                        self.view(track, ink_at(self.inks, window.track).trail, pixels),
+                    )),
                     Err(cause) => {
                         failed = Some(cause);
                         return Err(Error::Stopped);
@@ -174,12 +181,12 @@ impl<O: Open> Rendering<'_, O> {
         self.written(served.map(|origin| restarts(&origin)), failed, writer, path)
     }
 
-    fn view(&self, track: &Track, pixels: &YuvFrame) -> View {
+    fn view(&self, track: &Track, color: Rgb, pixels: &YuvFrame) -> View {
         let (width, height) = (pixels.width(), pixels.height());
         let crop = crop(track, width, height);
         View {
             magnifier: Magnifier::new(crop, width, height),
-            trail: ZoomTrail::new(track, crop, (width, height), self.trail_frames),
+            trail: ZoomTrail::new(track, color, crop, (width, height), self.trail_frames),
         }
     }
 

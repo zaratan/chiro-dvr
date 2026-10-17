@@ -8,6 +8,7 @@ fn evening() -> Page {
     Page {
         title: "nuit-12-oct".to_owned(),
         refused: None,
+        verdicts: None,
         entries: vec![
             Entry::Video(video("video_092")),
             Entry::Video(crowded),
@@ -93,6 +94,7 @@ fn a_page_with_nothing_to_fold_has_no_button_to_unfold_everything() {
     let page = Page {
         title: "nuit".to_owned(),
         refused: None,
+        verdicts: None,
         entries: vec![Entry::Waiting {
             name: "video_095".to_owned(),
         }],
@@ -116,6 +118,7 @@ fn the_title_of_the_folder_is_escaped() {
     let page = Page {
         title: "<nuit>".to_owned(),
         refused: None,
+        verdicts: None,
         entries: Vec::new(),
     };
     let html = render(&page, &Named);

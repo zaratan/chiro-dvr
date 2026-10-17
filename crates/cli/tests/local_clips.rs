@@ -7,7 +7,7 @@ use engine::detection::detect;
 use media::decode::{Decoder, Threads};
 use media::fingerprint;
 use media::frame::{ColorRange, YuvFrame};
-use reference::location::{recorded_video, recording_directories};
+use reference::location::{Reference, recorded_video, recording_directories};
 use reference::recording::Recording;
 use render::config::RenderConfig;
 use render::source::{Error, Origin, Source};
@@ -119,7 +119,7 @@ fn groups_over_damaged_spans_serve_the_pixels_of_a_single_threaded_reading_from_
 #[test]
 #[ignore = "local"]
 fn the_windows_differ_from_the_reference_only_at_the_known_divergences() {
-    let directories = recording_directories().unwrap();
+    let directories = recording_directories(Reference::V011).unwrap();
     for (name, expected_here, expected_there) in DIVERGING {
         let directory = directories.iter().find(|directory| directory.ends_with(name)).unwrap();
         let recording = Recording::read(directory).unwrap();

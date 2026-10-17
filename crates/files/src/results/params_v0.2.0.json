@@ -1,0 +1,94 @@
+{
+  "video": "/nuit/video_092_original.mp4",
+  "fps": 30.02738820371172,
+  "DetectConfig": {
+    "threshold": 12.0,
+    "min_area": 4.0,
+    "max_area": 2700.0,
+    "bg_window_s": 1.0,
+    "bg_step": 3,
+    "osd_regions": [
+      {
+        "x0": 0.0,
+        "y0": 0.0,
+        "x1": 1.0,
+        "y1": 0.07
+      }
+    ],
+    "merge_radius": 6.0,
+    "work_width": 960,
+    "noise_factor": 8.0,
+    "target_sigma": 1.5
+  },
+  "TrackConfig": {
+    "max_jump": 120.0,
+    "max_gap": 6,
+    "min_hits": 6,
+    "min_travel": 45.0,
+    "twin_distance": 36.0,
+    "max_median_turn": 0.8
+  },
+  "StabilityConfig": {
+    "max_blobs": 20,
+    "pad_s": 1.0
+  },
+  "RenderConfig": {
+    "box_pad": 12,
+    "trail_s": 1.0,
+    "clip_margin_s": 1.5,
+    "max_tracks": 300,
+    "zoom": "auto",
+    "zoom_below_area": 100.0,
+    "zoom_below_amplitude": 40.0,
+    "annotated": false,
+    "encoders": [
+      "openh264"
+    ]
+  },
+  "threads": {
+    "decoding": 13,
+    "decoding_kind": "frame",
+    "detection": 12
+  },
+  "ignored_s": [],
+  "damaged_s": [],
+  "damaged_frames": 0,
+  "version": "0.2.0",
+  "ffmpeg": "7.1.1-e864b95369435048",
+  "state": "done",
+  "track_count": 2,
+  "length_s": 300.06630292975257,
+  "not_analysed_s": 0.0,
+  "elapsed_s": 30.107902971,
+  "video_bytes": 454104980,
+  "language": "fr",
+  "date": "2026-10-16T20:54:04+00:00",
+  "tracks": [
+    {
+      "id": 1,
+      "start_s": 7.3926,
+      "duration_s": 0.7325999999999997,
+      "color": [
+        255,
+        214,
+        10
+      ],
+      "summary": "video_092_original_resume.png",
+      "clip": "extraits/piste_01_0m07s.mp4",
+      "zoom": null
+    },
+    {
+      "id": 2,
+      "start_s": 33.9327,
+      "duration_s": 1.3320000000000007,
+      "color": [
+        76,
+        201,
+        240
+      ],
+      "summary": "video_092_original_resume.png",
+      "clip": "extraits/piste_02_0m33s.mp4",
+      "zoom": null
+    }
+  ]
+}

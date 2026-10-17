@@ -1,12 +1,38 @@
 use std::ffi::OsString;
 use std::fs;
 
-use super::{bench_under, committed, outputs_under, recording_directories_under, reference_video_under, video_under};
+use super::{
+    REFERENCE_DIR_VARIABLE, Reference, bench_under, committed, outputs_under, recording_directories_under,
+    reference_video_under, video_under,
+};
 use crate::error::Error;
+use crate::fixture::fixtures;
 
 #[test]
 fn committed_recordings_live_beside_the_fixtures() {
-    assert!(committed("video_092_original_3m24-4m05").join("video.json").is_file());
+    assert!(
+        committed(Reference::V011, "video_092_original_3m24-4m05")
+            .join("video.json")
+            .is_file()
+    );
+}
+
+#[test]
+fn the_v020_reference_lives_in_its_own_folder_beside_the_v011() {
+    assert_eq!(
+        committed(Reference::V020, "video_092_original"),
+        fixtures().join("reference-v0.2.0").join("video_092_original")
+    );
+    assert_eq!(
+        committed(Reference::V011, "video_092_original"),
+        fixtures().join("reference").join("video_092_original")
+    );
+}
+
+#[test]
+fn each_reference_reads_its_recordings_and_benches_from_its_own_variable() {
+    assert_eq!(Reference::V011.variable(), "BATDETECT_REFERENCE_DIR");
+    assert_eq!(Reference::V020.variable(), "BATDETECT_REFERENCE_V020_DIR");
 }
 
 #[test]
@@ -17,7 +43,7 @@ fn recordings_are_the_folders_of_data_in_name_order() {
         fs::create_dir_all(data.join(name)).unwrap();
     }
     fs::write(data.join("notes.txt"), "").unwrap();
-    let names: Vec<_> = recording_directories_under(Some(root.path().into()))
+    let names: Vec<_> = recording_directories_under(Some(root.path().into()), REFERENCE_DIR_VARIABLE)
         .unwrap()
         .into_iter()
         .map(|path| path.file_name().unwrap().to_owned())
@@ -28,7 +54,7 @@ fn recordings_are_the_folders_of_data_in_name_order() {
 #[test]
 fn a_reference_folder_without_data_is_reported() {
     let root = tempfile::tempdir().unwrap();
-    let error = recording_directories_under(Some(root.path().into())).unwrap_err();
+    let error = recording_directories_under(Some(root.path().into()), REFERENCE_DIR_VARIABLE).unwrap_err();
     assert!(matches!(error, Error::Read { .. }));
     assert!(error.to_string().ends_with("data"));
 }
@@ -36,7 +62,7 @@ fn a_reference_folder_without_data_is_reported() {
 #[test]
 fn an_unset_or_empty_variable_names_the_variable_instead_of_reading_the_current_folder() {
     for root in [None, Some(OsString::new())] {
-        let error = recording_directories_under(root).unwrap_err();
+        let error = recording_directories_under(root, REFERENCE_DIR_VARIABLE).unwrap_err();
         assert_eq!(
             error.to_string(),
             "the variable BATDETECT_REFERENCE_DIR does not name a folder"
@@ -77,10 +103,13 @@ fn an_unset_or_empty_videos_variable_names_the_variable() {
 fn a_recorded_bench_lives_under_bench_by_its_name_and_needs_the_variable() {
     let root = tempfile::tempdir().unwrap();
 
-    let found = bench_under(Some(root.path().into()), "transit").unwrap();
+    let found = bench_under(Some(root.path().into()), REFERENCE_DIR_VARIABLE, "transit").unwrap();
 
     assert_eq!(found, root.path().join("bench").join("transit"));
-    assert!(matches!(bench_under(None, "transit"), Err(Error::UnsetVariable { .. })));
+    assert!(matches!(
+        bench_under(None, REFERENCE_DIR_VARIABLE, "transit"),
+        Err(Error::UnsetVariable { .. })
+    ));
 }
 
 #[test]

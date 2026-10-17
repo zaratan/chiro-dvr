@@ -95,28 +95,29 @@ fn a_second_identical_run_keeps_the_page_complete_whether_it_skips_the_video_or_
     let first = fs::read_to_string(&page).unwrap();
     assert!(run(&[&night], "fr_FR.UTF-8").status.success());
     let second = fs::read_to_string(&page).unwrap();
-    assert!(second.contains(r#"<details class="video" id="v1" open>"#));
+    assert!(second.contains(r#"<details class="video" id="v1" data-video="vol" open>"#));
     assert_eq!(
-        first.matches(r#"class="play""#).count(),
-        second.matches(r#"class="play""#).count()
+        first.matches(" data-clip=").count(),
+        second.matches(" data-clip=").count()
     );
+    assert!(second.matches(" data-clip=").count() > 0);
 }
 
 #[test]
-fn a_verdict_noted_in_the_table_shows_in_the_page_once_it_is_written_again() {
+fn a_verdicts_file_beside_the_page_is_carried_into_it_and_never_touched_by_a_new_run() {
     let (_root, night) = evening("nuit", &["vol.mp4", "autre.mp4"]);
     assert!(run(&[&night.join("vol.mp4")], "fr_FR.UTF-8").status.success());
-    let table = night.join("batdetect/vol/vol_pistes.csv");
-    let written = fs::read_to_string(&table).unwrap();
-    let mut lines: Vec<String> = written.split("\r\n").map(str::to_owned).collect();
-    let verdict = lines[0].split(';').position(|cell| cell == "verdict").unwrap();
-    let mut cells: Vec<&str> = lines[1].split(';').collect();
-    cells[verdict] = "chauve-souris";
-    lines[1] = cells.join(";");
-    fs::write(&table, lines.join("\r\n")).unwrap();
+    let verdicts = night.join("batdetect/verdicts.csv");
+    let written = b"vid\xe9o;d\xe9but (s);verdict\r\nvol;0,00;oui\r\n";
+    fs::write(&verdicts, written).unwrap();
     assert!(run(&[&night.join("autre.mp4")], "fr_FR.UTF-8").status.success());
     let page = fs::read_to_string(night.join("batdetect/resultats.html")).unwrap();
-    assert!(page.contains(r#"<td class="verdict">chauve-souris</td>"#), "{page}");
+    assert!(
+        page.contains(r#"<template id="verdicts-file" data-name="verdicts.csv""#),
+        "{page}"
+    );
+    assert!(page.contains(r#"data-candidates="1""#));
+    assert_eq!(fs::read(&verdicts).unwrap(), written);
 }
 
 #[test]

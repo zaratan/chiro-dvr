@@ -3,9 +3,9 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use draw::color::Rgb;
 use engine::detection::{self, Detected, detect};
 use engine::input::Video;
-use files::aside::Stamp;
 use files::names::{Names, params_json};
 use files::params::{Finish, Params, language_code, local_date, spans_in_seconds, write_params};
 use files::previous::{Kept, remove_previous_outputs};
@@ -30,11 +30,12 @@ use types::track::Track;
 
 use crate::disk;
 use crate::jobs::Job;
-use crate::listing::listed;
+use crate::listing::{listed, relative};
 use crate::options::Options;
 use crate::overview::{self, Drawn, Overview, write_overview};
 use crate::progress::{Progress, Step};
 use crate::settings::Settings;
+use crate::sheets::summaries;
 use crate::space::{Rendering, render_estimate};
 
 #[cfg(test)]
@@ -201,7 +202,7 @@ fn processed_since(
     })?;
     let names = Names::new(wording.language());
     let stem = job.video.file_stem().unwrap_or_default();
-    let mut kept = remove_previous_outputs(&job.dest, stem, names, wording, Stamp::now()).map_err(Error::Previous)?;
+    let mut kept = remove_previous_outputs(&job.dest, stem, names).map_err(Error::Previous)?;
     let csv = write_table(
         names.tracks_csv(&job.dest, stem),
         &tracks,
@@ -235,10 +236,12 @@ fn processed_since(
     };
     let renders = render.renders_clips_for(tracks.len());
     let drawn = drawn_if(renders, progress, overview, detected, &summary)?;
+    let colors = drawn.colors(&tracks);
     let clips = Clips {
         job,
         names,
         detected,
+        colors: &colors,
         timeline: &timeline,
         options,
         extent: extent(&timeline, &exclusion),
@@ -266,6 +269,8 @@ fn processed_since(
             video_bytes,
             language: language_code(wording.language()),
             date: local_date(&Zoned::now()),
+            background: relative(&job.dest, &drawn.background),
+            summaries: summaries(&job.dest, &drawn.sheets),
             tracks: listed(&job.dest, &tracks, &timeline, &drawn.painted, outputs),
         };
         write_params(&params_json(&job.dest), &params).map_err(Error::Files)?;
@@ -276,7 +281,7 @@ fn processed_since(
         extent: clips.extent,
         csv,
         kept,
-        summaries: drawn.pages,
+        summaries: drawn.sheets.into_iter().map(|sheet| sheet.page).collect(),
         rendered,
     })
 }
@@ -337,7 +342,7 @@ fn write_table(
     match write_tracks_csv(&csv, tracks, timeline, wording.language(), wording) {
         Ok(()) => Ok(Some(csv)),
         Err(files::error::Error::Taken { path }) => {
-            kept.push(Kept::Left { path, ours: true });
+            kept.push(Kept { path, ours: true });
             Ok(None)
         }
         Err(error) => Err(Error::Files(error)),
@@ -360,6 +365,7 @@ struct Clips<'a> {
     job: &'a Job,
     names: Names,
     detected: &'a Detected,
+    colors: &'a [Option<Rgb>],
     timeline: &'a Timeline,
     options: &'a Options,
     extent: Extent,
@@ -436,6 +442,6 @@ fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, E
             source,
         })?;
     }
-    let rendered = clips::render(&source, tracks, &outputs, render, &encoders).map_err(Error::Clips)?;
+    let rendered = clips::render(&source, tracks, clips.colors, &outputs, render, &encoders).map_err(Error::Clips)?;
     Ok(Written { rendered, outputs })
 }

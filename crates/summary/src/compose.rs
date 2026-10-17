@@ -3,7 +3,7 @@ use draw::color::{INK, PALETTE, PANEL, Rgb, SEPARATOR};
 use draw::style::SummaryStyle;
 use draw::text::Typeface;
 
-use crate::geometry::{distance, drawn};
+use crate::geometry::drawn;
 use crate::header::Labels;
 use crate::layout::PageLayout;
 use crate::legend::{LegendEntry, legend_panel};
@@ -65,8 +65,10 @@ pub fn compose(backdrop: &Canvas, page: &PageLayout<'_>, pen: Pen<'_>) -> Result
     let detached: Vec<_> = page
         .marks
         .iter()
-        .filter(|mark| distance(mark.anchor, mark.center) > f64::from(style.radius))
-        .map(|mark| ([drawn(mark.anchor), drawn(mark.center)], palette_color(mark.color)))
+        .filter_map(|mark| {
+            let leader = mark.leader(f64::from(style.radius))?;
+            Some((leader.map(drawn), palette_color(mark.color)))
+        })
         .collect();
     for (leader, _) in &detached {
         image.polyline(leader, INK, style.border + LEADER_HALO);

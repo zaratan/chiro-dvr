@@ -8,10 +8,8 @@ use types::language::Language;
 
 use crate::failures::{FailureRecord, read_failures};
 use crate::names::{Names, is_hidden, names_the_video, params_json};
-use crate::params::{Finish, TrackEntry};
+use crate::params::{Finish, SummaryEntry, TrackEntry};
 use crate::picture::png_size;
-use crate::table::Headings;
-use crate::verdicts::read_verdicts;
 
 #[cfg(test)]
 mod tests;
@@ -26,6 +24,10 @@ pub struct Written {
     pub not_analysed_s: f64,
     pub language: String,
     pub date: String,
+    #[serde(default)]
+    pub background: Option<String>,
+    #[serde(default)]
+    pub summaries: Vec<SummaryEntry>,
     pub tracks: Vec<TrackEntry>,
     #[serde(rename = "RenderConfig")]
     pub render: Limits,
@@ -46,8 +48,8 @@ pub struct Image {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Finished {
     pub written: Written,
+    pub background: Option<Image>,
     pub summaries: Vec<Image>,
-    pub verdicts: Vec<Option<String>>,
     pub table: Option<String>,
     pub annotated: Option<String>,
 }
@@ -67,7 +69,7 @@ pub struct Folder {
     pub failure: Option<FailureRecord>,
 }
 
-pub fn read_results(root: &Path, headings: &dyn Headings) -> Vec<Folder> {
+pub fn read_results(root: &Path) -> Vec<Folder> {
     let mut folders: BTreeMap<OsString, Folder> = BTreeMap::new();
     if let Ok(entries) = fs::read_dir(root) {
         for entry in entries.flatten() {
@@ -76,7 +78,7 @@ pub fn read_results(root: &Path, headings: &dyn Headings) -> Vec<Folder> {
             if is_hidden(&name) || !path.is_dir() {
                 continue;
             }
-            if let Some(found) = found(&path, &name, headings) {
+            if let Some(found) = found(&path, &name) {
                 folders.insert(
                     name.clone(),
                     Folder {
@@ -101,13 +103,13 @@ pub fn read_results(root: &Path, headings: &dyn Headings) -> Vec<Folder> {
     folders.into_values().collect()
 }
 
-fn found(dest: &Path, name: &OsStr, headings: &dyn Headings) -> Option<Found> {
+fn found(dest: &Path, name: &OsStr) -> Option<Found> {
     let params = fs::read(params_json(dest)).ok();
     if let Some(written) = params
         .as_deref()
         .and_then(|bytes| serde_json::from_slice::<Written>(bytes).ok())
     {
-        return Some(Found::Finished(Box::new(finished(dest, written, headings))));
+        return Some(Found::Finished(Box::new(finished(dest, written))));
     }
     let our_params = params
         .as_deref()
@@ -136,7 +138,7 @@ fn holds_our_outputs(dest: &Path, name: &OsStr) -> bool {
     })
 }
 
-fn finished(dest: &Path, written: Written, headings: &dyn Headings) -> Finished {
+fn finished(dest: &Path, written: Written) -> Finished {
     let language = if written.language == FRENCH {
         Language::French
     } else {
@@ -146,7 +148,6 @@ fn finished(dest: &Path, written: Written, headings: &dyn Headings) -> Finished 
     let stem = written.video.file_stem().unwrap_or_default().to_os_string();
     let present = |path: PathBuf| path.is_file().then(|| file_name(&path));
     let table_path = on_disk(dest, names.tracks_csv(dest, &stem));
-    let verdicts = read_verdicts(&table_path, &written.tracks, headings);
     let mut files: Vec<String> = Vec::new();
     for file in written.tracks.iter().filter_map(|track| track.summary.clone()) {
         if !files.contains(&file) {
@@ -156,16 +157,14 @@ fn finished(dest: &Path, written: Written, headings: &dyn Headings) -> Finished 
     if files.is_empty() {
         files.extend(present(names.summary_png(dest, &stem, None, None)));
     }
-    let summaries = files
-        .into_iter()
-        .filter_map(|file| {
-            let (width, height) = png_size(&dest.join(&file))?;
-            Some(Image { file, width, height })
-        })
-        .collect();
+    let image = |file: String| {
+        let (width, height) = png_size(&dest.join(&file))?;
+        Some(Image { file, width, height })
+    };
+    let summaries = files.into_iter().filter_map(image).collect();
     Finished {
+        background: written.background.clone().and_then(image),
         summaries,
-        verdicts,
         table: present(table_path),
         annotated: present(names.annotated_video(dest, &stem)),
         written,

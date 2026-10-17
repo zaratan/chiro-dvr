@@ -1,16 +1,16 @@
 use std::path::{Path, PathBuf};
 
 use draw::canvas::{self, Canvas, PixelBox};
-use draw::color::PANEL;
-use draw::color::Rgb;
+use draw::color::{PANEL, Rgb};
 use engine::detection::Detected;
 use engine::settings::Region;
-use files::names::Names;
+use files::names::{Names, Part};
 use media::convert::{self, Converter, SourceRange};
 use summary::header::Labels;
 use summary::image_file::{self, write_png};
 use summary::layout::Summary;
-use summary::pages;
+use summary::{Painted, pages};
+use types::track::Track;
 
 #[cfg(test)]
 mod tests;
@@ -40,15 +40,40 @@ pub(crate) struct Overview<'a> {
 
 #[derive(Debug, Default)]
 pub(crate) struct Drawn {
-    pub(crate) pages: Vec<PathBuf>,
+    pub(crate) background: PathBuf,
+    pub(crate) sheets: Vec<Sheet>,
     pub(crate) painted: Vec<Drawing>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Drawing {
-    pub(crate) track: usize,
-    pub(crate) color: Rgb,
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Sheet {
     pub(crate) page: PathBuf,
+    pub(crate) part: Option<Part>,
+    pub(crate) window: [f64; 2],
+    pub(crate) ignored: Vec<[f64; 2]>,
+    pub(crate) damaged: Vec<[f64; 2]>,
+    pub(crate) other_starts: Vec<f64>,
+    pub(crate) radius: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Drawing {
+    pub(crate) page: PathBuf,
+    pub(crate) painted: Painted,
+}
+
+impl Drawn {
+    pub(crate) fn colors(&self, tracks: &[Track]) -> Vec<Option<Rgb>> {
+        tracks
+            .iter()
+            .map(|track| {
+                self.painted
+                    .iter()
+                    .find(|drawing| drawing.painted.track == track.id())
+                    .map(|drawing| drawing.painted.color)
+            })
+            .collect()
+    }
 }
 
 pub(crate) fn write_overview(
@@ -65,17 +90,32 @@ pub(crate) fn write_overview(
         .and_then(|mut converter| converter.yuv_to_rgba(background, canvas.rgba_mut()))
         .map_err(Error::Convert)?;
     let stem = overview.video.file_stem().unwrap_or_default();
-    let mut drawn = Drawn::default();
     let masks = display_boxes(overview.regions, width, height);
-    for page in pages(summary, canvas, &masks, overview.labels)? {
-        let path = overview.names.summary_png(overview.dest, stem, page.minutes, page.part);
+    let summaries = pages(summary, canvas, &masks, overview.labels)?;
+    let mut drawn = Drawn {
+        background: overview.names.background_png(overview.dest, stem),
+        sheets: Vec::new(),
+        painted: Vec::new(),
+    };
+    write_png(&drawn.background, &summaries.backdrop)?;
+    for page in summaries.pages {
+        let path = overview
+            .names
+            .summary_png(overview.dest, stem, page.minutes.clone(), page.part);
         write_png(&path, &page.canvas)?;
-        drawn.painted.extend(page.painted.iter().map(|painted| Drawing {
-            track: painted.track,
-            color: painted.color,
+        drawn.painted.extend(page.painted.into_iter().map(|painted| Drawing {
             page: path.clone(),
+            painted,
         }));
-        drawn.pages.push(path);
+        drawn.sheets.push(Sheet {
+            page: path,
+            part: page.part,
+            window: page.window,
+            ignored: page.ignored,
+            damaged: page.damaged,
+            other_starts: page.other_starts,
+            radius: page.radius,
+        });
     }
     Ok(drawn)
 }

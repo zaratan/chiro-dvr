@@ -1,4 +1,4 @@
-use draw::canvas::Canvas;
+use draw::canvas::{Canvas, PixelBox};
 use draw::color::{PALETTE, Rgb};
 
 use super::{Painted, pages};
@@ -29,7 +29,9 @@ fn summary<'a>(
 fn a_short_video_gives_a_single_page_without_minutes() {
     let tracks = [track(1, 0, &[[40.0, 200.0], [50.0, 195.0], [60.0, 190.0]])];
     let timeline = timeline(40);
-    let written = pages(&summary("v", &tracks, &timeline), gray(), &[], &DebugLabels).unwrap();
+    let written = pages(&summary("v", &tracks, &timeline), gray(), &[], &DebugLabels)
+        .unwrap()
+        .pages;
     assert_eq!(written.len(), 1);
     assert_eq!(written[0].minutes, None);
     assert!(written[0].canvas.height() > 240);
@@ -38,7 +40,9 @@ fn a_short_video_gives_a_single_page_without_minutes() {
 #[test]
 fn a_long_video_gives_one_page_per_ten_minutes() {
     let timeline = timeline(13_000);
-    let written = pages(&summary("v", &[], &timeline), gray(), &[], &DebugLabels).unwrap();
+    let written = pages(&summary("v", &[], &timeline), gray(), &[], &DebugLabels)
+        .unwrap()
+        .pages;
     let minutes: Vec<_> = written.into_iter().map(|page| page.minutes).collect();
     assert_eq!(minutes, [Some(0..10), Some(10..20), Some(20..22)]);
 }
@@ -66,7 +70,9 @@ fn each_track_is_painted_once_under_its_number_in_a_palette_colour_found_on_the_
         track(7, 5, &[[40.0, 130.0], [120.0, 130.0], [200.0, 130.0]]),
     ];
     let timeline = timeline(40);
-    let written = pages(&summary("v", &tracks, &timeline), gray(), &[], &DebugLabels).unwrap();
+    let written = pages(&summary("v", &tracks, &timeline), gray(), &[], &DebugLabels)
+        .unwrap()
+        .pages;
     let painted: Vec<Painted> = written.iter().flat_map(|page| page.painted.clone()).collect();
     assert_eq!(painted.iter().map(|one| one.track).collect::<Vec<_>>(), [3, 7]);
     assert_ne!(painted[0].color, painted[1].color);
@@ -89,7 +95,9 @@ fn a_crowded_video_paints_each_track_on_exactly_one_of_its_parts() {
         })
         .collect();
     let timeline = timeline(400);
-    let written = pages(&summary("v", &tracks, &timeline), gray(), &[], &DebugLabels).unwrap();
+    let written = pages(&summary("v", &tracks, &timeline), gray(), &[], &DebugLabels)
+        .unwrap()
+        .pages;
     assert_eq!(written.len(), 3);
     let mut painted: Vec<usize> = written
         .iter()
@@ -102,4 +110,49 @@ fn a_crowded_video_paints_each_track_on_exactly_one_of_its_parts() {
     );
     painted.sort_unstable();
     assert_eq!(painted, (1..=45).collect::<Vec<_>>());
+}
+
+#[test]
+fn the_backdrop_is_the_scene_of_the_complete_image_without_any_mark() {
+    let timeline = timeline(40);
+    let display = PixelBox {
+        left: 0,
+        top: 0,
+        right: 99,
+        bottom: 19,
+    };
+    let drawn = pages(&summary("v", &[], &timeline), gray(), &[display], &DebugLabels).unwrap();
+    let (width, height) = (drawn.backdrop.width() as usize, drawn.backdrop.height() as usize);
+    assert_eq!((width, height), (320, 240));
+    let page = &drawn.pages[0].canvas;
+    let page_row = page.width() as usize * 4;
+    for row in 0..height {
+        assert_eq!(
+            &page.rgba()[row * page_row..row * page_row + width * 4],
+            &drawn.backdrop.rgba()[row * width * 4..(row + 1) * width * 4],
+            "{row}"
+        );
+    }
+    assert_ne!(drawn.backdrop, gray());
+}
+
+#[test]
+fn the_geometry_given_for_each_track_follows_its_points_and_puts_its_marker_where_it_is_drawn() {
+    let points = [[40.0, 120.0], [120.0, 120.0], [200.0, 120.0]];
+    let tracks = [track(3, 0, &points)];
+    let timeline = timeline(40);
+    let drawn = pages(&summary("v", &tracks, &timeline), gray(), &[], &DebugLabels).unwrap();
+    let page = &drawn.pages[0];
+    let painted = &page.painted[0];
+    assert_eq!(painted.path, points);
+    assert!(painted.head.is_some());
+    let below_label = [painted.dot[0], painted.dot[1] + 0.75 * page.radius];
+    let width = page.canvas.width() as usize;
+    let at = (below_label[1] as usize * width + below_label[0] as usize) * 4;
+    let color = painted.color;
+    assert_eq!(
+        &page.canvas.rgba()[at..at + 4],
+        &[color.red, color.green, color.blue, 255]
+    );
+    assert_eq!(page.window, [0.0, 4.0]);
 }

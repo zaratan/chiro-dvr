@@ -132,19 +132,21 @@ crates depuis #71, dépendances à sens unique :
   `tracking` → `types` (#120) ; `files` → `types` (#122) ;
   `params.json`, marque d'un dossier terminé : `process` l'écrit en dernier (`files::params`,
   par `.partial`), le ménage (`files::previous`) l'efface en premier (#66) ;
-  `results` relit un dossier de sortie pour la page (`verdicts` du CSV, taille des PNG par
+  `results` relit un dossier de sortie pour la page (taille des PNG par
   `picture`, échecs de `.batdetect/echecs/` par `failures`, #71).
 - `page` (#71) : la page de résultats d'une soirée en HTML, depuis un modèle sans disque
   (`model`), libellés par le trait `Labels`, CSS et JS embarqués ; ne dépend d'aucune crate.
+  Les verdicts se saisissent dans la page (#228) : `verdicts.csv` à côté d'elle, lu en octets par `files::verdicts` et embarqué ; lecture, rattachement et brouillon en JS (`assets/csv.js`, `assets/store.js`, testés par `mise run page:js`, `node --test`, dans `check`).
+  L'image résumé y est redessinée en SVG sur le fond de la vidéo (`scene`), avec sa ligne (`caption`) et sa frise en HTML (`strip`), d'après la mise en page de `params.json`, jamais recalculée (#259).
 - `draw` : dessin pur sur une toile RGBA opaque, police Roboto embarquée, palette et tailles ; ne dépend d'aucune crate du workspace.
 - `render` → `media`, `draw`, `types` (#110, #112) : images des extraits choisies par `pts`
   (`source`), reprise sur la dernière image-clé saine, un seul fil de décodage sur une plage abîmée ;
-  fenêtres et groupes (`windows`), boîtes, `#N` et traces (`overlay`, `picture`),
+  fenêtres et groupes (`windows`), boîtes, `#N` et traces à la couleur de la piste sur l'image résumé (`ink`, `overlay`, `picture`, #13),
   un encodeur par groupe (`media::encode::fanout`), groupes en parallèle (`clips`,
   `schedule`, `group`, `ahead`, `encoders`) ; zooms ralentis en openh264 (`zoom`, `work`, #103) ; vidéo annotée aux `pts` de la source, lue par tronçons (#103) ;
   `drawn` (feature `testing`) rend les images dessinées sans encodeur, pour les tests figés (#198).
 - `summary` → `draw`, `types`, `files` (#104) : l'image résumé (tranches, couleurs,
-  flèches, pastilles, bandeau, frise du temps, PNG), sans FFmpeg.
+  flèches, pastilles, bandeau, frise du temps, PNG), sans FFmpeg ; `pages` rend aussi le fond et la géométrie de chaque piste pour la page (#259).
 - `compare` → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré ;
   `bench` → `engine`, `tracking`, `reference`, `media`, `types` (#100) : banc de mesure,
@@ -156,15 +158,15 @@ crates depuis #71, dépendances à sens unique :
   vidéo, seulement si elle est à nous, #71), `ledger` (échec d'une vidéo gardé dans
   `.batdetect/echecs/` pour la page, effacé à la réussite, #71), `refusals` (entrées refusées du lancement dans `.batdetect/refus.json` pour la page, #267),
   `options` (réglages de la commande), `process` (une vidéo de bout en bout ; `tracked` en
-  est le suivi, partagé avec les tests figés), `reuse` (vidéo déjà faite, sautée d'après son `params.json`, #70), `inventory` (inventaire au départ : reprise décidée, autres vidéos ouvertes et refusées si elles ne s'ouvrent pas, durée annoncée, #62), `space` (place à prévoir, au lancement et par vidéo, regroupée par volume, sans disque, #61), `disk` (place libre et volume d'un dossier par `statvfs`, rien sous Windows, #61), `eta` (heure de fin de la soirée : secondes par image des vidéos calculées, appliquées aux images restantes, sans horloge, #68), `consent` (question avant de traiter les vidéos
-  valides quand des entrées sont refusées, `--skip-refused`), `language`, `listing` (pistes de `params.json` : temps, couleur, extraits écrits, #66),
-  `overview` (image résumé), `settings` (réglages de `params.json`),
+  est le suivi, partagé avec les tests figés), `reuse` (vidéo déjà faite, sautée d'après son `params.json`, #70), `inventory` (inventaire au départ : reprise décidée, autres vidéos ouvertes et refusées si elles ne s'ouvrent pas, durée annoncée, #62), `space` (place à prévoir, au lancement et par vidéo, regroupée par volume, sans disque, #61), `checkup` (modèle de `doctor` : encodeur essayé, place libre par `disk`, droit d'écrire, #58), `disk` (place libre et volume d'un dossier par `statvfs`, rien sous Windows, #61), `eta` (heure de fin de la soirée : secondes par image des vidéos calculées, appliquées aux images restantes, sans horloge, #68), `consent` (question avant de traiter les vidéos
+  valides quand des entrées sont refusées, `--skip-refused`), `language`, `listing` (pistes de `params.json` : temps, couleur, extraits écrits, #66, trace, #259),
+  `overview` (image résumé et fond), `sheets` (mise en page des images résumé dans `params.json`, #259), `settings` (réglages de `params.json`),
   `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), `writable`
   (sonde d'écriture de chaque dossier de sortie avant tout calcul, #86), `access` (table
   fermée des raisons d'un chemin refusé, sans texte, #55), `jobs` (vidéos et dossiers de
   sortie, toutes les entrées fautives refusées ensemble avant tout calcul, #55), `progress` (étapes
   d'une vidéo annoncées par `process`, #63), `failure` (cause d'un échec, sans texte, #64), `tally` (modèle du bilan de fin de soirée, #65), dans le binaire `admission` (plan, inventaire, contrôle de place et question des refus, #61), `status` (vidéo et étape en
-  cours sur la sortie d'erreur, redessinée sur un terminal, #63, avec l'heure de fin, #68), `board` (mise en forme du bilan, #65), `clock` (durée en h, min et s, du bilan et de l'annonce, #62), `terminal` (largeur du terminal par `tcgetwinsize`, rien sous Windows, #68), `notify` (sous macOS dans un terminal, notification par
+  cours sur la sortie d'erreur, redessinée sur un terminal, #63, avec l'heure de fin, #68), `board` (mise en forme du bilan, #65), `commands` (aiguillage de `doctor` et `completion` avant le parseur, #58, #59), `completion` (script zsh par `clap_complete`, #59), `doctor` (lignes de `batdetect doctor`, #58), `clock` (durée en h, min et s, du bilan et de l'annonce, #62), `terminal` (largeur du terminal par `tcgetwinsize`, rien sous Windows, #68), `notify` (sous macOS dans un terminal, notification par
   `osascript` et page de résultats ouverte par `open` après le bilan, seuls sous-processus du binaire, #69, #71), `sheet`
   (libellés de la page par Fluent, #71), `style` (couleurs et nom de l'option d'aide, #56) et `parsing` (lecture
   des valeurs d'options, erreur typée avec l'option et sa plage, #55) ; usages courants en tête de l'aide et sans argument (#56), version gravée par

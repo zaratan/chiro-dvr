@@ -1,102 +1,61 @@
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::fs::{self, File};
+use std::path::Path;
+use std::time::{Duration, SystemTime};
 
-use types::language::Language;
+use super::read_verdicts_file;
 
-use super::read_verdicts;
-use crate::params::TrackEntry;
-use crate::table::{Column, Headings};
-
-#[derive(Debug)]
-struct Named;
-
-impl Headings for Named {
-    fn heading(&self, column: Column, language: Language) -> String {
-        format!("{column:?}{}", if language == Language::French { "_fr" } else { "" })
-    }
-}
-
-fn track(id: usize, start_s: f64) -> TrackEntry {
-    TrackEntry {
-        id,
-        start_s,
-        duration_s: 0.6,
-        color: None,
-        summary: None,
-        clip: None,
-        zoom: None,
-    }
-}
-
-fn written(folder: &Path, text: &str) -> PathBuf {
-    let path = folder.join("v_pistes.csv");
-    fs::write(&path, text).unwrap();
-    path
+fn written(root: &Path, name: &str, content: &[u8], minutes_ago: u64) {
+    let path = root.join(name);
+    fs::write(&path, content).unwrap();
+    let moment = SystemTime::now() - Duration::from_secs(60 * minutes_ago);
+    File::options()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_modified(moment)
+        .unwrap();
 }
 
 #[test]
-fn a_verdict_noted_in_a_french_table_is_read_back_for_its_track() {
-    let folder = tempfile::tempdir().unwrap();
-    let path = written(
-        folder.path(),
-        "\u{feff}Track_fr;Verdict_fr;StartSeconds_fr\r\n1;chauve-souris;4,8\r\n2;;23,48\r\n",
-    );
-    let tracks = [track(1, 4.801), track(2, 23.48)];
-    assert_eq!(
-        read_verdicts(&path, &tracks, &Named),
-        [Some("chauve-souris".to_owned()), None]
-    );
+fn the_most_recent_verdicts_file_is_read_whatever_number_the_browser_gave_it() {
+    let root = tempfile::tempdir().unwrap();
+    written(root.path(), "verdicts.csv", b"old", 30);
+    written(root.path(), "verdicts (1).csv", b"newest", 1);
+    written(root.path(), "verdicts-2.csv", b"middle", 10);
+    let file = read_verdicts_file(root.path()).unwrap();
+    assert_eq!(file.name, "verdicts (1).csv");
+    assert_eq!(file.bytes, b"newest");
+    assert_eq!(file.candidates, 3);
 }
 
 #[test]
-fn a_table_saved_again_by_a_spreadsheet_with_quotes_keeps_its_verdicts() {
-    let folder = tempfile::tempdir().unwrap();
-    let path = written(
-        folder.path(),
-        "Track,Start,Verdict,StartSeconds\n1,0:04.80,\"oui, pipistrelle; \"\"sûre\"\"\",4.80\n",
-    );
-    assert_eq!(
-        read_verdicts(&path, &[track(1, 4.8)], &Named),
-        [Some("oui, pipistrelle; \"sûre\"".to_owned())]
-    );
+fn the_bytes_are_kept_as_written_whatever_their_encoding() {
+    let root = tempfile::tempdir().unwrap();
+    let latin = b"vid\xe9o;piste\r\nnuit;1\r\n";
+    written(root.path(), "Verdicts.CSV", latin, 0);
+    assert_eq!(read_verdicts_file(root.path()).unwrap().bytes, latin);
 }
 
 #[test]
-fn a_table_kept_from_another_run_gives_no_verdict_to_tracks_that_moved() {
-    let folder = tempfile::tempdir().unwrap();
-    let path = written(folder.path(), "Track;Verdict;StartSeconds\n1;oui;4,8\n");
-    assert_eq!(read_verdicts(&path, &[track(1, 6.2)], &Named), [None]);
+fn the_date_of_the_file_is_given_for_the_page_to_tell() {
+    let root = tempfile::tempdir().unwrap();
+    written(root.path(), "verdicts.csv", b"", 0);
+    let modified = read_verdicts_file(root.path()).unwrap().modified.unwrap();
+    assert!(modified.ends_with('Z'), "{modified}");
 }
 
 #[test]
-fn a_table_without_a_verdict_column_or_without_a_file_gives_no_verdict() {
-    let folder = tempfile::tempdir().unwrap();
-    let legacy = written(folder.path(), "id,start,end,start_s\n1,0:04.80,0:05.40,4.8\n");
-    assert_eq!(read_verdicts(&legacy, &[track(1, 4.8)], &Named), [None]);
-    let absent = folder.path().join("absent.csv");
-    assert_eq!(read_verdicts(&absent, &[track(1, 4.8)], &Named), [None]);
+fn other_files_hidden_ones_and_folders_are_not_verdicts() {
+    let root = tempfile::tempdir().unwrap();
+    written(root.path(), "notes.csv", b"", 0);
+    written(root.path(), "verdicts.txt", b"", 0);
+    written(root.path(), ".verdicts.csv", b"", 0);
+    fs::create_dir(root.path().join("verdicts-old.csv")).unwrap();
+    assert_eq!(read_verdicts_file(root.path()), None);
 }
 
 #[test]
-fn a_table_saved_again_in_latin_1_by_a_spreadsheet_keeps_its_verdicts() {
-    let folder = tempfile::tempdir().unwrap();
-    let path = folder.path().join("v_pistes.csv");
-    let mut bytes = b"Track;Verdict;StartSeconds\r\n1;oui s".to_vec();
-    bytes.push(0xFB);
-    bytes.extend(b"re;4,8\r\n");
-    fs::write(&path, bytes).unwrap();
-    assert_eq!(
-        read_verdicts(&path, &[track(1, 4.8)], &Named),
-        [Some("oui sûre".to_owned())]
-    );
-}
-
-#[test]
-fn a_start_rounded_to_the_hundredth_in_the_table_still_meets_its_track() {
-    let folder = tempfile::tempdir().unwrap();
-    let path = written(folder.path(), "Track;Verdict;StartSeconds\n7;oui;209,6\n");
-    assert_eq!(
-        read_verdicts(&path, &[track(7, 209.595)], &Named),
-        [Some("oui".to_owned())]
-    );
+fn a_missing_folder_has_no_verdicts() {
+    let root = tempfile::tempdir().unwrap();
+    assert_eq!(read_verdicts_file(&root.path().join("absent")), None);
 }

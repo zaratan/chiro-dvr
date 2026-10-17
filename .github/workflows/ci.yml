@@ -66,7 +66,24 @@ jobs:
           path: ~/.cache/batdetect/ffmpeg
           key: ${{ steps.ffmpeg-key.outputs.key }}
       - run: mise run rust:static
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends zsh
       - run: mise run rust:coverage
+
+  page-js:
+    needs: changes
+    if: needs.changes.outputs.code != 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+        with:
+          install_args: node
+          cache_key_prefix: mise-node-v1
+      - run: mise run page:js
 
   rust-slow:
     needs: changes
@@ -289,7 +306,7 @@ jobs:
     uses: ./.github/workflows/package.yml
 
   verdict:
-    needs: [changes, rust, rust-slow, rust-reference, rust-settings, rust-windows, rust-windows-slow, package]
+    needs: [changes, rust, page-js, rust-slow, rust-reference, rust-settings, rust-windows, rust-windows-slow, package]
     if: always()
     runs-on: ubuntu-26.04
     timeout-minutes: 5

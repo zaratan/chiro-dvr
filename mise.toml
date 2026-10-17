@@ -1,5 +1,6 @@
 [tools]
 python = "3.14.8"
+node = "24.21.0"
 lefthook = "2.1.16"
 "github:taiki-e/cargo-llvm-cov" = "0.9.1"
 cargo-deny = "0.20.2"
@@ -10,7 +11,11 @@ cargo-deny = "0.20.2"
 run = [
   { task = "rust:static" },
   { task = "rust:test" },
+  { task = "page:js" },
 ]
+
+[tasks."page:js"]
+run = "node --test crates/page/src/assets/tests/*.test.mjs"
 
 [tasks."check:ci"]
 run = [

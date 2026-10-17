@@ -13,7 +13,7 @@ use media::encode::Codec;
 use media::encode::fallback::Fallback;
 use media::fingerprint;
 use media::frame::{ColorRange, YuvFrame};
-use reference::location::committed;
+use reference::location::{Reference, committed};
 use reference::recording::Recording;
 use render::clips::{Clip, Outputs, render};
 use render::config::RenderConfig;
@@ -143,7 +143,7 @@ fn report_colours(track: &Track, window: &Window, clip: &Path, pad: f64) {
 #[ignore = "slow"]
 fn outside_the_drawings_each_clip_keeps_the_source_frames_of_the_same_pts() {
     let (path, read) = extract();
-    let tracks = Recording::read(&committed(EXTRACT)).unwrap().tracks;
+    let tracks = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap().tracks;
     let source = Source::new(&path, &read.timeline, &read.keys, &read.errors).unwrap();
     let rate = read.timeline.rate();
     let config = RenderConfig::default();
@@ -175,7 +175,7 @@ fn outside_the_drawings_each_clip_keeps_the_source_frames_of_the_same_pts() {
             zooms: Vec::new(),
             annotated: None,
         };
-        render(&source, &tracks, &outputs, config, &[codec]).unwrap();
+        render(&source, &tracks, &[], &outputs, config, &[codec]).unwrap();
         for ((window, clip), track) in windows.iter().zip(&clips).zip(&tracks) {
             let (similarity, _) = compare_clip(&comparison, window, &clip.path);
             println!(
@@ -323,7 +323,7 @@ fn compare_zoom(comparison: &Comparison<'_>, window: &Window, track: &Track, zoo
 #[ignore = "slow"]
 fn outside_the_trail_each_zoom_is_the_nearest_magnification_of_its_frame_at_a_quarter_of_the_rate() {
     let (path, read) = extract();
-    let tracks = Recording::read(&committed(EXTRACT)).unwrap().tracks;
+    let tracks = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap().tracks;
     let source = Source::new(&path, &read.timeline, &read.keys, &read.errors).unwrap();
     let rate = read.timeline.rate();
     let config = RenderConfig::default();
@@ -350,6 +350,7 @@ fn outside_the_trail_each_zoom_is_the_nearest_magnification_of_its_frame_at_a_qu
     render(
         &source,
         &tracks,
+        &[],
         &outputs,
         config,
         &[Codec::VideoToolbox, Codec::OpenH264],
@@ -374,7 +375,7 @@ fn outside_the_trail_each_zoom_is_the_nearest_magnification_of_its_frame_at_a_qu
 #[ignore = "slow"]
 fn the_annotated_extract_has_every_frame_at_its_source_pts_and_keeps_the_source_outside_the_drawings() {
     let (path, read) = extract();
-    let tracks = Recording::read(&committed(EXTRACT)).unwrap().tracks;
+    let tracks = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap().tracks;
     let source = Source::new(&path, &read.timeline, &read.keys, &read.errors).unwrap();
     let rate = read.timeline.rate();
     let config = RenderConfig::default();
@@ -403,7 +404,7 @@ fn the_annotated_extract_has_every_frame_at_its_source_pts_and_keeps_the_source_
             zooms: Vec::new(),
             annotated: Some(annotated.clone()),
         };
-        render(&source, &tracks, &outputs, config, &[codec]).unwrap();
+        render(&source, &tracks, &[], &outputs, config, &[codec]).unwrap();
         let duration = Decoder::open(&annotated, Threads::Automatic)
             .unwrap()
             .stream()

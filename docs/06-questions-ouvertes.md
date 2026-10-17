@@ -67,7 +67,7 @@
       largeur de la vidéo. Une image par tranche de 10 min pour les vidéos plus longues ;
       depuis #157, coupée en parties au-delà de 20 pistes ; depuis #127, une frise du temps
       et les plages illisibles datées.
-    - Reste : les mêmes couleurs et pastilles sur la vidéo annotée et les extraits.
+    - **Fait (16 octobre, #13).** La vidéo annotée, les extraits et les zooms reprennent la couleur de chaque piste, avec un liseré noir sur la boîte et le numéro ; le numéro reste `#N` au-dessus de la boîte, sans pastille ([02](02-methode.md#rendu)).
     - L'affichage des jumelles (heure, date, batterie, chrono flou) reste dans le fond
       médian, puisqu'il est fixe. `--osd-region` le masque (`0,0,1,0.07` pour les
       Symbion) ; sans option, rien n'est masqué, pour ne dépendre d'aucune caméra.

@@ -47,6 +47,8 @@ fn finished(folder: &Path, options: &Options, version: &str, edit: impl FnOnce(&
         video_bytes: VIDEO_BYTES as u64,
         language: language_code(Language::French),
         date: local_date(&Zoned::now()),
+        background: None,
+        summaries: Vec::new(),
         tracks: Vec::new(),
     };
     let path = params_json(&job.dest);

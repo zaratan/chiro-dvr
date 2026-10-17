@@ -74,18 +74,22 @@ Ce qu'elle montre, de haut en bas :
   précédentes rangées dans le même dossier y sont aussi. Les vidéos du dernier calcul sont
   dépliées, les autres repliées : un clic sur le nom ouvre ou ferme la section.
 
-Dans une section, l'image résumé et la liste des pistes. Chaque piste a son numéro, de la
-couleur de sa trajectoire sur l'image, son début, sa durée, le verdict noté dans le tableau
-des pistes, et les boutons « Extrait » et, quand il existe, « Zoom ».
+En haut de la page, une barre reste visible quand on fait défiler : le décompte des verdicts de la soirée (oui, non, doute, à voir), l'état des verdicts, et les boutons « Télécharger les verdicts » et « Recharger un fichier de verdicts… » ([Noter le verdict](#noter-le-verdict)).
 
-- Un clic sur « Extrait » ou « Zoom » passe la vidéo à la place de l'image.
-  « Revenir à l'image résumé » la remet, « Précédente » et « Suivante » passent
-  d'une piste à l'autre.
-- Un clic sur le numéro d'une piste remet l'image résumé.
-- Un clic sur l'image l'ouvre en taille réelle.
-- Une vidéo chargée a plusieurs images résumé : des onglets « Partie » les séparent, et
-  chaque onglet dit quelles pistes il montre. Choisir une piste affiche la partie qui la
-  contient.
+Dans une section, l'image résumé et la liste des pistes. Chaque piste a son numéro, de la couleur de sa trajectoire sur l'image, son début, sa durée, son verdict (« à voir » tant qu'il n'est pas donné) et l'espèce notée, et une étiquette « Zoom » quand l'extrait zoomé existe. L'en-tête de la vidéo dit combien de ses pistes sont jugées.
+
+L'image de la page est redessinée par la page elle-même : sur la scène de la vidéo, sans aucune trace, elle trace les trajectoires, les flèches et les pastilles numérotées aux places que l'outil a choisies pour l'image résumé. Les traits gardent la même épaisseur quelle que soit la taille de l'image, et les numéros sont écrits dans la police de l'ordinateur ; l'image redessinée peut donc différer très légèrement de l'image résumé.
+
+- Au-dessus de l'image, une ligne dit l'intervalle montré, le nombre de pistes, et les périodes hors analyse et illisibles (« rien hors analyse, rien d'illisible » quand il n'y en a pas ; au-delà de trois périodes, « + 4 autres »). Le lien « Ouvrir l'image complète » ouvre l'image résumé, avec son bandeau et sa frise : c'est le fichier à garder ou à envoyer.
+- Sous l'image, la frise du temps : un trait par début de piste, de la couleur de sa pastille (en gris, les pistes des autres parties de la tranche), les minutes, et les bandes « hors analyse » et « illisible » seulement quand il y en a. Le survol d'un trait donne la piste et son début.
+- La légende du bandeau de l'image résumé n'est pas redessinée : la liste des pistes, avec leurs pastilles et leurs débuts, en tient lieu.
+- Une vidéo calculée par une version précédente de l'outil garde son image résumé, sans frise sous l'image ; relancer la même commande la refait avec l'image redessinée.
+
+- Un clic sur une piste (sa ligne ou son numéro) ouvre le lecteur à la place de l'image : l'extrait de la piste passe en boucle, en grand, avec le verdict et l'espèce dessous. À droite, l'image en petit, avec toutes les trajectoires mais la seule pastille de la piste jugée (un clic ouvre l'image complète), et la liste, où la piste jugée est en évidence.
+- « Extrait » et « Zoom » choisissent la vidéo ; « Image résumé » ferme le lecteur ; ‹ et › passent à la piste précédente ou suivante ; « À voir » saute à la prochaine piste sans verdict. Sur un écran étroit, l'étiquette « Zoom » de la liste laisse sa place au verdict pendant le jugement : le bouton « Zoom », ou « pas de zoom », dit si la piste jugée en a un.
+- Le clavier : `O` oui, `N` non, `D` (ou `?`) doute, `Suppr` efface le verdict, `E` va au champ espèce, `Z` passe de l'extrait au zoom, les flèches ← et → changent de piste, Maj et → va à la prochaine piste à voir, Espace lit ou arrête. Un second appui sur le même verdict l'efface. Les lettres tapées dans le champ espèce restent du texte.
+- « Enchaîner », cochée d'origine : après « Oui », le curseur va dans le champ espèce, et Entrée passe à la piste suivante ; après « Non » ou « Doute », la page passe directement à la suivante. Décochée, rien ne bouge seul. On ne passe jamais d'une vidéo à l'autre.
+- Une vidéo chargée a plusieurs images résumé : des onglets « Partie » les séparent, et chaque onglet dit quelles pistes il montre.
 
 Une vidéo en échec garde sa place dans la liste, marquée en rouge, avec la raison et ce qu'il
 faut faire, comme dans le bilan. Si les résultats d'un calcul précédent sont encore là, un lien
@@ -93,9 +97,6 @@ y mène ; ce n'est pas toujours le cas, car un nouveau calcul commence par les 
 avant la fin : relancer la même commande la refait. Pendant le calcul, les vidéos pas encore
 traitées sont « en attente ». Une vidéo calculée par une version plus ancienne de l'outil
 est marquée « ancienne version » : relancer la même commande la refait.
-
-La page ne note rien : le verdict se note dans le tableau des pistes ([Noter le
-verdict](#noter-le-verdict)), et la page le montre au calcul suivant.
 
 Limite : les résultats d'une vidéo sont rangés sous son nom. Si deux soirées sont envoyées dans
 le même dossier choisi au lancement et ont des vidéos de même nom, la seconde remplace la
@@ -111,11 +112,14 @@ calcul efface les fichiers de l'autre langue.
 | Fichier | Français | Anglais |
 | --- | --- | --- |
 | Image résumé | `<vidéo>_resume.png` | `<vidéo>_summary.png` |
+| Scène seule, sans trace, pour la page | `<vidéo>_fond.png` | `<vidéo>_background.png` |
 | Tableau des pistes | `<vidéo>_pistes.csv` | `<vidéo>_tracks.csv` |
 | Extrait | `extraits/piste_01_0m04s.mp4` | `clips/track_01_0m04s.mp4` |
 | Extrait zoomé | `extraits/piste_01_0m04s_zoom.mp4` | `clips/track_01_0m04s_zoom.mp4` |
 | Vidéo annotée | `<vidéo>_annotee.mp4` | `<vidéo>_annotated.mp4` |
 | Réglages et bilan du calcul | `params.json` | `params.json` |
+
+À côté de la page, dans le dossier `batdetect/` ou le dossier choisi au lancement, `verdicts.csv` garde les verdicts de toute la page ([Noter le verdict](#noter-le-verdict)) : c'est la page qui le télécharge, et l'outil le lit sans jamais l'écrire.
 
 - Une vidéo de plus de 10 min a une image résumé par tranche de 10 min
   (`<vidéo>_resume_000m-010m.png`, …), et une image qui aurait plus de 20 pistes est coupée en
@@ -126,7 +130,7 @@ calcul efface les fichiers de l'autre langue.
   petites ou faibles ([Juger un extrait](#juger-un-extrait)).
 - La vidéo annotée, la vidéo entière avec toutes les pistes dessinées, n'est écrite qu'avec
   `--annotated` ; sans l'option, celle d'un calcul précédent est effacée. Au-delà du
-  [garde-fou](#garde-fou-du-nombre-de-pistes), il n'y a ni extraits, ni image résumé, ni vidéo annotée.
+  [garde-fou](#garde-fou-du-nombre-de-pistes), il n'y a ni extraits, ni image résumé, ni fond, ni vidéo annotée.
 - `params.json` s'écrit en dernier : un dossier sans lui n'est pas terminé (calcul interrompu,
   ou vidéo en échec autrement qu'au-delà du garde-fou), et la vidéo est refaite à la relance.
 - Le tableau français s'ouvre dans un tableur réglé en français (point-virgule, virgule
@@ -250,14 +254,7 @@ pour que les traits ressortent.
 
 ### La couleur ne veut rien dire
 
-La couleur sert seulement à distinguer une piste de ses voisines sur la même image. Il y en a
-12 : chaque piste prend la couleur la moins présente parmi les traits proches déjà dessinés,
-et à égalité la moins employée. Les 12 premières pistes d'une image ont chacune la sienne ; à partir de la
-13ᵉ, une couleur revient, sur une piste éloignée si possible. Deux traits de même couleur
-sont donc deux pistes, et la même couleur sur deux images ne désigne pas la même piste. Elle ne
-dit rien de l'animal, de sa vitesse ni de la confiance de l'outil, et les extraits ne la
-reprennent pas : leur boîte est toujours rouge et la trace du vol toujours jaune orangé.
-Seul le numéro identifie une piste.
+La couleur sert seulement à distinguer une piste de ses voisines sur la même image. Il y en a 12 : chaque piste prend la couleur la moins présente parmi les traits proches déjà dessinés, et à égalité la moins employée. Les 12 premières pistes d'une image ont chacune la sienne ; à partir de la 13ᵉ, une couleur revient, sur une piste éloignée si possible. Deux traits de même couleur sont donc deux pistes, et la même couleur sur deux images ne désigne pas la même piste. Elle ne dit rien de l'animal, de sa vitesse ni de la confiance de l'outil. Les extraits, les zooms et la vidéo entière reprennent la couleur que chaque piste a sur l'image résumé : sa boîte, son numéro et la trace de son vol sont de cette couleur. Seul le numéro identifie une piste.
 
 ## Juger un extrait
 
@@ -287,14 +284,10 @@ agrandie et ralentie dans un lecteur ; c'est de là que vient le zoom.
 *Extrait de la piste 2 de l'extrait de test (0:00:23), à 1,9 s du début de l'extrait : une
 chauve-souris qui descend de droite à gauche.*
 
-1. **La boîte** rouge entoure la cible, avec par défaut une marge de 12 pixels de chaque
-   côté.
-2. **Le numéro** `#2`, au-dessus de la boîte, est celui de la piste : dans le tableau, la
-   légende de l'image résumé et le nom du fichier.
-3. **La trace** jaune orangé suit le trajet de la dernière seconde (par défaut), jusqu'à la
-   cible. Pour un vol rapide comme celui-ci, elle montre presque tout le passage.
-4. **L'affichage des jumelles** (chrono d'enregistrement en rouge, heure, date, batterie)
-   reste tel qu'il a été filmé : ce rouge-là n'est pas celui de l'outil.
+1. **La boîte** entoure la cible, avec par défaut une marge de 12 pixels de chaque côté. Elle a la couleur de la piste sur l'image résumé, bordée d'un liseré noir qui la détache de la roche claire comme du ciel sombre.
+2. **Le numéro** `#2`, au-dessus de la boîte et de la même couleur, est celui de la piste : dans le tableau, la légende de l'image résumé et le nom du fichier.
+3. **La trace**, de la même couleur, suit le trajet de la dernière seconde (par défaut), jusqu'à la cible. Pour un vol rapide comme celui-ci, elle montre presque tout le passage.
+4. **L'affichage des jumelles** (chrono d'enregistrement en rouge, heure, date, batterie) reste tel qu'il a été filmé : ce rouge-là ne vient pas de l'outil.
 
 Les autres pistes présentes au même moment sont dessinées aussi, chacune avec sa boîte, son
 numéro et sa trace. Les réglages du dessin sont dans [docs/02](02-methode.md#rendu).
@@ -315,9 +308,7 @@ L'image du milieu est de celles-là ; le tableau des pistes en donne le nombre p
 avec `--zoom all` : cette piste est assez grande et contrastée pour ne pas en avoir par défaut.
 Agrandie environ ×1,6 ici, parce que son trajet couvre une grande partie de l'image.*
 
-**Sur le zoom**, seule la trace est dessinée, en trait fin : ni boîte, ni numéro, ni autres
-pistes, pour ne rien cacher d'une cible ténue. La trace s'arrête un peu avant la cible. Le
-cadre ne bouge pas pendant tout le zoom.
+**Sur le zoom**, seule la trace est dessinée, en trait fin et de la couleur de la piste : ni boîte, ni numéro, ni autres pistes, pour ne rien cacher d'une cible ténue. La trace s'arrête un peu avant la cible. Le cadre ne bouge pas pendant tout le zoom.
 
 ### Désigner une piste
 
@@ -329,19 +320,13 @@ qui commencent dans la même seconde.
 
 ### Noter le verdict
 
-Le tableau des pistes, `<vidéo>_pistes.csv`, s'ouvre dans un tableur réglé en français. La
-colonne `verdict` y est vide : écrire le verdict sur la ligne de la piste, dans les mots qu'on
-veut (« oui », « non », « ? »), puis enregistrer en gardant le format CSV. L'outil ne tient
-jamais compte de ce qui y est écrit : la colonne sert à cocher les pistes vues et à compter
-les passages.
+Le verdict se note dans la page, piste par piste, dans le lecteur : « Oui », « Non » ou « Doute », et l'espèce, en texte libre (la page propose les espèces déjà tapées). L'outil ne tient jamais compte de ce qui y est noté : les verdicts servent à compter les passages.
 
-Quand la vidéo est recalculée dans le même dossier, un tableau dont au moins une case
-`verdict` est remplie est mis de côté tel quel, sous un nom daté
-(`<vidéo>_pistes_2026-10-16_2130.csv`), et le nouveau tableau s'écrit à côté ; le bilan de la
-soirée le dit ; un recalcul suivant n'y touche plus. Un tableau que l'outil ne reconnaît plus
-est mis de côté de la même façon ; un tableau sans aucun verdict est remplacé, même trié, et
-une note écrite hors de la colonne `verdict` est alors perdue. Les numéros ont pu changer : reporter les
-verdicts par le début de la piste, à une seconde près, et à l'extrait en cas de doute.
+La page ne peut pas écrire sur le disque : elle garde les verdicts dans un fichier, `verdicts.csv`, qu'on télécharge par « Télécharger les verdicts ». Le fichier arrive dans Téléchargements, peut-être sous le nom `verdicts (1).csv` ou `verdicts-2.csv` si le navigateur en a déjà un ; le glisser dans le dossier de la page, à côté de `resultats.html`. S'il y en a plusieurs, la page lit le plus récent et dit lequel. Il couvre toute la page, toutes les vidéos de la soirée, et s'ouvre dans un tableur pour compter : une ligne par piste jugée, avec la vidéo, le numéro, le début, le verdict et l'espèce.
+
+Tant que le fichier n'est pas téléchargé, la barre le dit (« Changements non téléchargés »), et le navigateur demande confirmation avant de quitter la page. Le navigateur garde aussi les verdicts non téléchargés : en rouvrant la page, on les retrouve, et la page le signale. « Recharger un fichier de verdicts… » relit un fichier choisi, par exemple celui resté dans Téléchargements.
+
+Un nouveau calcul ne touche jamais au fichier de verdicts. Chaque verdict retrouve sa piste par son début (à un cinquième de seconde près) et son point de départ sur l'image, même si les numéros ont changé. Un verdict dont la piste n'existe plus est montré au-dessus de la liste de sa vidéo, « Verdicts sans piste », avec la piste la plus proche à vérifier sur l'extrait ; il reste dans le fichier. Le tableau des pistes, `<vidéo>_pistes.csv`, appartient à l'outil : un recalcul le remplace, et ce qu'on y aurait écrit est perdu.
 
 ### Une piste de trop vaut mieux qu'un passage manqué
 
@@ -491,11 +476,7 @@ distance et du contraste de l'animal autant que de sa taille.
 
 ### Verdict
 
-Le jugement de Manon, à l'œil sur l'extrait : cette piste est-elle une chauve-souris ?
-L'outil ne s'en sert pas ; il se note dans la colonne `verdict` du tableau des pistes, sur la
-ligne de la piste ([Noter le verdict](#noter-le-verdict)). Ailleurs, on désigne la piste par
-la vidéo, son début et son numéro, car le numéro seul peut changer (ceux de la 092 sont dans
-[docs/03](03-resultats-092.md#verdict-de-manon-9-octobre-2026)).
+Le jugement de Manon, à l'œil sur l'extrait : cette piste est-elle une chauve-souris ? L'outil ne s'en sert pas ; il se note dans la page ([Noter le verdict](#noter-le-verdict)) et se garde dans le fichier de verdicts de la soirée. Ailleurs, on désigne la piste par la vidéo, son début et son numéro, car le numéro seul peut changer (ceux de la 092 sont dans [docs/03](03-resultats-092.md#verdict-de-manon-9-octobre-2026)).
 
 ### Vitesse
 

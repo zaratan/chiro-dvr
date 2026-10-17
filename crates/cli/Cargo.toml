@@ -11,6 +11,7 @@ name = "batdetect"
 
 [dependencies]
 clap.workspace = true
+clap_complete.workspace = true
 ctrlc.workspace = true
 draw.workspace = true
 engine.workspace = true
@@ -39,6 +40,7 @@ media = { workspace = true, features = ["testing"] }
 png.workspace = true
 reference.workspace = true
 render = { workspace = true, features = ["testing"] }
+summary = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true

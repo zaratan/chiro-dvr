@@ -16,8 +16,8 @@ use crate::sheet::{self, Spoken};
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 69;
-const FIXED: [Fixed; 79] = [
+const VARIANTS: usize = 74;
+const FIXED: [Fixed; 98] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -88,7 +88,6 @@ const FIXED: [Fixed; 79] = [
     Fixed::TableStart,
     Fixed::TableEnd,
     Fixed::TableDuration,
-    Fixed::TableVerdict,
     Fixed::TableHits,
     Fixed::TableChord,
     Fixed::TablePath,
@@ -97,6 +96,26 @@ const FIXED: [Fixed; 79] = [
     Fixed::TableAmplitude,
     Fixed::TableFilledFrames,
     Fixed::TableStartSeconds,
+    Fixed::OtherCommands,
+    Fixed::CompletionZshOnly,
+    Fixed::CompletionWithHomebrew,
+    Fixed::CompletionWithoutHomebrew,
+    Fixed::CompletionThenProfile,
+    Fixed::DoctorNoArgument,
+    Fixed::DoctorHardware,
+    Fixed::DoctorSoftware,
+    Fixed::DoctorFallback,
+    Fixed::DoctorBroken,
+    Fixed::DoctorReady,
+    Fixed::DoctorTodoFallback,
+    Fixed::DoctorTodoBroken,
+    Fixed::DoctorTodoSpace,
+    Fixed::DoctorTodoWriting,
+    Fixed::DoctorUntried,
+    Fixed::DoctorTodoUntried,
+    Fixed::CompletionCommandsGroup,
+    Fixed::CompletionDoctor,
+    Fixed::CompletionCompletion,
 ];
 
 fn rank(message: &Message) -> usize {
@@ -159,17 +178,22 @@ fn rank(message: &Message) -> usize {
         Message::TallyRefusedCount { .. } => 55,
         Message::TallyRefusedHeading { .. } => 56,
         Message::Interrupted { .. } => 57,
-        Message::TallySetAsideHeading { .. } => 58,
-        Message::TallySetAside { .. } => 59,
-        Message::VideoSkipped { .. } => 60,
-        Message::TallyAlreadyDone { .. } => 61,
-        Message::TallyUnwrittenHeading { .. } => 62,
-        Message::FilesPage { .. } => 63,
-        Message::TallyUnwritten { .. } => 64,
-        Message::Announce { .. } => 65,
-        Message::DiskShort { .. } => 66,
-        Message::DisksShort { .. } => 67,
-        Message::Finish { .. } => 68,
+        Message::VideoSkipped { .. } => 58,
+        Message::TallyAlreadyDone { .. } => 59,
+        Message::TallyUnwrittenHeading { .. } => 60,
+        Message::FilesPage { .. } => 61,
+        Message::TallyUnwritten { .. } => 62,
+        Message::Announce { .. } => 63,
+        Message::DiskShort { .. } => 64,
+        Message::DisksShort { .. } => 65,
+        Message::DoctorVersion { .. } => 66,
+        Message::DoctorSpace { .. } => 67,
+        Message::DoctorSpaceShort { .. } => 68,
+        Message::DoctorSpaceUnknown { .. } => 69,
+        Message::DoctorWritable { .. } => 70,
+        Message::DoctorUnwritable { .. } => 71,
+        Message::DoctorProblems { .. } => 72,
+        Message::Finish { .. } => 73,
     }
 }
 
@@ -243,17 +267,44 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::TableStart => 65,
         Fixed::TableEnd => 66,
         Fixed::TableDuration => 67,
-        Fixed::TableVerdict => 68,
-        Fixed::TableHits => 69,
-        Fixed::TableChord => 70,
-        Fixed::TablePath => 71,
-        Fixed::TableSpeed => 72,
-        Fixed::TableMaxArea => 73,
-        Fixed::TableAmplitude => 74,
-        Fixed::TableFilledFrames => 75,
-        Fixed::TableStartSeconds => 76,
-        Fixed::ForceHelp => 77,
-        Fixed::IgnoreDiskHelp => 78,
+        Fixed::TableHits => 68,
+        Fixed::TableChord => 69,
+        Fixed::TablePath => 70,
+        Fixed::TableSpeed => 71,
+        Fixed::TableMaxArea => 72,
+        Fixed::TableAmplitude => 73,
+        Fixed::TableFilledFrames => 74,
+        Fixed::TableStartSeconds => 75,
+        Fixed::ForceHelp => 76,
+        Fixed::IgnoreDiskHelp => 77,
+        Fixed::CompletionCompletion => 97,
+        other => command_rank(other),
+    }
+}
+
+fn command_rank(fixed: Fixed) -> usize {
+    match fixed {
+        Fixed::OtherCommands => 78,
+        Fixed::CompletionZshOnly => 79,
+        Fixed::CompletionWithHomebrew => 80,
+        Fixed::CompletionWithoutHomebrew => 81,
+        Fixed::CompletionThenProfile => 82,
+        Fixed::DoctorNoArgument => 83,
+        Fixed::DoctorHardware => 84,
+        Fixed::DoctorSoftware => 85,
+        Fixed::DoctorFallback => 86,
+        Fixed::DoctorBroken => 87,
+        Fixed::DoctorReady => 88,
+        Fixed::DoctorTodoFallback => 89,
+        Fixed::DoctorTodoBroken => 90,
+        Fixed::DoctorTodoSpace => 91,
+        Fixed::DoctorTodoWriting => 92,
+        Fixed::DoctorUntried => 93,
+        Fixed::DoctorTodoUntried => 94,
+        Fixed::CompletionCommandsGroup => 95,
+        Fixed::CompletionDoctor => 96,
+        Fixed::CompletionCompletion => 97,
+        _ => usize::MAX,
     }
 }
 
@@ -264,6 +315,7 @@ fn samples() -> Vec<Message> {
         .chain(tally_lines())
         .chain(video_lines())
         .chain(command_line())
+        .chain(other_commands())
         .collect()
 }
 
@@ -293,13 +345,6 @@ fn tally_lines() -> Vec<Message> {
             video: text("video_092"),
             table: text("video_092_pistes.csv"),
             written: false,
-        },
-        Message::TallySetAsideHeading { count: 1 },
-        Message::TallySetAside {
-            video: text("video_092"),
-            table: text("video_092_pistes.csv"),
-            dated: text("video_092_pistes_2026-10-16_1430.csv"),
-            reason: "verdicts",
         },
         Message::TallyChanged {
             settings: text("--threshold 11"),
@@ -872,4 +917,30 @@ fn the_files_produced_are_named_as_the_command_writes_them_in_each_language() {
             );
         }
     }
+}
+
+fn other_commands() -> Vec<Message> {
+    let folder = || "/nuit".to_owned();
+    vec![
+        Message::DoctorVersion {
+            version: "0.2.1".to_owned(),
+            ffmpeg: "7.1.1".to_owned(),
+        },
+        Message::DoctorSpace {
+            gigabytes: "412".to_owned(),
+            folder: folder(),
+        },
+        Message::DoctorSpaceShort {
+            gigabytes: "3,2".to_owned(),
+            folder: folder(),
+            least: "20".to_owned(),
+        },
+        Message::DoctorSpaceUnknown { folder: folder() },
+        Message::DoctorWritable { folder: folder() },
+        Message::DoctorUnwritable {
+            folder: folder(),
+            access: "read-only",
+        },
+        Message::DoctorProblems { count: 2 },
+    ]
 }
