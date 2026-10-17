@@ -106,6 +106,8 @@ jobs:
           path: ${{ env.XDG_CACHE_HOME }}/batdetect/ffmpeg/logs
           if-no-files-found: ignore
       - run: bash packaging/package.sh
+      - if: runner.os == 'Linux'
+        run: sudo sysctl -w kernel.yama.ptrace_scope=0
       - run: bash packaging/check.sh "$(bash packaging/package.sh --archive)" "$BATDETECT_VERSION"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

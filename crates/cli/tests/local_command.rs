@@ -13,7 +13,7 @@ use media::decode::{Decoder, Threads};
 use media::frame::{ColorRange, YuvFrame};
 use reference::location::{Reference, committed, recorded_video, recording_directories};
 use reference::recording::Recording;
-use reference::track_matching::{DiscrepancyKind, match_tracks};
+use reference::track_matching::match_tracks;
 use render::config::{RenderConfig, Zoom, ZoomConfig};
 use types::language::Language;
 use types::rate::FrameRate;
@@ -21,16 +21,69 @@ use types::track::Track;
 
 const RECORDED_OUTPUTS: usize = 2;
 
+const fn agreeing(tracks: usize) -> [usize; 5] {
+    [tracks, tracks, tracks, 0, 0]
+}
+
+const fn rejoined(reference: usize, joins: usize, tracks_joined: usize) -> [usize; 5] {
+    [
+        reference,
+        reference - joins,
+        reference - joins - tracks_joined,
+        joins,
+        0,
+    ]
+}
+
+const FROZEN: [(&str, [usize; 5]); 26] = [
+    ("video_089.mp4", agreeing(1)),
+    ("video_090.mp4", agreeing(20)),
+    ("video_091.mp4", agreeing(21)),
+    ("video_092.mp4", agreeing(14)),
+    ("video_093.mp4", rejoined(6, 2, 2)),
+    ("video_094.mp4", rejoined(14, 1, 1)),
+    ("video_095.mp4", rejoined(78, 11, 11)),
+    ("video_096.mp4", rejoined(136, 13, 12)),
+    ("video_097.mp4", rejoined(149, 15, 11)),
+    ("video_098.mp4", rejoined(131, 8, 7)),
+    ("video_099.mp4", rejoined(117, 7, 7)),
+    ("video_100.mp4", rejoined(98, 5, 5)),
+    ("video_101.mp4", rejoined(32, 1, 1)),
+    ("video_102.mp4", rejoined(36, 1, 1)),
+    ("video_103.mp4", agreeing(10)),
+    ("video_120.mp4", agreeing(0)),
+    ("video_121.mp4", agreeing(2)),
+    ("video_122.mp4", agreeing(0)),
+    ("video_123.mp4", agreeing(8)),
+    ("video_124.mp4", agreeing(5)),
+    ("video_125.mp4", rejoined(47, 3, 3)),
+    ("video_126.mp4", agreeing(13)),
+    ("video_127.mp4", agreeing(7)),
+    ("video_128.mp4", agreeing(5)),
+    ("video_129.mp4", agreeing(16)),
+    ("video_130.mp4", agreeing(6)),
+];
+
+const UNZOOMED_BY_THE_REJOIN: [(&str, usize, usize, bool); 10] = [
+    ("video_095.mp4", 33, 30, false),
+    ("video_095.mp4", 60, 53, false),
+    ("video_095.mp4", 23, 22, false),
+    ("video_096.mp4", 130, 118, false),
+    ("video_096.mp4", 54, 48, false),
+    ("video_096.mp4", 19, 17, false),
+    ("video_097.mp4", 16, 14, false),
+    ("video_097.mp4", 82, 72, false),
+    ("video_098.mp4", 128, 121, false),
+    ("video_100.mp4", 93, 89, false),
+];
+
 #[test]
 #[ignore = "local"]
-fn the_twenty_six_videos_give_the_tracks_of_the_reference_but_for_the_known_divergences() {
-    let directories = recording_directories(Reference::V011).unwrap();
-    assert_eq!(directories.len(), 26);
+fn the_twenty_six_videos_by_the_command_keep_their_tracks_and_zooms_frozen_against_the_v020_video_by_video() {
+    let directories = recording_directories(Reference::V020).unwrap();
     let out = tempfile::tempdir().unwrap();
-    let (mut reference, mut paired, mut agreeing, mut lost, mut added) = (0, 0, 0, 0, 0);
-    let mut discrepancies = Vec::new();
+    let mut found = Vec::new();
     let mut switches = Vec::new();
-    let mut checked = 0;
     for directory in directories {
         let recording = Recording::read(&directory).unwrap();
         let name = recording.summary.video.name.clone();
@@ -45,37 +98,31 @@ fn the_twenty_six_videos_give_the_tracks_of_the_reference_but_for_the_known_dive
             &Options::default(),
         )
         .unwrap();
-        let found = agreement::agreement(&processed, &recording, rate);
+        let agreement = agreement::agreement(&processed, &recording, rate);
         switches.extend(zoom_switches(&name, &recording, &processed.tracks));
-        checked += usize::from(check_recorded_zooms(&recording));
         println!(
             "{name}\treference {}\ttracked {}\tpaired {} (agreeing {})\tlost {}\tadded {}",
-            found.reference,
+            agreement.reference,
             processed.tracks.len(),
-            found.paired,
-            found.agreeing,
-            found.lost,
-            found.added
+            agreement.paired,
+            agreement.agreeing,
+            agreement.lost,
+            agreement.added
         );
-        reference += found.reference;
-        paired += found.paired;
-        agreeing += found.agreeing;
-        lost += found.lost;
-        added += found.added;
-        discrepancies.extend(found.discrepancies);
+        for discrepancy in &agreement.discrepancies {
+            println!("{discrepancy:?}");
+        }
+        found.push((
+            name,
+            [
+                agreement.reference,
+                agreement.paired,
+                agreement.agreeing,
+                agreement.lost,
+                agreement.added,
+            ],
+        ));
     }
-    println!("total\treference {reference}\tpaired {paired} (agreeing {agreeing})\tlost {lost}\tadded {added}");
-    for discrepancy in &discrepancies {
-        println!("{discrepancy:?}");
-    }
-    assert_eq!(reference, 966);
-    assert_eq!((paired, agreeing, lost, added), (963, 958, 3, 9));
-    let found: Vec<(&str, usize, DiscrepancyKind)> = discrepancies
-        .iter()
-        .map(|discrepancy| (discrepancy.video.as_str(), discrepancy.frame.get(), discrepancy.kind))
-        .collect();
-    assert_eq!(found, known_divergences());
-    assert_eq!(checked, RECORDED_OUTPUTS);
     for switch in &switches {
         println!(
             "zoom switch {} reference #{} (area {:.2}, amplitude {:.2}) -> #{} (area {:.2}, amplitude {:.2}) zoomed {}",
@@ -89,11 +136,34 @@ fn the_twenty_six_videos_give_the_tracks_of_the_reference_but_for_the_known_dive
             switch.zoomed
         );
     }
-    let zoom_flips: Vec<(&str, usize, bool)> = switches
+    let found: Vec<(&str, [usize; 5])> = found.iter().map(|(name, counts)| (name.as_str(), *counts)).collect();
+
+    assert_eq!(found, FROZEN);
+    let by_track: Vec<(&str, usize, usize, bool)> = switches
         .iter()
-        .map(|switch| (switch.video.as_str(), switch.reference_id, switch.zoomed))
+        .map(|switch| {
+            (
+                switch.video.as_str(),
+                switch.reference_id,
+                switch.candidate_id,
+                switch.zoomed,
+            )
+        })
         .collect();
-    assert_eq!(zoom_flips, known_zoom_switches());
+    assert_eq!(by_track, UNZOOMED_BY_THE_REJOIN);
+}
+
+#[test]
+#[ignore = "local"]
+fn the_zooms_recorded_with_the_v011_are_those_its_own_tracks_ask_for() {
+    let checked = recording_directories(Reference::V011)
+        .unwrap()
+        .iter()
+        .map(|directory| Recording::read(directory).unwrap())
+        .filter(check_recorded_zooms)
+        .count();
+
+    assert_eq!(checked, RECORDED_OUTPUTS);
 }
 
 #[derive(Debug)]
@@ -148,11 +218,6 @@ fn check_recorded_zooms(recording: &Recording) -> bool {
     true
 }
 
-#[cfg(test)]
-fn known_zoom_switches() -> Vec<(&'static str, usize, bool)> {
-    vec![("video_097.mp4", 88, true)]
-}
-
 #[test]
 #[ignore = "local"]
 fn the_annotated_103_keeps_the_pts_of_its_decoded_frames_through_its_lost_frames() {
@@ -189,35 +254,4 @@ fn the_annotated_103_keeps_the_pts_of_its_decoded_frames_through_its_lost_frames
     let source = recording.frames.pts();
     assert_eq!(source.len(), 8998);
     assert_eq!(pts, source);
-}
-
-#[cfg(test)]
-fn known_divergences() -> Vec<(&'static str, usize, DiscrepancyKind)> {
-    let points = |id, reference_points, candidate_points| DiscrepancyKind::Points {
-        reference_id: id,
-        candidate_id: id,
-        reference_points,
-        candidate_points,
-    };
-    let missed = |reference_id| DiscrepancyKind::Missed { reference_id };
-    let extra = |candidate_id| DiscrepancyKind::Extra { candidate_id };
-    vec![
-        ("video_094.mp4", 3069, missed(3)),
-        ("video_094.mp4", 3095, extra(3)),
-        ("video_097.mp4", 612, missed(8)),
-        ("video_097.mp4", 619, extra(8)),
-        ("video_097.mp4", 4872, points(88, 86, 24)),
-        ("video_097.mp4", 4906, extra(90)),
-        ("video_098.mp4", 176, extra(4)),
-        ("video_098.mp4", 1245, missed(20)),
-        ("video_099.mp4", 429, points(14, 75, 119)),
-        ("video_099.mp4", 509, points(16, 60, 16)),
-        ("video_099.mp4", 538, points(17, 127, 50)),
-        ("video_099.mp4", 583, extra(19)),
-        ("video_099.mp4", 838, extra(30)),
-        ("video_100.mp4", 2890, extra(34)),
-        ("video_100.mp4", 2894, extra(36)),
-        ("video_126.mp4", 2754, points(8, 32, 27)),
-        ("video_126.mp4", 2776, extra(9)),
-    ]
 }

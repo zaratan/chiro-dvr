@@ -54,7 +54,8 @@ pub(crate) fn render(strip: Strip<'_>, labels: &dyn Labels) -> String {
         .map(|&seconds| format!(r#"<span class="start other" style="left:{:.3}%"></span>"#, at(seconds)));
     let mine = strip.tracks.iter().filter_map(|track| {
         Some(format!(
-            r#"<span class="start" style="left:{:.3}%;--dot:{}" title="{}"></span>"#,
+            r#"<span class="start" data-id="{}" style="left:{:.3}%;--dot:{}" title="{}"></span>"#,
+            track.id,
             at(track.start_s),
             colour(track.color?),
             say(SceneText::StartOf {

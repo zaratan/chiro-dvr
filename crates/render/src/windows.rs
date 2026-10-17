@@ -1,6 +1,6 @@
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
-use types::span::Span;
+use types::span::{Run, Span, merged_by};
 use types::track::Track;
 
 use crate::config::RenderConfig;
@@ -48,20 +48,10 @@ pub fn clip_windows(tracks: &[Track], frame_count: usize, config: RenderConfig, 
 }
 
 pub fn groups(windows: &[Window]) -> Vec<Group> {
-    let mut sorted = windows.to_vec();
-    sorted.sort_by_key(|window| (window.span.first(), window.track));
-    let mut groups: Vec<Group> = Vec::new();
-    for window in sorted {
-        match groups.last_mut() {
-            Some(group) if window.span.first().get() <= group.span.last().get().saturating_add(1) => {
-                group.span = group.span.hull(window.span);
-                group.members.push(window);
-            }
-            _ => groups.push(Group {
-                span: window.span,
-                members: vec![window],
-            }),
-        }
-    }
-    groups
+    let mut by_track = windows.to_vec();
+    by_track.sort_by_key(|window| window.track);
+    merged_by(by_track, |window| window.span)
+        .into_iter()
+        .map(|Run { span, members }| Group { span, members })
+        .collect()
 }

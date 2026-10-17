@@ -47,8 +47,7 @@ chauve-souris lui remonte ; elle ne se tranche pas dans le code.
   `mise run rust:reference`, dans leur propre tâche de CI `rust-reference`. La tâche
   `rust-windows-slow` ne récupère que l'extrait ; les tâches
   `rust-slow` et `rust-settings`, l'extrait et sa 720×540.
-  Tolérances du test de référence, sur les deux vidéos : nombre de pistes exact, début ±5
-  images, points ±3, qui couvrent l'écart mesuré entre Mac et Linux (4 images, 2 points).
+  Les gardes de détection portent sur la référence v0.2.0 (`tests/fixtures/reference-v0.2.0/`, #276) : écarts figés par vidéo et par cas (images qui diffèrent, détections perdues et ajoutées ; pistes appariées, concordantes, perdues et ajoutées), tous à 0 sur lumiel ; une piste s'apparie à ±5 images de début et ±3 points. Les seuls faits affirmés sans référence sont ceux de Manon sur la 092 (`reference_092`) : ses 13 passages et leurs débuts ; à côté, seuls l'objet lent de 3:29 et la cible connue de 3:42.10 (docs/03) sont tolérés. L'écart entre Mac et Linux de 4 images et 2 points avait été mesuré contre la v0.1.1, qui ne garde plus que les entrées (témoin ffprobe), l'aval, les sorties et le format v1.
 - **Les vidéos se copient depuis les jumelles en USB**, jamais par l'export Stream Vision 2,
   qui divise le débit par 12 ([docs/01-contexte.md](docs/01-contexte.md)).
 - **Docs synchronisées** : un changement de comportement met à jour `docs/` dans la même
@@ -97,8 +96,8 @@ mise run rust:coverage    # tests rapides, couverture ≥ 95 % (dans check:ci)
 /Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:slow       # l'extrait LFS, le test de mémoire (hors couverture)
 /Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:settings   # les 16 cas de réglages, sous Linux seulement en CI
 /Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:reference  # la 092 entière
-/Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --profile ci -p compare -- local  # écarts à la référence v0.2.0, ou v0.1.1 par --reference (extract, 092, 092-1440, settings, local)
-/Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --profile ci -p compare -- local --frames B --same-as A  # mêmes détections qu'un passage --frames A, hors plages abîmées
+/Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --profile ci -p compare --bin compare -- local  # écarts à la référence v0.2.0, ou v0.1.1 par --reference (extract, 092, 092-1440, settings, local)
+/Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --profile ci -p compare --bin compare -- local --frames B --same-as A  # mêmes détections qu'un passage --frames A, hors plages abîmées
 /Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --release -p bench -- VIDÉO --against DOSSIER --rejoin-hidden 0  # garde du banc contre un banc de la v0.1.1, qui ne recollait pas
 BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… mise run rust:data  # référence et 26 vidéos sur une autre machine (seau, sommes dans tests/fixtures/reference/SHA256SUMS)
 ```

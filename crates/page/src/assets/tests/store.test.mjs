@@ -85,6 +85,17 @@ test("the tracks of a video without viewer are neither to see nor judged, yet an
   );
 });
 
+test("the counts of one video leave out the other videos, and each track tells its kind of verdict", () => {
+  const store = VerdictsStore.create({ tracks: evening(), values: VALUES });
+  store.load([row("v", 4.8, "oui", { startX: 100, startY: 100 }), row("w", 10.0, "?"), row("v", 30.0, "peut-être")]);
+  assert.deepEqual(store.counts("v"), { yes: 1, no: 0, doubt: 0, other: 1, todo: 1 });
+  assert.deepEqual(store.counts("w"), { yes: 0, no: 0, doubt: 1, other: 0, todo: 0 });
+  assert.deepEqual(
+    [store.track("v", 1), store.track("v", 2), store.track("v", 3), store.track("w", 1)].map(store.kindOf),
+    ["yes", "todo", "other", "doubt"],
+  );
+});
+
 test("a change is pending until downloaded and a change undone is no longer pending", () => {
   const store = VerdictsStore.create({ tracks: evening(), values: VALUES });
   store.load([]);

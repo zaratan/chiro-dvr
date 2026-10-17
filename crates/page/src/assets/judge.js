@@ -1,5 +1,5 @@
 "use strict";
-const VerdictsJudge = ({ section, tracks, store, say, motion, chained, onOpen, onLeave }) => {
+const VerdictsJudge = ({ section, tracks, store, say, motion, chained, shows, onOpen, onLeave, onCurrent }) => {
   const LAYOUT_PASSES = 3;
   const SIDE_MIN = 384;
   const SIDE_MAX = 480;
@@ -134,6 +134,7 @@ const VerdictsJudge = ({ section, tracks, store, say, motion, chained, onOpen, o
   const open = (track, { focus = true, said = "" } = {}) => {
     onOpen(section);
     current = track;
+    onCurrent();
     zoomed = false;
     section.open = true;
     section.classList.add("judging");
@@ -166,9 +167,11 @@ const VerdictsJudge = ({ section, tracks, store, say, motion, chained, onOpen, o
     if (said) announce(said, now.textContent);
     else status.textContent = now.textContent;
     if (focus) root.focus({ preventScroll: true });
+    onCurrent();
   };
 
   const close = () => {
+    const was = current;
     current = null;
     video.pause();
     root.hidden = true;
@@ -179,11 +182,14 @@ const VerdictsJudge = ({ section, tracks, store, say, motion, chained, onOpen, o
     document.body.classList.remove("judging-page");
     body.style.gridTemplateColumns = "";
     body.style.height = "";
+    if (was) onCurrent();
   };
 
   const step = (delta, said = "") => {
     if (!current) return;
-    const target = tracks[tracks.indexOf(current) + delta];
+    const from = tracks.indexOf(current);
+    const ahead = delta > 0 ? tracks.slice(from + 1) : tracks.slice(0, from).reverse();
+    const target = ahead.find(shows);
     if (target) open(target, { said });
     else if (said) announce(said);
   };

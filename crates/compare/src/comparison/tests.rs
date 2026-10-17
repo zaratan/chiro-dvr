@@ -10,7 +10,7 @@ use types::frame::{FrameIndex, Pts};
 use types::losses::EdgeLosses;
 use types::span::Span;
 
-use super::{FRAMES_FILE, Folders, compare, compare_all, compared, each_in_order, frames_path};
+use super::{FRAMES_FILE, Folders, Gaps, compare, compare_all, compared, each_in_order, frames_path};
 use crate::case::{Case, EXTRACT};
 use crate::error::Error;
 use crate::frames::Pass;
@@ -130,9 +130,31 @@ fn the_reference_compared_with_itself_does_not_differ_and_ignores_nothing() {
     let comparison = compared(EXTRACT, &same_pass(&recording), &recording, 1.5).unwrap();
 
     assert!(!comparison.differs());
+    assert_eq!(comparison.gaps(), Gaps::agreeing(4));
     assert_eq!(comparison.ignored, []);
     assert_eq!(comparison.decode_errors, DecodeErrors::default());
     assert_eq!(comparison.seconds, 1.5);
+}
+
+#[test]
+fn the_gaps_of_a_comparison_gather_its_differing_frames_its_detections_and_its_tracks() {
+    let recording = extract();
+    let empty = crate::testing::pass_finding(&recording, crate::testing::nothing_detected(&recording));
+
+    let comparison = compared(EXTRACT, &empty, &recording, 1.0).unwrap();
+
+    assert_eq!(
+        comparison.gaps(),
+        Gaps {
+            differing_frames: 375,
+            lost_detections: 403,
+            added_detections: 0,
+            paired_tracks: 0,
+            agreeing_tracks: 0,
+            lost_tracks: 4,
+            added_tracks: 0,
+        }
+    );
 }
 
 #[test]

@@ -13,6 +13,10 @@
   --dot-ring: rgb(0 0 0 / 0.35);
   --focus: #1d5a85;
   --control: #8a867d;
+  --rejected: #8f8f8f;
+  --mark-yes: #3ddc6b;
+  --mark-no: #ff6b6b;
+  --mark-doubt: #ffd23f;
   --ok: #1f6f3d; --ok-soft: #e2f1e6; --no: #8a2a1e; --no-soft: #f8e4e0; --doubt: #7a5b00; --doubt-soft: #f6edcc;
 }
 @media (prefers-color-scheme: dark) {
@@ -131,6 +135,17 @@ details[open] > summary .chevron { transform: rotate(45deg); }
 .part-range { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .part[aria-selected="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 .part[aria-selected="true"] .part-range { color: inherit; }
+.filters {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.filters button { min-height: 44px; padding: 4px 8px; }
+.filter-count { color: var(--muted); font-variant-numeric: tabular-nums; }
+.filters button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.filters button[aria-pressed="true"] .filter-count { color: inherit; }
+.video:not(.judging) .review > .filters { display: none; }
+.review > .filters { gap: 4px; padding: 4px 12px; }
+.review > .filters button { padding: 4px 6px; font-size: 0.875rem; }
 .pictures .summary { display: block; cursor: zoom-in; }
 .pictures img { display: block; width: 100%; height: auto; }
 .pictures .summary + .summary { border-top: 2px solid var(--bg); }
@@ -148,6 +163,17 @@ details[open] > summary .chevron { transform: rotate(45deg); }
 .scene .leaders line { stroke-width: 2px; stroke-linecap: round; }
 .scene .leaders .halo { stroke: #000; stroke-width: 4.5px; }
 .scene .dots circle { stroke: #000; stroke-width: 1.5px; }
+.scene .filtered { display: none; }
+.pictures .scene .lines .verdict-no { stroke: var(--rejected); }
+.pictures .scene .heads .verdict-no { fill: var(--rejected); }
+.pictures .scene .leaders .verdict-no line:not(.halo) { stroke: var(--rejected); }
+.pictures .scene .dots > .verdict-no > circle { fill: var(--rejected); }
+.scene .mark polyline, .scene .mark path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.scene .mark .halo { stroke: #000; stroke-width: 4.5px; }
+.scene .mark .sign { stroke-width: 2.5px; }
+.scene .mark-yes .sign { stroke: var(--mark-yes); }
+.scene .mark-no .sign { stroke: var(--mark-no); }
+.scene .dots .mark-doubt text { fill: var(--mark-doubt); stroke: #000; stroke-width: 3px; paint-order: stroke; font-weight: 800; text-anchor: middle; dominant-baseline: central; }
 .scene.hovering { cursor: pointer; }
 .scene.hovering [data-id]:not(.hot) { opacity: 0.3; }
 .scene .dots > [data-id]:focus-visible { outline: none; }
@@ -174,6 +200,9 @@ details[open] > summary .chevron { transform: rotate(45deg); }
   background: var(--dot); outline: 1px solid var(--dot-ring);
 }
 .start.other::after { background: var(--control); outline: none; }
+.lane.starts.hovering { cursor: pointer; }
+.start.verdict-no::after { opacity: 0.4; }
+.start.hot::after { outline: 2px solid var(--text); }
 .axis { height: 24px; }
 .unit { position: absolute; top: 0; bottom: 0; left: 0; container-type: inline-size; }
 .tick { display: none; position: absolute; top: 0; padding-top: 6px; white-space: nowrap; transform: translateX(-50%); }
@@ -284,7 +313,9 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .thumb img { display: block; width: 100%; height: auto; max-height: 28vh; object-fit: contain; background: var(--stage); }
 .thumb .scene { max-height: 28vh; }
 .thumb .dots > :not(.active), .thumb .leaders > :not(.active) { display: none; }
-.thumb .dots > .active { transform-box: fill-box; transform-origin: center; transform: scale(2.5); }
+.thumb .dots > .active > circle, .thumb .dots > .active > text { transform-box: fill-box; transform-origin: center; transform: scale(2.5); }
+.thumb .mark { display: none; }
+.thumb .scene [data-id]:not(.active) { opacity: 0.45; }
 .thumb .heads polygon { stroke-width: 0.75px; }
 .thumb .outlines polyline { stroke-width: 3.5px; }
 .thumb .lines polyline { stroke-width: 1.5px; }
