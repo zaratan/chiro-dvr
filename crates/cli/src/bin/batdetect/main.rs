@@ -35,6 +35,7 @@ use batdetect::tally::Tally;
 use batdetect::written::{self, Run, Wording};
 use jiff::Timestamp;
 use media::decode::Threads;
+use media::encode::bounded::VIDEOTOOLBOX;
 
 use crate::arguments::Request;
 use crate::errors::report;
@@ -70,6 +71,7 @@ fn main() -> ExitCode {
             .redoing_all(request.admission.force)
             .naming(&jobs)
             .fitted_to(terminal::stderr_columns)
+            .hearing(videotoolbox_silent)
             .timed(Evening::new(stock.frames_to_compute())),
     );
     let watched = Arc::clone(&status);
@@ -202,4 +204,8 @@ fn settle(
             Ok(()) | Err(_) => {}
         }
     }
+}
+
+fn videotoolbox_silent() -> bool {
+    VIDEOTOOLBOX.is_silent()
 }

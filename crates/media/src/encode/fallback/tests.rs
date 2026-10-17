@@ -151,3 +151,21 @@ fn a_missing_folder_is_a_destination_error_rather_than_a_failure_of_every_encode
         Err(Error::Destination(encode::Error::Create { .. }))
     ));
 }
+
+#[test]
+fn an_encoder_that_does_not_start_in_time_hands_over_to_the_next_rather_than_stopping_the_trial() {
+    let unanswered = || encode::Error::Unanswered {
+        name: "h264_videotoolbox",
+        limit: std::time::Duration::from_secs(10),
+    };
+    let (index, codec, ()) = super::first_working([Codec::VideoToolbox, Codec::OpenH264].into_iter(), |_, codec| {
+        if codec == Codec::VideoToolbox {
+            Err(unanswered())
+        } else {
+            Ok(())
+        }
+    })
+    .unwrap();
+    assert_eq!((index, codec), (1, Codec::OpenH264));
+    assert!(!unanswered().concerns_the_destination());
+}

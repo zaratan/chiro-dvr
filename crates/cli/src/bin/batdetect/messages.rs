@@ -332,6 +332,12 @@ pub(crate) fn shown_name(job: &Job, homonyms: &Homonyms) -> String {
     Path::new(parent).join(name).display().to_string()
 }
 
+pub(crate) fn hardware_silent(limit: Duration) -> Message {
+    Message::HardwareSilent {
+        seconds: limit.as_secs(),
+    }
+}
+
 pub(crate) fn redone(job: &Job, clips: &[PathBuf], cause: &dyn Error) -> Message {
     let names: Vec<String> = clips
         .iter()
