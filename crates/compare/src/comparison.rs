@@ -11,11 +11,11 @@ use media::decode::Threads;
 use reference::frames::Frames;
 use reference::recording::Recording;
 use types::rate::FrameRate;
-use types::span::Span;
+use types::span::{Span, merged};
 
 use crate::agreement::Agreement;
 use crate::case::Case;
-use crate::damaged::{joined, merged, reported_by};
+use crate::damaged::{joined, reported_by};
 use crate::error::Error;
 use crate::frames::{Pass, pass_of};
 use crate::inputs::{DecodeErrors, InputGap, REFERENCE_FIELDS, decode_errors, entry_gap, losses_gap};

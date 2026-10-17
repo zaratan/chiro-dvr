@@ -1,6 +1,6 @@
 use types::frame::{FrameIndex, Pts};
 use types::losses::EdgeLosses;
-use types::span::Span;
+use types::span::{Span, merged};
 
 use crate::input::Reading;
 use crate::lost::frames_after_jumps;
@@ -93,20 +93,10 @@ fn spans(starts: &[usize], keys: &[usize], frame_count: usize, margin: usize) ->
         return Vec::new();
     };
     let video = Span::single(FrameIndex::new(0)).hull(Span::single(FrameIndex::new(last_frame)));
-    let mut merged: Vec<Span> = Vec::new();
-    for &start in starts {
+    merged(starts.iter().filter_map(|&start| {
         let next_key = keys.partition_point(|key| *key <= start);
         let stop = keys.get(next_key).map_or(last_frame, |key| key - 1).max(start);
         let until_key = Span::single(FrameIndex::new(start)).hull(Span::single(FrameIndex::new(stop)));
-        let Some(damaged) = until_key.widened(margin, margin).intersection(video) else {
-            continue;
-        };
-        match merged.last_mut() {
-            Some(previous) if damaged.first().get() <= previous.last().get().saturating_add(1) => {
-                *previous = previous.hull(damaged);
-            }
-            _ => merged.push(damaged),
-        }
-    }
-    merged
+        until_key.widened(margin, margin).intersection(video)
+    }))
 }
