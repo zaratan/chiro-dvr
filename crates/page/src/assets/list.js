@@ -1,5 +1,5 @@
 "use strict";
-const VerdictsList = ({ section, tracks, store, say, clock, shows, onChoose }) => {
+const VerdictsList = ({ section, tracks, store, say, shows, onChoose }) => {
   const judged = section.querySelector(".judged");
   const orphans = section.querySelector(".orphans");
   const video = section.dataset.video;
@@ -47,19 +47,26 @@ const VerdictsList = ({ section, tracks, store, say, clock, shows, onChoose }) =
     const items = document.createElement("ul");
     for (const { row, nearest, word } of lost) {
       const item = document.createElement("li");
-      item.textContent = say("orphan", {
-        start: row.start || clock(row.startSeconds),
-        track: row.track || "?",
-        verdict: word,
-      });
+      const orphan = (start) => say("orphan", { start, track: row.track || "?", verdict: word });
+      item.append(
+        ...VerdictsTime.paired(
+          orphan(row.start || VerdictsTime.clock(row.startSeconds)),
+          orphan(VerdictsTime.aloud(row.startSeconds)),
+        ),
+      );
+      const near = (key) =>
+        VerdictsTime.paired(
+          say(key, { track: nearest.id, start: nearest.clock }),
+          say(key, { track: nearest.id, start: nearest.aloud }),
+        );
       if (viewable) {
         const button = document.createElement("button");
         button.type = "button";
-        button.textContent = say("nearest", { track: nearest.id, start: nearest.clock });
+        button.append(...near("nearest"));
         button.addEventListener("click", () => onChoose(nearest));
         item.append(" ", button);
       } else {
-        item.append(" ", say("nearest-in-video", { track: nearest.id, start: nearest.clock }));
+        item.append(" ", ...near("nearest-in-video"));
       }
       items.append(item);
     }

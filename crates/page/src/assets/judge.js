@@ -17,6 +17,7 @@ const VerdictsJudge = ({ section, tracks, store, say, motion, chained, shows, on
   const blocked = root.querySelector(".blocked");
   const status = root.querySelector(".status");
   const now = root.querySelector(".now");
+  const nowAloud = root.querySelector(".now-aloud");
   const dot = root.querySelector(".who .dot");
   const viewClip = root.querySelector(".view-clip");
   const viewZoom = root.querySelector(".view-zoom");
@@ -142,6 +143,7 @@ const VerdictsJudge = ({ section, tracks, store, say, motion, chained, shows, on
     tracks.forEach((one) => one.row.classList.toggle("active", one === track));
     track.row.scrollIntoView({ block: "nearest", behavior: motion });
     now.textContent = say("track-of", { track: track.id, total: tracks.length, start: track.clock });
+    nowAloud.textContent = say("track-of", { track: track.id, total: tracks.length, start: track.aloud });
     dot.style.setProperty("--dot", track.color);
     dot.textContent = String(track.id);
     root.setAttribute("aria-label", say("judge-track", { track: track.id }));
@@ -162,8 +164,8 @@ const VerdictsJudge = ({ section, tracks, store, say, motion, chained, shows, on
       layout();
       align("auto");
     });
-    if (said) announce(said, now.textContent);
-    else status.textContent = now.textContent;
+    if (said) announce(said, nowAloud.textContent);
+    else status.textContent = nowAloud.textContent;
     if (focus) root.focus({ preventScroll: true });
     onCurrent();
   };

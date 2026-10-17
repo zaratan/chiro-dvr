@@ -30,3 +30,9 @@ fn the_steps_between_tracks_are_named_for_screen_readers() {
     assert!(area.contains(r#"aria-label="Script(PreviousTrack)" aria-keyshortcuts="ArrowLeft">‹"#));
     assert!(area.contains(r#"aria-label="Script(NextTrack)" aria-keyshortcuts="ArrowRight">›"#));
 }
+
+#[test]
+fn the_track_and_start_in_the_head_are_shown_as_a_clock_but_read_aloud_in_words() {
+    let judge = render(&video("v"), &Named);
+    assert!(judge.contains(r#"<span class="now" aria-hidden="true"></span><span class="sr now-aloud"></span>"#));
+}

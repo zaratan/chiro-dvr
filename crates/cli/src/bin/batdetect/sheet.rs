@@ -45,6 +45,7 @@ impl Texts {
             Label::Script(script) => scripted(script),
             Label::Length(seconds) => Spoken::Direct(unbroken(&duration(seconds))),
             Label::Start(seconds) => Spoken::Direct(time::clock(seconds)),
+            Label::Aloud(seconds) => Spoken::Direct(duration(seconds.max(0.0).floor() as u64)),
             Label::Seconds(seconds) => Spoken::Direct(unbroken(&format!("{} s", self.fixed(seconds, 1)))),
             Label::Todo { cause, folder } => Spoken::Direct(self.todo(cause, folder)),
             Label::TooManyTodo => Spoken::Direct(self.todo(TOO_MANY_TRACKS, "")),
@@ -121,16 +122,8 @@ impl Texts {
         }
     }
 
-    fn scene(scene: SceneText<'_>) -> Spoken<'_> {
-        let span = |id, start, end| {
-            message(
-                id,
-                [
-                    ("start", header::clock(start).into()),
-                    ("end", header::clock(end).into()),
-                ],
-            )
-        };
+    fn scene<'a>(scene: SceneText<'a>) -> Spoken<'a> {
+        let span = |id, start: &'a str, end: &'a str| message(id, [("start", start.into()), ("end", end.into())]);
         match scene {
             SceneText::Alt { video, tracks } => {
                 message("page-scene-alt", [("video", video.into()), ("tracks", tracks.into())])
@@ -145,6 +138,7 @@ impl Texts {
             SceneText::Clock(seconds) => Spoken::Direct(header::clock(seconds)),
             SceneText::Window { start, end } => span("page-scene-window", start, end),
             SceneText::Span { start, end } => span("page-scene-span", start, end),
+            SceneText::SpanAloud { start, end } => span("page-scene-span-aloud", start, end),
             SceneText::NothingNotAnalysed => message("page-scene-nothing-not-analysed", []),
             SceneText::NothingUnreadable => message("page-scene-nothing-unreadable", []),
             SceneText::NotAnalysed(periods) => message("page-scene-not-analysed", [("periods", periods.into())]),

@@ -24,6 +24,7 @@ release échoue sans elle.
 ### Modifié
 
 - Une tache un peu trop faible pour le seuil, au-dessus des trois quarts, comble le trou d'une piste quand une vraie tache la précède et la suit de près, sur le même chemin : les pistes rapides ont un cinquième de positions estimées en moins (mesuré sur 26 vidéos), et quelques pistes de plus apparaissent. Une tache faible n'ouvre jamais de piste et ne passe jamais avant une vraie tache, pour ne pas réunir deux chauves-souris voisines (#21).
+- La détection prend environ 10 % de temps en moins sur un Mac à puce Apple et 4 % sous Linux, sans changer ses résultats (#214).
 - Dans la page de résultats, le début d'une piste s'écrit partout comme dans le tableau des pistes (« 0:00:51 ») : la liste et le survol de la frise ne l'écrivent plus au centième (#304).
 - Le tableau des pistes n'a plus de colonne `verdict` et appartient à l'outil : un recalcul le remplace quoi qu'il contienne. La mise de côté datée d'un tableau annoté (#83) est retirée, ainsi que la section « Tableau mis de côté » du bilan ; les tableaux déjà mis de côté restent où ils sont (#228).
 - Les extraits, les zooms et la vidéo annotée dessinent chaque piste de la couleur qu'elle a sur l'image résumé : boîte et numéro bordés d'un liseré noir, trace de la même couleur, au lieu de la boîte rouge et de la trace jaune orangé (#13).
@@ -46,6 +47,9 @@ release échoue sans elle.
 - Après un Ctrl-C, les vidéos du lot pas encore commencées restent sur la page de résultats, marquées « pas encore traitée » avec ce qu'il faut faire, et la vidéo en cours y figure, « inachevée » quand rien d'un calcul précédent n'y est gardé ; avant, elles n'y apparaissaient pas. Un Ctrl-C pendant la première vidéo laisse aussi sa page, en créant le dossier de résultats de cette vidéo (#247).
 - Dans la page de résultats, une vidéo sans extrait ni image résumé n'ouvre plus de lecteur vide : ses pistes sont listées avec leur numéro, leur début et leur durée seulement, et ne comptent pas dans « à voir » ni dans « jugées » (#247).
 - Sous Linux, une vidéo dont le nom n'est pas en UTF-8 est traitée, et une relance la reconnaît comme déjà faite. Dans la page de résultats, son tableau et ses verdicts s'affichent, mais ni son image résumé ni sa vidéo annotée, et les liens vers son tableau, ses extraits et son dossier sont cassés (#227).
+- Dans la page de résultats, une trajectoire de la vignette du lecteur ressort au survol, comme sur la grande image : les autres pâlissent (#336).
+- Dans la page de résultats, un lecteur d'écran lit le verdict d'une pastille de l'image en clair (« jugée chauve-souris », « jugée pas une chauve-souris », « doute », « notée … », « à voir ») au lieu de « Oui » ou « Non » seul (#337).
+- Dans la page de résultats, un lecteur d'écran lit les temps en mots (« 3 min 27 s ») au lieu de « 0:03:27 », et une période « de 12 s à 31 s » : pastilles de l'image, colonne « début », ligne au-dessus de l'image, lecteur et verdicts sans piste ; l'affichage ne change pas, et copier une ligne ne colle que ce qui est affiché. Au-delà d'une heure, une durée s'écrit « 1 h 2 min 5 s », sur la page comme sur l'image résumé, et non plus « 62 min 5 s » (#338).
 
 ## [0.2.0] - 2026-10-16
 
