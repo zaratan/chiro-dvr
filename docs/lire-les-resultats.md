@@ -74,18 +74,16 @@ Ce qu'elle montre, de haut en bas :
   précédentes rangées dans le même dossier y sont aussi. Les vidéos du dernier calcul sont
   dépliées, les autres repliées : un clic sur le nom ouvre ou ferme la section.
 
-Dans une section, l'image résumé et la liste des pistes. Chaque piste a son numéro, de la
-couleur de sa trajectoire sur l'image, son début, sa durée, le verdict noté dans le tableau
-des pistes, et les boutons « Extrait » et, quand il existe, « Zoom ».
+En haut de la page, une barre reste visible quand on fait défiler : le décompte des verdicts de la soirée (oui, non, doute, à voir), l'état des verdicts, et les boutons « Télécharger les verdicts » et « Recharger un fichier de verdicts… » ([Noter le verdict](#noter-le-verdict)).
 
-- Un clic sur « Extrait » ou « Zoom » passe la vidéo à la place de l'image.
-  « Revenir à l'image résumé » la remet, « Précédente » et « Suivante » passent
-  d'une piste à l'autre.
-- Un clic sur le numéro d'une piste remet l'image résumé.
+Dans une section, l'image résumé et la liste des pistes. Chaque piste a son numéro, de la couleur de sa trajectoire sur l'image, son début, sa durée, son verdict (« à voir » tant qu'il n'est pas donné) et l'espèce notée, et une étiquette « Zoom » quand l'extrait zoomé existe. L'en-tête de la vidéo dit combien de ses pistes sont jugées.
+
+- Un clic sur une piste (sa ligne ou son numéro) ouvre le lecteur à la place de l'image : l'extrait de la piste passe en boucle, en grand, avec le verdict et l'espèce dessous. À droite, l'image résumé en petit (un clic l'ouvre en taille réelle) et la liste, où la piste jugée est en évidence.
+- « Extrait » et « Zoom » choisissent la vidéo ; « Image résumé » ferme le lecteur ; ‹ et › passent à la piste précédente ou suivante ; « À voir » saute à la prochaine piste sans verdict.
+- Le clavier : `O` oui, `N` non, `D` (ou `?`) doute, `Suppr` efface le verdict, `E` va au champ espèce, `Z` passe de l'extrait au zoom, les flèches ← et → changent de piste, Maj et → va à la prochaine piste à voir, Espace lit ou arrête. Un second appui sur le même verdict l'efface. Les lettres tapées dans le champ espèce restent du texte.
+- « Enchaîner », cochée d'origine : après « Oui », le curseur va dans le champ espèce, et Entrée passe à la piste suivante ; après « Non » ou « Doute », la page passe directement à la suivante. Décochée, rien ne bouge seul. On ne passe jamais d'une vidéo à l'autre.
 - Un clic sur l'image l'ouvre en taille réelle.
-- Une vidéo chargée a plusieurs images résumé : des onglets « Partie » les séparent, et
-  chaque onglet dit quelles pistes il montre. Choisir une piste affiche la partie qui la
-  contient.
+- Une vidéo chargée a plusieurs images résumé : des onglets « Partie » les séparent, et chaque onglet dit quelles pistes il montre.
 
 Une vidéo en échec garde sa place dans la liste, marquée en rouge, avec la raison et ce qu'il
 faut faire, comme dans le bilan. Si les résultats d'un calcul précédent sont encore là, un lien
@@ -93,9 +91,6 @@ y mène ; ce n'est pas toujours le cas, car un nouveau calcul commence par les 
 avant la fin : relancer la même commande la refait. Pendant le calcul, les vidéos pas encore
 traitées sont « en attente ». Une vidéo calculée par une version plus ancienne de l'outil
 est marquée « ancienne version » : relancer la même commande la refait.
-
-La page ne note rien : le verdict se note dans le tableau des pistes ([Noter le
-verdict](#noter-le-verdict)), et la page le montre au calcul suivant.
 
 Limite : les résultats d'une vidéo sont rangés sous son nom. Si deux soirées sont envoyées dans
 le même dossier choisi au lancement et ont des vidéos de même nom, la seconde remplace la
@@ -116,6 +111,8 @@ calcul efface les fichiers de l'autre langue.
 | Extrait zoomé | `extraits/piste_01_0m04s_zoom.mp4` | `clips/track_01_0m04s_zoom.mp4` |
 | Vidéo annotée | `<vidéo>_annotee.mp4` | `<vidéo>_annotated.mp4` |
 | Réglages et bilan du calcul | `params.json` | `params.json` |
+
+À côté de la page, dans le dossier `batdetect/` ou le dossier choisi au lancement, `verdicts.csv` garde les verdicts de toute la page ([Noter le verdict](#noter-le-verdict)) : c'est la page qui le télécharge, et l'outil le lit sans jamais l'écrire.
 
 - Une vidéo de plus de 10 min a une image résumé par tranche de 10 min
   (`<vidéo>_resume_000m-010m.png`, …), et une image qui aurait plus de 20 pistes est coupée en
@@ -329,19 +326,13 @@ qui commencent dans la même seconde.
 
 ### Noter le verdict
 
-Le tableau des pistes, `<vidéo>_pistes.csv`, s'ouvre dans un tableur réglé en français. La
-colonne `verdict` y est vide : écrire le verdict sur la ligne de la piste, dans les mots qu'on
-veut (« oui », « non », « ? »), puis enregistrer en gardant le format CSV. L'outil ne tient
-jamais compte de ce qui y est écrit : la colonne sert à cocher les pistes vues et à compter
-les passages.
+Le verdict se note dans la page, piste par piste, dans le lecteur : « Oui », « Non » ou « Doute », et l'espèce, en texte libre (la page propose les espèces déjà tapées). L'outil ne tient jamais compte de ce qui y est noté : les verdicts servent à compter les passages.
 
-Quand la vidéo est recalculée dans le même dossier, un tableau dont au moins une case
-`verdict` est remplie est mis de côté tel quel, sous un nom daté
-(`<vidéo>_pistes_2026-10-16_2130.csv`), et le nouveau tableau s'écrit à côté ; le bilan de la
-soirée le dit ; un recalcul suivant n'y touche plus. Un tableau que l'outil ne reconnaît plus
-est mis de côté de la même façon ; un tableau sans aucun verdict est remplacé, même trié, et
-une note écrite hors de la colonne `verdict` est alors perdue. Les numéros ont pu changer : reporter les
-verdicts par le début de la piste, à une seconde près, et à l'extrait en cas de doute.
+La page ne peut pas écrire sur le disque : elle garde les verdicts dans un fichier, `verdicts.csv`, qu'on télécharge par « Télécharger les verdicts ». Le fichier arrive dans Téléchargements, peut-être sous le nom `verdicts (1).csv` ou `verdicts-2.csv` si le navigateur en a déjà un ; le glisser dans le dossier de la page, à côté de `resultats.html`. S'il y en a plusieurs, la page lit le plus récent et dit lequel. Il couvre toute la page, toutes les vidéos de la soirée, et s'ouvre dans un tableur pour compter : une ligne par piste jugée, avec la vidéo, le numéro, le début, le verdict et l'espèce.
+
+Tant que le fichier n'est pas téléchargé, la barre le dit (« Changements non téléchargés »), et le navigateur demande confirmation avant de quitter la page. Le navigateur garde aussi les verdicts non téléchargés : en rouvrant la page, on les retrouve, et la page le signale. « Recharger un fichier de verdicts… » relit un fichier choisi, par exemple celui resté dans Téléchargements.
+
+Un nouveau calcul ne touche jamais au fichier de verdicts. Chaque verdict retrouve sa piste par son début (à un cinquième de seconde près) et son point de départ sur l'image, même si les numéros ont changé. Un verdict dont la piste n'existe plus est montré au-dessus de la liste de sa vidéo, « Verdicts sans piste », avec la piste la plus proche à vérifier sur l'extrait ; il reste dans le fichier. Le tableau des pistes, `<vidéo>_pistes.csv`, appartient à l'outil : un recalcul le remplace, et ce qu'on y aurait écrit est perdu.
 
 ### Une piste de trop vaut mieux qu'un passage manqué
 
@@ -495,11 +486,7 @@ distance et du contraste de l'animal autant que de sa taille.
 
 ### Verdict
 
-Le jugement de Manon, à l'œil sur l'extrait : cette piste est-elle une chauve-souris ?
-L'outil ne s'en sert pas ; il se note dans la colonne `verdict` du tableau des pistes, sur la
-ligne de la piste ([Noter le verdict](#noter-le-verdict)). Ailleurs, on désigne la piste par
-la vidéo, son début et son numéro, car le numéro seul peut changer (ceux de la 092 sont dans
-[docs/03](03-resultats-092.md#verdict-de-manon-9-octobre-2026)).
+Le jugement de Manon, à l'œil sur l'extrait : cette piste est-elle une chauve-souris ? L'outil ne s'en sert pas ; il se note dans la page ([Noter le verdict](#noter-le-verdict)) et se garde dans le fichier de verdicts de la soirée. Ailleurs, on désigne la piste par la vidéo, son début et son numéro, car le numéro seul peut changer (ceux de la 092 sont dans [docs/03](03-resultats-092.md#verdict-de-manon-9-octobre-2026)).
 
 ### Vitesse
 

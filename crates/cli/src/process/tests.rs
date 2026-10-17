@@ -8,7 +8,7 @@ use engine::config::DetectConfig;
 use engine::detection::detect;
 use files::names::{Names, params_json, partial_path};
 use files::params::Finish;
-use files::previous::{Kept, Reason};
+use files::previous::Kept;
 use files::table::{Column, Headings};
 use media::decode::{Decoder, Threads};
 use media::encode::fallback::{self, Fallback};
@@ -84,7 +84,7 @@ fn rendered_into_a_fresh_folder(
             ..Options::default()
         },
         extent: MEASURED,
-        kept: &[Kept::Left {
+        kept: &[Kept {
             path: PathBuf::from("out/flight_tracks.csv"),
             ours: true,
         }],
@@ -348,51 +348,25 @@ fn the_outputs_of_an_earlier_run_in_any_language_are_replaced_by_those_of_this_r
     assert_eq!(processed.kept, []);
 }
 
-fn dated_copy_of(kept: &[Kept], table: &Path) -> PathBuf {
-    let [Kept::SetAside { path, dated, reason }] = kept else {
-        panic!("{kept:?}");
-    };
-    assert_eq!((path.as_path(), *reason), (table, Reason::UnknownForm));
-    assert_eq!(fs::read_to_string(dated).unwrap(), ANNOTATED_HEADER);
-    dated.clone()
-}
-
 #[test]
-fn a_table_of_an_unknown_form_in_the_language_of_the_run_is_set_aside_under_a_dated_name_and_the_new_one_written() {
-    let folder = tempfile::tempdir().unwrap();
-    let job = flight_job(folder.path());
-    let table = job.dest.join("flight_tracks.csv");
-    fs::create_dir_all(&job.dest).unwrap();
-    fs::write(&table, ANNOTATED_HEADER).unwrap();
-    let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
-    let dated = dated_copy_of(&processed.kept, &table);
-    let name = dated.file_name().unwrap().to_string_lossy().into_owned();
-    assert!(name.starts_with("flight_tracks_20"), "{name}");
-    assert!(dated.extension().is_some_and(|extension| extension == "csv"), "{name}");
-    assert_ne!(fs::read_to_string(&table).unwrap(), ANNOTATED_HEADER);
-    assert_eq!(processed.csv, Some(table));
-    assert!(job.dest.join("flight_summary.png").is_file());
-}
-
-#[test]
-fn a_table_of_an_unknown_form_in_the_other_language_is_set_aside_beside_the_new_table() {
-    let folder = tempfile::tempdir().unwrap();
-    let job = flight_job(folder.path());
-    let table = job.dest.join("flight_pistes.csv");
-    fs::create_dir_all(&job.dest).unwrap();
-    fs::write(&table, ANNOTATED_HEADER).unwrap();
-    let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
-    let dated = dated_copy_of(&processed.kept, &table);
-    assert!(
-        dated
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .starts_with("flight_pistes_20")
-    );
-    assert!(!table.exists());
-    assert_eq!(processed.csv, Some(job.dest.join("flight_tracks.csv")));
-    assert!(job.dest.join("flight_tracks.csv").is_file());
+fn a_table_written_by_hand_in_either_language_is_replaced_by_the_new_one() {
+    for name in ["flight_tracks.csv", "flight_pistes.csv"] {
+        let folder = tempfile::tempdir().unwrap();
+        let job = flight_job(folder.path());
+        let table = job.dest.join(name);
+        fs::create_dir_all(&job.dest).unwrap();
+        fs::write(&table, ANNOTATED_HEADER).unwrap();
+        let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
+        assert_eq!(processed.kept, [], "{name}");
+        let written = job.dest.join("flight_tracks.csv");
+        assert_ne!(fs::read_to_string(&written).unwrap(), ANNOTATED_HEADER, "{name}");
+        assert_eq!(processed.csv, Some(written), "{name}");
+        assert_eq!(
+            left_in(&job.dest),
+            ["clips", "flight_summary.png", "flight_tracks.csv", "params.json"],
+            "{name}"
+        );
+    }
 }
 
 #[test]
@@ -576,7 +550,7 @@ fn params_of(job: &Job) -> serde_json::Value {
 }
 
 #[test]
-fn a_video_with_too_many_tracks_brings_back_its_measures_and_sets_aside_the_earlier_table_before_writing_its_own() {
+fn a_video_with_too_many_tracks_brings_back_its_measures_and_replaces_the_earlier_table_with_its_own() {
     let folder = tempfile::tempdir().unwrap();
     let (job, options) = two_tracks_above_a_limit_of_one(folder.path());
     fs::create_dir_all(&job.dest).unwrap();
@@ -590,7 +564,9 @@ fn a_video_with_too_many_tracks_brings_back_its_measures_and_sets_aside_the_earl
     };
     assert_eq!(count, 2);
     assert!(extent.length_s > 0.0 && extent.not_analysed_s > 0.0, "{extent:?}");
-    dated_copy_of(&kept, &job.dest.join("flight_tracks.csv"));
+    assert_eq!(kept, []);
+    let table = fs::read_to_string(job.dest.join("flight_tracks.csv")).unwrap();
+    assert_ne!(table, ANNOTATED_HEADER);
 }
 
 #[test]

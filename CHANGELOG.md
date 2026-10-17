@@ -12,9 +12,11 @@ release échoue sans elle.
   est suivi d'une ligne « à faire », comme une vidéo en échec (#239, #82).
 - Une ligne annonce la soirée avant la première vidéo : nombre de vidéos, durée totale, et combien sont déjà faites (#62).
 - La page de résultats montre les entrées refusées au départ du dernier lancement, avant les vidéos, avec la raison et ce qu'il faut faire, comme le bilan (#267).
+- Les verdicts se notent dans la page de résultats : un clic sur une piste ouvre son extrait en grand, en boucle, avec « Oui », « Non », « Doute » et l'espèce dessous, au clavier ou à la souris ; « Enchaîner » passe d'une piste à la suivante. La page les télécharge dans `verdicts.csv`, à glisser à côté d'elle ; elle le relit au calcul suivant, et « Recharger un fichier de verdicts… » relit un fichier choisi. Chaque verdict retrouve sa piste par son début et son point de départ, même renumérotée ; un verdict sans piste reste montré et gardé. Le navigateur garde les verdicts non téléchargés (#228).
 
 ### Modifié
 
+- Le tableau des pistes n'a plus de colonne `verdict` et appartient à l'outil : un recalcul le remplace quoi qu'il contienne. La mise de côté datée d'un tableau annoté (#83) est retirée, ainsi que la section « Tableau mis de côté » du bilan ; les tableaux déjà mis de côté restent où ils sont (#228).
 - Chaque vidéo est ouverte avant tout calcul : une vidéo illisible ou mal copiée est refusée au départ avec les autres entrées fautives, au lieu d'échouer à son tour. Hors d'un terminal, depuis un script par exemple, une seule vidéo mal copiée arrête donc tout le lot avant le calcul, en code 2, sauf avec `--skip-refused` ; avant, les autres vidéos étaient faites et le code valait 1 (#62).
 
 ### Corrigé

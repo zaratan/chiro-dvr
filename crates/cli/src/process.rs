@@ -5,7 +5,6 @@ use std::time::Instant;
 
 use engine::detection::{self, Detected, detect};
 use engine::input::Video;
-use files::aside::Stamp;
 use files::names::{Names, params_json};
 use files::params::{Finish, Params, language_code, local_date, spans_in_seconds, write_params};
 use files::previous::{Kept, remove_previous_outputs};
@@ -196,7 +195,7 @@ fn processed_since(
     })?;
     let names = Names::new(wording.language());
     let stem = job.video.file_stem().unwrap_or_default();
-    let mut kept = remove_previous_outputs(&job.dest, stem, names, wording, Stamp::now()).map_err(Error::Previous)?;
+    let mut kept = remove_previous_outputs(&job.dest, stem, names).map_err(Error::Previous)?;
     let csv = write_table(
         names.tracks_csv(&job.dest, stem),
         &tracks,
@@ -310,7 +309,7 @@ fn write_table(
     match write_tracks_csv(&csv, tracks, timeline, wording.language(), wording) {
         Ok(()) => Ok(Some(csv)),
         Err(files::error::Error::Taken { path }) => {
-            kept.push(Kept::Left { path, ours: true });
+            kept.push(Kept { path, ours: true });
             Ok(None)
         }
         Err(error) => Err(Error::Files(error)),

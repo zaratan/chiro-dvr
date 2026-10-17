@@ -17,11 +17,7 @@ use crate::time::{clock, frame_duration, frame_seconds};
 #[cfg(test)]
 mod tests;
 
-const LEGACY_HEADER: &str =
-    "id,start,end,start_s,duration_s,hits,chord_px,path_px,speed_px_s,max_area_px,peak_amplitude,filled_frames";
-const LEGACY_SEPARATOR: char = ',';
 const LINE_END: &str = "\r\n";
-pub(crate) const LANGUAGES: [Language; 2] = [Language::French, Language::English];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Column {
@@ -29,7 +25,6 @@ pub enum Column {
     Start,
     End,
     Duration,
-    Verdict,
     Hits,
     Chord,
     Path,
@@ -40,12 +35,11 @@ pub enum Column {
     StartSeconds,
 }
 
-pub const COLUMNS: [Column; 13] = [
+pub const COLUMNS: [Column; 12] = [
     Column::Track,
     Column::Start,
     Column::End,
     Column::Duration,
-    Column::Verdict,
     Column::Hits,
     Column::Chord,
     Column::Path,
@@ -88,56 +82,6 @@ pub fn write_tracks_csv(
     })
 }
 
-pub(crate) fn is_tracks_table(bytes: &[u8], headings: &dyn Headings) -> bool {
-    let Ok(text) = str::from_utf8(bytes) else {
-        return false;
-    };
-    let mut lines = text.lines();
-    let Some(first) = lines.next() else {
-        return false;
-    };
-    let legacy = Form::legacy();
-    let ours = LANGUAGES.map(|language| Form::ours(language, headings));
-    let form = ours.iter().chain([&legacy]).find(|form| form.header == first);
-    form.is_some_and(|form| lines.all(|line| form.fits(line)))
-}
-
-#[derive(Debug)]
-struct Form {
-    header: String,
-    separator: char,
-    columns: usize,
-    verdict: Option<usize>,
-}
-
-impl Form {
-    fn ours(language: Language, headings: &dyn Headings) -> Self {
-        Self {
-            header: header(language, headings),
-            separator: Dialect::of(language).separator(),
-            columns: COLUMNS.len(),
-            verdict: COLUMNS.iter().position(|&column| column == Column::Verdict),
-        }
-    }
-
-    fn legacy() -> Self {
-        Self {
-            header: LEGACY_HEADER.to_owned(),
-            separator: LEGACY_SEPARATOR,
-            columns: LEGACY_HEADER.split(LEGACY_SEPARATOR).count(),
-            verdict: None,
-        }
-    }
-
-    fn fits(&self, line: &str) -> bool {
-        let cells: Vec<&str> = line.split(self.separator).collect();
-        cells.len() == self.columns
-            && self
-                .verdict
-                .is_none_or(|index| cells.get(index).is_some_and(|cell| cell.is_empty()))
-    }
-}
-
 fn header(language: Language, headings: &dyn Headings) -> String {
     Dialect::of(language).header(COLUMNS.map(|column| headings.heading(column, language)))
 }
@@ -178,7 +122,6 @@ impl<'a> Measured<'a> {
             Column::Start => clock(self.start),
             Column::End => clock(self.end),
             Column::Duration => dialect.decimal(self.duration, 2),
-            Column::Verdict => String::new(),
             Column::Hits => self.track.points().len().to_string(),
             Column::Chord => dialect.decimal(self.track.chord(), 1),
             Column::Path => dialect.decimal(self.path, 1),

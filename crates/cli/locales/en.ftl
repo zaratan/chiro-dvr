@@ -193,14 +193,6 @@ tally-unwritten-heading = { $count ->
         [one] File not written, the results page may be incomplete:
        *[other] Files not written, the results page may be incomplete:
     }
-tally-set-aside-heading = { $count ->
-        [one] Table set aside:
-       *[other] Tables set aside:
-    }
-tally-set-aside = { $video }: { $table } { $reason ->
-        [verdicts] holds verdicts
-       *[unknown] does not have the form of a tracks table
-    }, set aside as { $dated }
 tally-unwritten = { $taken ->
         [yes] { $path } already exists and is not a batdetect page: rename or move it to get the page
        *[no] { $path }: { $detail }
@@ -267,7 +259,6 @@ table-track = track
 table-start = start
 table-end = end
 table-duration = duration (s)
-table-verdict = verdict
 table-hits = points
 table-chord = chord (px)
 table-path = path (px)
@@ -333,24 +324,80 @@ page-column-track = Track
 page-column-start = Start
 page-column-length = Length
 page-column-verdict = Verdict
-page-column-watch = Watch
 page-table-caption = Tracks of { $video }
-page-no-verdict = to note
-page-clip = Clip
-page-zoom = Zoom
-page-play-clip = Play the clip of track { $track }
-page-play-zoom = Play the slowed zoom of track { $track }
-page-show-track = Show track { $track } on the summary image
-page-playing = Track { $track } of { $total } · start { $start } · { $zoom ->
-        [yes] slowed zoom
-       *[no] clip
-    }
-page-unreadable = unreadable clip
-page-back = Back to the summary image
-page-previous = Previous
-page-next = Next
-page-previous-clip = Clip of the previous track
-page-next-clip = Clip of the next track
 page-player = Clip player for { $video }
 page-table-link = Tracks table, for a spreadsheet
 page-annotated-link = Whole video with the tracks drawn
+page-js-bar = Verdicts of the evening
+page-js-yes = Yes
+page-js-no = No
+page-js-doubt = Doubt
+page-js-key-yes = Y
+page-js-key-no = N
+page-js-key-doubt = D
+page-js-value-yes = yes
+page-js-value-no = no
+page-js-value-doubt = ?
+page-js-to-see = to see
+page-js-other = other: { $value }
+page-js-counts = Verdicts: { $yes } yes · { $no } no · { $doubt } doubt · { $todo } to see
+page-js-judged = judged: { $done } of { $total }
+page-js-pending = ● Changes not downloaded: { $count }
+page-js-downloaded = Downloaded at { $time }: to drag beside this page
+page-js-current = Verdicts up to date
+page-js-download = Download the verdicts
+page-js-reload = Reload a verdicts file…
+page-js-read-from = Verdicts read from { $name }, of { $date }; verdicts files in the folder: { $count }
+page-js-read-file = Verdicts read from { $name }, of { $date }
+page-js-steps-heading = Last step: put the file beside the page
+page-js-step-one = The file verdicts.csv is in Downloads; the browser may have named it verdicts (1).csv or verdicts-2.csv. If the browser asks where to save it, choose the folder { $folder }.
+page-js-step-two = Drag it into the folder { $folder }, beside this page. If there are several, the page reads the most recent.
+page-js-understood = Got it
+page-js-replace-unsaved = Some changes are not downloaded. Replace them with this file?
+page-js-not-verdicts = { $name } is not a verdicts file.
+page-js-draft-same = Verdicts not downloaded since { $time }, taken back into the page.
+page-js-draft-other = Verdicts were not downloaded (since { $time }), on another verdicts file than the one the page just read.
+page-js-draft-keep = Take them back
+page-js-draft-drop = Drop them
+page-js-orphans = Verdicts without a track: { $count }
+page-js-orphans-why = These verdicts no longer match any track since the last computation. They stay in the verdicts file; check the nearest track on its clip.
+page-js-orphan = { $start }, former track { $track }: { $verdict }
+page-js-nearest = See the nearest track (track { $track }, { $start })
+page-js-absent = Verdicts of videos absent from the page, kept in the file: { $count }
+page-js-track-of = Track { $track } of { $total } · { $start }
+page-js-judge-track = Judge track { $track }
+page-js-announce = Track { $track }: { $verdict }
+page-js-announce-species = Track { $track }: { $verdict }, { $species }
+page-js-species = species
+page-js-species-then-enter = species, then Enter
+page-js-species-of = Species of track { $track }
+page-js-verdict-of = Verdict of track { $track }
+page-js-view = View
+page-js-clip = Clip
+page-js-zoom = Zoom
+page-js-no-zoom = no zoom
+page-js-no-clip = No clip for this track.
+page-js-picture = Summary image
+page-js-chain = Keep going
+page-js-previous-track = Previous track
+page-js-next-track = Next track
+page-js-next-to-see = To see »
+page-js-blocked = The browser blocked the playback: click ▶
+page-js-unreadable = Unreadable clip.
+page-js-changed = changed
+page-js-column-video = video
+page-js-column-track = track
+page-js-column-start = start
+page-js-column-start-seconds = start (s)
+page-js-column-verdict = verdict
+page-js-column-species = species
+page-js-column-start-x = start x (px)
+page-js-column-start-y = start y (px)
+page-js-separator = ,
+page-js-decimal-mark = .
+page-js-key-species = E
+page-js-draft-drop-confirm = Drop these verdicts that were not downloaded? They will be lost.
+page-js-download-now = Download now
+page-js-cleared = Track { $track }: verdict cleared
+page-js-value-yes-other = oui
+page-js-value-no-other = non

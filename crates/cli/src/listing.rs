@@ -40,6 +40,7 @@ pub(crate) fn listed(
                 summary: drawing.and_then(|one| relative(dest, &one.page)),
                 clip: outputs.and_then(|outputs| written(&outputs.clips)),
                 zoom: outputs.and_then(|outputs| written(&outputs.zooms)),
+                start_xy: Some(start_xy(track)),
             }
         })
         .collect()
@@ -56,4 +57,9 @@ fn relative(dest: &Path, path: &Path) -> Option<String> {
         })
         .collect::<Option<_>>()?;
     Some(parts.join(SEPARATOR))
+}
+
+fn start_xy(track: &Track) -> [i64; 2] {
+    let first = track.first();
+    [first.x.round() as i64, first.y.round() as i64]
 }

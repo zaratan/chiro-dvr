@@ -11,7 +11,6 @@ use batdetect::tally::Tally;
 use engine::settings::Setting;
 use files::names::composed;
 use files::params::Finish;
-use files::previous::{Kept, Reason};
 
 use crate::arguments::{MAX_BLOBS, MIN_HITS, OSD_REGION};
 use crate::clock::clock;
@@ -38,7 +37,6 @@ pub(crate) fn write(out: &mut impl Write, tally: &Tally, options: &Options, text
     too_many(out, tally, texts)?;
     failed(out, tally, options, texts)?;
     refused(out, tally, texts)?;
-    set_aside(out, tally, texts)?;
     left(out, tally, texts)?;
     unwritten(out, tally, texts)?;
     let changed = options.changed();
@@ -215,42 +213,10 @@ fn refused(out: &mut impl Write, tally: &Tally, texts: Texts) -> io::Result<()> 
     Ok(())
 }
 
-fn set_aside(out: &mut impl Write, tally: &Tally, texts: Texts) -> io::Result<()> {
-    let aside: Vec<_> = tally
-        .kept()
-        .filter_map(|(row, table)| match table {
-            Kept::SetAside { path, dated, reason } => Some((row, path, dated, *reason)),
-            Kept::Left { .. } => None,
-        })
-        .collect();
-    if aside.is_empty() {
-        return Ok(());
-    }
-    writeln!(out)?;
-    let heading = Message::TallySetAsideHeading { count: aside.len() };
-    writeln!(out, "{}", texts.say(&heading))?;
-    for (row, path, dated, reason) in aside {
-        let message = Message::TallySetAside {
-            video: name(row),
-            table: file_name(path),
-            dated: file_name(dated),
-            reason: match reason {
-                Reason::Verdicts => "verdicts",
-                Reason::UnknownForm => "unknown",
-            },
-        };
-        writeln!(out, "{INDENT}{}", texts.say(&message))?;
-    }
-    Ok(())
-}
-
 fn left(out: &mut impl Write, tally: &Tally, texts: Texts) -> io::Result<()> {
     let left: Vec<_> = tally
         .kept()
-        .filter_map(|(row, table)| match table {
-            Kept::Left { path, ours } => Some((row, path, *ours)),
-            Kept::SetAside { .. } => None,
-        })
+        .map(|(row, table)| (row, &table.path, table.ours))
         .collect();
     if left.is_empty() {
         return Ok(());

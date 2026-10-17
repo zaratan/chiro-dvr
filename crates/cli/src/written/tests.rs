@@ -29,7 +29,6 @@ impl Headings for Named {
 
 const FRENCH: Wording<'static> = Wording {
     labels: &Named,
-    headings: &Named,
     language: Language::French,
 };
 
@@ -77,10 +76,10 @@ fn the_page_lists_the_finished_videos_and_opens_only_those_of_this_run() {
     finished(root.path(), "video_093", "done", 1);
     write_page(root.path(), &[job(root.path(), "video_093")], 1, FRENCH).unwrap();
     let html = page(root.path());
-    assert!(html.contains(r#"<details class="video" id="v1">"#));
-    assert!(html.contains(r#"<details class="video" id="v2" open>"#));
+    assert!(html.contains(r#"<details class="video" id="v1" data-video="video_092">"#));
+    assert!(html.contains(r#"<details class="video" id="v2" data-video="video_093" open>"#));
     assert!(html.contains("Tracks(3)"));
-    assert!(html.contains(r#"data-src="video_092/extraits/piste_01_0m01s.mp4""#));
+    assert!(html.contains(r#"data-clip="video_092/extraits/piste_01_0m01s.mp4""#));
 }
 
 #[test]
@@ -240,7 +239,8 @@ fn a_folder_named_by_a_decomposed_accent_is_the_same_video_as_its_composed_job()
     write_page(root.path(), &[job(root.path(), "nuit_\u{e9}t\u{e9}")], 1, FRENCH).unwrap();
     let html = page(root.path());
     assert_eq!(html.matches("<details class=\"video\"").count(), 1);
-    assert!(html.contains(r#"<details class="video" id="v1" open>"#));
+    let accent = '\u{301}';
+    assert!(html.contains(&format!(r#"id="v1" data-video="nuit_e{accent}te{accent}" open>"#)));
 }
 
 fn refused_input(path: &str, cause: &str) -> RefusedInput {

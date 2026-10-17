@@ -336,7 +336,7 @@ octets (`video_bytes`), la langue des noms (`language`, `fr` ou `en`) et l'heure
 du calcul (`date`). `tracks` liste les pistes : numéro (`id`), début et durée non arrondis
 (`start_s`, `duration_s`), couleur de la trajectoire sur l'image résumé en RVB (`color`), image
 résumé qui la dessine (`summary`, par exemple `video_097_resume_3_sur_8.png`), et chemins de
-l'extrait et du zoom écrits, relatifs au dossier de la vidéo (`null` quand il n'y en a pas).
+l'extrait et du zoom écrits, relatifs au dossier de la vidéo (`null` quand il n'y en a pas), et point de départ de la piste en pixels entiers de la vidéo d'origine (`start_xy`, absent avant #228), qui aide la page à rattacher un verdict à sa piste.
 Les périodes ignorées sont dans `ignored_s`, les illisibles dans `damaged_s`, avec
 `damaged_frames` (nombre d'images signalées par le décodeur ou qui suivent un trou dans les
 horodatages, pas le nombre d'images écartées).
@@ -365,10 +365,7 @@ soirée compte ces vidéos à part, avec leur nombre de pistes ; une relance ide
 pas et les compte encore ainsi.
 
 Colonnes du CSV, dans cet ordre : `piste` (numéro), `début` et `fin` (`h:mm:ss`, tronqués
-à la seconde comme le nom de l'extrait), `durée (s)`, `verdict` (vide, rempli à l'œil ;
-l'outil n'en tire rien ; un tableau dont une cellule verdict est remplie, ou qui n'a plus notre
-forme, est mis de côté sous un nom daté (`<nom>_pistes_AAAA-MM-JJ_HHMM.csv`) et le tableau neuf
-s'écrit, ce que dit le bilan ; une vidéo sautée n'y touche pas), `points`
+à la seconde comme le nom de l'extrait), `durée (s)`, `points`
 (nombre de détections), `corde (px)` (distance de bout en bout), `chemin (px)` (chemin parcouru), `vitesse (px/s)` (chemin ÷ durée), `surface max (px)`
 (plus grande tache, en pixels d'origine), `amplitude (niveaux de gris)` (plus fort écart au
 fond ; avec le filtre à la taille de la cible, écart mesuré sur l'image filtrée, donc plus
@@ -377,10 +374,12 @@ interpolation à l'affichage) et `début (s)` (début en secondes, au centième)
 dans le dernier centième d'une seconde s'écrit `0:00:04` d'un côté et `5,0` de l'autre :
 `début` tronque, `début (s)` arrondit.
 
+Le tableau appartient à l'outil : un recalcul le remplace sans le lire. Les verdicts n'y sont pas : ils se notent dans la page et vivent dans `verdicts.csv`, à côté d'elle, que l'outil lit sans jamais l'écrire (docs/11, crate `page`).
+
 Le CSV suit la langue des messages. En français, `_pistes.csv` commence par un BOM UTF-8
 (pour qu'Excel lise les accents), sépare par un point-virgule et écrit la virgule
 décimale. En anglais, `_tracks.csv` n'a pas de BOM, sépare par une virgule et écrit le
-point, avec les en-têtes `track`, `start`, `end`, `duration (s)`, `verdict`, `points`,
+point, avec les en-têtes `track`, `start`, `end`, `duration (s)`, `points`,
 `chord (px)`, `path (px)`, `speed (px/s)`, `max area (px)`, `amplitude (grey levels)`,
 `filled frames`, `start (s)`. Fins de ligne CRLF dans les deux langues. `0:04` serait lu
 par LibreOffice comme 0 h 04 min : d'où `0:00:04`.

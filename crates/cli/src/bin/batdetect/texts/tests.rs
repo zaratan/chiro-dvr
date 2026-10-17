@@ -16,8 +16,8 @@ use crate::sheet::{self, Spoken};
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 66;
-const FIXED: [Fixed; 78] = [
+const VARIANTS: usize = 64;
+const FIXED: [Fixed; 77] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -87,7 +87,6 @@ const FIXED: [Fixed; 78] = [
     Fixed::TableStart,
     Fixed::TableEnd,
     Fixed::TableDuration,
-    Fixed::TableVerdict,
     Fixed::TableHits,
     Fixed::TableChord,
     Fixed::TablePath,
@@ -158,14 +157,12 @@ fn rank(message: &Message) -> usize {
         Message::TallyRefusedCount { .. } => 55,
         Message::TallyRefusedHeading { .. } => 56,
         Message::Interrupted { .. } => 57,
-        Message::TallySetAsideHeading { .. } => 58,
-        Message::TallySetAside { .. } => 59,
-        Message::VideoSkipped { .. } => 60,
-        Message::TallyAlreadyDone { .. } => 61,
-        Message::TallyUnwrittenHeading { .. } => 62,
-        Message::FilesPage { .. } => 63,
-        Message::TallyUnwritten { .. } => 64,
-        Message::Announce { .. } => 65,
+        Message::VideoSkipped { .. } => 58,
+        Message::TallyAlreadyDone { .. } => 59,
+        Message::TallyUnwrittenHeading { .. } => 60,
+        Message::FilesPage { .. } => 61,
+        Message::TallyUnwritten { .. } => 62,
+        Message::Announce { .. } => 63,
     }
 }
 
@@ -239,16 +236,15 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::TableStart => 65,
         Fixed::TableEnd => 66,
         Fixed::TableDuration => 67,
-        Fixed::TableVerdict => 68,
-        Fixed::TableHits => 69,
-        Fixed::TableChord => 70,
-        Fixed::TablePath => 71,
-        Fixed::TableSpeed => 72,
-        Fixed::TableMaxArea => 73,
-        Fixed::TableAmplitude => 74,
-        Fixed::TableFilledFrames => 75,
-        Fixed::TableStartSeconds => 76,
-        Fixed::ForceHelp => 77,
+        Fixed::TableHits => 68,
+        Fixed::TableChord => 69,
+        Fixed::TablePath => 70,
+        Fixed::TableSpeed => 71,
+        Fixed::TableMaxArea => 72,
+        Fixed::TableAmplitude => 73,
+        Fixed::TableFilledFrames => 74,
+        Fixed::TableStartSeconds => 75,
+        Fixed::ForceHelp => 76,
     }
 }
 
@@ -288,13 +284,6 @@ fn tally_lines() -> Vec<Message> {
             video: text("video_092"),
             table: text("video_092_pistes.csv"),
             written: false,
-        },
-        Message::TallySetAsideHeading { count: 1 },
-        Message::TallySetAside {
-            video: text("video_092"),
-            table: text("video_092_pistes.csv"),
-            dated: text("video_092_pistes_2026-10-16_1430.csv"),
-            reason: "verdicts",
         },
         Message::TallyChanged {
             settings: text("--threshold 11"),

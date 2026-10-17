@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use crate::model::Date;
+use crate::script::Script;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Label<'a> {
@@ -79,33 +80,24 @@ pub enum Label<'a> {
     ColumnStart,
     ColumnLength,
     ColumnVerdict,
-    ColumnWatch,
     TableCaption(&'a str),
-    NoVerdict,
-    Clip,
-    Zoom,
-    PlayClip(usize),
-    PlayZoom(usize),
-    ShowTrack(usize),
-    Playing {
-        track: usize,
-        total: usize,
-        start: &'a str,
-        zoom: bool,
-    },
-    Unreadable,
-    Back,
-    Previous,
-    Next,
-    PreviousClip,
-    NextClip,
     Player(&'a str),
     TableLink,
     AnnotatedLink,
     Start(f64),
     Seconds(f64),
+    Script(Script),
+    Day(Date),
 }
 
 pub trait Labels: Debug {
     fn label(&self, label: &Label<'_>) -> String;
+}
+
+pub(crate) fn filled(labels: &dyn Labels, script: Script, values: &[(&str, &str)]) -> String {
+    values
+        .iter()
+        .fold(labels.label(&Label::Script(script)), |text, (name, value)| {
+            text.replace(&format!("{{{name}}}"), value)
+        })
 }

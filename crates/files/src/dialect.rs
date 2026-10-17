@@ -34,10 +34,6 @@ impl Dialect {
         }
     }
 
-    pub(crate) const fn separator(self) -> char {
-        self.separator
-    }
-
     pub(crate) fn header(self, cells: impl IntoIterator<Item = String>) -> String {
         format!("{}{}", self.start, self.row(cells))
     }
