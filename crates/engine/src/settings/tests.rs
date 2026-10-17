@@ -2,7 +2,8 @@ use std::fs;
 
 use reference::location::{Reference, committed};
 use reference::recording::SUMMARY_FILE;
-use reference::video::{Decoder, DecoderThreads, Losses, VideoSummary};
+use reference::video::{Decoder, DecoderThreads, VideoSummary};
+use types::losses::EdgeLosses;
 
 use super::{DetectSettings, Region, RegionShape, Setting};
 
@@ -36,7 +37,7 @@ fn settings_written_into_a_summary_of_the_decoder_read_back_unchanged() {
         Decoder {
             error_frames: Vec::new(),
             gap_frames: Vec::new(),
-            losses: Losses {
+            losses: EdgeLosses {
                 before_first: 0,
                 after_last: 0,
             },

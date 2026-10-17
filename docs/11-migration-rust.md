@@ -1044,6 +1044,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     première à la dernière image de deux plages), `widened` (élargie de chaque côté,
     bornée à 0 et à `usize::MAX`) et `intersection` (`None` sans image commune). Les
     plages instables et abîmées se bâtissent ainsi, sans variante d'erreur.
+  - `EdgeLosses` (#275) : images perdues avant la première image décodée et après la dernière, partagées par `engine` (`Damage::reported`) et `reference` (`video.json` v2) ; `union` garde la plus grande perte de chaque bord.
   - `Track` : numéro et points, au moins un, images strictement croissantes. Mesures :
     corde, longueur du trajet (+0 pour un seul point, jamais −0), surface maximale,
     amplitude de crête, virage médian (médiane des changements de cap, positions
@@ -1476,6 +1477,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - elle est élargie de la marge de chaque côté, bornée à la vidéo, puis fondue avec
       la précédente si elle la touche. La marge est la demi-fenêtre du fond, passée par
       l'appelant (`DetectConfig` arrive avec #118).
+    - `Damage::reported(rapports, images-clés, nombre d'images, marge)` (#275) trace ces plages à partir de ce qu'une lecture rapporte (`Reports` : images en erreur, images après un saut, pertes aux bords), triés et sans doublon ; `Damage::of` passe par lui, et `Damage::reports` les rend. `compare` s'en sert pour réunir ce que rapportent la référence et la lecture courante. Les pertes aux bords sont `types::losses::EdgeLosses` (`before_first`, `after_last`), le type des pertes de `video.json` v2 (`reference::video::Decoder::losses`) ; `Losses::edges` les tire des pertes d'une lecture.
   - Canari (`tests/slow_canary.rs`, sur chaque système de la CI) : la couture coupe le
     dernier tiers de la tranche des images 248 (P au milieu d'un GOP de 15), 555
     (image-clé), 860 et 861 (consécutives) et 1222 (dernier GOP) de l'extrait, en
@@ -2828,41 +2830,22 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
 - **`compare`** → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré. `media` n'y sert qu'à choisir les fils du
   décodeur (`Threads::Automatic`), et, dans `slow_same_as`, à couper l'extrait (`payload::wipe`, #176).
-  - `compare extract|092|092-1440|settings|local [--frames DOSSIER] [--same-as DOSSIER]` lance
-    `engine::detection::detect` sur l'extrait, la 092, la 092 à 1440 pixels de travail
-    (#151, nommée par son dossier pour ne pas écraser la 092), les 16 cas de réglages
-    ([Réglages](#réglages)) ou les 26 vidéos (`BATDETECT_REFERENCE_DIR`,
-    `BATDETECT_VIDEOS_DIR`, 6 vidéos à la fois, résultats dans l'ordre des dossiers).
-    Les réglages de détection sont ceux de l'enregistrement : `config.DetectConfig` du
-    `video.json`, lu par `VideoSummary::detect_config` en `DetectSettings`, puis
-    `DetectConfig::try_from` (#149). Pistes et stabilité restent aux défauts, comme à
-    l'enregistrement.
-    Depuis la racine du dépôt, sous le verrou :
-    `verrou lourd cargo run --profile ci -p compare -- local`.
+  - `compare extract|092|092-1440|settings|local [--reference v0.2.0|v0.1.1] [--frames DOSSIER] [--same-as DOSSIER]` lance `engine::detection::detect` sur l'extrait, la 092, la 092 à 1440 pixels de travail (#151, nommée par son dossier pour ne pas écraser la 092), les 16 cas de réglages ([Réglages](#réglages)) ou les 26 vidéos (`BATDETECT_VIDEOS_DIR`, 6 vidéos à la fois, résultats dans l'ordre des dossiers), et compare le résultat à une référence : la [v0.2.0](#référence-v020) par défaut (`BATDETECT_REFERENCE_V020_DIR` pour `local`), ou la v0.1.1 du Python (`--reference v0.1.1`, `BATDETECT_REFERENCE_DIR`). Les réglages de détection sont ceux de l'enregistrement : `config.DetectConfig` du `video.json`, lu par `VideoSummary::detect_config` en `DetectSettings`, puis `DetectConfig::try_from` (#149). Pistes et stabilité restent aux défauts, comme à l'enregistrement. Depuis la racine du dépôt, sous le verrou : `verrou lourd cargo run --profile ci -p compare -- local`.
+  - Règle, la même pour les deux références (#275) :
+    - **Entrées.** Nombre d'images, `pts` et images-clés de la lecture courante doivent être ceux de `frames.jsonl` de la référence, et, contre la v0.2.0, les pertes aux bords celles de `decoder.losses` (la v0.1.1 ne les a pas). Sinon la vidéo échoue (`Error::Inputs`, première image et champs qui diffèrent) : rien d'autre ne se compare. Les erreurs de décodage ne sont pas exigées, puisque le décodeur de lumiel en voit 14 de plus que celui du Mac ([10](10-logique-de-detection.md)) ; elles sont comptées de chaque côté, avec les images où elles diffèrent (`inputs::DecodeErrors`).
+    - **Plages abîmées.** Les images en erreur, les sauts et les pertes aux bords des deux côtés (`decoder` de la v0.2.0, `ffprobe` de la v0.1.1, `Detected::damage` de la lecture courante) sont réunis, puis tracés en plages par la règle courante (`Damage::reported`, marge = demi-fenêtre de la référence ; `damaged::joined`). Une plage que la règle change (#140) se voit donc dans les pistes.
+    - **Détections**, hors de la réunion des plages abîmées de la référence et des plages retracées, fondue avant d'être comptée (`damaged::merged`) : dans les plages de la référence, ses détections viennent de pixels dissimulés. D'abord l'égalité exacte, image par image : nombre d'images qui diffèrent, dix au plus listées. Puis l'appariement à moins de 3 px (`reference::detection_matching`) : paires, perdues, ajoutées, taux dans les deux sens. Les plages instables ne sont plus écartées : elles se déduisent des détections, qu'on compare brutes.
+    - **Pistes** : `exclude` avec les plages retracées et le nombre d'images signalées de la réunion, puis `track_detections` aux réglages par défaut, puis `match_tracks` (début à ±5 images, points à ±3).
+    - Plus de seuil : le 98 % de `MIN_RATE` a disparu. Un écart se lit dans le rapport ; les gardes figent les leurs par vidéo (`Agreement::counts`, `TrackAgreement::counts`, #276, #277).
   - Sortie, dans l'ordre :
-    - par vidéo, les détections : nombres de chaque côté, paires, taux dans les deux
-      sens, détections perdues (dont celles qui sont un point d'une piste de la
-      référence) et ajoutées ;
-    - par vidéo, les pistes : appariées, concordantes, perdues, ajoutées, puis leur
-      total ;
-    - les écarts de détections groupés par vidéo et par temps (30 images entre
-      deux écarts au plus), avec leur position moyenne et leur plus grande amplitude ;
+    - par vidéo, les entrées : erreurs de décodage de chaque côté et images où elles diffèrent, plages écartées et leurs images ;
+    - par vidéo, les détections : images qui diffèrent, nombres de chaque côté, paires, taux dans les deux sens, détections perdues (dont celles qui sont un point d'une piste de la référence) et ajoutées, puis leur total ;
+    - par vidéo, les pistes : appariées, concordantes, perdues, ajoutées, puis leur total ;
+    - les écarts de détections groupés par vidéo et par temps (30 images entre deux écarts au plus), avec leur position moyenne et leur plus grande amplitude ;
     - les écarts de pistes (vidéo, temps, image de début) ;
-    - le temps de détection de chaque vidéo, puis les vidéos sous 98 %. Avec `local`,
-      ces temps sont pris pendant que 5 autres vidéos tournent : seul `compare 092`
-      chronomètre la détection seule.
-    Une vidéo en échec (vidéo absente, demi-fenêtre autre que celle de la référence…)
-    est écrite sur la sortie d'erreur avec ses causes, sans effacer le rapport des
-    autres. Code de sortie 1 si une vidéo échoue, si une vidéo est sous 98 % dans un
-    sens, si une vidéo diffère du passage de `--same-as`, ou si aucune vidéo n'est comparée (`Outcome::holds`). Les refus de #149 et
-    #150 ont disparu avec #151 : tout réglage valide se compare. Avec `settings`,
-    `--frames` écrit dans un dossier par cas (`DOSSIER/<cas>/frames.jsonl`), les cas
-    partageant leur vidéo.
-  - Seuils : 98 % dans les deux sens (`agreement::MIN_RATE`), appariement à moins de
-    3 px (`reference::detection_matching`), plages abîmées et instables de la référence
-    ignorées des deux côtés. Pistes : `exclude` avec les plages abîmées, le nombre
-    d'images signalées et la cadence de la référence, puis `track_detections` aux
-    réglages par défaut, puis `match_tracks`. Seules les détections viennent du Rust.
+    - le temps de détection de chaque vidéo, puis `differing from the reference: N` et les vidéos qui ont un écart. Avec `local`, ces temps sont pris pendant que 5 autres vidéos tournent : seul `compare 092` chronomètre la détection seule.
+    Une vidéo en échec (vidéo absente, demi-fenêtre autre que celle de la référence, entrées différentes…) est écrite sur la sortie d'erreur avec ses causes, sans effacer le rapport des autres. Code de sortie 1 si une vidéo échoue, entrées comprises, si une vidéo diffère du passage de `--same-as`, ou si aucune vidéo n'est comparée (`Outcome::holds`) ; jamais pour un écart à la référence, sans quoi `compare` resterait rouge dès la première PR de détection. Les refus de #149 et #150 ont disparu avec #151 : tout réglage valide se compare. Avec `settings`, `--frames` écrit dans un dossier par cas (`DOSSIER/<cas>/frames.jsonl`), les cas partageant leur vidéo.
+  - Jusqu'à #275, la règle était celle de la v0.1.1 seule : 98 % dans les deux sens (`agreement::MIN_RATE`), appariement à moins de 3 px, plages abîmées et instables de la référence ignorées des deux côtés, pistes suivies avec les plages et le nombre d'images signalées de la référence. Les mesures de #119 et de #176 ci-dessous l'ont suivie.
   - Mesure sur les 26 vidéos (#119, profil `ci`, M1 Max, sous le verrou) : mêmes chiffres
     qu'à #118, 410,8 s en tout et 3,2 Go de mémoire résidente. La lecture de la
     référence et l'appariement seuls prennent 0,9 s pour les 26 vidéos (test local de
@@ -2882,8 +2865,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - Mesure (#176, lumiel, profil `ci`) : `compare local --frames A`, puis `compare local --frames B --same-as A`. Les 26 vidéos sont identiques hors plages ; 17 vidéos et 1 812 images diffèrent dans leurs plages, les 17 que `cmp -r` trouve entre A et B. Code de sortie 1 aux deux passages, par la seule 120 et la seule 123, sous 98 % côté Rust (0,9668 et 0,8039) : sur lumiel, le décodeur signale en erreur les images 4589 de la 120, 3986, 4902 et 5417 de la 123, que la référence (ffprobe, Mac) ne signale pas ; les groupes de détections ajoutées qui partent de ces images (10 à 13 images chacun) sont au bord bas de l'image (y = 1 078). Pistes : celles qu'attend `local_agreement`, 966, dont 963 appariées et 958 concordantes, 3 perdues, 9 ajoutées.
   - `record extract|092|092-1440|settings|local --out DOSSIER [--same-as DOSSIER]` (#250), second binaire de la crate, enregistre la [référence v0.2.0](#référence-v020). Pour chaque cas, il relit le `video.json` de la v0.1.1, détecte avec ses réglages en fils automatiques et vérifie que le flux lu par `media` est celui de la v0.1.1 (taille, cadence, base de temps). Il suit ensuite comme `cli::process::tracked` : `exclude` avec les plages abîmées du décodeur courant, puis `track_detections`, aux réglages par défaut. Il écrit enfin un enregistrement au format 2 dans `DOSSIER`, avec la même arborescence que la v0.1.1 (`<cas>/`, `settings/<cas>/`, `data/<vidéo>/`, `Case::folder`).
     - `video.json` (`compare::decoded`) : `video` et `stream` recopiés de la v0.1.1 (`VideoSummary::decoded`) ; `decoder` donne les images en erreur, les sauts et les pertes de `Damage` et de `Reading::losses`, ainsi que les fils actifs ; les plages abîmées sont exactes, marge comprise ; `config` contient les réglages avec lesquels le moteur a tourné, `versions` le binaire, le commit, rustc, FFmpeg et le système. Pas de `tracks.csv`.
-    - Provenance : `build.rs` grave `git describe --dirty`, le commit et `rustc --version`. Un fichier non suivi sous `crates/`, `.cargo/`, `packaging/` ou `tests/` rend aussi le binaire `-dirty` : `git describe` ne les voit pas, alors que Cargo prend tout seul un `build.rs` non suivi et que `.cargo/config.toml` choisit le FFmpeg lié. `record` refuse de tourner si le binaire est `-dirty`, s'il a été construit hors de git, sans rustc ou après aucun tag de version (`provenance::Build`). La référence prend le nom de ce tag (`v0.2.0`). L'enregistrement se fait donc depuis un clone propre du commit, et toujours par `cargo run` : les fixtures de la v0.1.1 sont lues à l'exécution, et seul `cargo run` reconstruit, donc marque `-dirty`, un binaire dont une fixture a changé.
-    - Le flux est vérifié à l'ouverture de la vidéo, avant toute détection, puis la demi-fenêtre du fond après la détection (`Error::HalfWindow`, comme `compare`). Avant toute détection aussi, `--out` est refusé s'il est dans `tests/fixtures/`, dans le dossier de `BATDETECT_REFERENCE_DIR` ou de `BATDETECT_REFERENCE_V020_DIR`, dans le dossier de `--same-as`, ou s'il contient l'un d'eux : l'arborescence étant la même, `record` écraserait la référence (`recorder::refuse_overlap`). La v0.2.0 s'enregistre donc ailleurs, puis se copie.
+    - Provenance : `build.rs` grave `git describe --dirty`, le commit, `rustc --version` et ce qu'il tire de `git status` sur les chemins surveillés : `clean`, `changed`, ou rien si `git status` n'a pas pu tourner (#275). Un fichier non suivi sous `crates/`, `.cargo/`, `packaging/` ou `tests/` rend aussi le binaire `-dirty` : `git describe` ne les voit pas, alors que Cargo prend tout seul un `build.rs` non suivi et que `.cargo/config.toml` choisit le FFmpeg lié. `record` refuse de tourner si le binaire est `-dirty`, si `git status` n'a pas pu tourner, s'il a été construit hors de git, sans rustc ou après aucun tag de version (`provenance::Build::engraved`). La référence prend le nom de ce tag (`v0.2.0`), préversion comprise : `v0.3.0-rc1-4-g28d5526` donne `v0.3.0-rc1`, pas `v0.3.0` (#275). L'enregistrement se fait donc depuis un clone propre du commit, et toujours par `cargo run` : les fixtures de la v0.1.1 sont lues à l'exécution, et seul `cargo run` reconstruit, donc marque `-dirty`, un binaire dont une fixture a changé.
+    - Le flux est vérifié à l'ouverture de la vidéo, avant toute détection, puis la demi-fenêtre du fond après la détection (`Error::HalfWindow`, comme `compare`). Avant toute détection aussi, `--out` est refusé s'il est dans `tests/fixtures/`, dans le dossier de `BATDETECT_REFERENCE_DIR` ou de `BATDETECT_REFERENCE_V020_DIR`, dans le dossier de `--same-as`, ou s'il contient l'un d'eux : l'arborescence étant la même, `record` écraserait la référence (`recorder::refuse_overlap`). Le refus ne crée pas `--out` : le chemin se résout depuis son plus proche parent existant, `..` compris (#275) ; les dossiers ne se créent qu'à l'écriture de chaque cas. La v0.2.0 s'enregistre donc ailleurs, puis se copie.
     - `--same-as DOSSIER` compare les détections à celles d'un passage `compare --frames DOSSIER` (`DOSSIER/<vidéo>/frames.jsonl`, à plat), comme `compare --same-as`. Ce n'est pas un dossier écrit par `record`. Un écart, une vidéo en échec ou aucun cas enregistré donnent le code 1 (`recorder::holds`).
     - Le suivi est celui de `cli::process::tracked` aux réglages par défaut : un test de `cli` exige les mêmes exclusions et les mêmes pistes sur `spot.mp4`. Le test lent `slow_record` enregistre l'extrait et exige au bit près les détections de `tests/fixtures/rust/`.
   - **Identité entre systèmes.** Une seule opération de la chaîne de détection

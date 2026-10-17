@@ -1,10 +1,11 @@
 use types::frame::FrameIndex;
+use types::losses::EdgeLosses;
 use types::track::Track;
 
 use super::Recording;
 use crate::error::Error;
 use crate::location::{Reference, committed};
-use crate::video::{Decoder, DecoderThreads, Losses};
+use crate::video::{Decoder, DecoderThreads};
 
 const EXCERPT: &str = "video_092_original_3m24-4m05";
 const FULL: &str = "video_092_original";
@@ -148,7 +149,7 @@ fn decoded(recording: Recording) -> Recording {
             Decoder {
                 error_frames: Vec::new(),
                 gap_frames: Vec::new(),
-                losses: Losses {
+                losses: EdgeLosses {
                     before_first: 0,
                     after_last: 0,
                 },

@@ -1,4 +1,5 @@
 use types::frame::{FrameIndex, Pts};
+use types::losses::EdgeLosses;
 
 #[cfg(test)]
 mod tests;
@@ -27,6 +28,13 @@ impl Losses {
         self.before_first
             .saturating_add(self.at_jumps)
             .saturating_add(self.after_last)
+    }
+
+    pub fn edges(self) -> EdgeLosses {
+        EdgeLosses {
+            before_first: self.before_first,
+            after_last: self.after_last,
+        }
     }
 }
 

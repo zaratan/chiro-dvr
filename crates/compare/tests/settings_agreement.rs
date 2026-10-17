@@ -2,7 +2,7 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
-use compare::agreement::MIN_RATE;
+use compare::agreement::Agreement;
 use compare::case::Target;
 use compare::comparison::{Folders, VIDEOS_AT_ONCE, compare_all, frames_path};
 use compare::outcome::Outcome;
@@ -17,6 +17,7 @@ use types::detection::{FrameDetections, Measures};
 use types::span::Span;
 
 const DISPLAY_BAND_PX: f64 = 0.07 * 1080.0;
+const V011_RATE: f64 = 0.98;
 
 struct Run {
     outcome: Outcome,
@@ -43,6 +44,10 @@ fn run() -> &'static Run {
             _folder: folder,
         }
     })
+}
+
+fn within_the_v011_rate(detections: &Agreement) -> bool {
+    detections.reference_rate() >= V011_RATE && detections.candidate_rate() >= V011_RATE
 }
 
 fn below_the_display_band(detections: &FrameDetections, ignored: &[Span]) -> FrameDetections {
@@ -83,7 +88,7 @@ fn every_setting_the_engine_handles_agrees_with_the_v011_on_its_detections_and_o
         .map(|comparison| {
             (
                 comparison.detections.name(),
-                comparison.detections.holds(),
+                within_the_v011_rate(&comparison.detections),
                 comparison.tracks.counts(),
             )
         })
@@ -149,7 +154,7 @@ fn agrees_below_the_display_band(case: &str) {
     let rust_rate = paired / (paired + matching.candidate_only.len() as f64);
     println!("{case} below the display band: {reference_rate:.4} {rust_rate:.4}");
     assert!(
-        reference_rate >= MIN_RATE && rust_rate >= MIN_RATE,
+        reference_rate >= V011_RATE && rust_rate >= V011_RATE,
         "{case}: {reference_rate} {rust_rate}"
     );
 }

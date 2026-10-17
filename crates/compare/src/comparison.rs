@@ -10,13 +10,15 @@ use engine::settings::DetectSettings;
 use media::decode::Threads;
 use reference::frames::Frames;
 use reference::recording::Recording;
-use types::detection::FrameDetections;
 use types::rate::FrameRate;
+use types::span::Span;
 
 use crate::agreement::Agreement;
 use crate::case::Case;
+use crate::damaged::{joined, merged, reported_by};
 use crate::error::Error;
-use crate::frames::frames_of;
+use crate::frames::{Pass, pass_of};
+use crate::inputs::{DecodeErrors, InputGap, REFERENCE_FIELDS, decode_errors, entry_gap, losses_gap};
 use crate::sameness::Sameness;
 use crate::tracks::TrackAgreement;
 
@@ -28,6 +30,8 @@ pub const VIDEOS_AT_ONCE: usize = 6;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Comparison {
+    pub decode_errors: DecodeErrors,
+    pub ignored: Vec<Span>,
     pub detections: Agreement,
     pub tracks: TrackAgreement,
     pub seconds: f64,
@@ -38,6 +42,12 @@ pub struct Comparison {
 pub struct Folders {
     pub frames: Option<PathBuf>,
     pub same_as: Option<PathBuf>,
+}
+
+impl Comparison {
+    pub fn differs(&self) -> bool {
+        self.detections.differs() || self.tracks.differs()
+    }
 }
 
 pub fn compare(case: &Case, folders: &Folders) -> Result<Comparison, Error> {
@@ -66,16 +76,13 @@ pub fn compare(case: &Case, folders: &Folders) -> Result<Comparison, Error> {
             found: detected.half_window().get(),
         });
     }
-    let current = (folders.frames.is_some() || previous.is_some())
-        .then(|| frames_of(&detected))
-        .transpose()?;
-    if let (Some(folder), Some(current)) = (&folders.frames, &current) {
-        write_frames(current, &frames_path(folder, &name))?;
+    let current = pass_of(&detected)?;
+    if let Some(folder) = &folders.frames {
+        write_frames(&current.frames, &frames_path(folder, &name))?;
     }
-    let mut comparison = compared(&name, detected.detections(), &recording, seconds)?;
-    comparison.same_as = previous
-        .zip(current)
-        .map(|(previous, current)| Sameness::of(&name, &previous, &current, detected.damage().spans()));
+    let mut comparison = compared(&name, &current, &recording, seconds)?;
+    comparison.same_as =
+        previous.map(|previous| Sameness::of(&name, &previous, &current.frames, detected.damage().spans()));
     Ok(comparison)
 }
 
@@ -83,25 +90,48 @@ pub fn compare_all(cases: &[Case], at_once: usize, folders: &Folders) -> Vec<Res
     each_in_order(cases, at_once, |case| compare(case, folders))
 }
 
-pub fn compared(
-    name: &str,
-    detections: &FrameDetections,
-    recording: &Recording,
-    seconds: f64,
-) -> Result<Comparison, Error> {
-    let video = &recording.summary.video.name;
-    let rate = FrameRate::new(recording.summary.stream.avg_frame_rate).map_err(|source| Error::Rate {
+pub fn compared(name: &str, current: &Pass, recording: &Recording, seconds: f64) -> Result<Comparison, Error> {
+    let summary = &recording.summary;
+    let video = &summary.video.name;
+    let rate = FrameRate::new(summary.stream.avg_frame_rate).map_err(|source| Error::Rate {
         video: video.clone(),
         source,
     })?;
+    let entries = recording.frames.entries();
+    if let Some(gap) = input_gap(recording, current) {
+        return Err(Error::Inputs {
+            video: video.clone(),
+            gap,
+        });
+    }
+    let damage = joined(
+        &reported_by(summary),
+        &current.reports,
+        current.frames.entries(),
+        summary.background_half_window,
+    );
+    let ignored = merged(summary.damaged_spans.iter().chain(damage.spans()).copied());
+    let detections = current.frames.detections();
     Ok(Comparison {
-        detections: Agreement::of(name, detections, rate, recording),
-        tracks: TrackAgreement::of(name, detections, rate, recording).map_err(|source| Error::Tracking {
+        decode_errors: decode_errors(entries, current.frames.entries()),
+        detections: Agreement::of(name, detections, rate, recording, &ignored),
+        tracks: TrackAgreement::of(name, detections, rate, recording, &damage).map_err(|source| Error::Tracking {
             video: video.clone(),
             source,
         })?,
+        ignored,
         seconds,
         same_as: None,
+    })
+}
+
+fn input_gap(recording: &Recording, current: &Pass) -> Option<InputGap> {
+    entry_gap(recording.frames.entries(), current.frames.entries(), &REFERENCE_FIELDS).or_else(|| {
+        recording
+            .summary
+            .decoder
+            .as_ref()
+            .and_then(|decoder| losses_gap(decoder.losses, current.reports.edges))
     })
 }
 

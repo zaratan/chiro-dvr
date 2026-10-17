@@ -7,9 +7,10 @@ use proptest::prelude::*;
 use types::frame::FrameIndex;
 use types::span::Span;
 
-use super::{Damage, edges, spans};
+use types::losses::EdgeLosses;
+
+use super::{Damage, Reports, edges, spans};
 use crate::input::{Error, Input, Reading};
-use crate::lost::Losses;
 use crate::testing::{self, FRAMES};
 
 #[path = "../../tests/support/slices.rs"]
@@ -68,9 +69,8 @@ fn damage_on_the_last_frame_gives_a_one_frame_span() {
 
 #[test]
 fn a_video_without_frames_has_no_damage_whatever_it_lost() {
-    let losses = Losses {
+    let losses = EdgeLosses {
         before_first: 3,
-        at_jumps: 0,
         after_last: 2,
     };
     let starts: Vec<usize> = edges(losses, 0).collect();
@@ -92,19 +92,19 @@ fn the_margin_stays_inside_the_video() {
 
 #[test]
 fn a_loss_before_the_first_frame_starts_damage_on_it_like_a_jump() {
-    let before = Losses {
+    let before = EdgeLosses {
         before_first: 10,
-        ..Losses::default()
+        ..EdgeLosses::default()
     };
     assert_eq!(edges(before, 23).collect::<Vec<_>>(), [0]);
-    assert_eq!(edges(Losses::default(), 23).count(), 0);
+    assert_eq!(edges(EdgeLosses::default(), 23).count(), 0);
 }
 
 #[test]
 fn a_loss_after_the_last_frame_damages_only_the_margin_before_the_end() {
-    let after = Losses {
+    let after = EdgeLosses {
         after_last: 7,
-        ..Losses::default()
+        ..EdgeLosses::default()
     };
     let starts: Vec<usize> = edges(after, 45).collect();
     assert_eq!(starts, [45]);
@@ -134,8 +134,7 @@ fn a_clean_video_has_no_damaged_frame() {
     assert_eq!(
         found,
         Damage {
-            error_frames: Vec::new(),
-            jump_frames: Vec::new(),
+            reports: Reports::default(),
             spans: Vec::new(),
         }
     );
@@ -209,10 +208,66 @@ fn frames_lost_before_the_first_one_damage_the_start_as_far_as_the_end_of_its_gr
 
 #[test]
 fn a_frame_both_in_error_and_after_a_jump_is_reported_once() {
-    let damage = Damage {
-        error_frames: frames(&[17, 40]),
-        jump_frames: frames(&[40, 55]),
-        spans: Vec::new(),
-    };
+    let damage = Damage::reported(
+        Reports {
+            error_frames: frames(&[17, 40]),
+            jump_frames: frames(&[40, 55]),
+            edges: EdgeLosses::default(),
+        },
+        &frames(&KEYS),
+        60,
+        0,
+    );
     assert_eq!(damage.reported_frames(), 3);
+}
+
+#[test]
+fn the_reports_of_a_reading_give_back_its_damage_so_another_reading_can_be_joined_to_them() {
+    let folder = tempfile::tempdir().unwrap();
+    let reading = read(open(&testing::damaged(folder.path(), 2, 3), Threads::Automatic));
+    let found = damage(&reading, 2);
+
+    let again = Damage::reported(
+        found.reports().clone(),
+        &reading.key_frames(),
+        reading.frames().len(),
+        2,
+    );
+
+    assert_ne!(found.spans().len(), 0);
+    assert_eq!(again, found);
+}
+
+#[test]
+fn reports_joined_from_two_readings_are_sorted_and_counted_once_before_their_spans_are_drawn() {
+    let joined = Reports {
+        error_frames: frames(&[40, 17, 40]),
+        jump_frames: frames(&[17]),
+        edges: EdgeLosses {
+            before_first: 0,
+            after_last: 1,
+        },
+    };
+
+    let damage = Damage::reported(joined, &frames(&KEYS), 45, 0);
+
+    assert_eq!(damage.error_frames(), frames(&[17, 40]));
+    assert_eq!(damage.reported_frames(), 2);
+    assert_eq!(damage.spans(), [span(17, 29), span(40, 44)]);
+}
+
+#[test]
+fn a_loss_at_an_edge_alone_damages_the_reported_reading() {
+    let lost_before = Reports {
+        edges: EdgeLosses {
+            before_first: 4,
+            after_last: 0,
+        },
+        ..Reports::default()
+    };
+
+    let damage = Damage::reported(lost_before, &frames(&KEYS), 45, 0);
+
+    assert_eq!(damage.reported_frames(), 0);
+    assert_eq!(damage.spans(), [span(0, 14)]);
 }
