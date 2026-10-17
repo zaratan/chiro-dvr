@@ -36,7 +36,7 @@ impl Build {
         )
     }
 
-    /// `status` is what `build.rs` made of `git status`: `CLEAN`, `CHANGED`, or empty when it could not run.
+    /// `status` is what the build script made of `git status`: `CLEAN`, `CHANGED`, or empty when it could not run.
     pub fn engraved(described: &str, status: &str, commit: &str, rustc: &str) -> Result<Self, Refusal> {
         match status {
             CLEAN => Self::clean(described, commit, rustc),

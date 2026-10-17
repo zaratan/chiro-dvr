@@ -3,6 +3,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+const VARIABLE: &str = "BATDETECT_VERSION";
 const CLEAN: &str = "clean";
 const CHANGED: &str = "changed";
 const WATCHED: [&str; 7] = [
@@ -17,7 +18,7 @@ const WATCHED: [&str; 7] = [
 
 fn main() -> io::Result<()> {
     let mut out = io::stdout().lock();
-    writeln!(out, "cargo::rerun-if-changed=build.rs")?;
+    writeln!(out, "cargo::rerun-if-env-changed={VARIABLE}")?;
     for watched in watched_paths() {
         writeln!(out, "cargo::rerun-if-changed={}", watched.display())?;
     }
@@ -25,6 +26,15 @@ fn main() -> io::Result<()> {
         "git",
         &["describe", "--tags", "--match", "v[0-9]*", "--dirty", "--always"],
     );
+    let version = env::var(VARIABLE)
+        .ok()
+        .filter(|version| !version.is_empty())
+        .or_else(|| {
+            described
+                .as_deref()
+                .map(|described| described.strip_prefix('v').unwrap_or(described).to_owned())
+        })
+        .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_owned());
     let status = match status() {
         Some(listed) if listed.is_empty() => CLEAN,
         Some(_) => CHANGED,
@@ -33,6 +43,7 @@ fn main() -> io::Result<()> {
     let commit = output("git", &["rev-parse", "HEAD"]);
     let rustc = env::var("RUSTC").unwrap_or_else(|_| "rustc".to_owned());
     let compiler = output(&rustc, &["--version"]);
+    writeln!(out, "cargo::rustc-env={VARIABLE}={version}")?;
     writeln!(
         out,
         "cargo::rustc-env=RECORD_DESCRIBED={}",
@@ -45,7 +56,13 @@ fn main() -> io::Result<()> {
 
 fn status() -> Option<String> {
     let rooted = WATCHED.map(|name| format!(":/{name}"));
-    let mut arguments = vec!["status", "--porcelain", "--untracked-files=normal", "--"];
+    let mut arguments = vec![
+        "--no-optional-locks",
+        "status",
+        "--porcelain",
+        "--untracked-files=normal",
+        "--",
+    ];
     arguments.extend(rooted.iter().map(String::as_str));
     run("git", &arguments)
 }
