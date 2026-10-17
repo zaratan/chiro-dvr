@@ -2,9 +2,10 @@ use std::fs;
 use std::num::NonZeroUsize;
 
 use types::frame::FrameIndex;
+use types::losses::EdgeLosses;
 use types::rational::Rational;
 
-use super::{DECODED_FORMAT, Decoder, DecoderThreads, Losses, PROBED_FORMAT, VideoSummary};
+use super::{DECODED_FORMAT, Decoder, DecoderThreads, PROBED_FORMAT, VideoSummary};
 use crate::error::Error;
 use crate::location::{Reference, committed};
 
@@ -18,7 +19,7 @@ fn decoded(summary: VideoSummary) -> VideoSummary {
         Decoder {
             error_frames: vec![FrameIndex::new(1290)],
             gap_frames: vec![FrameIndex::new(1301)],
-            losses: Losses {
+            losses: EdgeLosses {
                 before_first: 2,
                 after_last: 0,
             },

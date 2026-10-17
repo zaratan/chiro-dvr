@@ -1,51 +1,73 @@
 use types::frame::{FrameIndex, Pts};
+use types::losses::EdgeLosses;
 use types::span::Span;
 
 use crate::input::Reading;
-use crate::lost::{Losses, frames_after_jumps};
+use crate::lost::frames_after_jumps;
 
 #[cfg(test)]
 mod tests;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Damage {
-    error_frames: Vec<FrameIndex>,
-    jump_frames: Vec<FrameIndex>,
+    reports: Reports,
     spans: Vec<Span>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Reports {
+    pub error_frames: Vec<FrameIndex>,
+    pub jump_frames: Vec<FrameIndex>,
+    pub edges: EdgeLosses,
 }
 
 impl Damage {
     pub fn of(reading: &Reading, margin: usize) -> Self {
         let frames = reading.frames();
-        let error_frames: Vec<FrameIndex> = frames
-            .iter()
-            .filter(|info| !info.decode_errors().is_empty())
-            .map(|info| info.index())
-            .collect();
         let pts: Vec<Option<Pts>> = frames.iter().map(|info| info.pts()).collect();
-        let jump_frames = frames_after_jumps(&pts);
-        let keys: Vec<usize> = reading.key_frames().into_iter().map(FrameIndex::get).collect();
-        let mut starts: Vec<usize> = error_frames
+        let reports = Reports {
+            error_frames: frames
+                .iter()
+                .filter(|info| !info.decode_errors().is_empty())
+                .map(|info| info.index())
+                .collect(),
+            jump_frames: frames_after_jumps(&pts),
+            edges: reading.losses().edges(),
+        };
+        Self::reported(reports, &reading.key_frames(), frames.len(), margin)
+    }
+
+    pub fn reported(mut reports: Reports, key_frames: &[FrameIndex], frame_count: usize, margin: usize) -> Self {
+        for frames in [&mut reports.error_frames, &mut reports.jump_frames] {
+            frames.sort_unstable();
+            frames.dedup();
+        }
+        let keys: Vec<usize> = key_frames.iter().copied().map(FrameIndex::get).collect();
+        let mut starts: Vec<usize> = reports
+            .error_frames
             .iter()
-            .chain(&jump_frames)
+            .chain(&reports.jump_frames)
             .map(|frame| frame.get())
-            .chain(edges(reading.losses(), frames.len()))
+            .chain(edges(reports.edges, frame_count))
             .collect();
         starts.sort_unstable();
         starts.dedup();
         Self {
-            spans: spans(&starts, &keys, frames.len(), margin),
-            error_frames,
-            jump_frames,
+            spans: spans(&starts, &keys, frame_count, margin),
+            reports,
         }
     }
 
+    pub fn reports(&self) -> &Reports {
+        &self.reports
+    }
+
     pub fn error_frames(&self) -> &[FrameIndex] {
-        &self.error_frames
+        &self.reports.error_frames
     }
 
     pub fn jump_frames(&self) -> &[FrameIndex] {
-        &self.jump_frames
+        &self.reports.jump_frames
     }
 
     pub fn spans(&self) -> &[Span] {
@@ -53,14 +75,14 @@ impl Damage {
     }
 
     pub fn reported_frames(&self) -> usize {
-        let mut frames: Vec<FrameIndex> = self.error_frames.iter().chain(&self.jump_frames).copied().collect();
+        let mut frames: Vec<FrameIndex> = self.error_frames().iter().chain(self.jump_frames()).copied().collect();
         frames.sort_unstable();
         frames.dedup();
         frames.len()
     }
 }
 
-fn edges(losses: Losses, frame_count: usize) -> impl Iterator<Item = usize> {
+fn edges(losses: EdgeLosses, frame_count: usize) -> impl Iterator<Item = usize> {
     let before = (losses.before_first > 0).then_some(0);
     let after_the_end = (losses.after_last > 0).then_some(frame_count);
     before.into_iter().chain(after_the_end)

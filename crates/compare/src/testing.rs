@@ -8,10 +8,28 @@ use reference::recording::{Recording, SUMMARY_FILE};
 use reference::video::VideoSummary;
 use types::detection::FrameDetections;
 
+use crate::case::EXTRACT;
+use crate::damaged::reported_by;
+use crate::frames::Pass;
 use crate::provenance::Build;
 
 pub(crate) const SPOT: &str = "spot.mp4";
 pub(crate) const WORK_WIDTH: u32 = 240;
+
+pub(crate) fn extract() -> Recording {
+    Recording::read(&committed(Reference::V020, EXTRACT)).unwrap()
+}
+
+pub(crate) fn pass_finding(recording: &Recording, detections: FrameDetections) -> Pass {
+    Pass {
+        frames: Frames::new(recording.frames.entries().to_vec(), detections).unwrap(),
+        reports: reported_by(&recording.summary),
+    }
+}
+
+pub(crate) fn same_pass(recording: &Recording) -> Pass {
+    pass_finding(recording, recording.frames.detections().clone())
+}
 
 pub(crate) fn nothing_detected(recording: &Recording) -> FrameDetections {
     let mut empty = FrameDetections::default();

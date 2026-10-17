@@ -2,7 +2,7 @@ use std::error::Error;
 use std::io::{self, Write};
 use std::path::Path;
 
-use crate::agreement::MIN_RATE;
+use crate::agreement::DetectionCounts;
 use crate::comparison::Comparison;
 use crate::sameness::{Sameness, Verdict};
 use crate::tracks::TrackCounts;
@@ -11,10 +11,28 @@ use crate::tracks::TrackCounts;
 mod tests;
 
 pub fn write_report(comparisons: &[Comparison], out: &mut impl Write) -> io::Result<()> {
-    writeln!(out, "detections, outside the ignored spans of the reference")?;
+    writeln!(out, "inputs, the same frames, timestamps and key frames on both sides")?;
+    for comparison in comparisons {
+        write_inputs(comparison, out)?;
+    }
+    writeln!(out, "detections, outside the damaged spans of both readings")?;
     for comparison in comparisons {
         comparison.detections.write_summary(out)?;
     }
+    let DetectionCounts {
+        differing_frames,
+        lost,
+        added,
+        ..
+    } = comparisons
+        .iter()
+        .map(|comparison| comparison.detections.counts())
+        .sum();
+    writeln!(
+        out,
+        "{} videos\tdiffering frames {differing_frames}\tlost {lost}\tadded {added}",
+        comparisons.len()
+    )?;
     writeln!(out, "tracks")?;
     for comparison in comparisons {
         comparison.tracks.write_summary(out)?;
@@ -43,16 +61,30 @@ pub fn write_report(comparisons: &[Comparison], out: &mut impl Write) -> io::Res
     for comparison in comparisons {
         writeln!(out, "{}\t{:.1} s", comparison.detections.name(), comparison.seconds)?;
     }
-    let below: Vec<&str> = comparisons
+    let differing: Vec<&str> = comparisons
         .iter()
-        .filter(|comparison| !comparison.detections.holds())
+        .filter(|comparison| comparison.differs())
         .map(|comparison| comparison.detections.name())
         .collect();
-    writeln!(out, "under {} % either way: {}", percent(MIN_RATE), below.len())?;
-    for name in below {
+    writeln!(out, "differing from the reference: {}", differing.len())?;
+    for name in differing {
         writeln!(out, "  {name}")?;
     }
     Ok(())
+}
+
+fn write_inputs(comparison: &Comparison, out: &mut impl Write) -> io::Result<()> {
+    let errors = comparison.decode_errors;
+    writeln!(
+        out,
+        "{}\tdecode errors: reference {}, current {}, differing {}\tdamaged spans {} ({} frames)",
+        comparison.detections.name(),
+        errors.reference,
+        errors.current,
+        errors.differing,
+        comparison.ignored.len(),
+        comparison.ignored.iter().map(|span| span.frame_count()).sum::<usize>()
+    )
 }
 
 pub fn write_same_as(previous: &Path, comparisons: &[Comparison], out: &mut impl Write) -> io::Result<()> {
@@ -75,10 +107,6 @@ pub fn write_same_as(previous: &Path, comparisons: &[Comparison], out: &mut impl
         compared.len(),
         compared.len() - identical - inputs
     )
-}
-
-fn percent(rate: f64) -> f64 {
-    rate * 100.0
 }
 
 pub fn write_failure(recording: &Path, error: &dyn Error, out: &mut impl Write) -> io::Result<()> {

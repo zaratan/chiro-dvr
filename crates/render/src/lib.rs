@@ -1,5 +1,6 @@
 mod ahead;
 pub mod clips;
+pub mod colored;
 pub mod config;
 #[cfg(feature = "testing")]
 pub mod drawn;

@@ -1,0 +1,165 @@
+"use strict";
+const VerdictsOverlay = ({ section, tracks, store, say, current, onChoose }) => {
+  const REACH_PX = 12;
+  const KEYS = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+  const byId = new Map(tracks.map((track) => [String(track.id), track]));
+  const scenes = [...section.querySelectorAll(".pictures svg.scene")];
+  const thumb = section.querySelector(".thumb");
+  const drawn = new WeakMap();
+  const lit = new WeakMap();
+
+  const word = (value) => {
+    if (value.verdict === "other") return value.other;
+    return value.verdict ? say(value.verdict) : say("to-see");
+  };
+
+  const shown = (element) => getComputedStyle(element).display !== "none";
+
+  const shapesOf = (svg) => {
+    if (drawn.has(svg)) return drawn.get(svg);
+    const shapes = new Map();
+    const shape = (id) => {
+      if (!shapes.has(id)) shapes.set(id, { id: Number(id), lines: [], polygons: [], circles: [] });
+      return shapes.get(id);
+    };
+    const number = (element, name) => Number(element.getAttribute(name));
+    svg.querySelectorAll(".lines [data-id]").forEach((line) => {
+      shape(line.dataset.id).lines.push(VerdictsHits.points(line.getAttribute("points")));
+    });
+    svg.querySelectorAll(".heads [data-id]").forEach((head) => {
+      shape(head.dataset.id).polygons.push(VerdictsHits.points(head.getAttribute("points")));
+    });
+    svg.querySelectorAll(".leaders [data-id]").forEach((group) => {
+      const line = group.querySelector("line");
+      if (!line || !shown(group)) return;
+      shape(group.dataset.id).lines.push([
+        [number(line, "x1"), number(line, "y1")],
+        [number(line, "x2"), number(line, "y2")],
+      ]);
+    });
+    svg.querySelectorAll(".dots [data-id]").forEach((group) => {
+      const circle = group.querySelector("circle");
+      if (!circle || !shown(group)) return;
+      shape(group.dataset.id).circles.push({ x: number(circle, "cx"), y: number(circle, "cy"), r: number(circle, "r") });
+    });
+    const found = [...shapes.values()].filter((one) => byId.has(String(one.id)));
+    drawn.set(svg, found);
+    return found;
+  };
+
+  const pick = (svg, event) => {
+    const matrix = svg.getScreenCTM();
+    if (!matrix || matrix.a === 0) return null;
+    const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+    const id = VerdictsHits.choose([point.x, point.y], shapesOf(svg), {
+      reach: REACH_PX / matrix.a,
+      current: current()?.id ?? null,
+    });
+    return id === null ? null : byId.get(String(id));
+  };
+
+  const light = (svg, id) => {
+    const wanted = id === null ? null : String(id);
+    if (lit.get(svg) === wanted) return;
+    lit.set(svg, wanted);
+    svg.classList.toggle("hovering", wanted !== null);
+    svg.querySelectorAll("[data-id]").forEach((element) => {
+      element.classList.toggle("hot", element.dataset.id === wanted);
+    });
+  };
+
+  const focused = (svg) => {
+    const dot = svg.contains(document.activeElement) ? document.activeElement.closest(".dots > [data-id]") : null;
+    return dot ? dot.dataset.id : null;
+  };
+
+  const followPointer = (target, scene) => {
+    target.addEventListener("pointermove", (event) => {
+      const svg = scene();
+      if (svg) light(svg, pick(svg, event)?.id ?? null);
+    });
+    target.addEventListener("pointerleave", () => {
+      const svg = scene();
+      if (svg) light(svg, focused(svg));
+    });
+    target.addEventListener("click", (event) => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const svg = scene();
+      const track = svg && pick(svg, event);
+      if (!track) return;
+      event.preventDefault();
+      light(svg, null);
+      if (track !== current()) onChoose(track);
+    });
+  };
+
+  const dotsOf = (svg) => [...svg.querySelectorAll(".dots > [data-id]")].filter((dot) => byId.has(dot.dataset.id));
+
+  const label = (dot) => {
+    const track = byId.get(dot.dataset.id);
+    dot.setAttribute(
+      "aria-label",
+      say("trace-button", { track: track.id, start: track.clock, verdict: word(store.get(track)) }),
+    );
+  };
+
+  const settle = (dots, dot) => dots.forEach((one) => one.setAttribute("tabindex", one === dot ? "0" : "-1"));
+
+  for (const svg of scenes) {
+    const dots = dotsOf(svg);
+    if (dots.length === 0) continue;
+    svg.setAttribute("role", "group");
+    svg.querySelector("image")?.setAttribute("aria-hidden", "true");
+    dots.forEach((dot) => {
+      dot.setAttribute("role", "button");
+      label(dot);
+    });
+    settle(dots, dots[0]);
+    const move = (dot) => {
+      settle(dots, dot);
+      dot.focus();
+    };
+    svg.addEventListener("keydown", (event) => {
+      const dot = event.target.closest?.(".dots > [data-id]");
+      if (!dot || event.metaKey || event.ctrlKey || event.altKey) return;
+      const index = dots.indexOf(dot);
+      if (event.key in KEYS) {
+        event.preventDefault();
+        move(dots[(index + KEYS[event.key] + dots.length) % dots.length]);
+      } else if (event.key === "Home" || event.key === "End") {
+        event.preventDefault();
+        move(event.key === "Home" ? dots[0] : dots[dots.length - 1]);
+      } else if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onChoose(byId.get(dot.dataset.id));
+      }
+    });
+    svg.addEventListener("focusin", () => light(svg, focused(svg)));
+    svg.addEventListener("focusout", () => light(svg, null));
+    followPointer(svg, () => svg);
+  }
+
+  if (thumb) followPointer(thumb, () => thumb.querySelector("svg.scene"));
+
+  const restore = (track) => {
+    const svg = scenes.find((one) => !one.closest(".panel")?.hidden);
+    const dots = svg ? dotsOf(svg) : [];
+    const dot = dots.find((one) => one.dataset.id === String(track?.id));
+    if (!dot) return;
+    settle(dots, dot);
+    dot.focus();
+  };
+
+  const update = () => scenes.forEach((svg) => dotsOf(svg).forEach(label));
+
+  return { update, restore };
+};
+
+VerdictsOverlay.bare = (svg) => {
+  svg.removeAttribute("role");
+  svg.classList.remove("hovering");
+  svg.querySelectorAll("[data-id]").forEach((shape) => {
+    ["tabindex", "role", "aria-label"].forEach((name) => shape.removeAttribute(name));
+    shape.classList.remove("hot");
+  });
+};

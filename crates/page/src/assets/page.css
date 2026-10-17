@@ -139,7 +139,7 @@ details[open] > summary .chevron { transform: rotate(45deg); }
   margin: 0; padding: 8px 16px; background: var(--surface); color: var(--muted);
   border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums;
 }
-.scene { display: block; width: 100%; height: auto; background: var(--stage); }
+.scene { display: block; width: 100%; height: auto; background: var(--stage); overflow: visible; }
 .scene polyline, .scene polygon, .scene line, .scene circle { vector-effect: non-scaling-stroke; }
 .scene polyline { fill: none; stroke-linejoin: round; stroke-linecap: round; }
 .scene .outlines polyline { stroke: #000; stroke-width: 5px; }
@@ -148,6 +148,10 @@ details[open] > summary .chevron { transform: rotate(45deg); }
 .scene .leaders line { stroke-width: 2px; stroke-linecap: round; }
 .scene .leaders .halo { stroke: #000; stroke-width: 4.5px; }
 .scene .dots circle { stroke: #000; stroke-width: 1.5px; }
+.scene.hovering { cursor: pointer; }
+.scene.hovering [data-id]:not(.hot) { opacity: 0.3; }
+.scene .dots > [data-id]:focus-visible { outline: none; }
+.scene .dots > [data-id]:focus-visible circle { stroke: #000; stroke-width: 3px; filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #fff); }
 .scene .dots text {
   fill: #000; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-weight: 650;
   text-anchor: middle; dominant-baseline: central;

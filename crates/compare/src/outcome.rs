@@ -32,8 +32,9 @@ impl Outcome {
     pub fn holds(&self) -> bool {
         !self.compared.is_empty()
             && self.failed.is_empty()
-            && self.compared.iter().all(|comparison| {
-                comparison.detections.holds() && comparison.same_as.as_ref().is_none_or(Sameness::holds)
-            })
+            && self
+                .compared
+                .iter()
+                .all(|comparison| comparison.same_as.as_ref().is_none_or(Sameness::holds))
     }
 }

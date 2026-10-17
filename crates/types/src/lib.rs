@@ -1,6 +1,7 @@
 pub mod detection;
 pub mod frame;
 pub mod language;
+pub mod losses;
 pub mod rate;
 pub mod rational;
 pub mod scale;

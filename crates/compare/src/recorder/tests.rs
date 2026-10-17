@@ -108,6 +108,40 @@ fn a_recording_written_into_or_around_a_reference_is_refused_before_any_detectio
 }
 
 #[test]
+fn a_recording_folder_is_judged_before_it_exists_and_is_never_created_by_the_judgement() {
+    let (reference, elsewhere) = (TempDir::new().unwrap(), TempDir::new().unwrap());
+    let protected = [reference.path().to_path_buf()];
+    let around = elsewhere
+        .path()
+        .join("new")
+        .join("..")
+        .join("..")
+        .join(reference.path().file_name().unwrap())
+        .join("data");
+    let accepted = elsewhere.path().join("new").join("v020");
+
+    let refused = refuse_overlap(&around, &protected);
+
+    assert!(matches!(refused, Err(Error::Overlap { .. })), "{refused:?}");
+    assert!(refuse_overlap(&accepted, &protected).is_ok());
+    assert!(!reference.path().join("data").exists());
+    assert!(!elsewhere.path().join("new").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_recording_folder_reached_through_a_link_into_a_reference_is_refused_without_writing_there() {
+    let (reference, elsewhere) = (TempDir::new().unwrap(), TempDir::new().unwrap());
+    let link = elsewhere.path().join("link");
+    std::os::unix::fs::symlink(reference.path(), &link).unwrap();
+
+    let refused = refuse_overlap(&link.join("new").join("data"), &[reference.path().to_path_buf()]);
+
+    assert!(matches!(refused, Err(Error::Overlap { .. })), "{refused:?}");
+    assert!(!reference.path().join("new").exists());
+}
+
+#[test]
 fn a_run_holds_only_with_at_least_one_case_and_no_failure() {
     let failed: Result<_, Error> = Err(Error::Stream {
         video: SPOT.to_owned(),

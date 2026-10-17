@@ -3,6 +3,8 @@ use std::path::PathBuf;
 
 use engine::{detection, settings};
 
+use crate::inputs::InputGap;
+
 #[cfg(test)]
 mod tests;
 
@@ -40,6 +42,8 @@ pub enum Error {
         expected: usize,
         found: usize,
     },
+    #[error("{video}: the frames read now are not those of the reference, {gap}")]
+    Inputs { video: String, gap: InputGap },
     #[error("{video}: media reads a stream of {found}, the v0.1.1 recorded {expected}")]
     Stream {
         video: String,

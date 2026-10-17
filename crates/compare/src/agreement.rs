@@ -1,16 +1,19 @@
 use std::io::{self, Write};
+use std::iter::Sum;
 
 use reference::detection_matching::match_detections;
 use reference::recording::Recording;
 use types::detection::{Detection, FrameDetections};
+use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::span::Span;
 use types::track::Track;
 
+use crate::sameness::listed;
+
 #[cfg(test)]
 mod tests;
 
-pub const MIN_RATE: f64 = 0.98;
 const GROUP_GAP_FRAMES: usize = 30;
 const SAME_POINT_PX: f64 = 1e-6;
 
@@ -21,7 +24,18 @@ pub struct Agreement {
     reference: usize,
     candidate: usize,
     paired: usize,
+    differing_frames: Vec<FrameIndex>,
     gaps: Vec<(Detection, Gap)>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct DetectionCounts {
+    pub reference: usize,
+    pub current: usize,
+    pub differing_frames: usize,
+    pub paired: usize,
+    pub lost: usize,
+    pub added: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,10 +45,21 @@ enum Gap {
 }
 
 impl Agreement {
-    pub fn of(name: &str, detections: &FrameDetections, rate: FrameRate, recording: &Recording) -> Self {
-        let ignored = ignored_spans(recording);
-        let reference = recording.frames.detections().without(&ignored);
-        let candidate = detections.without(&ignored);
+    pub fn of(
+        name: &str,
+        detections: &FrameDetections,
+        rate: FrameRate,
+        recording: &Recording,
+        ignored: &[Span],
+    ) -> Self {
+        let reference = recording.frames.detections().without(ignored);
+        let candidate = detections.without(ignored);
+        let differing_frames = reference
+            .iter()
+            .zip(candidate.iter())
+            .filter(|((_, before), (_, now))| before != now)
+            .map(|((frame, _), _)| frame)
+            .collect();
         let matching = match_detections(&reference, &candidate);
         let on_track = |lost: &Detection| {
             recording
@@ -63,6 +88,7 @@ impl Agreement {
             reference: reference.detection_count(),
             candidate: candidate.detection_count(),
             paired: matching.pairs.len(),
+            differing_frames,
             gaps,
         }
     }
@@ -79,16 +105,31 @@ impl Agreement {
         rate(self.paired, self.candidate)
     }
 
-    pub fn holds(&self) -> bool {
-        self.reference_rate() >= MIN_RATE && self.candidate_rate() >= MIN_RATE
+    pub fn counts(&self) -> DetectionCounts {
+        let (lost, _, added) = counts(&self.gaps);
+        DetectionCounts {
+            reference: self.reference,
+            current: self.candidate,
+            differing_frames: self.differing_frames.len(),
+            paired: self.paired,
+            lost,
+            added,
+        }
+    }
+
+    pub fn differs(&self) -> bool {
+        !self.differing_frames.is_empty() || !self.gaps.is_empty()
     }
 
     pub fn write_summary(&self, out: &mut impl Write) -> io::Result<()> {
         let (lost, on_tracks, added) = counts(&self.gaps);
+        write!(out, "{}\tdiffering frames {}", self.name, self.differing_frames.len())?;
+        if !self.differing_frames.is_empty() {
+            write!(out, ": {}", listed(&self.differing_frames))?;
+        }
         writeln!(
             out,
-            "{}\treference {}\trust {}\tpaired {}\treference rate {:.4}\trust rate {:.4}\tlost {lost} ({on_tracks} on tracks)\tadded {added}",
-            self.name,
+            "\treference {}\tcurrent {}\tpaired {}\treference rate {:.4}\tcurrent rate {:.4}\tlost {lost} ({on_tracks} on tracks)\tadded {added}",
             self.reference,
             self.candidate,
             self.paired,
@@ -155,16 +196,19 @@ fn counts(gaps: &[(Detection, Gap)]) -> (usize, usize, usize) {
     (lost, on_tracks, gaps.len() - lost)
 }
 
-fn ignored_spans(recording: &Recording) -> Vec<Span> {
-    let summary = &recording.summary;
-    summary
-        .damaged_spans
-        .iter()
-        .chain(&summary.unstable_spans)
-        .copied()
-        .collect()
-}
-
 fn rate(paired: usize, total: usize) -> f64 {
     if total == 0 { 1.0 } else { paired as f64 / total as f64 }
+}
+
+impl Sum for DetectionCounts {
+    fn sum<I: Iterator<Item = Self>>(counts: I) -> Self {
+        counts.fold(Self::default(), |total, counts| Self {
+            reference: total.reference + counts.reference,
+            current: total.current + counts.current,
+            differing_frames: total.differing_frames + counts.differing_frames,
+            paired: total.paired + counts.paired,
+            lost: total.lost + counts.lost,
+            added: total.added + counts.added,
+        })
+    }
 }

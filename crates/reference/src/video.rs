@@ -6,6 +6,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use types::frame::FrameIndex;
+use types::losses::EdgeLosses;
 use types::rational::Rational;
 use types::size::SourceSize;
 use types::span::Span;
@@ -85,7 +86,7 @@ pub struct Probe {
 pub struct Decoder {
     pub error_frames: Vec<FrameIndex>,
     pub gap_frames: Vec<FrameIndex>,
-    pub losses: Losses,
+    pub losses: EdgeLosses,
     pub threads: DecoderThreads,
 }
 
@@ -95,12 +96,6 @@ pub enum DecoderThreads {
     Single,
     Frame(NonZeroUsize),
     Slice(NonZeroUsize),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Losses {
-    pub before_first: usize,
-    pub after_last: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

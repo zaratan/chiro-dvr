@@ -97,7 +97,7 @@ mise run rust:coverage    # tests rapides, couverture ≥ 95 % (dans check:ci)
 /Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:slow       # l'extrait LFS, le test de mémoire (hors couverture)
 /Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:settings   # les 16 cas de réglages, sous Linux seulement en CI
 /Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:reference  # la 092 entière
-/Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --profile ci -p compare -- local  # écarts à la référence (extract, 092, 092-1440, settings, local)
+/Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --profile ci -p compare -- local  # écarts à la référence v0.2.0, ou v0.1.1 par --reference (extract, 092, 092-1440, settings, local)
 /Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --profile ci -p compare -- local --frames B --same-as A  # mêmes détections qu'un passage --frames A, hors plages abîmées
 /Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --release -p bench -- VIDÉO --against DOSSIER --rejoin-hidden 0  # garde du banc contre un banc de la v0.1.1, qui ne recollait pas
 BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… mise run rust:data  # référence et 26 vidéos sur une autre machine (seau, sommes dans tests/fixtures/reference/SHA256SUMS)
@@ -119,7 +119,7 @@ Workspace virtuel, `members = ["crates/*"]`, toolchain de `rust-toolchain.toml`.
 crates depuis #71, dépendances à sens unique :
 
 - `types` : vocabulaire commun (`Rational`, `FrameIndex`, `Pts`, `FrameRate`, `Timeline`,
-  `Detection`, `Measures`, `FrameDetections`, `Span`, `Track`, `Language`, `SourceSize`, `WorkScale`).
+  `Detection`, `Measures`, `FrameDetections`, `Span`, `EdgeLosses`, `Track`, `Language`, `SourceSize`, `WorkScale`).
   Ne dépend d'aucune autre crate du workspace.
 - `media` → `types` : seule frontière avec FFmpeg et seule crate avec `unsafe`
   (`frame`, `decode`, `encode`, `convert`, `library`) ; `convert` passe du YUV au RGBA, et retour, en BT.709 ;
@@ -142,7 +142,7 @@ crates depuis #71, dépendances à sens unique :
 - `draw` : dessin pur sur une toile RGBA opaque, police Roboto embarquée, palette et tailles ; ne dépend d'aucune crate du workspace.
 - `render` → `media`, `draw`, `types` (#110, #112) : images des extraits choisies par `pts`
   (`source`), reprise sur la dernière image-clé saine, un seul fil de décodage sur une plage abîmée ;
-  fenêtres et groupes (`windows`), boîtes, `#N` et traces à la couleur de la piste sur l'image résumé (`ink`, `overlay`, `picture`, #13),
+  fenêtres et groupes (`windows`), boîtes, `#N` et traces à la couleur de la piste sur l'image résumé (`ink`, `overlay`, `picture`, #13), pistes et couleurs réunies, de longueurs contrôlées à la construction (`colored`, #287),
   un encodeur par groupe (`media::encode::fanout`), groupes en parallèle (`clips`,
   `schedule`, `group`, `ahead`, `encoders`) ; zooms ralentis en openh264 (`zoom`, `work`, #103) ; vidéo annotée aux `pts` de la source, lue par tronçons (#103) ;
   `drawn` (feature `testing`) rend les images dessinées sans encodeur, pour les tests figés (#198).
@@ -171,7 +171,7 @@ crates depuis #71, dépendances à sens unique :
   `osascript` et page de résultats ouverte par `open` après le bilan, seuls sous-processus du binaire, #69, #71), `sheet`
   (libellés de la page par Fluent, #71), `style` (couleurs et nom de l'option d'aide, #56) et `parsing` (lecture
   des valeurs d'options, erreur typée avec l'option et sa plage, #55) ; usages courants en tête de l'aide et sans argument (#56), version gravée par
-  `build.rs` ; textes en Fluent dans `locales/{fr,en}.ftl`, langue de l'aide, des erreurs,
+  `build/engraved.rs` (partagé avec `compare`, #295) ; textes en Fluent dans `locales/{fr,en}.ftl`, langue de l'aide, des erreurs,
   des lignes et du bandeau (#114).
 
 Charte (23 règles numérotées, lints et raisons dans

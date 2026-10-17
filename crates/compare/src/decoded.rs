@@ -5,7 +5,7 @@ use engine::detection::Detected;
 use engine::input::Video;
 use engine::settings::DetectSettings;
 use media::decode::ActiveThreads;
-use reference::video::{Counts, Decoder, DecoderThreads, Losses, VideoSummary};
+use reference::video::{Counts, Decoder, DecoderThreads, VideoSummary};
 use serde::Serialize;
 use serde_json::{Map, Value};
 use tracking::exclusion::Exclusion;
@@ -76,14 +76,11 @@ pub fn summary(
     let video = probed.video.name.clone();
     let reading = detected.reading();
     let damage = detected.damage();
-    let losses = reading.losses();
+    let reports = damage.reports();
     let decoder = Decoder {
-        error_frames: damage.error_frames().to_vec(),
-        gap_frames: damage.jump_frames().to_vec(),
-        losses: Losses {
-            before_first: losses.before_first,
-            after_last: losses.after_last,
-        },
+        error_frames: reports.error_frames.clone(),
+        gap_frames: reports.jump_frames.clone(),
+        losses: reports.edges,
         threads: threads(detected.active_threads()),
     };
     let recorded = sections(config, build).map_err(|source| Error::Section { video, source })?;

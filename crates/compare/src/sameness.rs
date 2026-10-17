@@ -1,8 +1,10 @@
 use std::io::{self, Write};
 
-use reference::frames::{FrameEntry, Frames};
+use reference::frames::Frames;
 use types::frame::FrameIndex;
 use types::span::Span;
+
+use crate::inputs::{InputGap, STRICT_FIELDS, entry_gap};
 
 #[cfg(test)]
 mod tests;
@@ -26,24 +28,11 @@ pub enum Verdict {
     InputsDiffer(InputGap),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum InputGap {
-    FrameCount { previous: usize, current: usize },
-    Entry { frame: FrameIndex, fields: Vec<Field> },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Field {
-    Pts,
-    KeyFrame,
-    DecodeError,
-}
-
 impl Sameness {
     pub fn of(name: &str, previous: &Frames, current: &Frames, damaged: &[Span]) -> Self {
         Self {
             name: name.to_owned(),
-            verdict: input_gap(previous.entries(), current.entries()).map_or_else(
+            verdict: entry_gap(previous.entries(), current.entries(), &STRICT_FIELDS).map_or_else(
                 || detections_compared(previous, current, damaged),
                 Verdict::InputsDiffer,
             ),
@@ -82,59 +71,9 @@ impl Sameness {
                     "\tspans {span_count} ({damaged_frames} frames)\tdiffering inside {differing_inside}"
                 )
             }
-            Verdict::InputsDiffer(InputGap::FrameCount { previous, current }) => {
-                writeln!(
-                    out,
-                    "{}\tinputs differ\t{previous} frames before, {current} now",
-                    self.name
-                )
-            }
-            Verdict::InputsDiffer(InputGap::Entry { frame, fields }) => {
-                let fields: Vec<&str> = fields.iter().map(|field| field.label()).collect();
-                writeln!(
-                    out,
-                    "{}\tinputs differ\tframe {frame}: {}",
-                    self.name,
-                    fields.join(", ")
-                )
-            }
+            Verdict::InputsDiffer(gap) => writeln!(out, "{}\tinputs differ\t{gap}", self.name),
         }
     }
-}
-
-impl Field {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Pts => "pts",
-            Self::KeyFrame => "key frame",
-            Self::DecodeError => "decode error",
-        }
-    }
-}
-
-fn input_gap(previous: &[FrameEntry], current: &[FrameEntry]) -> Option<InputGap> {
-    if previous.len() != current.len() {
-        return Some(InputGap::FrameCount {
-            previous: previous.len(),
-            current: current.len(),
-        });
-    }
-    previous
-        .iter()
-        .zip(current)
-        .enumerate()
-        .find(|(_, (before, now))| before != now)
-        .map(|(frame, (before, now))| InputGap::Entry {
-            frame: FrameIndex::new(frame),
-            fields: [
-                (before.pts != now.pts).then_some(Field::Pts),
-                (before.key_frame != now.key_frame).then_some(Field::KeyFrame),
-                (before.decode_error != now.decode_error).then_some(Field::DecodeError),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
-        })
 }
 
 fn detections_compared(previous: &Frames, current: &Frames, damaged: &[Span]) -> Verdict {
@@ -153,7 +92,7 @@ fn detections_compared(previous: &Frames, current: &Frames, damaged: &[Span]) ->
     }
 }
 
-fn listed(frames: &[FrameIndex]) -> String {
+pub(crate) fn listed(frames: &[FrameIndex]) -> String {
     let shown: Vec<String> = frames.iter().take(LISTED_FRAMES).map(ToString::to_string).collect();
     let rest = frames.len().saturating_sub(LISTED_FRAMES);
     if rest == 0 {

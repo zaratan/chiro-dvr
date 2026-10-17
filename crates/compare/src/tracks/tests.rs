@@ -1,19 +1,36 @@
-use reference::location::{Reference, committed};
+use engine::damage::{Damage, Reports};
 use reference::recording::Recording;
 use reference::track_matching::{Discrepancy, DiscrepancyKind};
+use types::detection::FrameDetections;
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
 use types::size::SourceSize;
 
 use super::{TrackAgreement, TrackCounts};
-use crate::case::EXTRACT;
-use crate::testing::nothing_detected;
+use crate::damaged::{joined, reported_by};
+use crate::testing::{extract, nothing_detected};
 
 const EXTRACT_VIDEO: &str = "video_092_original_3m24-4m05.mp4";
 
-fn extract() -> Recording {
-    Recording::read(&committed(Reference::V011, EXTRACT)).unwrap()
+fn damage(recording: &Recording, current: &Reports) -> Damage {
+    joined(
+        &reported_by(&recording.summary),
+        current,
+        recording.frames.entries(),
+        recording.summary.background_half_window,
+    )
+}
+
+fn agreement(detections: &FrameDetections, recording: &Recording, current: &Reports) -> TrackAgreement {
+    TrackAgreement::of(
+        EXTRACT_VIDEO,
+        detections,
+        (rate(), size(recording)),
+        recording,
+        &damage(recording, current),
+    )
+    .unwrap()
 }
 
 fn size(recording: &Recording) -> SourceSize {
@@ -34,13 +51,7 @@ fn written(write: impl FnOnce(&mut Vec<u8>) -> std::io::Result<()>) -> String {
 fn the_reference_detections_tracked_again_give_back_the_four_tracks_of_the_extract() {
     let recording = extract();
 
-    let agreement = TrackAgreement::of(
-        EXTRACT_VIDEO,
-        recording.frames.detections(),
-        (rate(), size(&recording)),
-        &recording,
-    )
-    .unwrap();
+    let agreement = agreement(recording.frames.detections(), &recording, &Reports::default());
 
     assert_eq!(
         agreement.counts(),
@@ -53,6 +64,31 @@ fn the_reference_detections_tracked_again_give_back_the_four_tracks_of_the_extra
         }
     );
     assert_eq!(written(|out| agreement.write_discrepancies(out)), "");
+    assert!(!agreement.differs());
+}
+
+#[test]
+fn a_frame_in_error_only_in_the_current_reading_still_damages_the_tracks_of_both_sides() {
+    let recording = extract();
+    let first_point = recording.tracks[0].points()[0].frame;
+    let current = Reports {
+        error_frames: vec![first_point],
+        ..Reports::default()
+    };
+
+    let agreement = agreement(recording.frames.detections(), &recording, &current);
+
+    assert!(agreement.differs());
+    assert_eq!(
+        agreement.counts(),
+        TrackCounts {
+            reference: 4,
+            paired: 3,
+            agreeing: 3,
+            lost: 1,
+            added: 1
+        }
+    );
 }
 
 #[test]
@@ -60,7 +96,7 @@ fn without_detections_every_reference_track_is_lost_and_listed_with_its_time() {
     let recording = extract();
     let empty = nothing_detected(&recording);
 
-    let agreement = TrackAgreement::of(EXTRACT_VIDEO, &empty, (rate(), size(&recording)), &recording).unwrap();
+    let agreement = agreement(&empty, &recording, &Reports::default());
 
     assert_eq!((agreement.counts().lost, agreement.counts().paired), (4, 0));
     assert!(

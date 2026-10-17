@@ -16,6 +16,7 @@ use media::frame::{ColorRange, YuvFrame};
 use reference::location::{Reference, committed};
 use reference::recording::Recording;
 use render::clips::{Clip, Outputs, render};
+use render::colored::Colored;
 use render::config::RenderConfig;
 use render::source::{Error, Source};
 use render::windows::{Window, clip_windows};
@@ -175,7 +176,7 @@ fn outside_the_drawings_each_clip_keeps_the_source_frames_of_the_same_pts() {
             zooms: Vec::new(),
             annotated: None,
         };
-        render(&source, &tracks, &[], &outputs, config, &[codec]).unwrap();
+        render(&source, Colored::new(&tracks, &[]).unwrap(), &outputs, config, &[codec]).unwrap();
         for ((window, clip), track) in windows.iter().zip(&clips).zip(&tracks) {
             let (similarity, _) = compare_clip(&comparison, window, &clip.path);
             println!(
@@ -349,8 +350,7 @@ fn outside_the_trail_each_zoom_is_the_nearest_magnification_of_its_frame_at_a_qu
     };
     render(
         &source,
-        &tracks,
-        &[],
+        Colored::new(&tracks, &[]).unwrap(),
         &outputs,
         config,
         &[Codec::VideoToolbox, Codec::OpenH264],
@@ -404,7 +404,7 @@ fn the_annotated_extract_has_every_frame_at_its_source_pts_and_keeps_the_source_
             zooms: Vec::new(),
             annotated: Some(annotated.clone()),
         };
-        render(&source, &tracks, &[], &outputs, config, &[codec]).unwrap();
+        render(&source, Colored::new(&tracks, &[]).unwrap(), &outputs, config, &[codec]).unwrap();
         let duration = Decoder::open(&annotated, Threads::Automatic)
             .unwrap()
             .stream()

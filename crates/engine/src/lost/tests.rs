@@ -160,3 +160,20 @@ fn a_jump_across_an_unknown_timestamp_counts_the_frame_it_hides() {
     assert_eq!(frames_after_jumps(&pts), [FrameIndex::new(5)]);
     assert_eq!(lost_frames(&pts), 1);
 }
+
+#[test]
+fn the_edges_of_the_losses_leave_out_the_frames_lost_at_jumps() {
+    let losses = Losses {
+        before_first: 2,
+        at_jumps: 5,
+        after_last: 1,
+    };
+
+    assert_eq!(
+        losses.edges(),
+        types::losses::EdgeLosses {
+            before_first: 2,
+            after_last: 1
+        }
+    );
+}

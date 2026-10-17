@@ -1,9 +1,16 @@
+use engine::damage::Reports;
 use engine::detection::Detected;
 use reference::error::Error;
 use reference::frames::{FrameEntry, Frames};
 
 #[cfg(test)]
 mod tests;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Pass {
+    pub frames: Frames,
+    pub reports: Reports,
+}
 
 pub fn frames_of(detected: &Detected) -> Result<Frames, Error> {
     let entries = detected
@@ -17,4 +24,11 @@ pub fn frames_of(detected: &Detected) -> Result<Frames, Error> {
         })
         .collect();
     Frames::new(entries, detected.detections().clone())
+}
+
+pub fn pass_of(detected: &Detected) -> Result<Pass, Error> {
+    Ok(Pass {
+        frames: frames_of(detected)?,
+        reports: detected.damage().reports().clone(),
+    })
 }

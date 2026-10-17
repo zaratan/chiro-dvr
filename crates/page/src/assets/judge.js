@@ -1,5 +1,5 @@
 "use strict";
-const VerdictsJudge = ({ section, tracks, store, say, motion, chained, onOpen }) => {
+const VerdictsJudge = ({ section, tracks, store, say, motion, chained, onOpen, onLeave }) => {
   const LAYOUT_PASSES = 3;
   const SIDE_MIN = 384;
   const SIDE_MAX = 480;
@@ -117,6 +117,7 @@ const VerdictsJudge = ({ section, tracks, store, say, motion, chained, onOpen })
     if (scene) {
       picture = scene.cloneNode(true);
       picture.setAttribute("aria-hidden", "true");
+      VerdictsOverlay.bare(picture);
       picture.querySelectorAll("[data-id]").forEach((shape) => {
         shape.classList.toggle("active", shape.dataset.id === String(track.id));
       });
@@ -221,7 +222,11 @@ const VerdictsJudge = ({ section, tracks, store, say, motion, chained, onOpen })
     button.addEventListener("click", () => step(Number(button.dataset.step))),
   );
   root.querySelector(".to-see").addEventListener("click", nextToSee);
-  root.querySelector(".back").addEventListener("click", close);
+  root.querySelector(".back").addEventListener("click", () => {
+    const left = current;
+    close();
+    onLeave(left);
+  });
   viewClip.addEventListener("click", () => {
     zoomed = false;
     viewClip.setAttribute("aria-pressed", "true");
@@ -294,5 +299,5 @@ const VerdictsJudge = ({ section, tracks, store, say, motion, chained, onOpen })
   });
   store.subscribe(refresh);
 
-  return { open, close };
+  return { open, close, current: () => current };
 };

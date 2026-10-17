@@ -3,7 +3,6 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use draw::color::Rgb;
 use engine::detection::{self, Detected, detect};
 use engine::input::Video;
 use files::names::{Names, params_json};
@@ -16,6 +15,7 @@ use media::decode::Threads;
 use media::encode::Codec;
 use media::encode::fallback::{self, Fallback};
 use render::clips::{self, Clip, Outputs, Rendered};
+use render::colored::{self, Colored};
 use render::config::RenderConfig;
 use render::source::{self, Source};
 use render::windows::{Window, clip_windows};
@@ -75,6 +75,8 @@ pub enum Error {
     Source(#[source] source::Error),
     #[error("the clips cannot be written")]
     Clips(#[source] clips::Error),
+    #[error("the colours of the tracks do not match the tracks")]
+    Colors(#[source] colored::Mismatch),
     #[error("{needed} bytes are needed on the disk of {}, {free} are free", dest.display())]
     DiskSpace { dest: PathBuf, needed: u64, free: u64 },
     #[error("{count} tracks, above {limit}: no clips, no summary image")]
@@ -241,15 +243,15 @@ fn processed_since(
         job,
         names,
         detected,
-        colors: &colors,
+        colored: Colored::new(&tracks, &colors).map_err(Error::Colors)?,
         timeline: &timeline,
         options,
         extent: extent(&timeline, &exclusion),
         kept: &kept,
     };
-    room_for_clips(&clips, &tracks, video_bytes)?;
+    room_for_clips(&clips, video_bytes)?;
     announce(progress, Step::Clips, renders)?;
-    let written = render_clips(&clips, &tracks, trial);
+    let written = render_clips(&clips, trial);
     if let Some(state) = finish(&written) {
         let outputs = written.as_ref().ok().map(|written| &written.outputs);
         let params = Params {
@@ -277,8 +279,8 @@ fn processed_since(
     }
     let Written { rendered, .. } = written?;
     Ok(Processed {
-        tracks,
         extent: clips.extent,
+        tracks,
         csv,
         kept,
         summaries: drawn.sheets.into_iter().map(|sheet| sheet.page).collect(),
@@ -365,14 +367,15 @@ struct Clips<'a> {
     job: &'a Job,
     names: Names,
     detected: &'a Detected,
-    colors: &'a [Option<Rgb>],
+    colored: Colored<'a>,
     timeline: &'a Timeline,
     options: &'a Options,
     extent: Extent,
     kept: &'a [Kept],
 }
 
-fn room_for_clips(clips: &Clips<'_>, tracks: &[Track], video_bytes: u64) -> Result<(), Error> {
+fn room_for_clips(clips: &Clips<'_>, video_bytes: u64) -> Result<(), Error> {
+    let tracks = clips.colored.tracks();
     let render = clips.options.render;
     let rate = clips.timeline.rate();
     if !render.renders_clips_for(tracks.len()) {
@@ -397,7 +400,8 @@ fn room_for_clips(clips: &Clips<'_>, tracks: &[Track], video_bytes: u64) -> Resu
     }
 }
 
-fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, Error>) -> Result<Written, Error> {
+fn render_clips(clips: &Clips<'_>, trial: Result<Vec<Codec>, Error>) -> Result<Written, Error> {
+    let tracks = clips.colored.tracks();
     let stem = clips.job.video.file_stem().unwrap_or_default();
     let annotated = clips.names.annotated_video(&clips.job.dest, stem);
     let render = clips.options.render;
@@ -442,6 +446,6 @@ fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, E
             source,
         })?;
     }
-    let rendered = clips::render(&source, tracks, clips.colors, &outputs, render, &encoders).map_err(Error::Clips)?;
+    let rendered = clips::render(&source, clips.colored, &outputs, render, &encoders).map_err(Error::Clips)?;
     Ok(Written { rendered, outputs })
 }

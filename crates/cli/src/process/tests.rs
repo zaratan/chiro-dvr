@@ -17,6 +17,7 @@ use media::encode::fallback::{self, Fallback};
 use media::encode::{self, Codec};
 use media::frame::{ColorRange, YuvFrame};
 use render::clips::{Outputs, Rendered};
+use render::colored::Colored;
 use render::config::{RenderConfig, Zoom, ZoomConfig};
 use render::windows::clip_windows;
 use summary::header::{Band, HeaderLine, Labels};
@@ -65,12 +66,17 @@ fn rendered_into_a_fresh_folder(
     max_tracks: usize,
     trial: Result<Vec<Codec>, Error>,
 ) -> (Result<Rendered, Error>, PathBuf) {
-    in_a_fresh_folder(folder, max_tracks, |clips| {
-        render_clips(clips, &[still(1), still(2)], trial).map(|written| written.rendered)
+    in_a_fresh_folder(folder, max_tracks, &[still(1), still(2)], |clips| {
+        render_clips(clips, trial).map(|written| written.rendered)
     })
 }
 
-fn in_a_fresh_folder<T>(folder: &Path, max_tracks: usize, run: impl FnOnce(&Clips<'_>) -> T) -> (T, PathBuf) {
+fn in_a_fresh_folder<T>(
+    folder: &Path,
+    max_tracks: usize,
+    tracks: &[Track],
+    run: impl FnOnce(&Clips<'_>) -> T,
+) -> (T, PathBuf) {
     let video = folder.join("flight.mp4");
     flight::write_flight(&video);
     let detected = detect(&video, Threads::Automatic, &DetectConfig::default()).unwrap();
@@ -86,7 +92,7 @@ fn in_a_fresh_folder<T>(folder: &Path, max_tracks: usize, run: impl FnOnce(&Clip
         job: &job,
         names,
         detected: &detected,
-        colors: &[],
+        colored: Colored::new(tracks, &[]).unwrap(),
         timeline: &timeline,
         options: &Options {
             render: RenderConfig::new(12, 1.0, 1.5, max_tracks).unwrap(),
@@ -105,8 +111,8 @@ fn in_a_fresh_folder<T>(folder: &Path, max_tracks: usize, run: impl FnOnce(&Clip
 #[test]
 fn above_the_track_limit_the_room_is_not_checked_since_nothing_is_rendered() {
     let folder = tempfile::tempdir().unwrap();
-    let (room, _) = in_a_fresh_folder(folder.path(), 1, |clips| {
-        room_for_clips(clips, &[still(1), still(2)], u64::MAX)
+    let (room, _) = in_a_fresh_folder(folder.path(), 1, &[still(1), still(2)], |clips| {
+        room_for_clips(clips, u64::MAX)
     });
     assert!(room.is_ok(), "{room:?}");
 }
@@ -115,7 +121,7 @@ fn above_the_track_limit_the_room_is_not_checked_since_nothing_is_rendered() {
 #[test]
 fn a_video_without_track_still_needs_room_for_its_annotated_video() {
     let folder = tempfile::tempdir().unwrap();
-    let (room, _) = in_a_fresh_folder(folder.path(), 300, |clips| room_for_clips(clips, &[], u64::MAX));
+    let (room, _) = in_a_fresh_folder(folder.path(), 300, &[], |clips| room_for_clips(clips, u64::MAX));
     assert!(matches!(room, Err(Error::DiskSpace { .. })), "{room:?}");
 }
 
