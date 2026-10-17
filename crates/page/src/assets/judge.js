@@ -99,8 +99,6 @@ const VerdictsJudge = ({ section, tracks, store, say, motion, chained, shows, on
     }, TOAST_MS);
   };
 
-  const word = (value) => (value.verdict === "other" ? value.other : value.verdict ? say(value.verdict) : say("to-see"));
-
   const refresh = () => {
     if (!current) return;
     const value = store.get(current);
@@ -204,8 +202,8 @@ const VerdictsJudge = ({ section, tracks, store, say, motion, chained, shows, on
     const value = store.get(current);
     if (!value.verdict) return say("cleared", { track: current.id });
     return value.species
-      ? say("announce-species", { track: current.id, verdict: word(value), species: value.species })
-      : say("announce", { track: current.id, verdict: word(value) });
+      ? say("announce-species", { track: current.id, verdict: store.word(current), species: value.species })
+      : say("announce", { track: current.id, verdict: store.word(current) });
   };
 
   const decide = (verdict, { toggle }) => {

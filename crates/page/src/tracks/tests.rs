@@ -11,6 +11,14 @@ fn each_row_carries_the_key_that_ties_a_verdict_to_its_track() {
 }
 
 #[test]
+fn the_start_cell_is_marked_so_the_script_reads_the_start_instead_of_writing_it_again() {
+    let mut night = video("v");
+    night.tracks[0].start_s = 72.394;
+    let table = render(&night, true, &Named);
+    assert!(table.contains(r#"<td class="num clock">Start(72.394)</td>"#));
+}
+
+#[test]
 fn a_track_written_before_the_starting_points_has_no_position() {
     let table = render(&video("v"), true, &Named);
     assert!(table.contains(r#"<tr data-id="2" data-start="6.80" data-clip="#));

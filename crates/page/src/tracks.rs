@@ -113,7 +113,7 @@ fn row(video: &Video, track: &Track, viewable: bool, labels: &dyn Labels) -> Str
     format!(
         r#"            <tr data-id="{id}" data-start="{start_s:.2}"{point}{clip}{zoom_source}{part}>
               <th scope="row">{number}</th>
-              <td class="num">{start}</td>
+              <td class="num clock">{start}</td>
               <td class="num">{duration}</td>{judging}
             </tr>"#,
         start_s = track.start_s,
