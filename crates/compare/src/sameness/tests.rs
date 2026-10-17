@@ -3,7 +3,8 @@ use types::detection::{FrameDetections, Measures};
 use types::frame::{FrameIndex, Pts};
 use types::span::Span;
 
-use super::{Field, InputGap, LISTED_FRAMES, Sameness, Verdict};
+use super::{LISTED_FRAMES, Sameness, Verdict};
+use crate::inputs::{Field, InputGap};
 
 const VIDEO: &str = "video_101.mp4";
 

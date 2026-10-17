@@ -23,10 +23,32 @@ pub enum Refusal {
 
 const DIRTY_SUFFIX: &str = "-dirty";
 const TAG_PREFIX: char = 'v';
+pub const CLEAN: &str = "clean";
+pub const CHANGED: &str = "changed";
 
 impl Build {
     pub fn of_this_binary() -> Result<Self, Refusal> {
-        Self::clean(env!("RECORD_DESCRIBED"), env!("RECORD_COMMIT"), env!("RECORD_RUSTC"))
+        Self::engraved(
+            env!("RECORD_DESCRIBED"),
+            env!("RECORD_STATUS"),
+            env!("RECORD_COMMIT"),
+            env!("RECORD_RUSTC"),
+        )
+    }
+
+    /// `status` is what `build.rs` made of `git status`: `CLEAN`, `CHANGED`, or empty when it could not run.
+    pub fn engraved(described: &str, status: &str, commit: &str, rustc: &str) -> Result<Self, Refusal> {
+        match status {
+            CLEAN => Self::clean(described, commit, rustc),
+            CHANGED if !described.is_empty() => Err(Refusal::Dirty {
+                described: if described.ends_with(DIRTY_SUFFIX) {
+                    described.to_owned()
+                } else {
+                    format!("{described}{DIRTY_SUFFIX}")
+                },
+            }),
+            _ => Err(Refusal::Unknown),
+        }
     }
 
     pub fn clean(described: &str, commit: &str, rustc: &str) -> Result<Self, Refusal> {
@@ -41,7 +63,7 @@ impl Build {
         let version = described.strip_prefix(TAG_PREFIX).ok_or_else(|| Refusal::Untagged {
             described: described.to_owned(),
         })?;
-        let tag = version.split_once('-').map_or(version, |(tag, _)| tag);
+        let tag = tag_of(version);
         Ok(Self {
             version: version.to_owned(),
             release: format!("{TAG_PREFIX}{tag}"),
@@ -66,4 +88,21 @@ impl Build {
     pub fn rustc(&self) -> &str {
         &self.rustc
     }
+}
+
+fn tag_of(version: &str) -> &str {
+    let mut parts = version.rsplitn(3, '-');
+    match (parts.next(), parts.next(), parts.next()) {
+        (Some(hash), Some(count), Some(tag)) if is_commit(hash) && is_count(count) => tag,
+        _ => version,
+    }
+}
+
+fn is_commit(part: &str) -> bool {
+    part.strip_prefix('g')
+        .is_some_and(|hash| !hash.is_empty() && hash.chars().all(|digit| digit.is_ascii_hexdigit()))
+}
+
+fn is_count(part: &str) -> bool {
+    !part.is_empty() && part.chars().all(|digit| digit.is_ascii_digit())
 }

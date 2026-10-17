@@ -1,14 +1,10 @@
 use std::io;
 use std::path::Path;
 
-use reference::location::{Reference, committed};
-use reference::recording::Recording;
-
 use super::{write_failure, write_report, write_same_as};
-use crate::case::EXTRACT;
 use crate::comparison::{Comparison, compared};
 use crate::sameness::Sameness;
-use crate::testing::{frames_without_detections, nothing_detected};
+use crate::testing::{extract, frames_without_detections, nothing_detected, pass_finding, same_pass};
 
 #[derive(Debug, thiserror::Error)]
 #[error("cannot read the summary")]
@@ -21,32 +17,35 @@ fn report(comparisons: &[Comparison]) -> String {
 }
 
 #[test]
-fn a_video_in_agreement_is_reported_with_its_totals_and_its_time() {
-    let recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
+fn a_video_in_agreement_is_reported_with_its_inputs_its_totals_and_its_time() {
+    let recording = extract();
 
-    let text = report(&[compared(
-        &recording.summary.video.name,
-        recording.frames.detections(),
-        &recording,
-        2.31,
-    )
-    .unwrap()]);
+    let text = report(&[compared(&recording.summary.video.name, &same_pass(&recording), &recording, 2.31).unwrap()]);
 
+    assert!(text.contains(
+        "video_092_original_3m24-4m05.mp4\tdecode errors: reference 0, current 0, differing 0\tdamaged spans 0 (0 frames)\n"
+    ));
+    assert!(text.contains("1 videos\tdiffering frames 0\tlost 0\tadded 0\n"));
     assert!(text.contains("1 videos\ttracks 4\tpaired 4 (agreeing 4)\tlost 0\tadded 0\n"));
     assert!(text.contains("video_092_original_3m24-4m05.mp4\t2.3 s\n"));
-    assert!(text.ends_with("under 98 % either way: 0\n"));
+    assert!(text.ends_with("differing from the reference: 0\n"));
 }
 
 #[test]
-fn a_video_under_98_percent_is_named_at_the_end_with_its_gaps() {
-    let recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
-    let empty = nothing_detected(&recording);
+fn a_video_that_differs_is_named_at_the_end_with_its_gaps() {
+    let recording = extract();
+    let empty = pass_finding(&recording, nothing_detected(&recording));
 
     let text = report(&[compared(&recording.summary.video.name, &empty, &recording, 1.0).unwrap()]);
 
-    assert!(text.ends_with("under 98 % either way: 1\n  video_092_original_3m24-4m05.mp4\n"));
+    assert!(text.ends_with("differing from the reference: 1\n  video_092_original_3m24-4m05.mp4\n"));
     assert!(text.contains("lost reference track"));
-    assert!(text.contains("frames "));
+    assert!(
+        text.lines()
+            .any(|line| line.starts_with("  video_092_original_3m24-4m05.mp4 ")
+                && line.contains(" frames ")
+                && line.contains("\tlost "))
+    );
 }
 
 #[test]
@@ -64,13 +63,13 @@ fn a_failure_names_its_recording_then_each_of_its_causes() {
 
 #[test]
 fn the_runs_compared_with_an_earlier_folder_are_listed_under_its_name_then_counted() {
-    let recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
+    let recording = extract();
     let name = &recording.summary.video.name;
     let with = |current: &reference::frames::Frames| Comparison {
         same_as: Some(Sameness::of(name, &recording.frames, current, &[])),
-        ..compared(name, recording.frames.detections(), &recording, 1.0).unwrap()
+        ..compared(name, &same_pass(&recording), &recording, 1.0).unwrap()
     };
-    let without_frames = compared(name, recording.frames.detections(), &recording, 1.0).unwrap();
+    let without_frames = compared(name, &same_pass(&recording), &recording, 1.0).unwrap();
     let mut out = Vec::new();
 
     write_same_as(

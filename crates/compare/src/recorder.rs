@@ -1,7 +1,7 @@
 use std::env;
 use std::fs;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::{self, Component, Path, PathBuf};
 
 use engine::config::DetectConfig;
 use engine::detection::detect_input;
@@ -104,12 +104,10 @@ pub fn protected_folders(same_as: Option<&Path>) -> Vec<PathBuf> {
 }
 
 pub fn refuse_overlap(out: &Path, protected: &[PathBuf]) -> Result<(), Error> {
-    let folder_error = |source| Error::Folder {
+    let out = resolved(out).map_err(|source| Error::Folder {
         path: out.to_path_buf(),
         source,
-    };
-    fs::create_dir_all(out).map_err(folder_error)?;
-    let out = fs::canonicalize(out).map_err(folder_error)?;
+    })?;
     match protected
         .iter()
         .filter_map(|folder| fs::canonicalize(folder).ok())
@@ -118,6 +116,36 @@ pub fn refuse_overlap(out: &Path, protected: &[PathBuf]) -> Result<(), Error> {
         Some(protected) => Err(Error::Overlap { out, protected }),
         None => Ok(()),
     }
+}
+
+fn resolved(path: &Path) -> io::Result<PathBuf> {
+    let mut existing = path::absolute(path)?;
+    let mut missing = Vec::new();
+    let found = loop {
+        match fs::canonicalize(&existing) {
+            Ok(found) => break found,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                let Some(last) = existing.components().next_back() else {
+                    return Err(error);
+                };
+                missing.push(last.as_os_str().to_owned());
+                if !existing.pop() {
+                    return Err(error);
+                }
+            }
+            Err(error) => return Err(error),
+        }
+    };
+    Ok(missing.iter().rev().fold(found, |mut resolved, part| {
+        match Path::new(part).components().next() {
+            Some(Component::ParentDir) => {
+                resolved.pop();
+            }
+            Some(Component::CurDir) | None => {}
+            Some(_) => resolved.push(part),
+        }
+        resolved
+    }))
 }
 
 pub fn holds(answers: &[Result<Recorded, Error>]) -> bool {

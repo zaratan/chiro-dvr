@@ -1,6 +1,7 @@
 use std::io::{self, Write};
 use std::iter::Sum;
 
+use engine::damage::Damage;
 use reference::recording::Recording;
 use reference::track_matching::{Discrepancy, DiscrepancyKind, match_tracks};
 use tracking::error::Error;
@@ -32,12 +33,17 @@ pub struct TrackCounts {
 }
 
 impl TrackAgreement {
-    pub fn of(name: &str, detections: &FrameDetections, rate: FrameRate, recording: &Recording) -> Result<Self, Error> {
-        let summary = &recording.summary;
+    pub fn of(
+        name: &str,
+        detections: &FrameDetections,
+        rate: FrameRate,
+        recording: &Recording,
+        damage: &Damage,
+    ) -> Result<Self, Error> {
         let exclusion = exclude(
             detections,
-            summary.damaged_spans.clone(),
-            summary.counts.damaged_frames_reported,
+            damage.spans().to_vec(),
+            damage.reported_frames(),
             rate,
             StabilityConfig::default(),
         );
@@ -58,6 +64,17 @@ impl TrackAgreement {
 
     pub fn counts(&self) -> TrackCounts {
         self.counts
+    }
+
+    pub fn differs(&self) -> bool {
+        let TrackCounts {
+            paired,
+            agreeing,
+            lost,
+            added,
+            ..
+        } = self.counts;
+        lost > 0 || added > 0 || agreeing < paired
     }
 
     pub fn write_summary(&self, out: &mut impl Write) -> io::Result<()> {

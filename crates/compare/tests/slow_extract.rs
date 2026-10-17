@@ -3,6 +3,7 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
+use compare::agreement::Agreement;
 use compare::case::{Case, EXTRACT};
 use compare::comparison::{Comparison, Folders, compare, frames_path};
 use compare::report::write_report;
@@ -52,6 +53,12 @@ fn run() -> &'static Run {
     })
 }
 
+const V011_RATE: f64 = 0.98;
+
+fn within_the_v011_rate(detections: &Agreement) -> bool {
+    detections.reference_rate() >= V011_RATE && detections.candidate_rate() >= V011_RATE
+}
+
 fn committed_detections() -> PathBuf {
     frames_path(&fixtures().join("rust"), &format!("{EXTRACT}.mp4"))
 }
@@ -59,7 +66,7 @@ fn committed_detections() -> PathBuf {
 #[test]
 #[ignore = "slow"]
 fn the_extract_agrees_with_the_reference_on_98_percent_of_its_detections_both_ways() {
-    assert!(run().comparison.detections.holds());
+    assert!(within_the_v011_rate(&run().comparison.detections));
 }
 
 #[test]

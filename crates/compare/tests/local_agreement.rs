@@ -1,10 +1,17 @@
 use std::io;
 
+use compare::agreement::Agreement;
 use compare::case::Target;
 use compare::comparison::{Comparison, Folders, VIDEOS_AT_ONCE, compare_all};
 use compare::report::write_report;
 use compare::tracks::TrackCounts;
 use reference::location::Reference;
+
+const V011_RATE: f64 = 0.98;
+
+fn within_the_v011_rate(detections: &Agreement) -> bool {
+    detections.reference_rate() >= V011_RATE && detections.candidate_rate() >= V011_RATE
+}
 
 #[test]
 #[ignore = "local"]
@@ -18,7 +25,7 @@ fn the_twenty_six_videos_keep_98_percent_of_their_detections_and_lose_three_of_t
     write_report(&comparisons, &mut io::stdout().lock()).unwrap();
     let below: Vec<&str> = comparisons
         .iter()
-        .filter(|comparison| !comparison.detections.holds())
+        .filter(|comparison| !within_the_v011_rate(&comparison.detections))
         .map(|comparison| comparison.detections.name())
         .collect();
     let TrackCounts {

@@ -1,22 +1,27 @@
 use reference::location::{Reference, committed};
-use reference::recording::Recording;
 
 use super::Outcome;
 use crate::case::{Case, EXTRACT, WHOLE};
 use crate::comparison::{Comparison, compared};
 use crate::error::Error;
+use crate::inputs::InputGap;
 use crate::sameness::Sameness;
-use crate::testing::{frames_without_detections, nothing_detected};
+use crate::testing::{extract, frames_without_detections, nothing_detected, pass_finding, same_pass};
 
 fn agreeing() -> Comparison {
-    let recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
-    compared(EXTRACT, recording.frames.detections(), &recording, 1.0).unwrap()
+    let recording = extract();
+    compared(EXTRACT, &same_pass(&recording), &recording, 1.0).unwrap()
 }
 
 fn disagreeing() -> Comparison {
-    let recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
-    let empty = nothing_detected(&recording);
-    compared(EXTRACT, &empty, &recording, 1.0).unwrap()
+    let recording = extract();
+    compared(
+        EXTRACT,
+        &pass_finding(&recording, nothing_detected(&recording)),
+        &recording,
+        1.0,
+    )
+    .unwrap()
 }
 
 fn failed() -> Error {
@@ -31,7 +36,7 @@ fn cases(count: usize) -> Vec<Case> {
     [EXTRACT, WHOLE]
         .into_iter()
         .take(count)
-        .map(|name| Case::committed(Reference::V011, name))
+        .map(|name| Case::committed(Reference::V020, name))
         .collect()
 }
 
@@ -43,25 +48,43 @@ fn each_answer_is_sorted_into_compared_or_failed_with_its_recording() {
     let [(recording, error)] = outcome.failed.as_slice() else {
         panic!("{:?}", outcome.failed);
     };
-    assert_eq!(recording, &committed(Reference::V011, WHOLE));
+    assert_eq!(recording, &committed(Reference::V020, WHOLE));
     assert!(matches!(error, Error::HalfWindow { .. }));
 }
 
 #[test]
-fn a_failure_a_comparison_under_98_percent_or_no_comparison_at_all_fails_the_run() {
+fn a_failure_other_input_frames_or_no_comparison_at_all_fails_the_run() {
     let with_failure = Outcome::of(&cases(2), vec![Ok(agreeing()), Err(failed())]);
-    let under = Outcome::of(&cases(1), vec![Ok(disagreeing())]);
+    let other_frames = Outcome::of(
+        &cases(1),
+        vec![Err(Error::Inputs {
+            video: EXTRACT.to_owned(),
+            gap: InputGap::FrameCount {
+                previous: 1230,
+                current: 1229,
+            },
+        })],
+    );
     let only_failed = Outcome::of(&cases(1), vec![Err(failed())]);
 
     assert!(!with_failure.holds());
-    assert!(!under.holds());
+    assert!(!other_frames.holds());
     assert!(!only_failed.holds());
+    assert!(!Outcome::of(&[], Vec::new()).holds());
     assert!(Outcome::of(&cases(1), vec![Ok(agreeing())]).holds());
 }
 
 #[test]
+fn a_comparison_that_differs_from_the_reference_is_reported_but_does_not_fail_the_run() {
+    let differing = disagreeing();
+
+    assert!(differing.differs());
+    assert!(Outcome::of(&cases(1), vec![Ok(differing)]).holds());
+}
+
+#[test]
 fn a_run_that_differs_from_the_earlier_one_outside_the_damaged_spans_fails_even_in_agreement_with_the_reference() {
-    let recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
+    let recording = extract();
     let name = &recording.summary.video.name;
     let same = Comparison {
         same_as: Some(Sameness::of(name, &recording.frames, &recording.frames, &[])),

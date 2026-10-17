@@ -18,8 +18,10 @@ use std::time::Instant;
 use batdetect::options::Options;
 use batdetect::process::{Processed, process_detected};
 use batdetect::progress::Silent;
+use compare::agreement::Agreement;
 use compare::case::{Case, WHOLE, WHOLE_AT_1440};
 use compare::comparison::{Comparison, Folders, compare, compared};
+use compare::frames::pass_of;
 use compare::report::write_report;
 use compare::tracks::TrackCounts;
 use engine::config::DetectConfig;
@@ -53,6 +55,12 @@ struct Command {
 struct Shared {
     defaults: Result<Defaults, String>,
     at_1440: Result<Comparison, String>,
+}
+
+const V011_RATE: f64 = 0.98;
+
+fn within_the_v011_rate(detections: &Agreement) -> bool {
+    detections.reference_rate() >= V011_RATE && detections.candidate_rate() >= V011_RATE
 }
 
 fn shared() -> &'static Shared {
@@ -180,10 +188,16 @@ fn the_whole_092_agrees_with_the_reference_on_98_percent_of_its_detections_both_
         recording.summary.background_half_window
     );
     let name = Case::committed(Reference::V011, WHOLE).name(&recording.summary.video.name);
-    let comparison = compared(&name, defaults.detected.detections(), &recording, defaults.detection_s).unwrap();
+    let comparison = compared(
+        &name,
+        &pass_of(&defaults.detected).unwrap(),
+        &recording,
+        defaults.detection_s,
+    )
+    .unwrap();
 
     write_report(slice::from_ref(&comparison), &mut io::stdout().lock()).unwrap();
-    assert!(comparison.detections.holds());
+    assert!(within_the_v011_rate(&comparison.detections));
 }
 
 #[test]
@@ -192,7 +206,7 @@ fn the_whole_092_worked_at_1440_pixels_agrees_with_its_reference_on_98_percent_o
     let comparison = shared().at_1440.as_ref().unwrap();
 
     write_report(slice::from_ref(comparison), &mut io::stdout().lock()).unwrap();
-    assert!(comparison.detections.holds());
+    assert!(within_the_v011_rate(&comparison.detections));
     assert_eq!(
         comparison.tracks.counts(),
         TrackCounts {

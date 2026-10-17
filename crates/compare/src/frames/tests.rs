@@ -9,7 +9,7 @@ use reference::frames::Frames;
 use tempfile::TempDir;
 use types::rational::Rational;
 
-use super::frames_of;
+use super::{frames_of, pass_of};
 
 const FRAMES: usize = 8;
 
@@ -54,4 +54,19 @@ fn the_frames_written_read_back_as_the_same_table() {
     frames.write(&path).unwrap();
 
     assert_eq!(Frames::read(&path).unwrap(), frames);
+}
+
+#[test]
+fn a_pass_keeps_the_frames_and_the_damage_its_reading_reported() {
+    let folder = TempDir::new().unwrap();
+    let video = folder.path().join("wiped.mp4");
+    encoded(&video);
+    media::payload::wipe(&video, 1..2, 4).unwrap();
+    let detected = detect(&video, Threads::Automatic, &DetectConfig::default()).unwrap();
+
+    let pass = pass_of(&detected).unwrap();
+
+    assert_ne!(pass.reports.error_frames.len() + pass.reports.jump_frames.len(), 0);
+    assert_eq!(&pass.reports, detected.damage().reports());
+    assert_eq!(pass.frames, frames_of(&detected).unwrap());
 }
