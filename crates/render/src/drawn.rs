@@ -1,13 +1,12 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
 
-use draw::color::Rgb;
 use media::encode::{self, Codec, Stamps};
 use media::fingerprint;
 use media::frame::YuvFrame;
-use types::track::Track;
 
 use crate::clips::{Error, Outputs, Video, render_with};
+use crate::colored::Colored;
 use crate::config::RenderConfig;
 use crate::encoders::{Open, Request, Sink};
 use crate::source::Source;
@@ -24,16 +23,14 @@ pub struct Drawn {
 /// The frames `clips::render` would hand to its encoders, as fingerprints, without encoding them.
 pub fn drawn(
     source: &Source,
-    tracks: &[Track],
-    colors: &[Option<Rgb>],
+    colored: Colored<'_>,
     outputs: &Outputs,
     config: RenderConfig,
 ) -> Result<Vec<Drawn>, Error> {
     let recorder = Recorder::default();
     let video = Video {
         source,
-        tracks,
-        colors,
+        colored,
         config,
     };
     let open = &recorder;

@@ -7,6 +7,7 @@ use types::frame::{FrameIndex, Pts};
 use types::track::Track;
 
 use super::{Clip, Error, Outputs, Rendered, Video, render, render_with};
+use crate::colored::Colored;
 use crate::config::RenderConfig;
 use crate::encoders::Ffmpeg;
 use crate::sequential::{self, Sequential};
@@ -83,8 +84,7 @@ fn written_with(
 ) -> Result<Rendered, Error> {
     let video = Video {
         source,
-        tracks,
-        colors: &[],
+        colored: Colored::new(tracks, &[]).unwrap(),
         config: tenth_of_a_second(),
     };
     render_with(&fake, threads, &video, &only(clips), codecs)
@@ -111,8 +111,7 @@ fn each_clip_holds_every_frame_of_its_window_bounded_by_the_video() {
     let clips = clips(folder.path(), &tracks);
     let rendered = render(
         &source,
-        &tracks,
-        &[],
+        Colored::new(&tracks, &[]).unwrap(),
         &only(&clips),
         tenth_of_a_second(),
         &[Codec::OpenH264],
@@ -135,8 +134,7 @@ fn only_the_requested_clips_are_written() {
     }];
     render(
         &source,
-        &tracks,
-        &[],
+        Colored::new(&tracks, &[]).unwrap(),
         &only(&clips),
         tenth_of_a_second(),
         &[Codec::OpenH264],
@@ -155,8 +153,7 @@ fn a_window_read_again_from_the_first_frame_is_counted() {
     let clips = clips(folder.path(), &tracks);
     let rendered = render(
         &source,
-        &tracks,
-        &[],
+        Colored::new(&tracks, &[]).unwrap(),
         &only(&clips),
         tenth_of_a_second(),
         &[Codec::OpenH264],
@@ -177,8 +174,7 @@ fn a_clip_for_a_track_the_video_does_not_hold_is_refused_before_any_writing() {
         };
         let error = render(
             &source,
-            &tracks,
-            &[],
+            Colored::new(&tracks, &[]).unwrap(),
             &only(&[clip]),
             tenth_of_a_second(),
             &[Codec::OpenH264],
@@ -206,8 +202,7 @@ fn a_clip_that_cannot_be_written_there_stops_the_video_and_leaves_no_partial_fil
     ];
     let error = render(
         &source,
-        &tracks,
-        &[],
+        Colored::new(&tracks, &[]).unwrap(),
         &only(&clips),
         tenth_of_a_second(),
         &[Codec::OpenH264],
@@ -234,8 +229,7 @@ fn groups_and_zooms_written_in_parallel_give_the_same_bytes_as_a_single_thread()
             };
             let video = Video {
                 source: &source,
-                tracks: &tracks,
-                colors: &[],
+                colored: Colored::new(&tracks, &[]).unwrap(),
                 config: tenth_of_a_second(),
             };
             render_with(&Ffmpeg, *threads, &video, &outputs, &[Codec::OpenH264]).unwrap();
@@ -391,8 +385,7 @@ fn with_zooms(
 ) -> Result<Rendered, Error> {
     let video = Video {
         source,
-        tracks,
-        colors: &[],
+        colored: Colored::new(tracks, &[]).unwrap(),
         config: tenth_of_a_second(),
     };
     let outputs = Outputs {
@@ -454,7 +447,14 @@ fn a_zoom_for_a_track_the_video_does_not_hold_is_refused_before_any_writing() {
         }],
         annotated: None,
     };
-    let error = render(&source, &tracks, &[], &outputs, tenth_of_a_second(), &[Codec::OpenH264]).unwrap_err();
+    let error = render(
+        &source,
+        Colored::new(&tracks, &[]).unwrap(),
+        &outputs,
+        tenth_of_a_second(),
+        &[Codec::OpenH264],
+    )
+    .unwrap_err();
     assert!(matches!(error, Error::UnknownTrack { track: 1 }));
     assert_eq!(names_in(folder.path()), ["binoculars.mp4"]);
 }
@@ -462,8 +462,7 @@ fn a_zoom_for_a_track_the_video_does_not_hold_is_refused_before_any_writing() {
 fn annotated_by(fake: &Fake, source: &Source, tracks: &[Track], folder: &Path) -> Result<Rendered, Error> {
     let video = Video {
         source,
-        tracks,
-        colors: &[],
+        colored: Colored::new(tracks, &[]).unwrap(),
         config: tenth_of_a_second(),
     };
     let outputs = Outputs {
@@ -524,7 +523,14 @@ fn the_annotated_video_spaces_its_key_frames_up_to_a_second_apart_rather_than_tw
         annotated: Some(annotated.clone()),
     };
     for codecs in [&BOTH[..], &[Codec::OpenH264]] {
-        render(&source, &[], &[], &outputs, tenth_of_a_second(), codecs).unwrap();
+        render(
+            &source,
+            Colored::new(&[], &[]).unwrap(),
+            &outputs,
+            tenth_of_a_second(),
+            codecs,
+        )
+        .unwrap();
         let keys: Vec<usize> = sequential::read(&annotated).keys.iter().map(|key| key.get()).collect();
         let gaps: Vec<usize> = keys.windows(2).map(|pair| pair[1] - pair[0]).collect();
         assert_eq!(keys.first(), Some(&0), "{codecs:?}");

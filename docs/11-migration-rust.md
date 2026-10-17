@@ -2560,11 +2560,12 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - `refusals` (#267) : `.batdetect/refus.json`, les entrées refusées au dernier lancement, écrit par `.partial` et renommage ; illisible ou vide, il ne donne rien.
     - `names::results_page` : `resultats.html` / `results.html`.
 - **`render`** → `media`, `draw`, `types` (#110, #112) : les extraits, du choix
-  des images à l'écriture. `clips::render(source, pistes, couleurs, Outputs { clips, zooms },
+  des images à l'écriture. `clips::render(source, Colored, Outputs { clips, zooms },
   RenderConfig, encodeurs)` en est le point d'entrée ; `cli` l'appelle depuis #112, et
   choisit les zooms par `ZoomConfig::wants` (#103).
+  - `colored` (#287) : `Colored::new(pistes, couleurs)` réunit les pistes et leurs couleurs, construit une fois par `process` ; une tranche de couleurs vide (boîte rouge et trace jaune pour toutes) ou d'autant de couleurs que de pistes est acceptée, toute autre longueur est refusée par `Mismatch`, au lieu de retomber en silence sur la boîte rouge.
   - `drawn`, derrière la feature `testing` (tests seulement, #198) : `drawn(source,
-    pistes, couleurs, Outputs, RenderConfig)` passe par le même rendu, sur un fil, mais chaque
+    Colored, Outputs, RenderConfig)` passe par le même rendu, sur un fil, mais chaque
     encodeur est remplacé par un enregistreur qui garde l'empreinte de chaque image
     poussée, fichier par fichier. Les tests figés de `cli` s'en servent.
   - `source` : `Source::new(chemin, Timeline, images-clés, images en erreur)`, puis

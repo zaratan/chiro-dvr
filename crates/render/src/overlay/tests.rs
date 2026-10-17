@@ -6,8 +6,8 @@ use types::frame::FrameIndex;
 use types::track::Track;
 
 use super::Overlay;
+use crate::colored::Colored;
 use crate::config::RenderConfig;
-use crate::ink::inks;
 use crate::picture::Marks;
 use crate::testing::{thirty, track};
 
@@ -22,7 +22,14 @@ fn drawn(tracks: &[Track], config: RenderConfig, frame: usize) -> Canvas {
 
 fn painted(tracks: &[Track], colors: &[Option<Rgb>], config: RenderConfig, frame: usize, background: Rgb) -> Canvas {
     let typeface = Typeface::roboto().unwrap();
-    let overlay = Overlay::new(tracks, &inks(colors, tracks.len()), 10, config, thirty(), &typeface);
+    let overlay = Overlay::new(
+        tracks,
+        &Colored::new(tracks, colors).unwrap().inks(),
+        10,
+        config,
+        thirty(),
+        &typeface,
+    );
     let mut canvas = Canvas::new(WIDTH, HEIGHT, background).unwrap();
     overlay.draw(&mut canvas, FrameIndex::new(frame));
     canvas
@@ -65,7 +72,7 @@ fn a_coloured_track_has_its_box_in_its_colour_between_two_one_pixel_dark_rims() 
 #[test]
 fn a_track_without_a_colour_keeps_the_red_box_without_a_rim() {
     let tracks = [track(1, &[(0, 100.0, 150.0)]), track(2, &[(0, 300.0, 150.0)])];
-    let canvas = painted(&tracks, &[Some(PALETTE[1])], RenderConfig::default(), 0, GREY);
+    let canvas = painted(&tracks, &[Some(PALETTE[1]), None], RenderConfig::default(), 0, GREY);
     let row: Vec<Rgb> = (281..=284).map(|x| pixel(&canvas, x, 140)).collect();
     assert_eq!(row, [GREY, BOX, BOX, GREY]);
 }
@@ -229,7 +236,7 @@ fn the_zones_of_a_frame_cover_every_drawn_pixel_and_are_even_disjoint_and_inside
     let colors = [Some(PALETTE[0]), None, Some(PALETTE[5])];
     let overlay = Overlay::new(
         &tracks,
-        &inks(&colors, 3),
+        &Colored::new(&tracks, &colors).unwrap().inks(),
         10,
         RenderConfig::default(),
         thirty(),
