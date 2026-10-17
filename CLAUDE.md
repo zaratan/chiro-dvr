@@ -97,8 +97,8 @@ mise run rust:coverage    # tests rapides, couverture ≥ 95 % (dans check:ci)
 /Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:slow       # l'extrait LFS, le test de mémoire (hors couverture)
 /Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:settings   # les 16 cas de réglages, sous Linux seulement en CI
 /Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:reference  # la 092 entière
-/Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --profile ci -p compare -- local  # écarts à la référence v0.2.0, ou v0.1.1 par --reference (extract, 092, 092-1440, settings, local)
-/Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --profile ci -p compare -- local --frames B --same-as A  # mêmes détections qu'un passage --frames A, hors plages abîmées
+/Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --profile ci -p compare --bin compare -- local  # écarts à la référence v0.2.0, ou v0.1.1 par --reference (extract, 092, 092-1440, settings, local)
+/Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --profile ci -p compare --bin compare -- local --frames B --same-as A  # mêmes détections qu'un passage --frames A, hors plages abîmées
 /Users/zaratan/Projects/dvr-wt/verrou lourd cargo run --release -p bench -- VIDÉO --against DOSSIER  # garde du banc contre un banc de la v0.1.1
 BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… mise run rust:data  # référence et 26 vidéos sur une autre machine (seau, sommes dans tests/fixtures/reference/SHA256SUMS)
 ```

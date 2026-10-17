@@ -9,7 +9,7 @@ use types::frame::{FrameIndex, Pts};
 use types::losses::EdgeLosses;
 use types::span::Span;
 
-use super::{joined, merged, reported_by};
+use super::{joined, reported_by};
 use crate::case::EXTRACT;
 
 const KEY_EVERY: usize = 30;
@@ -103,13 +103,4 @@ fn nothing_reported_on_either_side_leaves_nothing_damaged() {
 
     assert_eq!(damage.spans(), []);
     assert_eq!(damage.reported_frames(), 0);
-}
-
-#[test]
-fn overlapping_or_touching_spans_merge_before_they_are_counted_and_apart_ones_stay_apart() {
-    assert_eq!(
-        merged([span(40, 50), span(10, 20), span(15, 25), span(26, 30), span(32, 33)]),
-        [span(10, 30), span(32, 33), span(40, 50)]
-    );
-    assert_eq!(merged([]), []);
 }

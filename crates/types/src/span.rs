@@ -9,6 +9,12 @@ pub struct Span {
     last: FrameIndex,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Run<T> {
+    pub span: Span,
+    pub members: Vec<T>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
     #[error("the span ends at frame {last} before it starts at frame {first}")]
@@ -67,4 +73,28 @@ impl Span {
     pub fn frame_count(self) -> usize {
         (self.last.get() - self.first.get()).saturating_add(1)
     }
+}
+
+pub fn merged(spans: impl IntoIterator<Item = Span>) -> Vec<Span> {
+    merged_by(spans, |span| *span).into_iter().map(|run| run.span).collect()
+}
+
+pub fn merged_by<T>(items: impl IntoIterator<Item = T>, span_of: impl Fn(&T) -> Span) -> Vec<Run<T>> {
+    let mut sorted: Vec<T> = items.into_iter().collect();
+    sorted.sort_by_key(|item| span_of(item).first);
+    let mut runs: Vec<Run<T>> = Vec::new();
+    for item in sorted {
+        let span = span_of(&item);
+        match runs.last_mut() {
+            Some(run) if span.first.get() <= run.span.last.get().saturating_add(1) => {
+                run.span = run.span.hull(span);
+                run.members.push(item);
+            }
+            _ => runs.push(Run {
+                span,
+                members: vec![item],
+            }),
+        }
+    }
+    runs
 }

@@ -2,7 +2,6 @@ use engine::damage::{Damage, Reports};
 use reference::frames::FrameEntry;
 use reference::video::VideoSummary;
 use types::frame::FrameIndex;
-use types::span::Span;
 
 #[cfg(test)]
 mod tests;
@@ -42,19 +41,4 @@ pub fn joined(reference: &Reports, current: &Reports, entries: &[FrameEntry], ma
         entries.len(),
         margin,
     )
-}
-
-pub fn merged(spans: impl IntoIterator<Item = Span>) -> Vec<Span> {
-    let mut sorted: Vec<Span> = spans.into_iter().collect();
-    sorted.sort_unstable();
-    let mut merged: Vec<Span> = Vec::with_capacity(sorted.len());
-    for span in sorted {
-        match merged.last_mut() {
-            Some(previous) if span.first().get() <= previous.last().get().saturating_add(1) => {
-                *previous = previous.hull(span);
-            }
-            _ => merged.push(span),
-        }
-    }
-    merged
 }
