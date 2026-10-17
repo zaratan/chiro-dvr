@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Condvar, Mutex};
 
-use reference::location::committed;
+use reference::location::{Reference, committed};
 use reference::recording::Recording;
 use tempfile::TempDir;
 
@@ -33,11 +33,15 @@ fn a_recording_folder_without_a_summary_is_reported() {
 #[test]
 fn a_recording_whose_video_is_missing_is_reported_before_any_detection() {
     let folder = TempDir::new().unwrap();
-    let mut recording = Recording::read(&committed(EXTRACT)).unwrap();
+    let mut recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
     recording.summary.video.name = "no_such_video.mp4".to_owned();
     recording.write(folder.path()).unwrap();
 
-    let missing = compare(&Case::committed(folder.path().to_str().unwrap()), &Folders::default()).unwrap_err();
+    let missing = compare(
+        &Case::committed(Reference::V011, folder.path().to_str().unwrap()),
+        &Folders::default(),
+    )
+    .unwrap_err();
 
     assert!(matches!(missing, Error::Fixture(_)));
 }
@@ -46,7 +50,7 @@ fn a_recording_whose_video_is_missing_is_reported_before_any_detection() {
 fn an_earlier_folder_without_the_frames_of_the_video_is_reported_before_the_video_is_even_looked_for() {
     let folder = TempDir::new().unwrap();
     let earlier = TempDir::new().unwrap();
-    let mut recording = Recording::read(&committed(EXTRACT)).unwrap();
+    let mut recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
     recording.summary.video.name = "no_such_video.mp4".to_owned();
     recording.write(folder.path()).unwrap();
     let folders = Folders {
@@ -54,7 +58,11 @@ fn an_earlier_folder_without_the_frames_of_the_video_is_reported_before_the_vide
         same_as: Some(earlier.path().to_path_buf()),
     };
 
-    let error = compare(&Case::committed(folder.path().to_str().unwrap()), &folders).unwrap_err();
+    let error = compare(
+        &Case::committed(Reference::V011, folder.path().to_str().unwrap()),
+        &folders,
+    )
+    .unwrap_err();
 
     assert!(matches!(
         error,
@@ -103,7 +111,7 @@ fn nothing_to_compare_gives_nothing_back() {
 
 #[test]
 fn the_detections_are_compared_at_the_frame_rate_of_the_reference() {
-    let mut recording = Recording::read(&committed(EXTRACT)).unwrap();
+    let mut recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
     let comparison = compared(
         &recording.summary.video.name,
         recording.frames.detections(),
@@ -129,7 +137,7 @@ fn the_detections_are_compared_at_the_frame_rate_of_the_reference() {
 #[test]
 fn the_detection_settings_come_from_the_recording_and_one_the_engine_refuses_stops_before_any_reading() {
     let folder = TempDir::new().unwrap();
-    let recorded = committed("settings/osd");
+    let recorded = committed(Reference::V011, "settings/osd");
     for entry in std::fs::read_dir(&recorded).unwrap() {
         let path = entry.unwrap().path();
         std::fs::copy(&path, folder.path().join(path.file_name().unwrap())).unwrap();

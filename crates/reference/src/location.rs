@@ -10,26 +10,49 @@ use crate::fixture;
 mod tests;
 
 pub const REFERENCE_DIR_VARIABLE: &str = "BATDETECT_REFERENCE_DIR";
+pub const REFERENCE_V020_DIR_VARIABLE: &str = "BATDETECT_REFERENCE_V020_DIR";
 pub const VIDEOS_DIR_VARIABLE: &str = "BATDETECT_VIDEOS_DIR";
 pub const SETTINGS_FOLDER: &str = "settings";
 pub const BENCH_FOLDER: &str = "bench";
 pub const OUTPUTS_FOLDER: &str = "outputs";
 pub const VIDEOS_FOLDER: &str = "videos";
 
-pub fn committed(name: &str) -> PathBuf {
-    fixture::fixtures().join("reference").join(name)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Reference {
+    V011,
+    V020,
 }
 
-pub fn committed_settings() -> Result<Vec<PathBuf>, Error> {
-    folders_in(&committed(SETTINGS_FOLDER))
+impl Reference {
+    fn committed_folder(self) -> &'static str {
+        match self {
+            Self::V011 => "reference",
+            Self::V020 => "reference-v0.2.0",
+        }
+    }
+
+    fn variable(self) -> &'static str {
+        match self {
+            Self::V011 => REFERENCE_DIR_VARIABLE,
+            Self::V020 => REFERENCE_V020_DIR_VARIABLE,
+        }
+    }
 }
 
-pub fn recording_directories() -> Result<Vec<PathBuf>, Error> {
-    recording_directories_under(env::var_os(REFERENCE_DIR_VARIABLE))
+pub fn committed(reference: Reference, name: &str) -> PathBuf {
+    fixture::fixtures().join(reference.committed_folder()).join(name)
 }
 
-pub fn recorded_bench(name: &str) -> Result<PathBuf, Error> {
-    bench_under(env::var_os(REFERENCE_DIR_VARIABLE), name)
+pub fn committed_settings(reference: Reference) -> Result<Vec<PathBuf>, Error> {
+    folders_in(&committed(reference, SETTINGS_FOLDER))
+}
+
+pub fn recording_directories(reference: Reference) -> Result<Vec<PathBuf>, Error> {
+    recording_directories_under(env::var_os(reference.variable()), reference.variable())
+}
+
+pub fn recorded_bench(reference: Reference, name: &str) -> Result<PathBuf, Error> {
+    bench_under(env::var_os(reference.variable()), reference.variable(), name)
 }
 
 pub fn recorded_outputs(language: &str, name: &str) -> Result<PathBuf, Error> {
@@ -67,8 +90,8 @@ fn existing(path: PathBuf) -> Result<PathBuf, Error> {
     }
 }
 
-fn bench_under(root: Option<OsString>, name: &str) -> Result<PathBuf, Error> {
-    Ok(folder(root, REFERENCE_DIR_VARIABLE)?.join(BENCH_FOLDER).join(name))
+fn bench_under(root: Option<OsString>, variable: &'static str, name: &str) -> Result<PathBuf, Error> {
+    Ok(folder(root, variable)?.join(BENCH_FOLDER).join(name))
 }
 
 fn outputs_under(root: Option<OsString>, language: &str, name: &str) -> Result<PathBuf, Error> {
@@ -78,8 +101,8 @@ fn outputs_under(root: Option<OsString>, language: &str, name: &str) -> Result<P
         .join(name))
 }
 
-fn recording_directories_under(root: Option<OsString>) -> Result<Vec<PathBuf>, Error> {
-    folders_in(&folder(root, REFERENCE_DIR_VARIABLE)?.join("data"))
+fn recording_directories_under(root: Option<OsString>, variable: &'static str) -> Result<Vec<PathBuf>, Error> {
+    folders_in(&folder(root, variable)?.join("data"))
 }
 
 fn folders_in(parent: &Path) -> Result<Vec<PathBuf>, Error> {

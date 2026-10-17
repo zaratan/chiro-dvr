@@ -10,7 +10,7 @@ use compare::report::write_report;
 use compare::tracks::TrackCounts;
 use reference::detection_matching::match_detections;
 use reference::frames::Frames;
-use reference::location::committed;
+use reference::location::{Reference, committed};
 use reference::recording::Recording;
 use tempfile::TempDir;
 use types::detection::{FrameDetections, Measures};
@@ -29,7 +29,7 @@ fn run() -> &'static Run {
     static RUN: OnceLock<Run> = OnceLock::new();
     RUN.get_or_init(|| {
         let folder = TempDir::new_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
-        let cases = Target::Settings.cases().unwrap();
+        let cases = Target::Settings.cases(Reference::V011).unwrap();
         let folders = Folders {
             frames: Some(folder.path().to_path_buf()),
             same_as: None,
@@ -129,7 +129,7 @@ fn sigma_0_and_window_2s_agree_below_the_coloured_display_whose_gray_the_table_d
 
 #[cfg(test)]
 fn agrees_below_the_display_band(case: &str) {
-    let recording = Recording::read(&committed(&format!("settings/{case}"))).unwrap();
+    let recording = Recording::read(&committed(Reference::V011, &format!("settings/{case}"))).unwrap();
     let rust = Frames::read(&frames_path(&run().written, case)).unwrap();
     let summary = &recording.summary;
     let ignored: Vec<Span> = summary

@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use reference::fixture::fixture;
-use reference::location::{committed, committed_settings, recorded_video, recording_directories};
+use reference::location::{Reference, committed, committed_settings, recorded_video, recording_directories};
 
 use crate::error::Error;
 
@@ -35,21 +35,24 @@ enum Place {
 }
 
 impl Target {
-    pub fn cases(self) -> Result<Vec<Case>, Error> {
+    pub fn cases(self, reference: Reference) -> Result<Vec<Case>, Error> {
         Ok(match self {
-            Self::Extract => vec![Case::committed(EXTRACT)],
-            Self::Whole => vec![Case::committed(WHOLE)],
-            Self::WholeAt1440 => vec![Case::setting(committed(WHOLE_AT_1440))],
-            Self::Settings => committed_settings()?.into_iter().map(Case::setting).collect(),
-            Self::Recorded => recording_directories()?.into_iter().map(Case::recorded).collect(),
+            Self::Extract => vec![Case::committed(reference, EXTRACT)],
+            Self::Whole => vec![Case::committed(reference, WHOLE)],
+            Self::WholeAt1440 => vec![Case::setting(committed(reference, WHOLE_AT_1440))],
+            Self::Settings => committed_settings(reference)?.into_iter().map(Case::setting).collect(),
+            Self::Recorded => recording_directories(reference)?
+                .into_iter()
+                .map(Case::recorded)
+                .collect(),
         })
     }
 }
 
 impl Case {
-    pub fn committed(name: &str) -> Self {
+    pub fn committed(reference: Reference, name: &str) -> Self {
         Self {
-            recording: committed(name),
+            recording: committed(reference, name),
             place: Place::Fixtures,
         }
     }

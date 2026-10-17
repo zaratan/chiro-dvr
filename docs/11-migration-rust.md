@@ -1377,9 +1377,9 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     fichier, sans réseau, avec `preload="none"` sur le seul lecteur de chaque vidéo.
 - **`reference`** → `types` : la référence v0.1.1 en Rust. Gelée pendant le lot 6
   (#124), comme `types`.
-  - `fixture` : chemins des fixtures et garde LFS. `location` : `committed(nom)` pour
-    l'extrait et la 092 du dépôt, `recording_directories()` pour les dossiers `data/*`
-    de `BATDETECT_REFERENCE_DIR`, triés par nom ; une variable absente ou vide est
+  - `fixture` : chemins des fixtures et garde LFS. `location` : `committed(référence, nom)` pour
+    l'extrait et la 092 du dépôt, `recording_directories(référence)` pour les dossiers `data/*`
+    de la variable de la référence, triés par nom ; une variable absente ou vide est
     refusée. `recorded_video(nom)` trouve le `.mp4` d'un enregistrement par son nom
     (`video.name` de `video.json`) dans le dossier de `BATDETECT_VIDEOS_DIR` (sur le Mac
     de l'enregistrement : `~/dossier sans titre/img_0000/`), avec le même refus d'une
@@ -1389,9 +1389,15 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     longueur, vérifiée par `Frames::new`),
     `tracks`, `table` (CSV, fins de ligne CRLF, flottants à l'écriture la plus courte).
     `recording` les réunit et donne la `Timeline`. Un nom en `.gz` est compressé
-    (gzip sans nom ni date) ; les sections sans type de `video.json` (décodeur, réglages,
+    (gzip sans nom ni date) ; les sections sans type de `video.json` (`opencv`, réglages,
     versions) sont gardées telles quelles dans `recorded`. Relus puis réécrits, les
     fichiers redonnent les mêmes valeurs.
+  - Deux versions du format de `video.json` (#274), pour la référence v0.2.0 du Rust (#250) :
+    - La version 1 est celle de la v0.1.1 : un bloc `ffprobe` et un `tracks.csv`.
+    - La version 2 remplace `ffprobe` par `decoder`, ce que voit `media` : `error_frames`, `gap_frames`, `losses` (`before_first`, `after_last`) et `threads`. Ces pertes au bord ouvrent une plage abîmée, et `frames.jsonl` ne les garde pas (#176). `threads` (`DecoderThreads`, comme `media::decode::ActiveThreads`) vaut `{"kind": "single"}`, ou `{"kind": "frame"|"slice", "count": n}` avec n ≥ 1 : le nombre de fils change ce que le décodeur dissimule dans les plages abîmées. Un nombre nul, un genre inconnu ou un nombre sur `single` sont refusés à la lecture. La version 2 n'a pas de `tracks.csv` : le CSV du Rust (13 colonnes, en-têtes Fluent de `cli`) ne s'écrirait pas depuis `compare`, qui enregistrera la référence, sans faire de cycle avec `cli`.
+    - `VideoSummary::read` refuse toute autre version, avant de lire les champs. `read` et `write` refusent aussi un résumé dont les blocs ne sont pas ceux de sa version (`MissingSection`, `ForeignSection`), et `write` le fait avant d'écrire.
+    - `Recording` donne `rows` en `Option`. Il refuse d'écrire des lignes sans nom de fichier, ou l'inverse (`TableWithoutFile`), avant d'écrire le moindre fichier.
+    - `location::Reference` (`V011`, `V020`) choisit le dossier du dépôt (`tests/fixtures/reference/` ou `tests/fixtures/reference-v0.2.0/`) et la variable des données hors dépôt (`BATDETECT_REFERENCE_DIR` ou `BATDETECT_REFERENCE_V020_DIR`). `committed`, `committed_settings`, `recording_directories` et `recorded_bench` prennent la référence, comme `compare::case::Target::cases` et `Case::committed`. Toutes les gardes lisent encore `V011` ; elles passent à la v0.2.0 à #276 et #277.
   - Pas d'affirmation « points d'une piste ⊂ détections » : les points des pistes
     jumelles fusionnées sont combinés (17 sur 358 dans l'extrait, 63 sur 610 dans la
     092).

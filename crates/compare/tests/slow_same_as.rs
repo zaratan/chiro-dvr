@@ -13,7 +13,7 @@ use engine::settings::DetectSettings;
 use media::decode::{ActiveThreads, Threads};
 use reference::fixture::fixture;
 use reference::frames::Frames;
-use reference::location::committed;
+use reference::location::{Reference, committed};
 use reference::recording::Recording;
 use tempfile::TempDir;
 use types::detection::{FrameDetections, Measures};
@@ -46,7 +46,7 @@ fn damaged_extract(folder: &Path) -> PathBuf {
 
 #[cfg(test)]
 fn detected(path: &Path, threads: Threads) -> Detected {
-    let recording = Recording::read(&committed(EXTRACT)).unwrap();
+    let recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
     let settings: DetectSettings = recording.summary.detect_settings().unwrap();
     detect(path, threads, &DetectConfig::try_from(&settings).unwrap()).unwrap()
 }
