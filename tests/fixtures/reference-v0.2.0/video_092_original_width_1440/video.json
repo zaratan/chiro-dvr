@@ -1,0 +1,77 @@
+{
+  "format_version": 2,
+  "reference": "v0.2.0",
+  "video": {
+    "name": "video_092_original.mp4",
+    "bytes": 454104980,
+    "sha256": "64d692966a662933d45d37f9c8de3b852765a93f17adafb5548b8b155b0a0af9"
+  },
+  "stream": {
+    "width": 1440,
+    "height": 1080,
+    "r_frame_rate": "10000/333",
+    "avg_frame_rate": "90110000/3000927",
+    "time_base": "1/10000",
+    "nb_frames": "9011"
+  },
+  "decoder": {
+    "error_frames": [],
+    "gap_frames": [],
+    "losses": {
+      "before_first": 0,
+      "after_last": 0
+    },
+    "threads": {
+      "kind": "frame",
+      "count": 13
+    }
+  },
+  "background_half_window": 15,
+  "damaged_spans": [],
+  "unstable_spans": [],
+  "counts": {
+    "frames": 9011,
+    "detections": 753,
+    "detections_kept": 753,
+    "damaged_frames_reported": 0,
+    "tracks": 14,
+    "track_points": 617
+  },
+  "files": {
+    "frames": "frames.jsonl.gz",
+    "tracks": "tracks.jsonl"
+  },
+  "config": {
+    "DetectConfig": {
+      "bg_step": 3,
+      "bg_window_s": 1.0,
+      "max_area": 2700.0,
+      "merge_radius": 6.0,
+      "min_area": 4.0,
+      "noise_factor": 8.0,
+      "osd_regions": [],
+      "target_sigma": 1.5,
+      "threshold": 12.0,
+      "work_width": 1440
+    },
+    "StabilityConfig": {
+      "max_blobs": 20,
+      "pad_s": 1.0
+    },
+    "TrackConfig": {
+      "max_gap": 6,
+      "max_jump": 120.0,
+      "max_median_turn": 0.8,
+      "min_hits": 6,
+      "min_travel": 45.0,
+      "twin_distance": 36.0
+    }
+  },
+  "versions": {
+    "batdetect": "0.2.0-28-g1e4cf6b",
+    "commit": "1e4cf6bbb6bb35ec0e5b60334f78a15c9dc9e021",
+    "ffmpeg": "7.1.1-e864b95369435048",
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+    "system": "linux-x86_64"
+  }
+}

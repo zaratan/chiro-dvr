@@ -1,7 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use reference::fixture::fixture;
-use reference::location::{Reference, committed, committed_settings, recorded_video, recording_directories};
+use reference::location::{
+    DATA_FOLDER, Reference, SETTINGS_FOLDER, committed, committed_settings, recorded_video, recording_directories,
+};
 
 use crate::error::Error;
 
@@ -79,6 +81,19 @@ impl Case {
         match (self.place, self.recording.file_name()) {
             (Place::Settings, Some(folder)) => folder.to_string_lossy().into_owned(),
             _ => video.to_owned(),
+        }
+    }
+
+    /// The folder of this recording under the root of its reference, `settings/` or `data/` kept.
+    pub fn folder(&self) -> PathBuf {
+        let name = self.recording.file_name().unwrap_or_default();
+        let parent = self.recording.parent().and_then(Path::file_name);
+        match self.place {
+            Place::Recordings => Path::new(DATA_FOLDER).join(name),
+            Place::Settings if parent.is_some_and(|parent| parent == SETTINGS_FOLDER) => {
+                Path::new(SETTINGS_FOLDER).join(name)
+            }
+            Place::Fixtures | Place::Settings => PathBuf::from(name),
         }
     }
 

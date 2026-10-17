@@ -174,7 +174,7 @@ de `bats.jsonl.gz`.
 En Rust (#100), `reference::bench` lit et écrit `bats.jsonl.gz` (`TargetLine`), les lignes
 `{frame, detections}` d'`injected.jsonl.gz` et `bench.json` (`BenchReport`) ;
 `reference::location::recorded_bench(nom)` donne `$BATDETECT_REFERENCE_DIR/bench/<nom>/`. Les tests
-`local_injection`, `local_metrics` et `local_guard` de `bench` lisent les deux bancs, et
+`local_injection` et `local_guard` de `bench` lisent les deux bancs (`local_metrics` aussi, jusqu'à #277), et
 `batdetect-bench VIDÉO --against DOSSIER` rejoue un banc pour la garde (docs/11, « Banc de
 mesure »). `bench-run.json` n'est pas relu.
 

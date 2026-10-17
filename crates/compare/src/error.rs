@@ -38,6 +38,20 @@ pub enum Error {
         expected: usize,
         found: usize,
     },
+    #[error("{video}: media reads a stream of {found}, the v0.1.1 recorded {expected}")]
+    Stream {
+        video: String,
+        expected: String,
+        found: String,
+    },
+    #[error("{} would be written over {}, which holds a reference or the earlier pass", out.display(), protected.display())]
+    Overlap { out: PathBuf, protected: PathBuf },
+    #[error("{video}: cannot write the settings and versions of the recording")]
+    Section {
+        video: String,
+        #[source]
+        source: serde_json::Error,
+    },
     #[error("cannot create {}", path.display())]
     Folder {
         path: PathBuf,
