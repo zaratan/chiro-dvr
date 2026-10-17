@@ -3,6 +3,7 @@ too-many-tracks = { $video }: { $count } tracks, above { $limit }: { $annotated 
        *[no] no clips, no summary image
     }
 clips-redone = { $video }: { $names } written again with openh264 after a VideoToolbox error: { $causes }
+hardware-silent = VideoToolbox did not answer within { $seconds } s: the clips are written with openh264 until the end of this run
 video-step = [{ $position }/{ $total }] { $video } — { $step ->
         [detection] detection
         [tracking] tracking

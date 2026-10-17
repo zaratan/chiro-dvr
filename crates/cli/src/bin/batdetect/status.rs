@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Instant;
 
 use batdetect::eta::Evening;
@@ -9,6 +9,7 @@ use batdetect::options::Options;
 use batdetect::outcome::{Failure, Ran, Rank};
 use batdetect::progress::{Progress, Step};
 use jiff::{SignedDuration, Zoned};
+use media::encode::bounded::VIDEOTOOLBOX_START_LIMIT;
 
 use crate::messages::{self, Homonyms};
 use crate::texts::{Message, Texts};
@@ -27,6 +28,8 @@ pub(crate) struct Status {
     total: usize,
     resumes: bool,
     columns: fn() -> Option<usize>,
+    silent: fn() -> bool,
+    told_silence: AtomicBool,
     pace: Mutex<Pace>,
     homonyms: Homonyms,
 }
@@ -47,6 +50,10 @@ const fn unmeasured() -> Option<usize> {
     None
 }
 
+const fn answering() -> bool {
+    false
+}
+
 impl Status {
     pub(crate) const fn new(texts: Texts, terminal: bool, total: usize) -> Self {
         Self {
@@ -57,6 +64,8 @@ impl Status {
             total,
             resumes: true,
             columns: unmeasured,
+            silent: answering,
+            told_silence: AtomicBool::new(false),
             pace: Mutex::new(Pace {
                 evening: Evening::new(Vec::new()),
                 entered: None,
@@ -74,6 +83,10 @@ impl Status {
 
     pub(crate) fn fitted_to(self, columns: fn() -> Option<usize>) -> Self {
         Self { columns, ..self }
+    }
+
+    pub(crate) fn hearing(self, silent: fn() -> bool) -> Self {
+        Self { silent, ..self }
     }
 
     pub(crate) fn timed(self, evening: Evening) -> Self {
@@ -123,6 +136,11 @@ impl Status {
     fn finish_after(&self, rank: Rank) -> Option<Zoned> {
         let left_s = self.pace.lock().ok()?.evening.left_after(rank.position)?;
         finish_in(left_s)
+    }
+
+    fn silence_to_tell(&self) -> Option<Message> {
+        let newly = (self.silent)() && !self.told_silence.swap(true, Ordering::Relaxed);
+        newly.then(|| messages::hardware_silent(VIDEOTOOLBOX_START_LIMIT))
     }
 
     pub(crate) fn interrupted(&self, out: &mut impl Write) -> io::Result<()> {
@@ -226,11 +244,17 @@ impl Video<'_> {
                 for redone in &processed.rendered.redone {
                     say(&messages::redone(job, &redone.paths, &redone.cause))?;
                 }
+                if let Some(silence) = self.status.silence_to_tell() {
+                    say(&silence)?;
+                }
                 self.last_line(err, &messages::video_done(rank, self.name(), processed.tracks.len()))
             }
             Err(failure) => {
                 for message in messages::failure_lines(job, failure, options) {
                     say(&message)?;
+                }
+                if let Some(silence) = self.status.silence_to_tell() {
+                    say(&silence)?;
                 }
                 self.last_line(err, &messages::video_failed(rank, self.name(), failure))
             }
