@@ -16,7 +16,7 @@ use crate::sheet::{self, Spoken};
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 74;
+const VARIANTS: usize = 75;
 const FIXED: [Fixed; 98] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
@@ -194,6 +194,7 @@ fn rank(message: &Message) -> usize {
         Message::DoctorUnwritable { .. } => 71,
         Message::DoctorProblems { .. } => 72,
         Message::Finish { .. } => 73,
+        Message::HardwareSilent { .. } => 74,
     }
 }
 
@@ -382,6 +383,7 @@ fn video_lines() -> Vec<Message> {
             count: 1,
             causes: text("the encoder failed"),
         },
+        Message::HardwareSilent { seconds: 10 },
         Message::VideoStep {
             rank: Rank { position: 3, total: 12 },
             video: text("video_092"),

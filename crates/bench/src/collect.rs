@@ -77,7 +77,7 @@ pub fn collect(video: &Path, threads: Threads, config: &DetectConfig, targets: T
                 described.rate,
                 stability,
             );
-            let tracks = track_detections(&excluded.detections, track).map_err(Error::Tracking)?;
+            let tracks = track_detections(&excluded, described.size, track).map_err(Error::Tracking)?;
             let drawn = random_targets(&sampling, described.scene(), frames, &Occupancy::of_tracks(&tracks));
             let provenance = Provenance::Drawn {
                 sampling,

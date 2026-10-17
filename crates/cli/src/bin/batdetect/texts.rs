@@ -264,6 +264,9 @@ pub(crate) enum Message {
         count: usize,
         causes: String,
     },
+    HardwareSilent {
+        seconds: u64,
+    },
     VideoStep {
         rank: Rank,
         video: String,
@@ -534,6 +537,7 @@ impl Message {
             Self::Fixed(fixed) => fixed.id(),
             Self::TooManyTracks { .. } => "too-many-tracks",
             Self::ClipsRedone { .. } => "clips-redone",
+            Self::HardwareSilent { .. } => "hardware-silent",
             Self::VideoStep { .. } => "video-step",
             Self::VideoDone { .. } => "video-done",
             Self::VideoSkipped { .. } => "video-skipped",
@@ -633,6 +637,7 @@ impl Message {
                 arguments.set("count", *count);
                 arguments.set("causes", causes.as_str());
             }
+            Self::HardwareSilent { seconds } => arguments.set("seconds", *seconds),
             Self::VideoStep { rank, video, step } => {
                 ranked(&mut arguments, *rank, video);
                 arguments.set("step", step_name(*step));
@@ -877,6 +882,7 @@ impl Message {
             | Self::OptionRefused { .. }
             | Self::TooManyTracks { .. }
             | Self::ClipsRedone { .. }
+            | Self::HardwareSilent { .. }
             | Self::VideoStep { .. }
             | Self::VideoDone { .. }
             | Self::VideoSkipped { .. }
@@ -1072,10 +1078,6 @@ impl Texts {
 
     pub(crate) fn fixed(self, value: f64, places: usize) -> String {
         self.grouped(format!("{value:.places$}"))
-    }
-
-    pub(crate) fn decimal(self, written: &str) -> String {
-        self.grouped(written)
     }
 
     pub(crate) fn text(self, fixed: Fixed) -> String {

@@ -40,11 +40,11 @@ const ZOOMED_FOUR_TIMES_ZOOM: Frozen = Frozen {
 };
 const SHORT_TRACK_CLIP: Frozen = Frozen {
     frames: 96,
-    fingerprint: 1_937_987_640_463_464_267,
+    fingerprint: 10_990_300_987_943_497_459,
 };
 const INTERPOLATED_BOX_CLIP: Frozen = Frozen {
     frames: 270,
-    fingerprint: 12_035_696_209_842_176_890,
+    fingerprint: 980_471_138_442_225_676,
 };
 const CROWDED_097: [(&str, u64); 8] = [
     ("video_097_resume_1_sur_8.png", 3_016_591_617_919_252_239),

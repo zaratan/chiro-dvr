@@ -143,18 +143,30 @@ fn a_target_on_a_saturated_sky_is_left_out_rather_than_missed() {
 }
 
 #[test]
-fn a_track_split_by_a_long_gap_counts_as_two_fragments() {
+fn a_track_split_by_a_gap_longer_than_max_gap_counts_as_two_fragments_unless_rejoined() {
     let target = along(0, 10, 30, Y);
     let detections = without(on(&target), &(20..28).collect::<Vec<_>>());
+    let unjoined = Judging {
+        track: TrackConfig::default().without_rejoin(),
+        ..settings()
+    };
+    let fragments = |judging| {
+        evaluate(
+            &run(
+                vec![observed(target.clone(), -40.0)],
+                detections.clone(),
+                Vec::new(),
+                Vec::new(),
+            ),
+            judging,
+        )
+        .unwrap()
+        .targets[0]
+            .fragments
+    };
 
-    let result = evaluate(
-        &run(vec![observed(target, -40.0)], detections, Vec::new(), Vec::new()),
-        settings(),
-    )
-    .unwrap()
-    .targets[0];
-
-    assert_eq!(result.fragments, 2);
+    assert_eq!(fragments(unjoined), 2);
+    assert_eq!(fragments(settings()), 1);
 }
 
 #[test]

@@ -30,7 +30,7 @@ renvoie au suivi du défaut ; une ligne sans numéro est une limite de principe.
 | Ce que vous voyez | Ce qui a pu se passer | Quoi faire |
 | --- | --- | --- |
 | Une piste s'arrête net dans le ciel, ou une partie du ciel n'a aucune piste | Le ciel est d'une seule teinte uniforme, tout noir sur vos vidéos : une chauve-souris sombre s'y confond, et rien ne signale cette zone ([« Un seuil propre à chaque endroit »][techniques]) | Revoir la vidéo d'origine là où la piste s'arrête, et ne pas lire ce ciel comme vide ([#9]) |
-| Deux pistes qui se suivent, la seconde repartant là où la première s'arrête | La cible a disparu trop longtemps et le vol a été coupé en deux ([« Le suivi image par image »][techniques]) | Regarder les deux extraits : si c'est le même animal, c'est un seul passage ([#24]) |
+| Deux pistes qui se suivent, la seconde repartant là où la première s'arrête | La chauve-souris a disparu plusieurs secondes, elle est sortie de l'image puis revenue, ou elle a beaucoup changé de direction pendant qu'elle était cachée : l'outil ne recolle que les disparitions de moins d'une seconde, derrière un buisson par exemple, quand le vol reprend là où on l'attend ([« Le recollage »][techniques]) | Regarder les deux extraits : si c'est le même animal, c'est un seul passage |
 | Une piste qui commence au tout début ou finit à la toute fin d'un clip | Le vol continue dans le clip voisin, traité séparément ; et la scène sans animal y est estimée sur moins d'images, donc la détection y est moins sûre ([« La scène sans animal »][techniques]) | Ouvrir la fin du clip précédent ou le début du suivant : un vol à cheval sur deux clips est un seul passage ([#11]) |
 | Un animal posé, en vol stationnaire, très lent ou qui tourne sur place, sans piste | Il s'est fondu dans le décor, ou son trajet n'a pas été reconnu comme un vol ([« La scène sans animal »][techniques], [« Ressembler à un vol »][techniques]) | Revoir la vidéo d'origine : l'outil voit mal ces animaux ([#22]) |
 | Une cible faible, petite ou lointaine, ou qui passe devant de la végétation qui bouge, que vous suivez à l'œil, sans piste | Sur aucune image, ou sur trop peu, elle ne se détache assez du fond : votre œil additionne plusieurs images, l'outil décide image par image ([« Le filtre à la taille de la cible »][techniques], [« Un seuil propre à chaque endroit »][techniques], [« Les taches »][techniques]) | Noter son temps et la compter vous-même : c'est un passage que l'outil a manqué ([#23]) |
@@ -75,7 +75,7 @@ Ce qu'elle montre, de haut en bas :
 
 En haut de la page, une barre reste visible quand on fait défiler : le décompte des verdicts de la soirée (oui, non, doute, à voir), l'état des verdicts, et les boutons « Télécharger les verdicts » et « Recharger un fichier de verdicts… » ([Noter le verdict](#noter-le-verdict)).
 
-Dans une section, l'image résumé et la liste des pistes. Chaque piste a son numéro, de la couleur de sa trajectoire sur l'image, son début, sa durée, son verdict (« à voir » tant qu'il n'est pas donné) et l'espèce notée, et une étiquette « Zoom » quand l'extrait zoomé existe. L'en-tête de la vidéo dit combien de ses pistes sont jugées. Une vidéo qui n'a ni extrait ni image résumé, comme une vidéo à trop de pistes, ne se juge pas dans la page : ses pistes sont listées avec leur numéro, leur début et leur durée seulement, et ne comptent pas dans « à voir » ; un verdict noté sur elles lors d'un calcul précédent n'y est pas montré, mais il compte dans le décompte du haut et reste dans le fichier de verdicts.
+Dans une section, l'image résumé et la liste des pistes. Chaque piste a son numéro, de la couleur de sa trajectoire sur l'image, son début, écrit partout dans la page comme dans le tableau des pistes (« 0:00:51 »), sa durée, son verdict (« à voir » tant qu'il n'est pas donné) et l'espèce notée, et une étiquette « Zoom » quand l'extrait zoomé existe. L'en-tête de la vidéo dit combien de ses pistes sont jugées. Une vidéo qui n'a ni extrait ni image résumé, comme une vidéo à trop de pistes, ne se juge pas dans la page : ses pistes sont listées avec leur numéro, leur début et leur durée seulement, et ne comptent pas dans « à voir » ; un verdict noté sur elles lors d'un calcul précédent n'y est pas montré, mais il compte dans le décompte du haut et reste dans le fichier de verdicts.
 
 L'image de la page est redessinée par la page elle-même : sur la scène de la vidéo, sans aucune trace, elle trace les trajectoires, les flèches et les pastilles numérotées aux places que l'outil a choisies pour l'image résumé. Les traits gardent la même épaisseur quelle que soit la taille de l'image, et les numéros sont écrits dans la police de l'ordinateur ; l'image redessinée peut donc différer très légèrement de l'image résumé.
 
@@ -164,7 +164,6 @@ dossier reste tel quel, et le bilan la compte « déjà faite » avec ses chiffr
 [#15]: https://github.com/zaratan/chiro-dvr/issues/15
 [#22]: https://github.com/zaratan/chiro-dvr/issues/22
 [#23]: https://github.com/zaratan/chiro-dvr/issues/23
-[#24]: https://github.com/zaratan/chiro-dvr/issues/24
 [#25]: https://github.com/zaratan/chiro-dvr/issues/25
 [#26]: https://github.com/zaratan/chiro-dvr/issues/26
 [#27]: https://github.com/zaratan/chiro-dvr/issues/27
@@ -271,7 +270,7 @@ image. Le regarder d'abord en entier, puis image par image là où la cible pass
 Si la cible est petite ou faible, un second fichier l'accompagne, `piste_01_0m04s_zoom.mp4` :
 la même scène recadrée autour du trajet, agrandie jusqu'à quatre fois et ralentie quatre fois.
 Par défaut, il n'existe que pour les pistes dont la plus grande tache fait moins de 100 px
-ou dont l'amplitude est sous 40 ; `--zoom all` en fait un pour chaque piste, `--zoom none` aucun
+ou dont l'amplitude est sous 40. Quand l'outil a recollé une piste après un passage derrière la végétation, elle a son zoom si l'un des morceaux, seul, l'aurait eu : le morceau net ne fait pas perdre le zoom au morceau faible. `--zoom all` en fait un pour chaque piste, `--zoom none` aucun
 ([docs/02](02-methode.md#extrait-zoomé-et-ralenti)). Le regarder après l'extrait normal : une
 cible de 3:42 sur la 092, jugée fausse à vitesse normale, s'est révélée un objet réel une fois
 agrandie et ralentie dans un lecteur ; c'est de là que vient le zoom.
@@ -325,7 +324,7 @@ La page ne peut pas écrire sur le disque : elle garde les verdicts dans un fic
 
 Tant que le fichier n'est pas téléchargé, la barre le dit (« Changements non téléchargés »), et le navigateur demande confirmation avant de quitter la page. Le navigateur garde aussi les verdicts non téléchargés : en rouvrant la page, on les retrouve, et la page le signale. « Recharger un fichier de verdicts… » relit un fichier choisi, par exemple celui resté dans Téléchargements.
 
-Un nouveau calcul ne touche jamais au fichier de verdicts. Chaque verdict retrouve sa piste par son début (à un cinquième de seconde près) et son point de départ sur l'image, même si les numéros ont changé. Un verdict dont la piste n'existe plus est montré au-dessus de la liste de sa vidéo, « Verdicts sans piste », avec la piste la plus proche à vérifier sur l'extrait ; il reste dans le fichier. Le tableau des pistes, `<vidéo>_pistes.csv`, appartient à l'outil : un recalcul le remplace, et ce qu'on y aurait écrit est perdu.
+Un nouveau calcul ne touche jamais au fichier de verdicts. Chaque verdict retrouve sa piste par son début (à un cinquième de seconde près) et son point de départ sur l'image, même si les numéros ont changé. Un verdict dont la piste n'existe plus est montré au-dessus de la liste de sa vidéo, « Verdicts sans piste », avec la piste la plus proche à vérifier sur l'extrait, ou dans la vidéo elle-même quand elle n'a pas d'extrait ; il reste dans le fichier. Le tableau des pistes, `<vidéo>_pistes.csv`, appartient à l'outil : un recalcul le remplace, et ce qu'on y aurait écrit est perdu.
 
 ### Une piste de trop vaut mieux qu'un passage manqué
 
@@ -344,6 +343,7 @@ relecture de Manon.
 | Un objet qui se déplace lentement et régulièrement, sur plusieurs secondes | La piste de 3:29 sur la 092, que Manon a écartée. C'est la piste 1 de l'extrait de test (0:00:04, 95 px/s, contre 1 383 à 1 926 px/s pour les trois chauves-souris) : voir l'image ci-dessous | [docs/03](03-resultats-092.md#verdict-de-manon-9-octobre-2026) |
 | Une piste courte qui change de direction au hasard, sur une vidéo au grain fort | Le scintillement de pixels isolés que le suivi enchaîne : 96 pistes sur la 089 avant les deux filtres qui le visent, qui en écartent 92 | [docs/02](02-methode.md#7-filtres-finaux) |
 | Une piste sur une image abîmée (blocs, morceaux d'image décalés) | Sur la 122, avant la marge autour des images abîmées : 4 pistes collées aux plages illisibles | [docs/10](10-logique-de-detection.md#5-bis-écarter-les-images-que-le-décodeur-a-réparées), [Ce que l'outil ne voit pas](#ce-que-loutil-ne-voit-pas) |
+| Une piste avec un trou, qui repart ailleurs : peut-être deux animaux | Pas encore vu sur une vraie vidéo. Sur des vols fabriqués pour l'essai, deux animaux qui se suivaient au même endroit, à une demi-seconde d'écart, ont été réunis en une seule piste | [docs/10](10-logique-de-detection.md#9-bis-recoller-un-vol-caché-derrière-la-végétation) |
 
 D'autres cas sont possibles, sans qu'aucun ait encore été relevé sur ces vidéos : un insecte,
 un oiseau, ou une feuille agitée par le vent, dont un pixel passe encore parfois le seuil
@@ -471,7 +471,7 @@ réglage de détection ou de suivi peut changer les pistes trouvées et leurs nu
 La surface de la plus grande tache de la piste, comptée en pixels de la vidéo d'origine qui
 se détachent du fond, dans le tableau des pistes
 ([docs/10](10-logique-de-detection.md#5-regrouper-les-pixels-en-taches)). Elle dépend de la
-distance et du contraste de l'animal autant que de sa taille.
+distance et du contraste de l'animal autant que de sa taille. Une piste qui a été cachée en cours de vol, par exemple derrière la végétation, garde son extrait zoomé si une de ses parties est petite ou pâle, même si cette colonne montre une grande tache.
 
 ### Verdict
 

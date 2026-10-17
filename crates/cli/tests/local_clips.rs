@@ -19,6 +19,7 @@ use types::track::Track;
 const RECORDED_VIDEOS: usize = 26;
 const DAMAGED: [(&str, usize); 3] = [("video_103", 0), ("video_123", 0), ("video_124", 0)];
 type Frames = (usize, usize);
+type Diverging = (String, usize, usize, usize, usize);
 
 #[derive(Debug)]
 struct Engine {
@@ -111,9 +112,10 @@ fn groups_over_damaged_spans_serve_the_pixels_of_a_single_threaded_reading_from_
 
 #[test]
 #[ignore = "local"]
-fn the_windows_of_the_twenty_six_videos_differ_from_those_of_the_v020_tracks_by_their_frozen_counts() {
+fn the_windows_of_the_twenty_six_videos_keep_their_gaps_to_those_of_the_v020_tracks_frozen_where_weak_detections_complete_or_rejoin_flights()
+ {
     let mut videos = Vec::new();
-    let mut diverging = Vec::new();
+    let mut diverging: Vec<Diverging> = Vec::new();
     for directory in recording_directories(Reference::V020).unwrap() {
         let recording = Recording::read(&directory).unwrap();
         let name = Path::new(&recording.summary.video.name)
@@ -138,34 +140,34 @@ fn the_windows_of_the_twenty_six_videos_differ_from_those_of_the_v020_tracks_by_
             theirs.len()
         );
         if ours != theirs {
-            diverging.push((name.clone(), added.len(), missing.len()));
+            diverging.push((name.clone(), ours.len(), theirs.len(), added.len(), missing.len()));
         }
         videos.push(name);
     }
 
     assert_eq!(videos.len(), RECORDED_VIDEOS, "{videos:?}");
-    let found: Vec<(&str, usize, usize)> = diverging
+    let diverging: Vec<(&str, usize, usize, usize, usize)> = diverging
         .iter()
-        .map(|(name, added, missing)| (name.as_str(), *added, *missing))
+        .map(|(name, ours, theirs, added, missing)| (name.as_str(), *ours, *theirs, *added, *missing))
         .collect();
     assert_eq!(
-        found,
+        diverging,
         [
-            ("video_090", 5, 5),
-            ("video_091", 1, 1),
-            ("video_093", 1, 0),
-            ("video_094", 2, 2),
-            ("video_095", 2, 0),
-            ("video_096", 10, 7),
-            ("video_097", 8, 4),
-            ("video_098", 10, 4),
-            ("video_099", 7, 2),
-            ("video_100", 5, 1),
-            ("video_101", 2, 2),
-            ("video_102", 2, 0),
-            ("video_103", 1, 1),
-            ("video_121", 1, 0),
-            ("video_125", 2, 1),
+            ("video_090", 20, 20, 5, 5),
+            ("video_091", 21, 21, 1, 1),
+            ("video_093", 4, 6, 3, 5),
+            ("video_094", 13, 14, 3, 4),
+            ("video_095", 66, 78, 11, 23),
+            ("video_096", 123, 136, 22, 35),
+            ("video_097", 135, 149, 16, 30),
+            ("video_098", 129, 131, 16, 19),
+            ("video_099", 115, 117, 14, 16),
+            ("video_100", 97, 98, 10, 11),
+            ("video_101", 31, 32, 3, 4),
+            ("video_102", 35, 36, 3, 4),
+            ("video_103", 10, 10, 1, 1),
+            ("video_121", 3, 2, 1, 0),
+            ("video_125", 45, 47, 5, 7),
         ]
     );
 }

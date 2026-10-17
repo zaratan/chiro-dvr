@@ -78,8 +78,8 @@ pub fn evaluate_with(run: &Run, observed: &[Injected], settings: Judging) -> Res
     };
     let injected = excluded(&run.injected);
     let ignored: Vec<Span> = injected.ignored_spans().collect();
-    let injected_tracks = track_detections(&injected.detections, settings.track)?;
-    let reference_tracks = track_detections(&excluded(&run.reference).detections, settings.track)?;
+    let injected_tracks = track_detections(&injected, video.size, settings.track)?;
+    let reference_tracks = track_detections(&excluded(&run.reference), video.size, settings.track)?;
     let assigned = assign_tracks(&injected_tracks, &truth(observed), settings.matching);
     let mut targets = Vec::new();
     let mut not_visible = 0;

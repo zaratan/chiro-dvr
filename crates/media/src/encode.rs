@@ -4,6 +4,7 @@ use std::io;
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 use std::ptr;
+use std::time::Duration;
 
 use ffmpeg::format::Pixel;
 use ffmpeg::util::color::{Primaries, Range, Space, TransferCharacteristic};
@@ -17,6 +18,7 @@ use crate::failure::LibraryError;
 use crate::frame::{ColorRange, YuvFrame};
 use crate::{init, path, planes};
 
+pub mod bounded;
 pub mod fallback;
 pub mod fanout;
 #[cfg(test)]
@@ -44,6 +46,8 @@ pub enum Error {
         #[source]
         source: std::io::Error,
     },
+    #[error("the {name} encoder did not start within {} s", limit.as_secs())]
+    Unanswered { name: &'static str, limit: Duration },
     #[error("cannot start the {name} encoder")]
     Open {
         name: &'static str,
@@ -343,6 +347,16 @@ struct Opened {
 
 impl Opened {
     fn new(settings: &Settings) -> Result<Self, Error> {
+        match settings.codec {
+            Codec::OpenH264 => Self::started(settings),
+            Codec::VideoToolbox => {
+                let settings = *settings;
+                bounded::VIDEOTOOLBOX.start(move || Self::started(&settings))
+            }
+        }
+    }
+
+    fn started(settings: &Settings) -> Result<Self, Error> {
         init::ffmpeg();
         let kind = settings.codec;
         let name = kind.encoder_name();

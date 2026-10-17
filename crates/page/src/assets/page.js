@@ -101,7 +101,7 @@ if (savebar) {
       start: Number(row.dataset.start),
       x: row.dataset.x ? Number(row.dataset.x) : null,
       y: row.dataset.y ? Number(row.dataset.y) : null,
-      clock: clock(Number(row.dataset.start)),
+      clock: row.querySelector(".clock")?.textContent ?? "",
       clip: row.dataset.clip ?? "",
       zoom: row.dataset.zoom ?? "",
       part: row.dataset.part ?? "",
@@ -113,6 +113,7 @@ if (savebar) {
   const tracks = owned.flatMap((one) => one.tracks);
   const store = VerdictsStore.create({
     tracks,
+    say,
     values: {
       yes: [say("value-yes"), say("value-yes-other")],
       no: [say("value-no"), say("value-no-other")],

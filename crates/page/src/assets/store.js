@@ -5,7 +5,7 @@ const VerdictsStore = (() => {
   const KINDS = ["yes", "no", "doubt"];
   const EMPTY = Object.freeze({ verdict: "", other: "", species: "" });
 
-  const create = ({ tracks, values }) => {
+  const create = ({ tracks, values, say }) => {
     const videos = new Set(tracks.map((track) => track.video));
     const keyOf = (track) => `${track.video}\u0000${track.id}`;
     const byKey = new Map(tracks.map((track) => [keyOf(track), track]));
@@ -127,6 +127,13 @@ const VerdictsStore = (() => {
 
     const kindOf = (track) => get(track).verdict || "todo";
 
+    const wordOf = (value) => {
+      if (value.verdict === "other") return say("other", { value: value.other });
+      return say(value.verdict || "to-see");
+    };
+
+    const word = (track) => wordOf(get(track));
+
     const counts = (video = null) => {
       const totals = { yes: 0, no: 0, doubt: 0, other: 0, todo: 0 };
       for (const track of tracks.filter((one) => video === null || one.video === video)) {
@@ -175,7 +182,8 @@ const VerdictsStore = (() => {
                   : best,
               null,
             );
-          return { row, nearest };
+          const value = entry(row);
+          return { row, nearest, word: value.verdict ? wordOf(value) : value.species };
         });
 
     const nextToSee = (video, fromId) => {
@@ -197,6 +205,7 @@ const VerdictsStore = (() => {
       markSaved,
       counts,
       kindOf,
+      word,
       judged,
       rows,
       orphansOf,

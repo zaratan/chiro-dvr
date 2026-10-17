@@ -88,12 +88,13 @@ fn outcome(jump: u8) -> &'static Outcome {
                 encode_jump(&path, jump, &noise);
                 let detected = detect(&path, Threads::Automatic, &DetectConfig::default()).unwrap();
                 let exclusion = exclude(detected.detections(), Vec::new(), 0, rate, StabilityConfig::default());
+                let tracks = track_detections(&exclusion, detected.reading().video().size(), TrackConfig::default())
+                    .unwrap()
+                    .len();
                 Outcome {
                     detections: detected.detections().detection_count(),
                     unstable: exclusion.unstable,
-                    tracks: track_detections(&exclusion.detections, TrackConfig::default())
-                        .unwrap()
-                        .len(),
+                    tracks,
                 }
             })
             .collect()

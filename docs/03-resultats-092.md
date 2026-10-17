@@ -23,7 +23,7 @@ La commande avec les détections faibles encadrées et le suivi « fortes d'abor
 | 13 | 3:50.87 → 3:51.67 | 24 | 24 |
 | 14 | 3:57.16 → 3:58.03 | 27 | 27 |
 
-Temps de `compare 092` (détection et suivi, sans rendu) sur lumiel, au calme sous le verrou : 29,5 s réels contre 29,7 s pour `main` sans #21 (mêmes détections que la v0.2.0), et 451 Mo de mémoire résidente contre 442.
+Temps de `compare 092` (détection et suivi, sans rendu) sur lumiel, au calme sous le verrou : 29,4 et 29,8 s réels en deux passages contre 29,2 et 29,4 s pour `main` sans #21 (mêmes détections que la v0.2.0), et 450 Mo de mémoire résidente contre 441 à 442 (mesuré après la fusion de #24).
 
 ## Réglages par défaut du 6 octobre 2026 : 14 pistes
 

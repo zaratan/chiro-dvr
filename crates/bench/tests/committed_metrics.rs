@@ -9,6 +9,8 @@ use serde_json::Value;
 const VIDEO_FOLDER: &str = "video_092_original";
 const FLOAT_TOLERANCE: f64 = 1e-9;
 const DURATIONS: &str = "seconds";
+const REJOIN_HIDDEN_SINCE_V020: usize = 19;
+const REJOIN_DISTANCE_SINCE_V020: f64 = 60.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Metrics {
@@ -29,11 +31,11 @@ const FROZEN: [(&str, Metrics); 2] = [
             not_visible: 17,
             false_tracks: 0,
             reference_tracks: 14,
-            injected_tracks: 163,
+            injected_tracks: 162,
             evaluated: 253,
             found: 148,
-            targets_changed: 0,
-            classes_changed: 0,
+            targets_changed: 1,
+            classes_changed: 1,
         },
     ),
     (
@@ -42,11 +44,11 @@ const FROZEN: [(&str, Metrics); 2] = [
             not_visible: 131,
             false_tracks: 0,
             reference_tracks: 14,
-            injected_tracks: 514,
+            injected_tracks: 499,
             evaluated: 589,
-            found: 455,
-            targets_changed: 0,
-            classes_changed: 0,
+            found: 454,
+            targets_changed: 13,
+            classes_changed: 9,
         },
     ),
 ];
@@ -114,6 +116,14 @@ fn settings(report: &BenchReport) -> Value {
     })
 }
 
+#[cfg(test)]
+fn judged_now(recorded: &BenchReport) -> Value {
+    let mut settings = settings(recorded);
+    settings["track"]["rejoin_hidden"] = serde_json::json!(REJOIN_HIDDEN_SINCE_V020);
+    settings["track"]["rejoin_distance"] = serde_json::json!(REJOIN_DISTANCE_SINCE_V020);
+    settings
+}
+
 #[test]
 fn each_v020_bench_evaluated_again_with_the_default_judging_keeps_its_settings_and_its_frozen_metrics() {
     for (name, frozen) in FROZEN {
@@ -131,7 +141,7 @@ fn each_v020_bench_evaluated_again_with_the_default_judging_keeps_its_settings_a
             Seconds::default(),
         )
         .unwrap();
-        assert_eq!(settings(&found), settings(&recorded), "{name}");
+        assert_eq!(settings(&found), judged_now(&recorded), "{name}");
         let metrics = Metrics {
             not_visible: found.not_visible,
             false_tracks: found.false_tracks,
