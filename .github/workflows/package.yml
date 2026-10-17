@@ -106,12 +106,27 @@ jobs:
           path: ${{ env.XDG_CACHE_HOME }}/batdetect/ffmpeg/logs
           if-no-files-found: ignore
       - run: bash packaging/package.sh
+      - if: runner.os == 'Linux'
+        run: sudo sysctl -w kernel.yama.ptrace_scope=0
       - run: bash packaging/check.sh "$(bash packaging/package.sh --archive)" "$BATDETECT_VERSION"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: batdetect-${{ matrix.name }}
           path: dist/batdetect-${{ matrix.name }}.*
           if-no-files-found: error
+      - if: runner.os != 'macOS' && github.event_name == 'pull_request'
+        env:
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: -C target-cpu=x86-64-v3
+          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-cpu=x86-64-v3 -C target-feature=+crt-static
+        run: |
+          bash packaging/package.sh
+          if bash packaging/check.sh "$(bash packaging/package.sh --archive)" "$BATDETECT_VERSION" > v3.log; then
+            cat v3.log
+            exit 1
+          fi
+          cat v3.log
+          grep -q '^FAIL C3-cpu: .*SDE-ERROR' v3.log
+          [ "$(grep -c '^FAIL' v3.log)" = 1 ]
 
   sources:
     runs-on: ubuntu-26.04
