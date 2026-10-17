@@ -1,0 +1,5 @@
+SDE_VERSION=10.13.1
+SDE_LINUX_URL=https://downloadmirror.intel.com/924984/sde-external-10.13.1-2026-07-28-lin.tar.xz
+SDE_LINUX_SHA256=94e97d623fec54385686e1e7ba65ebc9941748c05ee451423948334892bf2b50
+SDE_WINDOWS_URL=https://downloadmirror.intel.com/924984/sde-external-10.13.1-2026-07-28-win.tar.xz
+SDE_WINDOWS_SHA256=74e626ede09b0baa5011fc9e51b58627ea92c3fc0bae5fd7db34b490f335f651
