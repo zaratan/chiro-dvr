@@ -80,6 +80,7 @@ pub fn cause(error: &Error, options: &Options) -> Cause {
     match error {
         Error::Detection(detection) => detecting(detection, options.tunes_the_frames()),
         Error::Folder { .. } | Error::Files(_) | Error::Overview(_) => writing(error).unwrap_or(Cause::Unexpected),
+        Error::DiskSpace { .. } => Cause::DiskFull,
         Error::Video { source, .. } => match source.kind() {
             io::ErrorKind::NotFound => Cause::Missing,
             io::ErrorKind::PermissionDenied => Cause::ReadRefused,

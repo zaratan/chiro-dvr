@@ -16,8 +16,8 @@ use crate::sheet::{self, Spoken};
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 64;
-const FIXED: [Fixed; 77] = [
+const VARIANTS: usize = 74;
+const FIXED: [Fixed; 98] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -57,6 +57,7 @@ const FIXED: [Fixed; 77] = [
     Fixed::SkipRefusedDeclined,
     Fixed::NoNotifyHelp,
     Fixed::ForceHelp,
+    Fixed::IgnoreDiskHelp,
     Fixed::InputsRefused,
     Fixed::TallyVideo,
     Fixed::TallyLength,
@@ -95,6 +96,26 @@ const FIXED: [Fixed; 77] = [
     Fixed::TableAmplitude,
     Fixed::TableFilledFrames,
     Fixed::TableStartSeconds,
+    Fixed::OtherCommands,
+    Fixed::CompletionZshOnly,
+    Fixed::CompletionWithHomebrew,
+    Fixed::CompletionWithoutHomebrew,
+    Fixed::CompletionThenProfile,
+    Fixed::DoctorNoArgument,
+    Fixed::DoctorHardware,
+    Fixed::DoctorSoftware,
+    Fixed::DoctorFallback,
+    Fixed::DoctorBroken,
+    Fixed::DoctorReady,
+    Fixed::DoctorTodoFallback,
+    Fixed::DoctorTodoBroken,
+    Fixed::DoctorTodoSpace,
+    Fixed::DoctorTodoWriting,
+    Fixed::DoctorUntried,
+    Fixed::DoctorTodoUntried,
+    Fixed::CompletionCommandsGroup,
+    Fixed::CompletionDoctor,
+    Fixed::CompletionCompletion,
 ];
 
 fn rank(message: &Message) -> usize {
@@ -163,6 +184,16 @@ fn rank(message: &Message) -> usize {
         Message::FilesPage { .. } => 61,
         Message::TallyUnwritten { .. } => 62,
         Message::Announce { .. } => 63,
+        Message::DiskShort { .. } => 64,
+        Message::DisksShort { .. } => 65,
+        Message::DoctorVersion { .. } => 66,
+        Message::DoctorSpace { .. } => 67,
+        Message::DoctorSpaceShort { .. } => 68,
+        Message::DoctorSpaceUnknown { .. } => 69,
+        Message::DoctorWritable { .. } => 70,
+        Message::DoctorUnwritable { .. } => 71,
+        Message::DoctorProblems { .. } => 72,
+        Message::Finish { .. } => 73,
     }
 }
 
@@ -245,6 +276,35 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::TableFilledFrames => 74,
         Fixed::TableStartSeconds => 75,
         Fixed::ForceHelp => 76,
+        Fixed::IgnoreDiskHelp => 77,
+        Fixed::CompletionCompletion => 97,
+        other => command_rank(other),
+    }
+}
+
+fn command_rank(fixed: Fixed) -> usize {
+    match fixed {
+        Fixed::OtherCommands => 78,
+        Fixed::CompletionZshOnly => 79,
+        Fixed::CompletionWithHomebrew => 80,
+        Fixed::CompletionWithoutHomebrew => 81,
+        Fixed::CompletionThenProfile => 82,
+        Fixed::DoctorNoArgument => 83,
+        Fixed::DoctorHardware => 84,
+        Fixed::DoctorSoftware => 85,
+        Fixed::DoctorFallback => 86,
+        Fixed::DoctorBroken => 87,
+        Fixed::DoctorReady => 88,
+        Fixed::DoctorTodoFallback => 89,
+        Fixed::DoctorTodoBroken => 90,
+        Fixed::DoctorTodoSpace => 91,
+        Fixed::DoctorTodoWriting => 92,
+        Fixed::DoctorUntried => 93,
+        Fixed::DoctorTodoUntried => 94,
+        Fixed::CompletionCommandsGroup => 95,
+        Fixed::CompletionDoctor => 96,
+        Fixed::CompletionCompletion => 97,
+        _ => usize::MAX,
     }
 }
 
@@ -255,6 +315,7 @@ fn samples() -> Vec<Message> {
         .chain(tally_lines())
         .chain(video_lines())
         .chain(command_line())
+        .chain(other_commands())
         .collect()
 }
 
@@ -456,6 +517,16 @@ fn command_line() -> Vec<Message> {
         Message::FolderRefused {
             path: text("nuit/batdetect"),
             access: "read-only",
+        },
+        Message::DiskShort {
+            path: text("/Volumes/BATS/nuit-12-oct/batdetect"),
+            needed: text("12,3"),
+            free: text("4,1"),
+        },
+        Message::DisksShort { count: 2 },
+        Message::Finish {
+            line: text("[3/12] video_094 — détection"),
+            time: text("22:41"),
         },
         Message::InputsSkipped { count: 2 },
         Message::SkipRefusedQuestion { count: 3 },
@@ -846,4 +917,30 @@ fn the_files_produced_are_named_as_the_command_writes_them_in_each_language() {
             );
         }
     }
+}
+
+fn other_commands() -> Vec<Message> {
+    let folder = || "/nuit".to_owned();
+    vec![
+        Message::DoctorVersion {
+            version: "0.2.1".to_owned(),
+            ffmpeg: "7.1.1".to_owned(),
+        },
+        Message::DoctorSpace {
+            gigabytes: "412".to_owned(),
+            folder: folder(),
+        },
+        Message::DoctorSpaceShort {
+            gigabytes: "3,2".to_owned(),
+            folder: folder(),
+            least: "20".to_owned(),
+        },
+        Message::DoctorSpaceUnknown { folder: folder() },
+        Message::DoctorWritable { folder: folder() },
+        Message::DoctorUnwritable {
+            folder: folder(),
+            access: "read-only",
+        },
+        Message::DoctorProblems { count: 2 },
+    ]
 }

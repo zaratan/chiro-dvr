@@ -6,6 +6,7 @@ use compare::arguments::{Request, parse};
 use compare::comparison::{VIDEOS_AT_ONCE, compare_all};
 use compare::outcome::Outcome;
 use compare::report::{write_failure, write_report, write_same_as};
+use reference::location::Reference;
 
 fn main() -> ExitCode {
     match parse(env::args_os()) {
@@ -19,7 +20,7 @@ fn main() -> ExitCode {
 
 fn run(request: &Request) -> ExitCode {
     let mut stderr = io::stderr().lock();
-    let cases = match request.target.cases() {
+    let cases = match request.target.cases(Reference::V011) {
         Ok(cases) => cases,
         Err(error) => {
             return match writeln!(stderr, "{error}") {

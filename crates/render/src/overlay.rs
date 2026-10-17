@@ -1,5 +1,4 @@
 use draw::canvas::{Canvas, PixelBox, Point};
-use draw::color::{BOX, TRAIL};
 use draw::style::TRACK_LABEL;
 use draw::text::{ShapedText, Typeface};
 use media::convert::Region;
@@ -9,6 +8,7 @@ use types::rate::FrameRate;
 use types::track::Track;
 
 use crate::config::RenderConfig;
+use crate::ink::{Ink, ink_at};
 use crate::picture::Marks;
 use crate::positions::{bounded, filled};
 use crate::zones::{even_region, merged};
@@ -18,6 +18,17 @@ mod tests;
 
 const LABEL_LIFT: i32 = 6;
 const BOX_WIDTH: u32 = 2;
+const RIM_WIDTH: u32 = 1;
+const HALO: [(f32, f32); 8] = [
+    (-1.0, -1.0),
+    (0.0, -1.0),
+    (1.0, -1.0),
+    (-1.0, 0.0),
+    (1.0, 0.0),
+    (-1.0, 1.0),
+    (0.0, 1.0),
+    (1.0, 1.0),
+];
 const INTERPOLATED_BOX_WIDTH: u32 = 1;
 const TRAIL_WIDTH: f32 = 2.0;
 const PIXEL_CENTER: f64 = 0.5;
@@ -34,6 +45,7 @@ struct Mark {
 #[derive(Debug)]
 struct Marked {
     label: ShapedText,
+    ink: Ink,
     centers: Vec<(FrameIndex, Point)>,
 }
 
@@ -60,15 +72,27 @@ impl Marks for Overlay {
             } else {
                 BOX_WIDTH
             };
-            canvas.rectangle(area, BOX, width);
+            if let Some(rim) = track.ink.rim {
+                canvas.rectangle(inset(area), rim, width + 2 * RIM_WIDTH);
+            }
+            canvas.rectangle(area, track.ink.mark, width);
             let baseline = Point {
                 x: area.left as f32,
                 y: area.top.saturating_sub(LABEL_LIFT) as f32,
             };
-            canvas.shaped_text(&track.label, baseline, BOX);
+            if let Some(rim) = track.ink.rim {
+                for (dx, dy) in HALO {
+                    let around = Point {
+                        x: baseline.x + dx,
+                        y: baseline.y + dy,
+                    };
+                    canvas.shaped_text(&track.label, around, rim);
+                }
+            }
+            canvas.shaped_text(&track.label, baseline, track.ink.mark);
             let trail = self.trail(track, mark);
             if trail.len() > 1 {
-                canvas.polyline(&trail, TRAIL, TRAIL_WIDTH);
+                canvas.polyline(&trail, track.ink.trail, TRAIL_WIDTH);
             }
         }
     }
@@ -91,6 +115,7 @@ impl Marks for Overlay {
 impl Overlay {
     pub(crate) fn new(
         tracks: &[Track],
+        inks: &[Ink],
         frame_count: usize,
         config: RenderConfig,
         rate: FrameRate,
@@ -110,8 +135,10 @@ impl Overlay {
         }
         let tracks = tracks
             .iter()
-            .map(|track| Marked {
+            .enumerate()
+            .map(|(index, track)| Marked {
                 label: typeface.shape(&format!("#{}", track.id()), TRACK_LABEL),
+                ink: ink_at(inks, index),
                 centers: track
                     .points()
                     .iter()
@@ -129,13 +156,17 @@ impl Overlay {
 
     fn extent(&self, track: &Marked, mark: &Mark) -> PixelBox {
         let area = self.area(&mark.detection);
-        let grow = i32::try_from(BOX_WIDTH).unwrap_or(i32::MAX);
+        let grow = i32::try_from(BOX_WIDTH + RIM_WIDTH).unwrap_or(i32::MAX);
         let baseline = area.top.saturating_sub(LABEL_LIFT);
         let label_height = (TRACK_LABEL.digit_px() * LABEL_HEIGHTS).ceil() as i32;
-        let label_right = area.left.saturating_add(track.label.width().ceil() as i32);
+        let halo = i32::try_from(RIM_WIDTH).unwrap_or(i32::MAX);
+        let label_right = area.left.saturating_add(track.label.width().ceil() as i32 + halo);
         let mut extent = PixelBox {
             left: area.left.saturating_sub(grow),
-            top: area.top.saturating_sub(grow).min(baseline.saturating_sub(label_height)),
+            top: area
+                .top
+                .saturating_sub(grow)
+                .min(baseline.saturating_sub(label_height + halo)),
             right: area.right.saturating_add(grow).max(label_right),
             bottom: area.bottom.saturating_add(grow),
         };
@@ -173,6 +204,16 @@ impl Overlay {
             .map(|(_, point)| *point)
             .chain(std::iter::once(center(&mark.detection)))
             .collect()
+    }
+}
+
+fn inset(area: PixelBox) -> PixelBox {
+    let rim = i32::try_from(RIM_WIDTH).unwrap_or(i32::MAX);
+    PixelBox {
+        left: area.left.saturating_add(rim),
+        top: area.top.saturating_add(rim),
+        right: area.right.saturating_sub(rim),
+        bottom: area.bottom.saturating_sub(rim),
     }
 }
 

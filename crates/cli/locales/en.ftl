@@ -24,6 +24,7 @@ announce = { $videos ->
         [0] {""}
        *[other] , { $done } of them already done
     }
+finish = { $line } · done around { $time }
 video-failed = [{ $position }/{ $total }] { $video } — { $too-many ->
         [yes] too many tracks
        *[no] failed
@@ -63,6 +64,8 @@ failure-todo = {"  "}what to do: { $cause ->
         [shared-folder] rename one of these videos, or process them in two runs with a different -o
         [read-only] copy the videos to the Mac, or choose another folder with -o
         [other-folder] choose another folder with -o
+        [disk-short] free some space, or write the results to another disk with -o; --ignore-disk starts the run anyway
+        [disk-short-annotated] free some space, drop --annotated, or write the results to another disk with -o; --ignore-disk starts the run anyway
        *[unexpected] report it with the detail below
     }
 failure-detail = {"  "}detail: { $detail }
@@ -147,6 +150,11 @@ shared-folder = { $path }: results folder shared by { $videos }
 no-video = no video ({ $listed } or { $last }) found in { $count ->
         [one] this folder
        *[other] these folders
+    }:
+disk-short = the disk holding { $path }: { $needed } GB needed, { $free } GB free
+disks-short = { $count ->
+        [one] the disk of the results looks too small
+       *[other] the disks of the results look too small
     }:
 folders-refused = no video is processed, the results cannot be written in { $count ->
         [one] this folder
@@ -240,8 +248,9 @@ skip-refused-question = Process { $count ->
        *[other] the { $count } valid videos
     } anyway? (Y/n)
 skip-refused-declined = no video is processed
-skip-refused-help = Processes the valid videos without asking when some inputs are refused
+skip-refused-help = Processes the valid videos without asking when some inputs are refused or the disk of the results looks too small
 no-notify-help = Neither notifies the end of the batch nor opens the results page (macOS)
+ignore-disk-help = Starts the run even when the disk of the results looks too small; each video still checks the room before its clips
 force-help = Redoes every video, even those already done with the same settings
 tally-refused-count = { $count ->
         [one] { $count } input refused
@@ -417,3 +426,40 @@ page-js-download-now = Download now
 page-js-cleared = Track { $track }: verdict cleared
 page-js-value-yes-other = oui
 page-js-value-no-other = non
+other-commands = Other commands: "batdetect doctor" checks that everything is ready before an evening, "batdetect completion zsh" writes the Tab completion. A folder named doctor or completion is given as ./doctor or ./completion.
+completion-zsh-only = only zsh is supported: batdetect completion zsh
+completion-with-homebrew = With Homebrew, the script is already installed: add to ~/.zshrc the line
+completion-without-homebrew = Without Homebrew: save the script with
+completion-then-profile = then add to ~/.zshrc these two lines, in this order:
+doctor-no-argument = doctor takes no argument: run it in the folder to check
+doctor-version = batdetect { $version } — FFmpeg { $ffmpeg } included
+doctor-hardware = ✓ encoder: VideoToolbox (hardware)
+doctor-software = ✓ encoder: openh264 (software)
+doctor-fallback = ⚠ encoder: openh264 only, VideoToolbox does not respond
+doctor-broken = ✗ encoder: none works
+doctor-space = ✓ free space: { $gigabytes } GB in { $folder }
+doctor-space-short = ✗ free space: { $gigabytes } GB in { $folder }, less than { $least } GB
+doctor-space-unknown = ⚠ free space: not measured in { $folder }
+doctor-writable = ✓ writing: allowed in { $folder }
+doctor-unwritable = ✗ writing: refused in { $folder } ({ $access ->
+        [refused] not allowed
+        [not-a-folder] not a folder
+        [missing] not found
+        [read-only] read-only
+        [disk-full] disk full
+       *[unavailable] unreachable
+    })
+doctor-todo-fallback = {"  "}what to do: nothing required, clips will be slower to write; restarting the Mac may bring VideoToolbox back
+doctor-todo-broken = {"  "}what to do: reinstall batdetect
+doctor-todo-space = {"  "}what to do: free some space, or choose another folder with -o
+doctor-todo-writing = {"  "}what to do: choose a folder where writing is allowed, with -o
+doctor-ready = Everything is ready.
+doctor-problems = { $count ->
+        [one] 1 point to fix.
+       *[other] { $count } points to fix.
+    }
+doctor-untried = ✗ encoder: not tried, the system's temporary folder refuses writing
+doctor-todo-untried = {"  "}what to do: free some space on the system disk, then run batdetect doctor again
+completion-commands-group = command
+completion-doctor = checks that everything is ready before an evening
+completion-completion = writes the Tab completion

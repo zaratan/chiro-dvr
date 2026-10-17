@@ -28,6 +28,7 @@ announce = { $videos ->
         [one] , dont { $done } déjà faite
        *[other] , dont { $done } déjà faites
     }
+finish = { $line } · fin vers { $time }
 video-failed = [{ $position }/{ $total }] { $video } — { $too-many ->
         [yes] trop de pistes
        *[no] échec
@@ -67,6 +68,8 @@ failure-todo = {"  "}à faire : { $cause ->
         [shared-folder] renommer l'une de ces vidéos, ou les traiter en deux fois avec un -o différent
         [read-only] copier les vidéos sur le Mac, ou choisir un autre dossier avec -o
         [other-folder] choisir un autre dossier avec -o
+        [disk-short] libérer de la place, ou écrire les résultats sur un autre disque avec -o ; --ignore-disk lance quand même le calcul
+        [disk-short-annotated] libérer de la place, retirer --annotated, ou écrire les résultats sur un autre disque avec -o ; --ignore-disk lance quand même le calcul
        *[unexpected] le signaler avec le détail ci-dessous
     }
 failure-detail = {"  "}détail : { $detail }
@@ -160,6 +163,11 @@ shared-folder = { $path } : dossier de résultats commun à { $videos }
 no-video = aucune vidéo ({ $listed } ou { $last }) trouvée dans { $count ->
         [one] ce dossier
        *[other] ces dossiers
+    } :
+disk-short = le disque qui contient { $path } : { $needed } Go à prévoir, { $free } Go libres
+disks-short = { $count ->
+        [one] le disque des résultats semble trop petit
+       *[other] les disques des résultats semblent trop petits
     } :
 folders-refused = aucune vidéo n'est traitée, les résultats ne peuvent pas s'écrire dans { $count ->
         [one] ce dossier
@@ -259,8 +267,9 @@ skip-refused-question = Traiter quand même { $count ->
        *[other] les { $count } vidéos valides
     } ? (O/n)
 skip-refused-declined = aucune vidéo n'est traitée
-skip-refused-help = Traite les vidéos valides sans poser la question quand des entrées sont refusées
+skip-refused-help = Traite les vidéos valides sans poser la question quand des entrées sont refusées ou que le disque des résultats semble trop petit
 no-notify-help = Ne signale pas la fin du lot et n'ouvre pas la page de résultats (macOS)
+ignore-disk-help = Lance le calcul même quand le disque des résultats semble trop petit ; chaque vidéo vérifie encore la place avant ses extraits
 force-help = Refait toutes les vidéos, même celles déjà faites avec les mêmes réglages
 tally-refused-count = { $count ->
         [one] { $count } entrée refusée
@@ -442,3 +451,40 @@ page-js-download-now = Télécharger maintenant
 page-js-cleared = Piste { $track } : verdict effacé
 page-js-value-yes-other = yes
 page-js-value-no-other = no
+other-commands = Autres commandes : « batdetect doctor » vérifie que tout est prêt avant une soirée, « batdetect completion zsh » écrit la complétion de la touche Tab. Un dossier nommé doctor ou completion se donne en ./doctor ou ./completion.
+completion-zsh-only = seul zsh est pris en charge : batdetect completion zsh
+completion-with-homebrew = Avec Homebrew, le script est déjà installé : ajouter à ~/.zshrc la ligne
+completion-without-homebrew = Sans Homebrew : enregistrer le script par
+completion-then-profile = puis ajouter à ~/.zshrc ces deux lignes, dans cet ordre :
+doctor-no-argument = doctor ne prend aucun argument : le lancer dans le dossier à vérifier
+doctor-version = batdetect { $version } — FFmpeg { $ffmpeg } inclus
+doctor-hardware = ✓ encodeur : VideoToolbox (matériel)
+doctor-software = ✓ encodeur : openh264 (logiciel)
+doctor-fallback = ⚠ encodeur : openh264 seulement, VideoToolbox ne répond pas
+doctor-broken = ✗ encodeur : aucun ne fonctionne
+doctor-space = ✓ place libre : { $gigabytes } Go dans { $folder }
+doctor-space-short = ✗ place libre : { $gigabytes } Go dans { $folder }, moins de { $least } Go
+doctor-space-unknown = ⚠ place libre : non mesurée dans { $folder }
+doctor-writable = ✓ écriture : permise dans { $folder }
+doctor-unwritable = ✗ écriture : refusée dans { $folder } ({ $access ->
+        [refused] droits insuffisants
+        [not-a-folder] pas un dossier
+        [missing] introuvable
+        [read-only] lecture seule
+        [disk-full] disque plein
+       *[unavailable] inaccessible
+    })
+doctor-todo-fallback = {"  "}à faire : rien d'obligatoire, les extraits seront plus lents à écrire ; redémarrer le Mac peut rétablir VideoToolbox
+doctor-todo-broken = {"  "}à faire : réinstaller batdetect
+doctor-todo-space = {"  "}à faire : libérer de la place, ou choisir un autre dossier avec -o
+doctor-todo-writing = {"  "}à faire : choisir un dossier où l'écriture est permise, avec -o
+doctor-ready = Tout est prêt.
+doctor-problems = { $count ->
+        [one] 1 point à corriger.
+       *[other] { $count } points à corriger.
+    }
+doctor-untried = ✗ encodeur : non essayé, le dossier temporaire du système refuse l'écriture
+doctor-todo-untried = {"  "}à faire : libérer de la place sur le disque du système, puis relancer batdetect doctor
+completion-commands-group = commande
+completion-doctor = vérifie que tout est prêt avant une soirée
+completion-completion = écrit la complétion de la touche Tab

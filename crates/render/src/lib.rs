@@ -5,6 +5,7 @@ pub mod config;
 pub mod drawn;
 mod encoders;
 mod group;
+mod ink;
 mod overlay;
 pub mod picture;
 mod positions;

@@ -22,6 +22,10 @@ quoi le Terminal ne trouve pas `brew`.
 vérifier, taper `batdetect --version` : la première ligne affichée doit dire
 « batdetect 0.2.0 ». Tout cela ne se fait qu'une fois.
 
+**Vérifier que tout est prêt** (depuis la version 0.2.1) : taper `batdetect doctor`, puis Entrée. Chaque ligne commence par ✓ quand tout va bien ; sous une ligne ✗, la ligne « à faire » dit quoi faire ; une ligne ⚠ ne bloque rien. À refaire avant une soirée importante, dans le dossier où les résultats seront écrits.
+
+**Activer la touche Tab** (depuis la version 0.2.1), qui complète les noms de vidéos et les options : copier dans le Terminal `echo 'autoload -Uz compinit && compinit' >> ~/.zshrc`, puis Entrée, puis ouvrir une nouvelle fenêtre du Terminal (Cmd + N). Cela ne se fait qu'une fois.
+
 ## 2. Brancher les jumelles
 
 Brancher les jumelles **allumées** au Mac par leur câble USB-C. Sur les jumelles, choisir le
@@ -43,6 +47,8 @@ copier les vidéos de la soirée avec le Finder, par glisser-déposer depuis les
 Les vidéos doivent être directement dans le dossier : l'outil ne lit que son premier niveau, pas
 les sous-dossiers. Il prend les fichiers `.mp4`, `.mov`, `.avi`, `.mkv` et `.m4v` ; les autres
 fichiers du dossier, photos ou notes, sont laissés de côté sans rien dire.
+
+**Prévoir de la place pour les résultats.** Ils s'écrivent à côté des vidéos, sur le même disque, sauf si un autre dossier est choisi. Une soirée calme laisse des résultats plus légers que ses vidéos ; une soirée très active peut en demander jusqu'à sept fois leur taille, et la vidéo annotée près de trois fois de plus.
 
 ## 4. Lancer
 
@@ -87,6 +93,15 @@ autoriser le Terminal pour ce dossier (le Bureau, par exemple), puis relancer.
 > à faire : vérifier le chemin ; le dossier ou la vidéo a peut-être été déplacé ou renommé\
 > Traiter quand même la vidéo valide ? (O/n)
 
+**Si le disque des résultats semble trop petit**, l'outil le dit avant de calculer, en nommant le dossier de résultats qui s'y trouve, et demande s'il faut lancer quand même :
+
+> erreur : le disque des résultats semble trop petit :\
+> le disque qui contient nuit-12-oct/batdetect : 6,4 Go à prévoir, 4,1 Go libres\
+> à faire : libérer de la place, ou écrire les résultats sur un autre disque avec -o ; --ignore-disk lance quand même le calcul\
+> Traiter quand même les 12 vidéos valides ? (O/n)
+
+Répondre `o` lance la soirée. Chaque vidéo vérifie encore la place avant d'écrire ses extraits : s'il en manque, elle s'arrête et compte en échec, au lieu de remplir le disque, et la vidéo suivante est tentée.
+
 ## 5. Attendre
 
 Le calcul commence par une ligne qui annonce la soirée, par exemple « 12 vidéos, 1 h 2 min 5 s de vidéo ». Quand la même commande est relancée, elle dit aussi combien sont déjà faites : « 12 vidéos, 1 h 2 min 5 s de vidéo, dont 3 déjà faites ».
@@ -104,6 +119,8 @@ temps de calcul. Les vidéos en échec viennent ensuite, chacune avec ce qu'il f
 Sur le Mac du développeur (M1 Max), il faut environ 20 s par vidéo de 5 min, soit à peu près
 4 min par heure d'enregistrement. Sur un Mac plus modeste, c'est plus long ; ce temps n'y a pas
 encore été mesuré ([Questions ouvertes](06-questions-ouvertes.md)).
+
+Une fois la première vidéo calculée, la ligne qui se redessine donne aussi l'heure à laquelle toute la soirée devrait être traitée, par exemple « [3/12] video_094 — détection · fin vers 22:41 ». Cette heure se calcule sur le temps qu'ont pris les vidéos déjà calculées pendant ce lancement et se corrige à chaque étape : c'est une estimation, et une vidéo avec beaucoup de pistes, qui a plus d'extraits à écrire, prend plus longtemps que les autres.
 
 ## 6. Ouvrir les résultats
 

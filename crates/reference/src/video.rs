@@ -1,4 +1,5 @@
 use std::fs;
+use std::num::NonZeroUsize;
 use std::path::Path;
 
 use serde::de::DeserializeOwned;
@@ -14,7 +15,8 @@ use crate::fields;
 #[cfg(test)]
 mod tests;
 
-pub const FORMAT_VERSION: u32 = 1;
+pub const PROBED_FORMAT: u32 = 1;
+pub const DECODED_FORMAT: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VideoSummary {
@@ -22,7 +24,10 @@ pub struct VideoSummary {
     pub reference: String,
     pub video: VideoFile,
     pub stream: Stream,
-    pub ffprobe: Probe,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ffprobe: Option<Probe>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decoder: Option<Decoder>,
     pub background_half_window: usize,
     #[serde(with = "fields::spans")]
     pub damaged_spans: Vec<Span>,
@@ -30,7 +35,7 @@ pub struct VideoSummary {
     pub unstable_spans: Vec<Span>,
     pub counts: Counts,
     pub files: Files,
-    /// The decoder, settings and versions of the recording, kept as written.
+    /// The settings, versions and other untyped sections of the recording, kept as written.
     #[serde(flatten)]
     pub recorded: Map<String, Value>,
 }
@@ -67,6 +72,28 @@ pub struct Probe {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Decoder {
+    pub error_frames: Vec<FrameIndex>,
+    pub gap_frames: Vec<FrameIndex>,
+    pub losses: Losses,
+    pub threads: DecoderThreads,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "count", rename_all = "snake_case")]
+pub enum DecoderThreads {
+    Single,
+    Frame(NonZeroUsize),
+    Slice(NonZeroUsize),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Losses {
+    pub before_first: usize,
+    pub after_last: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DecodeMessages {
     pub frame: FrameIndex,
     pub messages: Vec<String>,
@@ -86,7 +113,8 @@ pub struct Counts {
 pub struct Files {
     pub frames: String,
     pub tracks: String,
-    pub csv: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub csv: Option<String>,
 }
 
 impl VideoSummary {
@@ -101,14 +129,37 @@ impl VideoSummary {
             source,
         };
         let version: Version = serde_json::from_str(&text).map_err(malformed)?;
-        if version.format_version != FORMAT_VERSION {
+        if ![PROBED_FORMAT, DECODED_FORMAT].contains(&version.format_version) {
             return Err(Error::Version {
                 path: path.to_path_buf(),
                 found: version.format_version,
-                supported: FORMAT_VERSION,
             });
         }
-        serde_json::from_str(&text).map_err(malformed)
+        let summary: Self = serde_json::from_str(&text).map_err(malformed)?;
+        summary.sections_of_its_version(path)?;
+        Ok(summary)
+    }
+
+    fn sections_of_its_version(&self, path: &Path) -> Result<(), Error> {
+        let probed = self.format_version == PROBED_FORMAT;
+        let sections = [
+            ("ffprobe", self.ffprobe.is_some(), probed),
+            ("decoder", self.decoder.is_some(), !probed),
+            ("files.csv", self.files.csv.is_some(), probed),
+        ];
+        match sections.into_iter().find(|(_, present, wanted)| present != wanted) {
+            Some((section, _, true)) => Err(Error::MissingSection {
+                path: path.to_path_buf(),
+                version: self.format_version,
+                section,
+            }),
+            Some((section, _, false)) => Err(Error::ForeignSection {
+                path: path.to_path_buf(),
+                version: self.format_version,
+                section,
+            }),
+            None => Ok(()),
+        }
     }
 
     pub fn detect_settings<T: DeserializeOwned>(&self) -> Result<T, Error> {
@@ -121,6 +172,7 @@ impl VideoSummary {
     }
 
     pub fn write(&self, path: &Path) -> Result<(), Error> {
+        self.sections_of_its_version(path)?;
         let mut text = serde_json::to_string_pretty(self).map_err(|source| Error::Encode {
             path: path.to_path_buf(),
             source,

@@ -3,14 +3,14 @@ use engine::input::{Error, Input};
 use media::decode::Threads;
 use reference::fixture::fixture;
 use reference::frames::Frames;
-use reference::location::committed;
+use reference::location::{Reference, committed};
 use reference::recording::SUMMARY_FILE;
 use reference::video::VideoSummary;
 
 #[test]
 #[ignore = "slow"]
 fn the_extract_reads_its_1230_frames_with_the_timestamps_key_frames_and_lack_of_damage_of_ffprobe() {
-    let recorded = committed("video_092_original_3m24-4m05");
+    let recorded = committed(Reference::V011, "video_092_original_3m24-4m05");
     let summary = VideoSummary::read(&recorded.join(SUMMARY_FILE)).unwrap();
     let probed = Frames::read(&recorded.join(&summary.files.frames)).unwrap();
     let path = fixture("video_092_original_3m24-4m05.mp4").unwrap();
@@ -33,8 +33,9 @@ fn the_extract_reads_its_1230_frames_with_the_timestamps_key_frames_and_lack_of_
         .collect();
     assert_eq!(read, expected);
     let damage = Damage::of(&reading, summary.background_half_window);
-    assert_eq!(damage.error_frames(), summary.ffprobe.error_frames);
-    assert_eq!(damage.jump_frames(), summary.ffprobe.gap_frames);
+    let probe = summary.ffprobe.as_ref().unwrap();
+    assert_eq!(damage.error_frames(), probe.error_frames);
+    assert_eq!(damage.jump_frames(), probe.gap_frames);
     assert_eq!(damage.spans(), summary.damaged_spans);
     assert_eq!(damage.spans(), []);
 }

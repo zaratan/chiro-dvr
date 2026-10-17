@@ -30,6 +30,7 @@ use types::track::Track;
 
 use super::{
     Clips, Error, Extent, Versions, Wording, Written, extent, finish, process, process_detected, render_clips,
+    room_for_clips,
 };
 use crate::flight;
 use crate::jobs::Job;
@@ -63,6 +64,12 @@ fn rendered_into_a_fresh_folder(
     max_tracks: usize,
     trial: Result<Vec<Codec>, Error>,
 ) -> (Result<Rendered, Error>, PathBuf) {
+    in_a_fresh_folder(folder, max_tracks, |clips| {
+        render_clips(clips, &[still(1), still(2)], trial).map(|written| written.rendered)
+    })
+}
+
+fn in_a_fresh_folder<T>(folder: &Path, max_tracks: usize, run: impl FnOnce(&Clips<'_>) -> T) -> (T, PathBuf) {
     let video = folder.join("flight.mp4");
     flight::write_flight(&video);
     let detected = detect(&video, Threads::Automatic, &DetectConfig::default()).unwrap();
@@ -78,6 +85,7 @@ fn rendered_into_a_fresh_folder(
         job: &job,
         names,
         detected: &detected,
+        colors: &[],
         timeline: &timeline,
         options: &Options {
             render: RenderConfig::new(12, 1.0, 1.5, max_tracks).unwrap(),
@@ -90,8 +98,24 @@ fn rendered_into_a_fresh_folder(
             ours: true,
         }],
     };
-    let rendered = render_clips(&clips, &[still(1), still(2)], trial).map(|written| written.rendered);
-    (rendered, names.clips_dir(&job.dest))
+    (run(&clips), names.clips_dir(&job.dest))
+}
+
+#[test]
+fn above_the_track_limit_the_room_is_not_checked_since_nothing_is_rendered() {
+    let folder = tempfile::tempdir().unwrap();
+    let (room, _) = in_a_fresh_folder(folder.path(), 1, |clips| {
+        room_for_clips(clips, &[still(1), still(2)], u64::MAX)
+    });
+    assert!(room.is_ok(), "{room:?}");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_video_without_track_still_needs_room_for_its_annotated_video() {
+    let folder = tempfile::tempdir().unwrap();
+    let (room, _) = in_a_fresh_folder(folder.path(), 300, |clips| room_for_clips(clips, &[], u64::MAX));
+    assert!(matches!(room, Err(Error::DiskSpace { .. })), "{room:?}");
 }
 
 #[test]
@@ -160,8 +184,8 @@ const EDGE_SEARCH: i32 = 40;
 const INSIDE: i32 = 8;
 const NEUTRAL: u8 = 12;
 const BRIGHT: u8 = 85;
-const RED: u8 = 160;
-const DARK: u8 = 120;
+const COLORED: u8 = 16;
+const SAME_HUE: f64 = 0.9;
 
 fn clip_frames(path: &Path) -> Vec<YuvFrame> {
     let mut decoder = Decoder::open(path, Threads::Automatic).unwrap();
@@ -182,8 +206,9 @@ fn chroma(frame: &YuvFrame, x: i32, y: i32) -> (u8, u8) {
     (frame.u()[index], frame.v()[index])
 }
 
-fn red(frame: &YuvFrame, x: i32, y: i32) -> bool {
-    chroma(frame, x, y).1 > RED && luma(frame, x, y) < DARK
+fn colored(frame: &YuvFrame, x: i32, y: i32) -> bool {
+    let (u, v) = chroma(frame, x, y);
+    u.abs_diff(128).max(v.abs_diff(128)) > COLORED
 }
 
 fn bright_center(frame: &YuvFrame, around: (i32, i32)) -> (f64, f64) {
@@ -204,16 +229,25 @@ fn bright_center(frame: &YuvFrame, around: (i32, i32)) -> (f64, f64) {
     (x / count, y / count)
 }
 
-fn first_red(frame: &YuvFrame, from: (i32, i32), (step_x, step_y): (i32, i32)) -> f64 {
-    let found = (0..EDGE_SEARCH)
+fn first_colored(frame: &YuvFrame, from: (i32, i32), (step_x, step_y): (i32, i32)) -> (i32, i32) {
+    (0..EDGE_SEARCH)
         .map(|distance| (from.0 + distance * step_x, from.1 + distance * step_y))
-        .find(|&(x, y)| red(frame, x, y));
-    let (x, y) = found.unwrap_or_else(|| panic!("no red edge within {EDGE_SEARCH} px of {from:?}"));
-    f64::from(if step_x == 0 { y } else { x })
+        .find(|&(x, y)| colored(frame, x, y))
+        .unwrap_or_else(|| panic!("no coloured edge within {EDGE_SEARCH} px of {from:?}"))
+}
+
+fn has_the_hue_of(frame: &YuvFrame, (x, y): (i32, i32), color: [f64; 3]) -> bool {
+    let [red, green, blue] = color;
+    let luma = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+    let wanted = ((blue - luma) / 1.8556, (red - luma) / 1.5748);
+    let (u, v) = chroma(frame, x, y);
+    let found = (f64::from(u) - 128.0, f64::from(v) - 128.0);
+    let cosine = (found.0 * wanted.0 + found.1 * wanted.1) / (found.0.hypot(found.1) * wanted.0.hypot(wanted.1));
+    cosine > SAME_HUE
 }
 
 #[test]
-fn a_box_follows_its_target_on_every_detected_frame_after_frames_lost_in_the_middle() {
+fn a_box_in_the_colour_of_its_track_follows_its_target_on_every_detected_frame_after_frames_lost_in_the_middle() {
     let folder = tempfile::tempdir().unwrap();
     let video = folder.path().join("flight.mp4");
     flight::write_flight_of(&video, LONG_FLIGHT, NonZeroU32::new(KEY_INTERVAL));
@@ -230,6 +264,7 @@ fn a_box_follows_its_target_on_every_detected_frame_after_frames_lost_in_the_mid
     let pad = f64::from(config.box_pad());
     let windows = clip_windows(&processed.tracks, kept, config, rate);
     let clips_dir = Names::new(Language::English).clips_dir(&job.dest);
+    let params = params_of(&job);
     let mut clips: Vec<PathBuf> = fs::read_dir(&clips_dir)
         .unwrap()
         .map(|entry| entry.unwrap().path())
@@ -237,14 +272,32 @@ fn a_box_follows_its_target_on_every_detected_frame_after_frames_lost_in_the_mid
     clips.sort();
     for (track, (window, clip)) in processed.tracks.iter().zip(windows.iter().zip(&clips)) {
         let frames = clip_frames(clip);
+        let entry = params["tracks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| entry["id"] == track.id())
+            .unwrap();
+        let color: [f64; 3] = serde_json::from_value(entry["color"].clone()).unwrap();
         for point in track.points() {
             let frame = &frames[point.frame.get() - window.span.first().get()];
             let (x, y) = (point.x as i32, point.y as i32);
+            let edges = [
+                first_colored(frame, (x, y + INSIDE), (-1, 0)),
+                first_colored(frame, (x + INSIDE, y - INSIDE), (0, -1)),
+                first_colored(frame, (x, y + INSIDE), (1, 0)),
+                first_colored(frame, (x, y + INSIDE), (0, 1)),
+            ];
+            assert!(
+                edges.iter().all(|&edge| has_the_hue_of(frame, edge, color)),
+                "{:?}: box not in {color:?}",
+                point.frame
+            );
             let read = [
-                first_red(frame, (x, y + INSIDE), (-1, 0)),
-                first_red(frame, (x + INSIDE, y - INSIDE), (0, -1)),
-                first_red(frame, (x, y + INSIDE), (1, 0)),
-                first_red(frame, (x, y + INSIDE), (0, 1)),
+                f64::from(edges[0].0),
+                f64::from(edges[1].1),
+                f64::from(edges[2].0),
+                f64::from(edges[3].1),
             ];
             let expected = [
                 point.left - pad,

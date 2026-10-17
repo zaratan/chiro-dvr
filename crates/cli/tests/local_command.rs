@@ -11,7 +11,7 @@ use batdetect::progress::Silent;
 use files::names::Names;
 use media::decode::{Decoder, Threads};
 use media::frame::{ColorRange, YuvFrame};
-use reference::location::{committed, recorded_video, recording_directories};
+use reference::location::{Reference, committed, recorded_video, recording_directories};
 use reference::recording::Recording;
 use reference::track_matching::{DiscrepancyKind, match_tracks};
 use render::config::{RenderConfig, Zoom, ZoomConfig};
@@ -24,7 +24,7 @@ const RECORDED_OUTPUTS: usize = 2;
 #[test]
 #[ignore = "local"]
 fn the_twenty_six_videos_give_the_tracks_of_the_reference_but_for_the_known_divergences() {
-    let directories = recording_directories().unwrap();
+    let directories = recording_directories(Reference::V011).unwrap();
     assert_eq!(directories.len(), 26);
     let out = tempfile::tempdir().unwrap();
     let (mut reference, mut paired, mut agreeing, mut lost, mut added) = (0, 0, 0, 0, 0);
@@ -128,7 +128,7 @@ fn zoom_switches(video: &str, recording: &Recording, tracks: &[Track]) -> Vec<Sw
 #[cfg(test)]
 fn check_recorded_zooms(recording: &Recording) -> bool {
     let stem = Path::new(&recording.summary.video.name).file_stem().unwrap().to_owned();
-    let list = committed("zooms").join(stem).with_extension("txt");
+    let list = committed(Reference::V011, "zooms").join(stem).with_extension("txt");
     let Ok(names) = fs::read_to_string(&list) else {
         return false;
     };
@@ -156,7 +156,7 @@ fn known_zoom_switches() -> Vec<(&'static str, usize, bool)> {
 #[test]
 #[ignore = "local"]
 fn the_annotated_103_keeps_the_pts_of_its_decoded_frames_through_its_lost_frames() {
-    let directory = recording_directories()
+    let directory = recording_directories(Reference::V011)
         .unwrap()
         .into_iter()
         .find(|directory| directory.ends_with("video_103"))

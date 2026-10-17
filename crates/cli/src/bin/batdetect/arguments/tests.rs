@@ -8,7 +8,7 @@ use engine::settings::Region;
 use render::config::Zoom;
 use types::language::Language;
 
-use super::{Level, PROGRAM, Request, command, level, parse};
+use super::{Admission, Level, PROGRAM, Request, command, level, parse};
 use crate::errors::rendered;
 use crate::texts::Texts;
 
@@ -49,9 +49,8 @@ fn several_videos_and_the_long_out_dir_option_are_read_with_the_v0_1_1_settings(
             inputs: vec![PathBuf::from("a.mp4"), PathBuf::from("nuit")],
             out_dir: Some(PathBuf::from("out")),
             options: Options::default(),
-            skip_refused: false,
+            admission: Admission::default(),
             no_notify: false,
-            force: false,
         }
     );
 }
@@ -194,7 +193,12 @@ fn the_short_help_shows_only_the_essential_options_and_points_to_the_long_help()
 
 #[test]
 fn redoing_every_video_is_asked_by_an_option_of_the_long_help_only() {
-    assert!(parse(["batdetect", "a.mp4", "--force"], ENGLISH).unwrap().force);
+    assert!(
+        parse(["batdetect", "a.mp4", "--force"], ENGLISH)
+            .unwrap()
+            .admission
+            .force
+    );
     for (texts, heading, described) in [
         (ENGLISH, "Options:", "Redoes every video"),
         (FRENCH, "Options\u{a0}:", "Refait toutes les vidéos"),
@@ -482,4 +486,27 @@ fn the_headings_of_the_common_uses_and_of_the_files_take_the_colour_of_the_other
     }
     let command = format!("\u{1b}[1m\u{1b}[36m{PROGRAM} nuit-12-oct\u{1b}[0m");
     assert!(coloured.contains(&command), "{command:?}: {coloured:?}");
+}
+
+#[test]
+fn starting_despite_a_disk_that_looks_too_small_is_asked_by_an_option_of_the_long_help_only() {
+    assert!(
+        parse(["batdetect", "a.mp4", "--ignore-disk"], ENGLISH)
+            .unwrap()
+            .admission
+            .ignore_disk
+    );
+    for (texts, heading, described) in [
+        (ENGLISH, "Options:", "Starts the run even when the disk"),
+        (FRENCH, "Options\u{a0}:", "Lance le calcul même quand le disque"),
+    ] {
+        let long = help_in(Level::Full, texts);
+        let line = long.lines().find(|line| line.contains("--ignore-disk")).unwrap();
+        assert!(line.contains(described), "{line}");
+        let short = help_in(Level::Essential, texts);
+        assert!(
+            !short.split(heading).nth(1).unwrap().contains("--ignore-disk"),
+            "{short}"
+        );
+    }
 }

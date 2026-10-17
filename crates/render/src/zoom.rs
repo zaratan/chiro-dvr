@@ -1,7 +1,7 @@
 use std::num::NonZeroU32;
 
 use draw::canvas::{Canvas, PixelBox, Point};
-use draw::color::TRAIL;
+use draw::color::Rgb;
 use media::convert::Region;
 use media::frame::YuvFrame;
 use types::detection::Detection;
@@ -174,10 +174,11 @@ pub(crate) struct ZoomTrail {
     positions: Vec<Detection>,
     detected: Vec<Detection>,
     trail_frames: usize,
+    color: Rgb,
 }
 
 impl ZoomTrail {
-    pub(crate) fn new(track: &Track, crop: Crop, size: (u32, u32), trail_frames: usize) -> Self {
+    pub(crate) fn new(track: &Track, color: Rgb, crop: Crop, size: (u32, u32), trail_frames: usize) -> Self {
         let positions: Vec<Detection> = filled(&bounded(track.points()))
             .into_iter()
             .map(|(position, _)| position)
@@ -190,6 +191,7 @@ impl ZoomTrail {
             positions,
             detected: track.points().to_vec(),
             trail_frames,
+            color,
         }
     }
 
@@ -265,7 +267,7 @@ impl Marks for ZoomTrail {
                 x: spot.x as f32,
                 y: spot.y as f32,
             };
-            canvas.line(point(piece.from), point(piece.to), TRAIL, TRAIL_WIDTH);
+            canvas.line(point(piece.from), point(piece.to), self.color, TRAIL_WIDTH);
         }
     }
 }

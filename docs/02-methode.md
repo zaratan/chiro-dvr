@@ -219,11 +219,9 @@ peu contrastée sortait en fragments écartés de 18 à 24 px, trop pour `merge_
 
 ## Rendu
 
-Entre deux détections d'une même piste, la boîte est interpolée linéairement à chaque
-image et dessinée en trait fin, pour qu'elle ne clignote pas ; la trace jaune orangé de la
-dernière seconde la suit jusqu'à cette position. Ces positions servent
-uniquement à l'affichage : le CSV et le banc ne comptent que les vraies détections, et la
-colonne `images comblées` indique combien d'images ont été comblées.
+Entre deux détections d'une même piste, la boîte est interpolée linéairement à chaque image et dessinée en trait fin, pour qu'elle ne clignote pas ; la trace de la dernière seconde la suit jusqu'à cette position. Ces positions servent uniquement à l'affichage : le CSV et le banc ne comptent que les vraies détections, et la colonne `images comblées` indique combien d'images ont été comblées.
+
+Boîte, numéro et trace prennent la couleur de la piste sur l'image résumé, dans les extraits, les zooms et la vidéo annotée (#13). La boîte (2 px, 1 px interpolée) est bordée d'un liseré noir de 1 px de chaque côté, et le numéro, 6 px au-dessus, d'un liseré noir de 1 px : la couleur se détache de la roche claire comme du ciel sombre, même la plus claire de la palette (235, 235, 235). Le numéro garde sa place au-dessus de la boîte (choix de l'utilisateur, 16 octobre 2026). L'autre place essayée, à 24 px en diagonale de la boîte, ne cachait aucun pixel à moins de 30 px de la cible sur trois images sur quatre, et 16 pixels sur la quatrième ; à sa place, le numéro en cache de 13 à 277 sur ces quatre images. La trace n'a pas de liseré. Une piste absente de l'image résumé garderait la boîte rouge (255, 0, 0) et la trace jaune orangé (255, 200, 0) sans liseré ; cela n'arrive pas aujourd'hui, chaque piste étant dessinée sur une image résumé.
 
 Chaque côté de la boîte dessinée est borné à 4 fois la médiane du même côté sur les points
 détectés de la piste, et la boîte bornée est recentrée sur le barycentre : une tache étalée
@@ -384,3 +382,48 @@ point, avec les en-têtes `track`, `start`, `end`, `duration (s)`, `points`,
 `chord (px)`, `path (px)`, `speed (px/s)`, `max area (px)`, `amplitude (grey levels)`,
 `filled frames`, `start (s)`. Fins de ligne CRLF dans les deux langues. `0:04` serait lu
 par LibreOffice comme 0 h 04 min : d'où `0:00:04`.
+
+### Place prise
+
+Mesurée le 16 octobre 2026 sur lumiel (binaire release 0.2.0-19-g709ee52, openh264, réglages par défaut, `--annotated` sur 6 vidéos), sur les 26 vidéos de `BATDETECT_VIDEOS_DIR`, une par une, le dossier de résultats relevé puis effacé. « Sorties » compte tout le dossier de la vidéo sauf la vidéo annotée : extraits, zooms, images résumé, tableau, `params.json`.
+
+| Vidéo | Vidéo (Mo) | Pistes | Sorties (Mo) | Sorties ÷ vidéo | Vidéo annotée ÷ vidéo |
+|---|---:|---:|---:|---:|---:|
+| video_089 | 467,2 | 1 | 15,2 | 0,032 | 2,71 |
+| video_090 | 466,5 | 20 | 440,7 | 0,945 | 2,72 |
+| video_091 | 451,1 | 21 | 357,7 | 0,793 | 2,61 |
+| video_092 | 454,1 | 14 | 195,6 | 0,431 | 1,97 |
+| video_093 | 458,0 | 6 | 89,9 | 0,196 |  |
+| video_094 | 461,2 | 14 | 245,7 | 0,533 |  |
+| video_095 | 447,7 | 78 | 1455,0 | 3,250 |  |
+| video_096 | 443,2 | 136 | 2787,9 | 6,291 |  |
+| video_097 | 434,4 | 149 | 2995,6 | 6,896 | 2,45 |
+| video_098 | 450,1 | 131 | 2872,0 | 6,381 |  |
+| video_099 | 474,8 | 117 | 2614,7 | 5,507 |  |
+| video_100 | 446,7 | 98 | 2212,5 | 4,954 |  |
+| video_101 | 449,5 | 32 | 821,1 | 1,827 |  |
+| video_102 | 460,7 | 36 | 1025,8 | 2,227 |  |
+| video_103 | 463,3 | 10 | 256,3 | 0,553 |  |
+| video_120 | 444,9 | 0 | 0,9 | 0,002 | 0,64 |
+| video_121 | 468,7 | 2 | 16,1 | 0,034 |  |
+| video_122 | 449,8 | 0 | 1,1 | 0,002 |  |
+| video_123 | 447,9 | 8 | 48,7 | 0,109 |  |
+| video_124 | 457,6 | 5 | 35,5 | 0,078 |  |
+| video_125 | 458,0 | 47 | 327,8 | 0,716 |  |
+| video_126 | 465,2 | 13 | 111,3 | 0,239 |  |
+| video_127 | 437,3 | 7 | 66,5 | 0,152 |  |
+| video_128 | 432,5 | 5 | 59,1 | 0,137 |  |
+| video_129 | 426,5 | 16 | 157,4 | 0,369 |  |
+| video_130 | 248,2 | 6 | 49,7 | 0,200 |  |
+
+- Les sorties vont de 0,002 à 6,9 fois la vidéo, médiane 0,48 : elles suivent le nombre et la durée des passages, inconnus avant la détection. Les soirées chargées (095 à 100, 78 à 149 pistes) dépassent 3 fois, les calmes restent sous 1 fois.
+- La vidéo annotée pèse de 0,64 fois la vidéo (120, sans piste) à 2,72 fois (090).
+- Par seconde de fenêtre d'extrait (piste et marges de 1,5 s), un extrait pèse de 0,81 à 3,17 fois le débit de la vidéo d'entrée, un zoom de 0,29 à 2,63 fois ; 089 à 103 sont nettement au-dessus de 121 à 130, à débit d'entrée égal.
+
+Coefficients retenus (`space`, décision de l'utilisateur du 16 octobre) :
+
+- au lancement, 1 fois la vidéo : 18 soirées sur 26 tiennent dessous ; une soirée chargée le dépasse, et c'est le contrôle par vidéo qui la protège alors ;
+- vidéo annotée, 2,8 fois la vidéo, le plus prudent mesuré arrondi au-dessus ;
+- par vidéo, avant les extraits : 3,2 fois le débit d'entrée par seconde d'extrait et 2,7 par seconde de zoom, les plus prudents mesurés arrondis au-dessus.
+
+VideoToolbox écrit environ 0,77 fois ce qu'écrit openh264 (docs/11) : sur le Mac, ces coefficients sont donc plus prudents encore. Le comportement des deux contrôles est en docs/11, section cli.

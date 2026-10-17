@@ -18,11 +18,13 @@ use engine::detection;
 use engine::input;
 use engine::lost::Losses;
 use files::params::Finish;
+use jiff::civil::date;
+use jiff::tz::TimeZone;
 use types::language::Language;
 
 use super::{
-    announcement, detection_refused, failure_lines, folders_refused, inputs_refused, inputs_skipped, option_refused,
-    redone, refused_lines, render_refused, tracking_refused, video_done, video_failed, video_step,
+    announcement, detection_refused, failure_lines, finish, folders_refused, inputs_refused, inputs_skipped,
+    option_refused, redone, refused_lines, render_refused, tracking_refused, video_done, video_failed, video_step,
 };
 use crate::texts::{Fixed, Message, Texts};
 
@@ -575,8 +577,10 @@ fn the_refusals_before_the_question_are_counted_and_the_question_counts_the_vali
     let headings = |refusals: &[Refused]| {
         [Language::French, Language::English].map(|language| {
             let texts = Texts::new(language);
-            let (heading, lines) = inputs_skipped(texts, refusals);
-            [texts.say(&heading)].into_iter().chain(lines).collect::<Vec<String>>()
+            inputs_skipped(texts, refusals)
+                .into_iter()
+                .flat_map(|(heading, lines)| [texts.say(&heading)].into_iter().chain(lines))
+                .collect::<Vec<String>>()
         })
     };
     assert_eq!(
@@ -625,8 +629,10 @@ fn the_refusals_before_the_question_are_counted_and_the_question_counts_the_vali
     assert_eq!(
         both(&Message::Fixed(Fixed::SkipRefusedHelp)),
         [
-            "Traite les vidéos valides sans poser la question quand des entrées sont refusées",
-            "Processes the valid videos without asking when some inputs are refused"
+            "Traite les vidéos valides sans poser la question quand des entrées sont refusées ou que le disque des \
+             résultats semble trop petit",
+            "Processes the valid videos without asking when some inputs are refused or the disk of the results looks \
+             too small"
         ]
     );
 }
@@ -690,6 +696,7 @@ fn listed(name: &str, length_s: f64, done: bool) -> Listed {
             },
         }),
         length_s,
+        frames_to_compute: 0,
     }
 }
 
@@ -723,5 +730,93 @@ fn the_announcement_counts_the_videos_and_their_length_and_names_those_already_d
             "2 vidéos, 2 min 0 s de vidéo, dont 1 déjà faite",
             "2 videos, 2 min 0 s of video, 1 of them already done"
         ]
+    );
+}
+
+#[test]
+fn a_disk_too_small_is_named_by_its_first_results_folder_with_the_room_rounded_against_the_lot() {
+    let refused = |annotated| {
+        [Refused {
+            path: PathBuf::from("/Volumes/BATS/nuit-12-oct/batdetect"),
+            reason: Reason::DiskShort {
+                needed: 12_301_000_000,
+                free: 4_199_000_000,
+                annotated,
+            },
+        }]
+    };
+    assert_eq!(
+        refused_lines(Texts::new(Language::French), &refused(false)),
+        [
+            "le disque qui contient /Volumes/BATS/nuit-12-oct/batdetect\u{a0}: 12,4 Go à prévoir, 4,1 Go libres",
+            "  à faire\u{a0}: libérer de la place, ou écrire les résultats sur un autre disque avec -o\u{a0}; \
+             --ignore-disk lance quand même le calcul",
+        ]
+    );
+    assert_eq!(
+        refused_lines(Texts::new(Language::English), &refused(true)),
+        [
+            "the disk holding /Volumes/BATS/nuit-12-oct/batdetect: 12.4 GB needed, 4.1 GB free",
+            "  what to do: free some space, drop --annotated, or write the results to another disk with -o; \
+             --ignore-disk starts the run anyway",
+        ]
+    );
+}
+
+#[test]
+fn a_disk_too_small_gets_its_own_heading_after_the_refused_inputs_and_is_not_counted_among_them() {
+    let disk = |path: &str| Refused {
+        path: PathBuf::from(path),
+        reason: Reason::DiskShort {
+            needed: 6_400_000_000,
+            free: 4_100_000_000,
+            annotated: false,
+        },
+    };
+    let missing = Refused {
+        path: PathBuf::from("absente.mp4"),
+        reason: Reason::Missing,
+    };
+    let headings = |language, refused: &[Refused]| -> Vec<String> {
+        let texts = Texts::new(language);
+        inputs_skipped(texts, refused)
+            .iter()
+            .map(|(heading, _)| texts.say(heading))
+            .collect()
+    };
+    assert_eq!(
+        headings(Language::French, &[disk("nuit/batdetect"), missing.clone()]),
+        [
+            "une entrée est refusée\u{a0}:",
+            "le disque des résultats semble trop petit\u{a0}:"
+        ]
+    );
+    assert_eq!(
+        headings(Language::English, &[disk("a/batdetect"), disk("b/batdetect")]),
+        ["the disks of the results look too small:"]
+    );
+    assert_eq!(
+        headings(Language::English, &[disk("nuit/batdetect")]),
+        ["the disk of the results looks too small:"]
+    );
+}
+
+#[test]
+fn the_finish_is_given_in_hours_and_minutes_of_the_local_clock_rounded_to_the_nearest_minute() {
+    let at = date(2026, 10, 17).at(22, 41, 37, 0).to_zoned(TimeZone::UTC).unwrap();
+    assert_eq!(
+        finish("[3/12] video_094 — détection".to_owned(), &at),
+        Message::Finish {
+            line: "[3/12] video_094 — détection".to_owned(),
+            time: "22:42".to_owned(),
+        }
+    );
+    assert_eq!(
+        Texts::new(Language::French).say(&finish("[3/12] video_094 — détection".to_owned(), &at)),
+        "[3/12] video_094 — détection · fin vers 22:42"
+    );
+    assert_eq!(
+        Texts::new(Language::English).say(&finish("[3/12] video_094 — detection".to_owned(), &at)),
+        "[3/12] video_094 — detection · done around 22:42"
     );
 }

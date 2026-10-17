@@ -15,7 +15,7 @@ use batdetect::progress::Silent;
 use files::table::{COLUMNS, Column};
 use media::decode::Threads;
 use reference::fixture::fixture;
-use reference::location::committed;
+use reference::location::{Reference, committed};
 use reference::recording::Recording;
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
@@ -38,7 +38,7 @@ struct ExtractRun {
 fn extract() -> &'static ExtractRun {
     static EXTRACT_RUN: OnceLock<ExtractRun> = OnceLock::new();
     EXTRACT_RUN.get_or_init(|| {
-        let recording = Recording::read(&committed(EXTRACT)).unwrap();
+        let recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
         let rate = FrameRate::new(recording.summary.stream.avg_frame_rate).unwrap();
         let out = tempfile::tempdir().unwrap();
         let video = fixture(&format!("{EXTRACT}.mp4")).unwrap();
@@ -86,7 +86,14 @@ fn the_extract_gives_the_four_tracks_of_the_reference_in_its_table() {
         .skip(1)
         .map(|line| line.split(',').nth(hits).unwrap().parse().unwrap())
         .collect();
-    let expected: Vec<usize> = run.recording.rows.iter().map(|row| row.hits).collect();
+    let expected: Vec<usize> = run
+        .recording
+        .rows
+        .as_deref()
+        .unwrap()
+        .iter()
+        .map(|row| row.hits)
+        .collect();
     assert_eq!(hits, expected);
 }
 

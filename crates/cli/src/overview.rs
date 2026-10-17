@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use draw::canvas::{self, Canvas, PixelBox};
-use draw::color::PANEL;
+use draw::color::{PANEL, Rgb};
 use engine::detection::Detected;
 use engine::settings::Region;
 use files::names::{Names, Part};
@@ -10,6 +10,7 @@ use summary::header::Labels;
 use summary::image_file::{self, write_png};
 use summary::layout::Summary;
 use summary::{Painted, pages};
+use types::track::Track;
 
 #[cfg(test)]
 mod tests;
@@ -59,6 +60,20 @@ pub(crate) struct Sheet {
 pub(crate) struct Drawing {
     pub(crate) page: PathBuf,
     pub(crate) painted: Painted,
+}
+
+impl Drawn {
+    pub(crate) fn colors(&self, tracks: &[Track]) -> Vec<Option<Rgb>> {
+        tracks
+            .iter()
+            .map(|track| {
+                self.painted
+                    .iter()
+                    .find(|drawing| drawing.painted.track == track.id())
+                    .map(|drawing| drawing.painted.color)
+            })
+            .collect()
+    }
 }
 
 pub(crate) fn write_overview(
