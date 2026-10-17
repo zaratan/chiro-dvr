@@ -2516,6 +2516,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - `tests/slow_exfat.rs`, sous macOS seulement : une image exFAT montée par `hdiutil`
       sans `sudo` ; `persist_noclobber` y est refusé, le tableau s'y écrit, refuse
       d'écraser un tableau annoté, est retiré par le ménage et se réécrit.
+    - Depuis macOS 27, le système écrit sur cette image un `._x` (AppleDouble) à côté de chaque fichier : la liste des fichiers restants des tests les écarte, mais garde les partiels cachés (#335, `files/tests/listing.rs`). Le ménage n'y touche pas, et macOS retire le `._x` avec son fichier.
     - Sur un disque insensible à la casse (APFS, NTFS), un `vol_pistes.csv` annoté et la
       vidéo `VOL.mp4` ont le même chemin. Le ménage, qui compare les octets, ne
       reconnaît pas ce fichier ; le renommage refuse de l'écraser.
