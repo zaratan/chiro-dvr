@@ -10,6 +10,7 @@ use files::time::frame_seconds;
 use media::decode::Threads;
 use media::fingerprint;
 use render::clips::{Clip, Outputs};
+use render::colored::Colored;
 use render::drawn::drawn;
 use render::source::Source;
 use summary::assigned::track_colors;
@@ -86,11 +87,15 @@ impl Drawing {
             track,
             path: PathBuf::from("frozen.mp4"),
         }];
-        let found = drawn(&source, &self.tracks, &self.colors, &view(wanted), self.options.render).unwrap();
+        let found = drawn(&source, self.colored(), &view(wanted), self.options.render).unwrap();
         let fingerprints = &found[0].fingerprints;
         Frozen {
             frames: fingerprints.len(),
             fingerprint: fingerprint::of_sequence(fingerprints.iter().copied()),
         }
+    }
+
+    fn colored(&self) -> Colored<'_> {
+        Colored::new(&self.tracks, &self.colors).unwrap()
     }
 }

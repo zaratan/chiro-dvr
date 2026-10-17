@@ -106,6 +106,7 @@ if (savebar) {
       zoom: row.dataset.zoom ?? "",
       part: row.dataset.part ?? "",
       color: row.querySelector(".dot")?.style.getPropertyValue("--dot") ?? "",
+      judgeable: Boolean(section.querySelector(".judge")),
       row,
     })),
   }));
@@ -152,19 +153,32 @@ if (savebar) {
     get: () => storage.get(CHAIN_KEY) !== "off",
     set: (on) => storage.set(CHAIN_KEY, on ? "on" : "off"),
   };
-  const judges = owned.map(({ section, tracks: own }) =>
-    VerdictsJudge({
+  const judges = owned.map(({ section, tracks: own }, index) =>
+    section.querySelector(".judge") && VerdictsJudge({
       section,
       tracks: own,
       store,
       say,
       motion,
       chained,
-      onOpen: (opening) => judges.forEach((judge, index) => owned[index].section !== opening && judge.close()),
+      onOpen: (opening) => judges.forEach((judge, index) => judge && owned[index].section !== opening && judge.close()),
+      onLeave: (track) => overlays[index]?.restore(track),
     }),
   );
   const lists = owned.map(({ section, tracks: own }, index) =>
-    VerdictsList({ section, tracks: own, store, say, clock, onChoose: (track) => judges[index].open(track) }),
+    VerdictsList({ section, tracks: own, store, say, clock, onChoose: (track) => judges[index]?.open(track) }),
+  );
+  const overlays = owned.map(
+    ({ section, tracks: own }, index) =>
+      judges[index] &&
+      VerdictsOverlay({
+        section,
+        tracks: own,
+        store,
+        say,
+        current: () => judges[index].current(),
+        onChoose: (track) => judges[index].open(track),
+      }),
   );
   const names = document.getElementById("species-names");
   const time = () => new Date().toLocaleTimeString(document.documentElement.lang, { hour: "2-digit", minute: "2-digit" });
@@ -184,6 +198,7 @@ if (savebar) {
   store.subscribe(() => {
     bar.update();
     lists.forEach((list) => list.update());
+    overlays.forEach((overlay) => overlay?.update());
     const known = [...new Set(store.rows().map((row) => row.species).filter(Boolean))].sort();
     names.replaceChildren(...known.map((name) => Object.assign(document.createElement("option"), { value: name })));
     keepDraft();

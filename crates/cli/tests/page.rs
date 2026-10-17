@@ -147,9 +147,9 @@ fn an_input_refused_at_the_start_shows_on_the_page_until_a_launch_without_refusa
     run(&[&video, &missing, Path::new("--skip-refused")], "fr_FR.UTF-8");
     let html = fs::read_to_string(&page).unwrap();
     assert!(html.contains(r#"<section class="video failed refused" id="refused""#));
+    assert!(html.contains("<p class=\"reason\">absente.mp4\u{a0}: introuvable</p>"));
     let shown = missing.display().to_string().replace('/', "/<wbr>");
-    assert!(html.contains(&format!("{shown}\u{a0}: introuvable")));
-    assert!(html.contains("à faire\u{a0}: vérifier le chemin"));
+    assert!(html.contains(&format!("à faire\u{a0}: vérifier le chemin {shown}\u{a0}; ")));
     assert!(html.contains(r##"<a class="count bad" href="#refused">1 entrée refusée</a>"##));
     assert!(run(&[&video], "fr_FR.UTF-8").status.success());
     let html = fs::read_to_string(&page).unwrap();

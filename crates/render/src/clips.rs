@@ -1,17 +1,15 @@
 use std::path::{Path, PathBuf};
 use std::thread;
 
-use draw::color::Rgb;
 use draw::text::{self, Typeface};
 use media::encode::{self, Codec, StampsError};
 use media::frame;
 use types::rational::DivisionError;
-use types::track::Track;
 
+use crate::colored::Colored;
 use crate::config::RenderConfig;
 use crate::encoders::{Encoders, Ffmpeg, Open};
 use crate::group::{Rendering, Scratch};
-use crate::ink::inks;
 use crate::overlay::Overlay;
 use crate::picture;
 use crate::schedule::{self, Alone};
@@ -113,8 +111,7 @@ pub struct Rendered {
 
 pub fn render(
     source: &Source,
-    tracks: &[Track],
-    colors: &[Option<Rgb>],
+    colored: Colored<'_>,
     outputs: &Outputs,
     config: RenderConfig,
     codecs: &[Codec],
@@ -122,8 +119,7 @@ pub fn render(
     let threads = thread::available_parallelism().map_or(1, |cores| cores.get() / CORES_PER_THREAD);
     let video = Video {
         source,
-        tracks,
-        colors,
+        colored,
         config,
     };
     render_with(&Ffmpeg, threads, &video, outputs, codecs)
@@ -132,8 +128,7 @@ pub fn render(
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Video<'a> {
     pub(crate) source: &'a Source,
-    pub(crate) tracks: &'a [Track],
-    pub(crate) colors: &'a [Option<Rgb>],
+    pub(crate) colored: Colored<'a>,
     pub(crate) config: RenderConfig,
 }
 
@@ -146,10 +141,10 @@ pub(crate) fn render_with<O: Open>(
 ) -> Result<Rendered, Error> {
     let Video {
         source,
-        tracks,
-        colors,
+        colored,
         config,
     } = *video;
+    let tracks = colored.tracks();
     let paths = by_track(&outputs.clips, tracks.len())?;
     let zooms = by_track(&outputs.zooms, tracks.len())?;
     let (frames, rate) = (source.frame_count(), source.rate());
@@ -171,7 +166,7 @@ pub(crate) fn render_with<O: Open>(
         return Err(Error::UnknownTrack { track: clip.track });
     }
     let typeface = Typeface::roboto().map_err(Error::Typeface)?;
-    let inks = inks(colors, tracks.len());
+    let inks = colored.inks();
     let overlay = Overlay::new(tracks, &inks, frames, config, rate, &typeface);
     let encoders = Encoders::new(open, codecs, rate);
     let table = Paths {

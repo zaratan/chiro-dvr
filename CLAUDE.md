@@ -141,7 +141,7 @@ crates depuis #71, dépendances à sens unique :
 - `draw` : dessin pur sur une toile RGBA opaque, police Roboto embarquée, palette et tailles ; ne dépend d'aucune crate du workspace.
 - `render` → `media`, `draw`, `types` (#110, #112) : images des extraits choisies par `pts`
   (`source`), reprise sur la dernière image-clé saine, un seul fil de décodage sur une plage abîmée ;
-  fenêtres et groupes (`windows`), boîtes, `#N` et traces à la couleur de la piste sur l'image résumé (`ink`, `overlay`, `picture`, #13),
+  fenêtres et groupes (`windows`), boîtes, `#N` et traces à la couleur de la piste sur l'image résumé (`ink`, `overlay`, `picture`, #13), pistes et couleurs réunies, de longueurs contrôlées à la construction (`colored`, #287),
   un encodeur par groupe (`media::encode::fanout`), groupes en parallèle (`clips`,
   `schedule`, `group`, `ahead`, `encoders`) ; zooms ralentis en openh264 (`zoom`, `work`, #103) ; vidéo annotée aux `pts` de la source, lue par tronçons (#103) ;
   `drawn` (feature `testing`) rend les images dessinées sans encodeur, pour les tests figés (#198).
@@ -170,7 +170,7 @@ crates depuis #71, dépendances à sens unique :
   `osascript` et page de résultats ouverte par `open` après le bilan, seuls sous-processus du binaire, #69, #71), `sheet`
   (libellés de la page par Fluent, #71), `style` (couleurs et nom de l'option d'aide, #56) et `parsing` (lecture
   des valeurs d'options, erreur typée avec l'option et sa plage, #55) ; usages courants en tête de l'aide et sans argument (#56), version gravée par
-  `build.rs` ; textes en Fluent dans `locales/{fr,en}.ftl`, langue de l'aide, des erreurs,
+  `build/engraved.rs` (partagé avec `compare`, #295) ; textes en Fluent dans `locales/{fr,en}.ftl`, langue de l'aide, des erreurs,
   des lignes et du bandeau (#114).
 
 Charte (23 règles numérotées, lints et raisons dans

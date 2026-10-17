@@ -38,7 +38,7 @@ pub(crate) struct Overview<'a> {
     pub(crate) regions: &'a [Region],
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct Drawn {
     pub(crate) background: PathBuf,
     pub(crate) sheets: Vec<Sheet>,

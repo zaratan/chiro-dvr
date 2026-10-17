@@ -1,8 +1,9 @@
+use std::collections::BTreeSet;
 use std::ffi::OsString;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::path::PathBuf;
 
-use batdetect::options::Options;
+use batdetect::options::{Change, Options};
 use clap::error::ErrorKind;
 use engine::settings::Region;
 use render::config::Zoom;
@@ -14,6 +15,27 @@ use crate::texts::Texts;
 
 const ENGLISH: Texts = Texts::new(Language::English);
 const FRENCH: Texts = Texts::new(Language::French);
+const LEAVING_THE_RESULTS_ALONE: [&str; 8] = [
+    "inputs",
+    "out-dir",
+    "skip-refused",
+    "no-notify",
+    "force",
+    "ignore-disk",
+    "help",
+    "version",
+];
+const RECALCULATING: [(&str, Option<&str>); 9] = [
+    ("zoom", Some("all")),
+    ("annotated", None),
+    ("max-tracks", Some("0")),
+    ("clip-margin", Some("2.5")),
+    ("osd-region", Some("0,0,1,0.1")),
+    ("threshold", Some("10")),
+    ("min-hits", Some("3")),
+    ("max-blobs", Some("0")),
+    ("work-width", Some("720")),
+];
 
 fn read(arguments: &[&str]) -> Options {
     let mut all = vec!["batdetect", "a.mp4", "-o", "out"];
@@ -139,7 +161,10 @@ fn a_value_a_setting_refuses_is_a_usage_error_that_names_the_option() {
         (&["--threshold", "nan"][..], "--threshold must be"),
         (&["--work-width", "8"][..], "--work-width must be"),
         (&["--clip-margin", "-2"][..], "--clip-margin must be"),
-        (&["--osd-region", "0.5,0,0.2,1"][..], "--osd-region 1 does not satisfy"),
+        (
+            &["--osd-region", "0.5,0,0.2,1"][..],
+            "region no. 1 of --osd-region does not satisfy",
+        ),
     ] {
         let error = refused(arguments);
         assert_eq!(error.exit_code(), 2, "{arguments:?}");
@@ -508,5 +533,38 @@ fn starting_despite_a_disk_that_looks_too_small_is_asked_by_an_option_of_the_lon
             !short.split(heading).nth(1).unwrap().contains("--ignore-disk"),
             "{short}"
         );
+    }
+}
+
+#[test]
+fn every_option_either_recalculates_the_videos_or_leaves_their_results_alone() {
+    let options: BTreeSet<String> = command(Level::Full, ENGLISH)
+        .get_arguments()
+        .map(|argument| argument.get_id().to_string())
+        .collect();
+    let sorted: BTreeSet<String> = RECALCULATING
+        .iter()
+        .map(|(flag, _)| *flag)
+        .chain(LEAVING_THE_RESULTS_ALONE)
+        .map(str::to_owned)
+        .collect();
+    assert_eq!(options, sorted);
+}
+
+#[test]
+fn every_option_that_recalculates_the_videos_is_named_among_the_changed_settings() {
+    for (flag, value) in RECALCULATING {
+        let flag = format!("--{flag}");
+        let arguments: Vec<&str> = [flag.as_str()].into_iter().chain(value).collect();
+        let changed = read(&arguments).changed();
+        assert_eq!(changed.len(), 1, "{flag}: {changed:?}");
+        assert!(!matches!(changed[0], Change::Unnamed(_)), "{flag}: {changed:?}");
+    }
+}
+
+#[test]
+fn the_options_that_leave_the_results_alone_change_no_setting() {
+    for flag in ["--skip-refused", "--no-notify", "--force", "--ignore-disk"] {
+        assert_eq!(read(&[flag]), Options::default(), "{flag}");
     }
 }

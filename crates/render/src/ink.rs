@@ -30,9 +30,3 @@ impl Ink {
 pub(crate) fn ink_at(inks: &[Ink], index: usize) -> Ink {
     inks.get(index).copied().unwrap_or_else(|| Ink::of(None))
 }
-
-pub(crate) fn inks(colors: &[Option<Rgb>], track_count: usize) -> Vec<Ink> {
-    (0..track_count)
-        .map(|index| Ink::of(colors.get(index).copied().flatten()))
-        .collect()
-}

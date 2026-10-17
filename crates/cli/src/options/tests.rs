@@ -2,7 +2,7 @@ use std::num::{NonZeroU32, NonZeroUsize};
 
 use engine::config::DetectConfig;
 use engine::settings::DetectSettings;
-use render::config::{RenderConfig, Zoom};
+use render::config::{RenderConfig, Zoom, ZoomConfig};
 use tracking::stability::StabilityConfig;
 use tracking::track::TrackConfig;
 
@@ -51,12 +51,34 @@ fn each_setting_of_the_detection_that_differs_from_its_default_is_reported_with_
     assert_eq!(
         options.changed(),
         [
+            Change::OsdRegions(1),
             Change::Threshold(6.5),
             Change::MinHits(NonZeroUsize::new(3).unwrap()),
             Change::MaxBlobs(None),
             Change::WorkWidth(NonZeroU32::new(480).unwrap()),
-            Change::OsdRegions(1),
         ]
     );
     assert!(options.tunes_the_frames());
+}
+
+#[test]
+fn each_setting_of_the_clips_that_makes_a_video_recalculated_is_reported_in_the_order_of_the_help() {
+    let render = RenderConfig::default();
+    let options = Options {
+        render: RenderConfig::new(render.box_pad(), render.trail_s(), 2.5, 0)
+            .unwrap()
+            .with_zoom(ZoomConfig::choosing(Zoom::All)),
+        annotated: true,
+        ..Options::default()
+    };
+    assert_eq!(
+        options.changed(),
+        [
+            Change::Zoom(Zoom::All),
+            Change::Annotated,
+            Change::MaxTracks(0),
+            Change::ClipMargin(2.5),
+        ]
+    );
+    assert!(!options.tunes_the_frames());
 }

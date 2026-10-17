@@ -17,6 +17,7 @@ use media::encode::fallback::{self, Fallback};
 use media::encode::{self, Codec};
 use media::frame::{ColorRange, YuvFrame};
 use render::clips::{Outputs, Rendered};
+use render::colored::Colored;
 use render::config::{RenderConfig, Zoom, ZoomConfig};
 use render::windows::clip_windows;
 use summary::header::{Band, HeaderLine, Labels};
@@ -65,12 +66,17 @@ fn rendered_into_a_fresh_folder(
     max_tracks: usize,
     trial: Result<Vec<Codec>, Error>,
 ) -> (Result<Rendered, Error>, PathBuf) {
-    in_a_fresh_folder(folder, max_tracks, |clips| {
-        render_clips(clips, &[still(1), still(2)], trial).map(|written| written.rendered)
+    in_a_fresh_folder(folder, max_tracks, &[still(1), still(2)], |clips| {
+        render_clips(clips, trial).map(|written| written.rendered)
     })
 }
 
-fn in_a_fresh_folder<T>(folder: &Path, max_tracks: usize, run: impl FnOnce(&Clips<'_>) -> T) -> (T, PathBuf) {
+fn in_a_fresh_folder<T>(
+    folder: &Path,
+    max_tracks: usize,
+    tracks: &[Track],
+    run: impl FnOnce(&Clips<'_>) -> T,
+) -> (T, PathBuf) {
     let video = folder.join("flight.mp4");
     flight::write_flight(&video);
     let detected = detect(&video, Threads::Automatic, &DetectConfig::default()).unwrap();
@@ -86,7 +92,7 @@ fn in_a_fresh_folder<T>(folder: &Path, max_tracks: usize, run: impl FnOnce(&Clip
         job: &job,
         names,
         detected: &detected,
-        colors: &[],
+        colored: Colored::new(tracks, &[]).unwrap(),
         timeline: &timeline,
         options: &Options {
             render: RenderConfig::new(12, 1.0, 1.5, max_tracks).unwrap(),
@@ -105,8 +111,8 @@ fn in_a_fresh_folder<T>(folder: &Path, max_tracks: usize, run: impl FnOnce(&Clip
 #[test]
 fn above_the_track_limit_the_room_is_not_checked_since_nothing_is_rendered() {
     let folder = tempfile::tempdir().unwrap();
-    let (room, _) = in_a_fresh_folder(folder.path(), 1, |clips| {
-        room_for_clips(clips, &[still(1), still(2)], u64::MAX)
+    let (room, _) = in_a_fresh_folder(folder.path(), 1, &[still(1), still(2)], |clips| {
+        room_for_clips(clips, u64::MAX)
     });
     assert!(room.is_ok(), "{room:?}");
 }
@@ -115,7 +121,7 @@ fn above_the_track_limit_the_room_is_not_checked_since_nothing_is_rendered() {
 #[test]
 fn a_video_without_track_still_needs_room_for_its_annotated_video() {
     let folder = tempfile::tempdir().unwrap();
-    let (room, _) = in_a_fresh_folder(folder.path(), 300, |clips| room_for_clips(clips, &[], u64::MAX));
+    let (room, _) = in_a_fresh_folder(folder.path(), 300, &[], |clips| room_for_clips(clips, u64::MAX));
     assert!(matches!(room, Err(Error::DiskSpace { .. })), "{room:?}");
 }
 
@@ -687,7 +693,7 @@ fn a_video_with_too_many_tracks_brings_back_its_measures_and_replaces_the_earlie
 }
 
 #[test]
-fn a_video_with_too_many_tracks_is_marked_finished_with_that_state_its_measures_and_its_tracks_without_clips_before_it_fails()
+fn a_video_with_too_many_tracks_is_marked_finished_with_that_state_its_measures_and_its_tracks_without_clips_or_summary_image_before_it_fails()
  {
     let folder = tempfile::tempdir().unwrap();
     let (job, options) = two_tracks_above_a_limit_of_one(folder.path());
@@ -703,8 +709,17 @@ fn a_video_with_too_many_tracks_is_marked_finished_with_that_state_its_measures_
     assert!(
         listed
             .iter()
-            .all(|track| track["clip"].is_null() && track["zoom"].is_null() && track["color"].is_array())
+            .all(|track| track["clip"].is_null() && track["zoom"].is_null() && track["color"].is_null())
     );
+    let images: Vec<PathBuf> = fs::read_dir(&job.dest)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("png"))
+        })
+        .collect();
+    assert_eq!(images, Vec::<PathBuf>::new());
     assert_eq!(params["length_s"], extent.length_s);
     assert_eq!(params["not_analysed_s"], extent.not_analysed_s);
 }
@@ -805,6 +820,16 @@ fn each_listed_track_names_the_clip_and_zoom_really_written_beside_params_json()
         }
         assert_eq!(track["color"].as_array().unwrap().len(), 3);
     }
+}
+
+#[test]
+fn a_video_with_too_many_tracks_announces_neither_the_summary_nor_the_clips_it_does_not_write() {
+    let folder = tempfile::tempdir().unwrap();
+    let (job, options) = two_tracks_above_a_limit_of_one(folder.path());
+    let recorded = Recorded::default();
+    let failed = process(&job, &Plain, &recorded, Threads::Automatic, VERSIONS, &options);
+    assert!(matches!(failed, Err(Error::TooManyTracks { .. })), "{failed:?}");
+    assert_eq!(recorded.0.into_inner(), [Step::Detection, Step::Tracking]);
 }
 
 #[test]

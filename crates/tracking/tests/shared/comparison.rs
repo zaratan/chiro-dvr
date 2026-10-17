@@ -7,6 +7,29 @@ use tracking::track::{TrackConfig, track_detections};
 use types::rate::FrameRate;
 use types::track::Track;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Tracks {
+    pub(crate) reference: usize,
+    pub(crate) tracked: usize,
+    pub(crate) paired: usize,
+    pub(crate) agreeing: usize,
+    pub(crate) lost: usize,
+    pub(crate) added: usize,
+}
+
+impl Tracks {
+    pub(crate) const fn same(count: usize) -> Self {
+        Self {
+            reference: count,
+            tracked: count,
+            paired: count,
+            agreeing: count,
+            lost: 0,
+            added: 0,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct Comparison {
     pub(crate) video: String,
@@ -52,6 +75,19 @@ pub(crate) fn compare(recording: &Recording, rate: FrameRate) -> Result<Comparis
         tracked,
     };
     Ok(comparison)
+}
+
+impl Comparison {
+    pub(crate) fn tracks(&self) -> Tracks {
+        Tracks {
+            reference: self.reference,
+            tracked: self.tracked.len(),
+            paired: self.pairs,
+            agreeing: self.agreeing,
+            lost: self.reference_only,
+            added: self.tracked_only,
+        }
+    }
 }
 
 fn gap(kept: &Track, found: &Track) -> Option<f64> {

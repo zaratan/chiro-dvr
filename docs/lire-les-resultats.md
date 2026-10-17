@@ -66,8 +66,7 @@ encore après avoir copié tout le dossier `batdetect/` sur une clé ou sur un a
 
 Ce qu'elle montre, de haut en bas :
 
-- le total de la soirée : les vidéos, celles réussies, et le nombre de pistes ; quand il y en a,
-  celles qui ont trop de pistes, celles en échec, les entrées refusées, les inachevées et celles en attente ;
+- le total de la soirée : les vidéos, celles réussies, et le nombre de pistes ; quand il y en a, celles qui ont trop de pistes, celles en échec, les entrées refusées, les inachevées, celles d'une ancienne version, celles en attente et celles pas encore traitées ;
 - quand il y en a eu au dernier lancement, les entrées refusées au départ, avant les vidéos : chaque vidéo, dossier ou fichier écarté avant le calcul, avec la raison et ce qu'il faut faire, les mêmes lignes que dans le bilan. Rien n'a été fait pour elles : les corriger comme indiqué, puis relancer batdetect. Le lancement suivant remplace ces lignes par les siennes, ou les retire s'il n'a rien refusé ;
 - une section par vidéo, dans l'ordre alphabétique des noms de leurs dossiers (majuscules
   d'abord), avec la date du calcul. Les soirées
@@ -76,7 +75,7 @@ Ce qu'elle montre, de haut en bas :
 
 En haut de la page, une barre reste visible quand on fait défiler : le décompte des verdicts de la soirée (oui, non, doute, à voir), l'état des verdicts, et les boutons « Télécharger les verdicts » et « Recharger un fichier de verdicts… » ([Noter le verdict](#noter-le-verdict)).
 
-Dans une section, l'image résumé et la liste des pistes. Chaque piste a son numéro, de la couleur de sa trajectoire sur l'image, son début, sa durée, son verdict (« à voir » tant qu'il n'est pas donné) et l'espèce notée, et une étiquette « Zoom » quand l'extrait zoomé existe. L'en-tête de la vidéo dit combien de ses pistes sont jugées.
+Dans une section, l'image résumé et la liste des pistes. Chaque piste a son numéro, de la couleur de sa trajectoire sur l'image, son début, sa durée, son verdict (« à voir » tant qu'il n'est pas donné) et l'espèce notée, et une étiquette « Zoom » quand l'extrait zoomé existe. L'en-tête de la vidéo dit combien de ses pistes sont jugées. Une vidéo qui n'a ni extrait ni image résumé, comme une vidéo à trop de pistes, ne se juge pas dans la page : ses pistes sont listées avec leur numéro, leur début et leur durée seulement, et ne comptent pas dans « à voir » ; un verdict noté sur elles lors d'un calcul précédent n'y est pas montré, mais il compte dans le décompte du haut et reste dans le fichier de verdicts.
 
 L'image de la page est redessinée par la page elle-même : sur la scène de la vidéo, sans aucune trace, elle trace les trajectoires, les flèches et les pastilles numérotées aux places que l'outil a choisies pour l'image résumé. Les traits gardent la même épaisseur quelle que soit la taille de l'image, et les numéros sont écrits dans la police de l'ordinateur ; l'image redessinée peut donc différer très légèrement de l'image résumé.
 
@@ -86,6 +85,7 @@ L'image de la page est redessinée par la page elle-même : sur la scène de la 
 - Une vidéo calculée par une version précédente de l'outil garde son image résumé, sans frise sous l'image ; relancer la même commande la refait avec l'image redessinée.
 
 - Un clic sur une piste (sa ligne ou son numéro) ouvre le lecteur à la place de l'image : l'extrait de la piste passe en boucle, en grand, avec le verdict et l'espèce dessous. À droite, l'image en petit, avec toutes les trajectoires mais la seule pastille de la piste jugée (un clic ouvre l'image complète), et la liste, où la piste jugée est en évidence.
+- Un clic sur une trajectoire de l'image, ou sur sa pastille, ouvre aussi le lecteur sur cette piste ; au survol, elle ressort et les autres pâlissent. Quand deux trajectoires se touchent, le clic prend la plus proche, et un second clic au même endroit prend l'autre. Dans l'image en petit du lecteur, un clic sur une trajectoire passe à cette piste ; ailleurs, il ouvre l'image complète. Au clavier, la touche Tab mène aux pastilles de l'image, les flèches passent d'une piste à l'autre et Entrée ouvre le lecteur. En revenant à l'image, le clavier reprend sur la pastille de la piste jugée.
 - « Extrait » et « Zoom » choisissent la vidéo ; « Image résumé » ferme le lecteur ; ‹ et › passent à la piste précédente ou suivante ; « À voir » saute à la prochaine piste sans verdict. Sur un écran étroit, l'étiquette « Zoom » de la liste laisse sa place au verdict pendant le jugement : le bouton « Zoom », ou « pas de zoom », dit si la piste jugée en a un.
 - Le clavier : `O` oui, `N` non, `D` (ou `?`) doute, `Suppr` efface le verdict, `E` va au champ espèce, `Z` passe de l'extrait au zoom, les flèches ← et → changent de piste, Maj et → va à la prochaine piste à voir, Espace lit ou arrête. Un second appui sur le même verdict l'efface. Les lettres tapées dans le champ espèce restent du texte.
 - « Enchaîner », cochée d'origine : après « Oui », le curseur va dans le champ espèce, et Entrée passe à la piste suivante ; après « Non » ou « Doute », la page passe directement à la suivante. Décochée, rien ne bouge seul. On ne passe jamais d'une vidéo à l'autre.
@@ -94,9 +94,7 @@ L'image de la page est redessinée par la page elle-même : sur la scène de la 
 Une vidéo en échec garde sa place dans la liste, marquée en rouge, avec la raison et ce qu'il
 faut faire, comme dans le bilan. Si les résultats d'un calcul précédent sont encore là, un lien
 y mène ; ce n'est pas toujours le cas, car un nouveau calcul commence par les effacer. Une vidéo « inachevée » est une vidéo dont le calcul s'est arrêté
-avant la fin : relancer la même commande la refait. Pendant le calcul, les vidéos pas encore
-traitées sont « en attente ». Une vidéo calculée par une version plus ancienne de l'outil
-est marquée « ancienne version » : relancer la même commande la refait.
+avant la fin : relancer la même commande la refait. Pendant le calcul, les vidéos pas encore traitées sont « en attente ». Si le calcul est interrompu avant elles, elles restent sur la page, marquées « pas encore traitée » : relancer la même commande les traite. Une vidéo calculée par une version plus ancienne de l'outil est marquée « ancienne version » et nommée à part dans le total : relancer la même commande la refait.
 
 Limite : les résultats d'une vidéo sont rangés sous son nom. Si deux soirées sont envoyées dans
 le même dossier choisi au lancement et ont des vidéos de même nom, la seconde remplace la
@@ -130,7 +128,7 @@ calcul efface les fichiers de l'autre langue.
   petites ou faibles ([Juger un extrait](#juger-un-extrait)).
 - La vidéo annotée, la vidéo entière avec toutes les pistes dessinées, n'est écrite qu'avec
   `--annotated` ; sans l'option, celle d'un calcul précédent est effacée. Au-delà du
-  [garde-fou](#garde-fou-du-nombre-de-pistes), il n'y a ni extraits ni vidéo annotée.
+  [garde-fou](#garde-fou-du-nombre-de-pistes), il n'y a ni extraits, ni image résumé, ni fond, ni vidéo annotée.
 - `params.json` s'écrit en dernier : un dossier sans lui n'est pas terminé (calcul interrompu,
   ou vidéo en échec autrement qu'au-delà du garde-fou), et la vidéo est refaite à la relance.
 - Le tableau français s'ouvre dans un tableur réglé en français (point-virgule, virgule
@@ -395,10 +393,7 @@ de l'image résumé est obtenu de la même façon, mais sur toute la vidéo.
 
 ### Garde-fou du nombre de pistes
 
-Au-delà d'un certain nombre de pistes, elles sont presque sûrement du bruit d'image :
-l'outil écrit l'image résumé et le tableau des pistes, mais aucun extrait. Le bilan de la
-soirée compte cette vidéo à part, avec son nombre de pistes, et les autres vidéos du lot
-sont traitées normalement.
+Au-delà d'un certain nombre de pistes, elles sont presque sûrement du bruit d'image : l'outil écrit le tableau des pistes, mais ni extraits ni image résumé. Pour en juger, ouvrir le tableau et regarder la vidéo à quelques-uns de ses temps ; si ce sont de vrais passages, relancer avec un `--max-tracks` plus grand. Le bilan de la soirée compte cette vidéo à part, avec son nombre de pistes, et les autres vidéos du lot sont traitées normalement.
 
 ### Image résumé
 
@@ -453,8 +448,7 @@ d'un même objet, et dont le trajet ressemble à un vol
 ([docs/10](10-logique-de-detection.md#7-relier-les-taches-dans-le-temps--le-suivi),
 [§ 9](10-logique-de-detection.md#9-garder-ce-qui-ressemble-à-un-vol)). Ce peut être une
 chauve-souris, un autre animal ou du bruit d'image, et un même vol peut être coupé en deux
-pistes ; chaque piste a sa pastille sur l'image résumé, sa ligne dans le tableau des pistes
-et, sauf au-delà du garde-fou, son extrait.
+pistes ; chaque piste a sa ligne dans le tableau des pistes et, sauf au-delà du garde-fou, sa pastille sur l'image résumé et son extrait.
 
 ### Point
 

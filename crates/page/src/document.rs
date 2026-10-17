@@ -10,12 +10,14 @@ mod tests;
 
 pub const GENERATOR: &str = r#"<meta name="generator" content="batdetect">"#;
 const STYLE: &str = include_str!("assets/page.css");
-const SCRIPTS: [&str; 6] = [
+const SCRIPTS: [&str; 8] = [
     include_str!("assets/csv.js"),
     include_str!("assets/store.js"),
     include_str!("assets/bar.js"),
     include_str!("assets/list.js"),
     include_str!("assets/judge.js"),
+    include_str!("assets/hits.js"),
+    include_str!("assets/overlay.js"),
     include_str!("assets/page.js"),
 ];
 const MARKER_WINDOW: usize = 1024;
@@ -47,6 +49,9 @@ pub fn render(page: &Page, labels: &dyn Labels) -> String {
                 }
                 Entry::Waiting { name } => {
                     cards::pending(name, &anchor, Label::WaitingBadge, Label::WaitingText, labels)
+                }
+                Entry::NotStarted { name } => {
+                    cards::pending(name, &anchor, Label::NotStartedBadge, Label::NotStartedText, labels)
                 }
             }
         })
@@ -109,7 +114,7 @@ const fn has_section(entry: &Entry) -> bool {
     match entry {
         Entry::Video(_) => true,
         Entry::Failed(failed) => failed.previous.is_some(),
-        Entry::Unfinished { .. } | Entry::Older { .. } | Entry::Waiting { .. } => false,
+        Entry::Unfinished { .. } | Entry::Older { .. } | Entry::Waiting { .. } | Entry::NotStarted { .. } => false,
     }
 }
 
@@ -119,7 +124,9 @@ fn tally(page: &Page, labels: &dyn Labels) -> String {
     let too_many = count(|entry| matches!(entry, Entry::Video(video) if video.too_many.is_some()));
     let failed = count(|entry| matches!(entry, Entry::Failed(_)));
     let unfinished = count(|entry| matches!(entry, Entry::Unfinished { .. }));
+    let older = count(|entry| matches!(entry, Entry::Older { .. }));
     let waiting = count(|entry| matches!(entry, Entry::Waiting { .. }));
+    let not_started = count(|entry| matches!(entry, Entry::NotStarted { .. }));
     let first = |wanted: fn(&Entry) -> bool| page.entries.iter().position(wanted).map(|index| index + 1);
     let first_too_many = first(|entry| matches!(entry, Entry::Video(video) if video.too_many.is_some()));
     let first_failed = first(|entry| matches!(entry, Entry::Failed(_)));
@@ -145,8 +152,14 @@ fn tally(page: &Page, labels: &dyn Labels) -> String {
     if unfinished > 0 {
         parts.push(span("count", &labels.label(&Label::UnfinishedCount(unfinished))));
     }
+    if older > 0 {
+        parts.push(span("count", &labels.label(&Label::OlderCount(older))));
+    }
     if waiting > 0 {
         parts.push(span("count", &labels.label(&Label::WaitingCount(waiting))));
+    }
+    if not_started > 0 {
+        parts.push(span("count", &labels.label(&Label::NotStartedCount(not_started))));
     }
     parts.push(span("count strong", &labels.label(&Label::Tracks(page.tracks()))));
     parts.join("\n    ")

@@ -45,7 +45,7 @@ fn the_refusals_of_the_launch_are_written_with_their_reason_and_what_to_do() {
             .collect::<Vec<_>>(),
         [
             ("/nuit/absente.mp4", "missing", "input-missing"),
-            ("/nuit/fermee.mp4", "refused", "read-refused"),
+            ("/nuit/fermee.mp4", "refused", "input-read-refused"),
         ]
     );
 }

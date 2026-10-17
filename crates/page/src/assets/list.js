@@ -14,6 +14,7 @@ const VerdictsList = ({ section, tracks, store, say, clock, onChoose }) => {
     for (const track of tracks) {
       const value = store.get(track);
       const cell = track.row.querySelector(".verdict");
+      if (!cell) continue;
       const chip = document.createElement("span");
       chip.className = `chip ${value.verdict || "todo"}`;
       chip.textContent = word(value);
@@ -54,7 +55,7 @@ const VerdictsList = ({ section, tracks, store, say, clock, onChoose }) => {
         track: row.track || "?",
         verdict: row.verdict || row.species,
       });
-      if (nearest) {
+      if (nearest?.judgeable) {
         const button = document.createElement("button");
         button.type = "button";
         button.textContent = say("nearest", { track: nearest.id, start: nearest.clock });

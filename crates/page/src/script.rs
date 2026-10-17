@@ -77,6 +77,7 @@ scripts! {
     Absent => "absent" ["count"],
     TrackOf => "track-of" ["track", "total", "start"],
     JudgeTrack => "judge-track" ["track"],
+    TraceButton => "trace-button" ["track", "start", "verdict"],
     Announce => "announce" ["track", "verdict"],
     AnnounceSpecies => "announce-species" ["track", "verdict", "species"],
     Species => "species" [],

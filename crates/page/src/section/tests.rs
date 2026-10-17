@@ -146,3 +146,35 @@ fn a_video_without_tracks_still_draws_its_background_its_line_and_an_empty_strip
     assert!(section.contains(r#"<div class="lane starts"></div>"#));
     assert!(!section.contains("data-id="));
 }
+
+fn crowded_without_clips_or_picture() -> crate::model::Video {
+    let mut crowded = video("v");
+    crowded.too_many = Some(TooMany { count: 301, limit: 300 });
+    crowded.summaries.clear();
+    for track in &mut crowded.tracks {
+        track.summary = None;
+        track.clip = None;
+        track.zoom = None;
+    }
+    crowded
+}
+
+#[test]
+fn a_video_with_neither_clip_nor_picture_has_no_viewer_and_its_track_numbers_are_not_buttons() {
+    let section = render(&crowded_without_clips_or_picture(), "v1", &Named);
+    assert!(section.starts_with(r#"<details class="video no-viewer""#));
+    assert!(!section.contains(r#"class="judge""#));
+    assert!(!section.contains(r#"<button type="button" class="dot""#));
+    assert_eq!(section.matches(r#"<span class="dot""#).count(), 4);
+    assert!(!section.contains(r#"class="verdict""#));
+}
+
+#[test]
+fn a_single_clip_is_enough_for_the_viewer_of_a_video_without_picture() {
+    let mut crowded = crowded_without_clips_or_picture();
+    crowded.tracks[2].clip = Some("extraits/piste_03_0m03s.mp4".to_owned());
+    let section = render(&crowded, "v1", &Named);
+    assert!(section.starts_with(r#"<details class="video" "#));
+    assert!(section.contains(r#"<div class="judge" hidden"#));
+    assert_eq!(section.matches(r#"<button type="button" class="dot""#).count(), 4);
+}

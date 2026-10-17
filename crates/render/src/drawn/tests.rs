@@ -4,8 +4,9 @@ use draw::color::{PALETTE, Rgb};
 use tempfile::TempDir;
 use types::track::Track;
 
-use super::drawn;
+use super::{Drawn, drawn};
 use crate::clips::{Clip, Outputs};
+use crate::colored::Colored;
 use crate::config::RenderConfig;
 use crate::sequential;
 use crate::source::Source;
@@ -23,6 +24,20 @@ fn source(folder: &Path) -> Source {
     let path = testing::binoculars_of(folder, WIDTH, HEIGHT);
     let read = sequential::read(&path);
     Source::new(&path, &read.timeline, &read.keys, &read.errors).unwrap()
+}
+
+fn painted(source: &Source, tracks: &[Track], colors: &[Option<Rgb>], outputs: &Outputs) -> Vec<Drawn> {
+    drawn(
+        source,
+        Colored::new(tracks, colors).unwrap(),
+        outputs,
+        tenth_of_a_second(),
+    )
+    .unwrap()
+}
+
+fn uncolored(source: &Source, tracks: &[Track], outputs: &Outputs) -> Vec<Drawn> {
+    painted(source, tracks, &[], outputs)
 }
 
 fn crossing_from(first: usize, row: f64) -> Track {
@@ -62,7 +77,7 @@ fn every_clip_and_zoom_gets_one_fingerprint_per_frame_of_its_window_sorted_by_pa
         annotated: None,
     };
 
-    let found = drawn(&source, &tracks, &[], &outputs, tenth_of_a_second()).unwrap();
+    let found = uncolored(&source, &tracks, &outputs);
 
     let window = clip_windows(&tracks, source.frame_count(), tenth_of_a_second(), source.rate())[0];
     let paths: Vec<PathBuf> = found.iter().map(|drawn| drawn.path.clone()).collect();
@@ -79,9 +94,9 @@ fn moving_the_track_changes_the_drawn_frames_exactly_over_its_points() {
     let source = source(folder.path());
     let outputs = clip_only(folder.path());
 
-    let high = drawn(&source, &[crossing(60.0)], &[], &outputs, tenth_of_a_second()).unwrap();
-    let again = drawn(&source, &[crossing(60.0)], &[], &outputs, tenth_of_a_second()).unwrap();
-    let low = drawn(&source, &[crossing(160.0)], &[], &outputs, tenth_of_a_second()).unwrap();
+    let high = uncolored(&source, &[crossing(60.0)], &outputs);
+    let again = uncolored(&source, &[crossing(60.0)], &outputs);
+    let low = uncolored(&source, &[crossing(160.0)], &outputs);
 
     let window = clip_windows(
         &[crossing(60.0)],
@@ -108,8 +123,8 @@ fn the_colour_of_a_track_changes_its_clip_its_zoom_and_the_annotated_video() {
     };
     let tracks = [crossing(60.0)];
 
-    let red = drawn(&source, &tracks, &[None], &outputs, tenth_of_a_second()).unwrap();
-    let cyan = drawn(&source, &tracks, &[Some(PALETTE[1])], &outputs, tenth_of_a_second()).unwrap();
+    let red = painted(&source, &tracks, &[None], &outputs);
+    let cyan = painted(&source, &tracks, &[Some(PALETTE[1])], &outputs);
 
     assert_eq!((red.len(), cyan.len()), (3, 3));
     for (red, cyan) in red.iter().zip(&cyan) {
@@ -133,11 +148,7 @@ fn the_zoom_of_a_track_takes_the_colour_of_that_track_whatever_the_order_of_the_
         }],
         annotated: None,
     };
-    let zoom = |colors: &[Option<Rgb>]| {
-        drawn(&source, &tracks, colors, &outputs, tenth_of_a_second()).unwrap()[0]
-            .fingerprints
-            .clone()
-    };
+    let zoom = |colors: &[Option<Rgb>]| painted(&source, &tracks, colors, &outputs)[0].fingerprints.clone();
     let (yellow, cyan, orange) = (Some(PALETTE[0]), Some(PALETTE[1]), Some(PALETTE[2]));
 
     assert_eq!(zoom(&[yellow, cyan]), zoom(&[orange, cyan]));
@@ -155,7 +166,7 @@ fn the_annotated_video_gets_one_fingerprint_per_frame_of_the_source() {
         annotated: Some(annotated.clone()),
     };
 
-    let found = drawn(&source, &[crossing(60.0)], &[], &outputs, tenth_of_a_second()).unwrap();
+    let found = uncolored(&source, &[crossing(60.0)], &outputs);
 
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].path, annotated);
@@ -179,7 +190,7 @@ fn two_clips_of_one_group_each_get_the_shared_drawn_frames_from_their_own_first_
         annotated: None,
     };
 
-    let found = drawn(&source, &tracks, &[], &outputs, tenth_of_a_second()).unwrap();
+    let found = uncolored(&source, &tracks, &outputs);
 
     let windows = clip_windows(&tracks, source.frame_count(), tenth_of_a_second(), source.rate());
     let (first, second) = (windows[0].span, windows[1].span);

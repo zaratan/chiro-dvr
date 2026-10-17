@@ -5,7 +5,7 @@ import { load } from "./load.mjs";
 const { VerdictsStore } = load("store.js");
 const VALUES = { yes: ["oui", "yes"], no: ["non", "no"], doubt: ["?"] };
 
-const track = (video, id, start, x = null, y = null) => ({ video, id, start, x, y, clock: `0:00:${String(Math.floor(start)).padStart(2, "0")}` });
+const track = (video, id, start, x = null, y = null) => ({ video, id, start, x, y, judgeable: true, clock: `0:00:${String(Math.floor(start)).padStart(2, "0")}` });
 const row = (video, startSeconds, verdict, extra = {}) => ({
   video,
   track: "",
@@ -70,6 +70,19 @@ test("the counts give each verdict and the tracks still to see", () => {
   store.load([row("v", 4.8, "oui", { startX: 100, startY: 100 }), row("w", 10.0, "?")]);
   assert.deepEqual(store.counts(), { yes: 1, no: 0, doubt: 1, other: 0, todo: 2 });
   assert.deepEqual(store.judged("v"), { done: 1, total: 3 });
+});
+
+test("the tracks of a video without viewer are neither to see nor judged, yet an earlier verdict on them counts and is written back", () => {
+  const crowded = [1, 2, 3].map((id) => ({ ...track("x", id, 10.0 * id), judgeable: false }));
+  const store = VerdictsStore.create({ tracks: [...evening(), ...crowded], values: VALUES });
+  store.load([row("x", 20.0, "oui")]);
+  assert.deepEqual(store.counts(), { yes: 1, no: 0, doubt: 0, other: 0, todo: 4 });
+  assert.deepEqual(store.judged("x"), { done: 0, total: 0 });
+  assert.equal(store.orphansOf("x").length, 0);
+  assert.deepEqual(
+    store.rows().map((one) => [one.video, one.track, one.verdict]),
+    [["x", "2", "oui"]],
+  );
 });
 
 test("a change is pending until downloaded and a change undone is no longer pending", () => {

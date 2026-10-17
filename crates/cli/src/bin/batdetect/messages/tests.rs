@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use batdetect::access::Access;
 use batdetect::failure::Cause;
@@ -23,8 +23,9 @@ use jiff::tz::TimeZone;
 use types::language::Language;
 
 use super::{
-    announcement, detection_refused, failure_lines, finish, folders_refused, inputs_refused, inputs_skipped,
-    option_refused, redone, refused_lines, render_refused, tracking_refused, video_done, video_failed, video_step,
+    Homonyms, announcement, detection_refused, failure_lines, finish, folders_refused, homonyms, inputs_refused,
+    inputs_skipped, option_refused, redone, refused_lines, render_refused, shown_name, tracking_refused, video_done,
+    video_failed, video_step,
 };
 use crate::texts::{Fixed, Message, Texts};
 
@@ -39,6 +40,10 @@ fn job() -> Job {
         video: PathBuf::from("nuit/video_092.mp4"),
         dest: PathBuf::from("out/video_092"),
     }
+}
+
+fn video() -> String {
+    shown_name(&job(), &Homonyms::none())
 }
 
 #[derive(Debug)]
@@ -114,7 +119,7 @@ fn a_known_failure_says_its_cause_what_to_do_and_the_english_detail_once() {
 }
 
 #[test]
-fn a_full_disk_names_the_folder_of_the_results() {
+fn a_full_disk_is_named_as_the_disk_holding_the_folder_of_the_results() {
     let full = Failure::Error(process::Error::Files(files::error::Error::Write {
         path: PathBuf::from("out/video_092/video_092_pistes.csv"),
         source: io::Error::from(io::ErrorKind::StorageFull),
@@ -123,23 +128,23 @@ fn a_full_disk_names_the_folder_of_the_results() {
     assert_eq!(french[0], "nuit/video_092.mp4\u{a0}: le disque est plein");
     assert_eq!(
         french[1],
-        "  à faire\u{a0}: libérer de la place sur le disque de out/video_092, puis relancer"
+        "  à faire\u{a0}: libérer de la place sur le disque qui contient out/video_092, puis relancer"
     );
 }
 
 #[test]
-fn too_many_tracks_says_what_to_look_at_without_judging_the_tracks_and_without_detail() {
+fn too_many_tracks_says_to_look_at_the_video_at_the_times_of_the_table_without_judging_the_tracks_and_without_detail() {
     let too_many = too_many(false);
     assert_eq!(
         lines(Language::French, &too_many),
         [
-            "nuit/video_092.mp4\u{a0}: 301 pistes, au-delà de 300\u{a0}: extraits non écrits",
-            "  à faire\u{a0}: regarder l'image résumé\u{a0}; si ce sont de vrais passages, relancer avec un --max-tracks plus grand",
+            "nuit/video_092.mp4\u{a0}: 301 pistes, au-delà de 300\u{a0}: ni extraits ni image résumé",
+            "  à faire\u{a0}: ouvrir le tableau des pistes et regarder la vidéo à quelques-uns de ses temps\u{a0}; si ce sont de vrais passages, relancer avec un --max-tracks plus grand",
         ]
     );
     assert_eq!(
         lines(Language::English, &too_many)[1],
-        "  what to do: look at the summary image; if these are real passes, run again with a larger --max-tracks"
+        "  what to do: open the tracks table and watch the video at a few of its times; if these are real passes, run again with a larger --max-tracks"
     );
 }
 
@@ -219,19 +224,19 @@ fn every_cause_has_its_own_sentence_and_its_own_advice_in_both_languages() {
 fn too_many_tracks_names_the_video_the_count_and_the_limit_in_the_language_of_the_user() {
     assert_eq!(
         lines(Language::French, &too_many(false))[0],
-        "nuit/video_092.mp4\u{a0}: 301 pistes, au-delà de 300\u{a0}: extraits non écrits"
+        "nuit/video_092.mp4\u{a0}: 301 pistes, au-delà de 300\u{a0}: ni extraits ni image résumé"
     );
     assert_eq!(
         lines(Language::English, &too_many(false))[0],
-        "nuit/video_092.mp4: 301 tracks, above 300: clips skipped"
+        "nuit/video_092.mp4: 301 tracks, above 300: no clips, no summary image"
     );
     assert_eq!(
         lines(Language::French, &too_many(true))[0],
-        "nuit/video_092.mp4\u{a0}: 301 pistes, au-delà de 300\u{a0}: extraits et vidéo annotée non écrits"
+        "nuit/video_092.mp4\u{a0}: 301 pistes, au-delà de 300\u{a0}: ni extraits, ni image résumé, ni vidéo annotée"
     );
     assert_eq!(
         lines(Language::English, &too_many(true))[0],
-        "nuit/video_092.mp4: 301 tracks, above 300: clips and annotated video skipped"
+        "nuit/video_092.mp4: 301 tracks, above 300: no clips, no summary image, no annotated video"
     );
 }
 
@@ -264,7 +269,7 @@ fn the_clips_written_again_are_named_with_the_cause_of_the_videotoolbox_failure(
 fn the_line_of_a_video_names_its_rank_its_name_without_extension_and_its_step() {
     let steps: Vec<String> = Step::ALL
         .into_iter()
-        .map(|step| said(Language::French, &video_step(THIRD, &job(), step)))
+        .map(|step| said(Language::French, &video_step(THIRD, video(), step)))
         .collect();
     assert_eq!(
         steps,
@@ -277,7 +282,7 @@ fn the_line_of_a_video_names_its_rank_its_name_without_extension_and_its_step() 
     );
     let steps: Vec<String> = Step::ALL
         .into_iter()
-        .map(|step| said(Language::English, &video_step(THIRD, &job(), step)))
+        .map(|step| said(Language::English, &video_step(THIRD, video(), step)))
         .collect();
     assert_eq!(
         steps,
@@ -293,31 +298,31 @@ fn the_line_of_a_video_names_its_rank_its_name_without_extension_and_its_step() 
 #[test]
 fn the_line_of_a_finished_video_keeps_its_track_count_or_says_it_failed() {
     assert_eq!(
-        said(Language::French, &video_done(THIRD, &job(), 14)),
+        said(Language::French, &video_done(THIRD, video(), 14)),
         "[3/12] video_092 — 14 pistes"
     );
     assert_eq!(
-        said(Language::French, &video_done(THIRD, &job(), 1)),
+        said(Language::French, &video_done(THIRD, video(), 1)),
         "[3/12] video_092 — 1 piste"
     );
     assert_eq!(
-        said(Language::French, &video_done(THIRD, &job(), 0)),
+        said(Language::French, &video_done(THIRD, video(), 0)),
         "[3/12] video_092 — 0 piste"
     );
     assert_eq!(
-        said(Language::English, &video_done(THIRD, &job(), 0)),
+        said(Language::English, &video_done(THIRD, video(), 0)),
         "[3/12] video_092 — 0 tracks"
     );
     assert_eq!(
-        said(Language::English, &video_done(THIRD, &job(), 1)),
+        said(Language::English, &video_done(THIRD, video(), 1)),
         "[3/12] video_092 — 1 track"
     );
     assert_eq!(
-        said(Language::French, &video_failed(THIRD, &job(), &damaged())),
+        said(Language::French, &video_failed(THIRD, video(), &damaged())),
         "[3/12] video_092 — échec"
     );
     assert_eq!(
-        said(Language::English, &video_failed(THIRD, &job(), &damaged())),
+        said(Language::English, &video_failed(THIRD, video(), &damaged())),
         "[3/12] video_092 — failed"
     );
 }
@@ -325,11 +330,11 @@ fn the_line_of_a_finished_video_keeps_its_track_count_or_says_it_failed() {
 #[test]
 fn the_line_of_a_video_with_too_many_tracks_ends_with_the_word_of_the_summary_and_not_with_failed() {
     assert_eq!(
-        said(Language::French, &video_failed(THIRD, &job(), &too_many(false))),
+        said(Language::French, &video_failed(THIRD, video(), &too_many(false))),
         "[3/12] video_092 — trop de pistes"
     );
     assert_eq!(
-        said(Language::English, &video_failed(THIRD, &job(), &too_many(true))),
+        said(Language::English, &video_failed(THIRD, video(), &too_many(true))),
         "[3/12] video_092 — too many tracks"
     );
 }
@@ -341,17 +346,18 @@ fn refusal(language: Language, error: &jobs::Error) -> Vec<String> {
 }
 
 #[test]
-fn every_reason_to_refuse_an_input_has_its_own_words_and_says_what_to_do_under_it_in_both_languages() {
+fn every_reason_to_refuse_an_input_has_its_own_words_on_the_last_name_of_its_path_and_says_what_to_do_under_it_in_both_languages()
+ {
     let refused = |path: &str, reason: Reason| Refused {
         path: PathBuf::from(path),
         reason,
     };
     let error = jobs::Error::Refused {
         refused: vec![
-            refused("absente.mp4", Reason::Missing),
-            refused("README.md", Reason::NotAVideo),
-            refused("vide", Reason::NoVideo),
-            refused("fermee", Reason::Unreadable(Access::Refused)),
+            refused("nuit/absente.mp4", Reason::Missing),
+            refused("nuit/README.md", Reason::NotAVideo),
+            refused("soirees/vide", Reason::NoVideo),
+            refused("soirees/fermee", Reason::Unreadable(Access::Refused)),
             refused("x.mp4/nuit", Reason::Unreadable(Access::NotAFolder)),
             refused("partie", Reason::Unreadable(Access::Missing)),
             refused("reseau", Reason::Unreadable(Access::Unavailable)),
@@ -369,21 +375,21 @@ fn every_reason_to_refuse_an_input_has_its_own_words_and_says_what_to_do_under_i
         [
             "aucune vidéo n'est traitée\u{a0}:",
             "absente.mp4\u{a0}: introuvable",
-            "  à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé",
+            "  à faire\u{a0}: vérifier le chemin nuit/absente.mp4\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé",
             "README.md\u{a0}: pas une vidéo (mp4, mov, avi, mkv ou m4v)",
             "  à faire\u{a0}: ne donner que des vidéos, ou des dossiers de vidéos",
             "vide\u{a0}: aucune vidéo (mp4, mov, avi, mkv ou m4v) dans ce dossier",
-            "  à faire\u{a0}: vérifier que c'est le bon dossier\u{a0}: seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers",
+            "  à faire\u{a0}: vérifier que soirees/vide est le bon dossier\u{a0}: seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers",
             "fermee\u{a0}: lecture refusée",
-            "  à faire\u{a0}: vérifier ses droits\u{a0}; sur Mac, autoriser le Terminal dans Réglages Système, \
+            "  à faire\u{a0}: vérifier les droits de soirees/fermee\u{a0}; sur Mac, autoriser le Terminal dans Réglages Système, \
              Confidentialité et sécurité, Fichiers et dossiers",
-            "x.mp4/nuit\u{a0}: un élément du chemin n'est pas un dossier",
-            "  à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé",
+            "nuit\u{a0}: un élément du chemin n'est pas un dossier",
+            "  à faire\u{a0}: vérifier le chemin x.mp4/nuit\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé",
             "partie\u{a0}: introuvable",
-            "  à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé",
+            "  à faire\u{a0}: vérifier le chemin partie\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé",
             "reseau\u{a0}: inaccessible",
             "  à faire\u{a0}: vérifier que le disque est toujours branché, puis relancer\u{a0}; si cela recommence, le signaler",
-            "out/night_x_mp4\u{a0}: dossier de résultats commun à a/night/x.mp4, b/night/x.mp4",
+            "night_x_mp4\u{a0}: dossier de résultats commun à a/night/x.mp4, b/night/x.mp4",
             "  à faire\u{a0}: renommer l'une de ces vidéos, ou les traiter en deux fois avec un -o différent",
         ]
     );
@@ -392,30 +398,31 @@ fn every_reason_to_refuse_an_input_has_its_own_words_and_says_what_to_do_under_i
         [
             "no video is processed:",
             "absente.mp4: not found",
-            "  what to do: check the path; the folder or the video may have been moved or renamed",
+            "  what to do: check the path nuit/absente.mp4; the folder or the video may have been moved or renamed",
             "README.md: not a video (mp4, mov, avi, mkv or m4v)",
             "  what to do: give only videos, or folders of videos",
             "vide: no video (mp4, mov, avi, mkv or m4v) in this folder",
-            "  what to do: check it is the right folder: only the videos directly inside it are processed, not those of its subfolders",
+            "  what to do: check that soirees/vide is the right folder: only the videos directly inside it are processed, not those of its subfolders",
             "fermee: reading refused",
-            "  what to do: check its rights; on a Mac, allow the Terminal in System Settings, Privacy & Security, \
+            "  what to do: check the rights of soirees/fermee; on a Mac, allow the Terminal in System Settings, Privacy & Security, \
              Files and Folders",
-            "x.mp4/nuit: part of the path is not a folder",
-            "  what to do: check the path; the folder or the video may have been moved or renamed",
+            "nuit: part of the path is not a folder",
+            "  what to do: check the path x.mp4/nuit; the folder or the video may have been moved or renamed",
             "partie: not found",
-            "  what to do: check the path; the folder or the video may have been moved or renamed",
+            "  what to do: check the path partie; the folder or the video may have been moved or renamed",
             "reseau: unreachable",
             "  what to do: check that the disk is still connected, then run again; if it happens again, report it",
-            "out/night_x_mp4: results folder shared by a/night/x.mp4, b/night/x.mp4",
+            "night_x_mp4: results folder shared by a/night/x.mp4, b/night/x.mp4",
             "  what to do: rename one of these videos, or process them in two runs with a different -o",
         ]
     );
 }
 
 #[test]
-fn folders_without_any_video_are_listed_under_the_extensions_looked_for_each_with_what_to_do_in_both_languages() {
+fn folders_without_any_video_are_listed_by_their_last_name_under_the_extensions_looked_for_each_with_what_to_do_in_both_languages()
+ {
     let one = jobs::Error::NoVideo {
-        folders: vec![PathBuf::from("nuit-12-oct")],
+        folders: vec![PathBuf::from("/Volumes/BATS/nuit-12-oct")],
     };
     let two = jobs::Error::NoVideo {
         folders: vec![PathBuf::from("nuit-12-oct"), PathBuf::from("nuit-13-oct")],
@@ -425,7 +432,7 @@ fn folders_without_any_video_are_listed_under_the_extensions_looked_for_each_wit
         [
             "aucune vidéo (mp4, mov, avi, mkv ou m4v) trouvée dans ce dossier\u{a0}:",
             "nuit-12-oct",
-            "  à faire\u{a0}: vérifier que c'est le bon dossier\u{a0}: seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers"
+            "  à faire\u{a0}: vérifier que /Volumes/BATS/nuit-12-oct est le bon dossier\u{a0}: seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers"
         ]
     );
     assert_eq!(
@@ -433,9 +440,9 @@ fn folders_without_any_video_are_listed_under_the_extensions_looked_for_each_wit
         [
             "aucune vidéo (mp4, mov, avi, mkv ou m4v) trouvée dans ces dossiers\u{a0}:",
             "nuit-12-oct",
-            "  à faire\u{a0}: vérifier que c'est le bon dossier\u{a0}: seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers",
+            "  à faire\u{a0}: vérifier que nuit-12-oct est le bon dossier\u{a0}: seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers",
             "nuit-13-oct",
-            "  à faire\u{a0}: vérifier que c'est le bon dossier\u{a0}: seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers"
+            "  à faire\u{a0}: vérifier que nuit-13-oct est le bon dossier\u{a0}: seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers"
         ]
     );
     assert_eq!(
@@ -443,7 +450,7 @@ fn folders_without_any_video_are_listed_under_the_extensions_looked_for_each_wit
         [
             "no video (mp4, mov, avi, mkv or m4v) found in this folder:",
             "nuit-12-oct",
-            "  what to do: check it is the right folder: only the videos directly inside it are processed, not those of its subfolders"
+            "  what to do: check that /Volumes/BATS/nuit-12-oct is the right folder: only the videos directly inside it are processed, not those of its subfolders"
         ]
     );
     assert_eq!(
@@ -534,7 +541,7 @@ fn every_folder_where_nothing_can_be_written_has_its_own_line_reason_and_what_to
             "d\u{a0}: disque en lecture seule",
             "  à faire\u{a0}: copier les vidéos sur le Mac, ou choisir un autre dossier avec -o",
             "e\u{a0}: disque plein",
-            "  à faire\u{a0}: libérer de la place sur le disque de e, puis relancer",
+            "  à faire\u{a0}: libérer de la place sur le disque qui contient e, puis relancer",
             "f\u{a0}: inaccessible",
             "  à faire\u{a0}: vérifier que le disque est toujours branché, puis relancer\u{a0}; si cela recommence, le signaler",
         ]
@@ -552,7 +559,7 @@ fn every_folder_where_nothing_can_be_written_has_its_own_line_reason_and_what_to
             "d: read-only disk",
             "  what to do: copy the videos to the Mac, or choose another folder with -o",
             "e: disk full",
-            "  what to do: free some space on the disk of e, then run again",
+            "  what to do: free some space on the disk holding e, then run again",
             "f: unreachable",
             "  what to do: check that the disk is still connected, then run again; if it happens again, report it",
         ]
@@ -589,18 +596,18 @@ fn the_refusals_before_the_question_are_counted_and_the_question_counts_the_vali
             vec![
                 "2 entrées sont refusées\u{a0}:".to_owned(),
                 "absente.mp4\u{a0}: introuvable".to_owned(),
-                "  à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé"
+                "  à faire\u{a0}: vérifier le chemin absente.mp4\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé"
                     .to_owned(),
                 "autre.mp4\u{a0}: introuvable".to_owned(),
-                "  à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé"
+                "  à faire\u{a0}: vérifier le chemin autre.mp4\u{a0}; le dossier ou la vidéo a peut-être été déplacé ou renommé"
                     .to_owned()
             ],
             vec![
                 "2 inputs are refused:".to_owned(),
                 "absente.mp4: not found".to_owned(),
-                "  what to do: check the path; the folder or the video may have been moved or renamed".to_owned(),
+                "  what to do: check the path absente.mp4; the folder or the video may have been moved or renamed".to_owned(),
                 "autre.mp4: not found".to_owned(),
-                "  what to do: check the path; the folder or the video may have been moved or renamed".to_owned()
+                "  what to do: check the path autre.mp4; the folder or the video may have been moved or renamed".to_owned()
             ],
         ]
     );
@@ -648,12 +655,13 @@ fn unopened(cause: Cause) -> Refused {
 }
 
 #[test]
-fn a_video_that_cannot_be_opened_is_refused_with_the_sentence_and_the_advice_of_its_failure_in_both_languages() {
+fn a_video_that_cannot_be_opened_is_refused_by_its_name_with_the_sentence_and_the_advice_of_its_failure_in_both_languages()
+ {
     let refused = [unopened(Cause::NotAVideo)];
     assert_eq!(
         refused_lines(Texts::new(Language::French), &refused),
         [
-            "nuit/faux.mp4\u{a0}: ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète",
+            "faux.mp4\u{a0}: ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète",
             "  à faire\u{a0}: s'il vient des jumelles, le recopier par le câble USB, sans passer par Stream Vision 2\u{a0}; \
              sinon, le retirer du dossier",
         ]
@@ -661,7 +669,7 @@ fn a_video_that_cannot_be_opened_is_refused_with_the_sentence_and_the_advice_of_
     assert_eq!(
         refused_lines(Texts::new(Language::English), &refused),
         [
-            "nuit/faux.mp4: this file is not a readable video, or its copy is incomplete",
+            "faux.mp4: this file is not a readable video, or its copy is incomplete",
             "  what to do: if it comes from the binoculars, copy it again over the USB cable, not through Stream \
              Vision 2; otherwise, move it out of the folder",
         ]
@@ -673,7 +681,7 @@ fn an_unsupported_video_refused_at_the_start_gives_the_detail_its_advice_points_
     assert_eq!(
         refused_lines(Texts::new(Language::English), &[unopened(Cause::Unsupported)]),
         [
-            "nuit/faux.mp4: this video format is not handled",
+            "faux.mp4: this video format is not handled",
             "  what to do: report it, with the detail below",
             "  detail: cannot decode nuit/faux.mp4",
         ]
@@ -818,5 +826,65 @@ fn the_finish_is_given_in_hours_and_minutes_of_the_local_clock_rounded_to_the_ne
     assert_eq!(
         Texts::new(Language::English).say(&finish("[3/12] video_094 — detection".to_owned(), &at)),
         "[3/12] video_094 — detection · done around 22:42"
+    );
+}
+
+fn named(paths: &[&str]) -> Vec<String> {
+    let jobs: Vec<Job> = paths
+        .iter()
+        .map(|path| Job {
+            video: PathBuf::from(path),
+            dest: PathBuf::from("out"),
+        })
+        .collect();
+    let homonyms = homonyms(&jobs);
+    jobs.iter().map(|job| shown_name(job, &homonyms)).collect()
+}
+
+#[test]
+fn a_video_is_named_without_its_extension_when_no_other_video_of_the_launch_shares_its_name() {
+    assert_eq!(
+        named(&["nuit/video_092.mp4", "nuit/video_093.mov"]),
+        ["video_092", "video_093"]
+    );
+}
+
+#[test]
+fn videos_of_the_launch_sharing_a_name_without_extension_are_named_with_it() {
+    assert_eq!(
+        named(&["nuit/video_092.mov", "nuit/video_092.mp4", "nuit/video_093.mp4"]),
+        ["video_092.mov", "video_092.mp4", "video_093"]
+    );
+}
+
+#[test]
+fn a_video_refused_to_read_or_gone_at_the_start_says_what_to_do_with_its_whole_path() {
+    let refused = [unopened(Cause::ReadRefused), unopened(Cause::Missing)];
+    let lines = refused_lines(Texts::new(Language::French), &refused);
+    assert!(
+        lines[1].starts_with("  à faire\u{a0}: vérifier les droits de nuit/faux.mp4\u{a0}; "),
+        "{lines:?}"
+    );
+    assert!(
+        lines[3].starts_with("  à faire\u{a0}: vérifier le chemin nuit/faux.mp4\u{a0}; "),
+        "{lines:?}"
+    );
+}
+
+#[test]
+fn videos_sharing_their_whole_name_in_two_folders_are_named_with_their_folder() {
+    assert_eq!(
+        named(&[
+            "nuit-12/video_001.mp4",
+            "nuit-13/video_001.mp4",
+            "nuit-13/video_001.mov",
+            "nuit-13/video_002.mp4"
+        ]),
+        [
+            Path::new("nuit-12").join("video_001.mp4").display().to_string(),
+            Path::new("nuit-13").join("video_001.mp4").display().to_string(),
+            "video_001.mov".to_owned(),
+            "video_002".to_owned(),
+        ]
     );
 }

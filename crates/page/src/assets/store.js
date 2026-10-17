@@ -123,14 +123,20 @@ const VerdictsStore = (() => {
       notify();
     };
 
+    const judgeable = tracks.filter((track) => track.judgeable);
+
     const counts = () => {
       const totals = { yes: 0, no: 0, doubt: 0, other: 0, todo: 0 };
-      for (const track of tracks) totals[get(track).verdict || "todo"] += 1;
+      for (const track of tracks) {
+        const { verdict } = get(track);
+        if (verdict) totals[verdict] += 1;
+        else if (track.judgeable) totals.todo += 1;
+      }
       return totals;
     };
 
     const judged = (video) => {
-      const own = tracks.filter((track) => track.video === video);
+      const own = judgeable.filter((track) => track.video === video);
       return { done: own.filter((track) => get(track).verdict !== "").length, total: own.length };
     };
 

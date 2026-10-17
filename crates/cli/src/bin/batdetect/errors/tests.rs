@@ -307,20 +307,23 @@ fn a_choice_that_is_not_utf8_is_told_in_each_language() {
 }
 
 #[test]
-fn a_display_region_that_starts_with_a_minus_sign_is_refused_by_the_region_sentence_in_each_language() {
+fn a_display_region_that_starts_with_a_minus_sign_is_refused_by_its_number_among_the_zones_in_each_language() {
     for (texts, sentence, footer) in [
         (
             FRENCH,
-            "erreur\u{a0}: --osd-region 1 ne vérifie pas 0 ≤ x0 < x1 ≤ 1 et 0 ≤ y0 < y1 ≤ 1\u{a0}: -0.1,0,1,1",
+            "erreur\u{a0}: la zone n°\u{a0}2 de --osd-region ne vérifie pas 0 ≤ x0 < x1 ≤ 1 et 0 ≤ y0 < y1 ≤ 1\u{a0}: -0.1,0,1,1",
             "Pour en savoir plus, essayez 'batdetect --help'.",
         ),
         (
             ENGLISH,
-            "error: --osd-region 1 does not satisfy 0 ≤ x0 < x1 ≤ 1 and 0 ≤ y0 < y1 ≤ 1: -0.1,0,1,1",
+            "error: region no. 2 of --osd-region does not satisfy 0 ≤ x0 < x1 ≤ 1 and 0 ≤ y0 < y1 ≤ 1: -0.1,0,1,1",
             "For more information, try 'batdetect --help'.",
         ),
     ] {
-        let error = refused(&["a.mp4", "--osd-region", "-0.1,0,1,1"], texts);
+        let error = refused(
+            &["a.mp4", "--osd-region", "0,0,1,0.1", "--osd-region", "-0.1,0,1,1"],
+            texts,
+        );
         assert_eq!(rendered(texts, &error).to_string(), without_usage(sentence, footer));
     }
 }

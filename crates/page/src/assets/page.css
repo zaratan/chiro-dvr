@@ -139,7 +139,7 @@ details[open] > summary .chevron { transform: rotate(45deg); }
   margin: 0; padding: 8px 16px; background: var(--surface); color: var(--muted);
   border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums;
 }
-.scene { display: block; width: 100%; height: auto; background: var(--stage); }
+.scene { display: block; width: 100%; height: auto; background: var(--stage); overflow: visible; }
 .scene polyline, .scene polygon, .scene line, .scene circle { vector-effect: non-scaling-stroke; }
 .scene polyline { fill: none; stroke-linejoin: round; stroke-linecap: round; }
 .scene .outlines polyline { stroke: #000; stroke-width: 5px; }
@@ -148,6 +148,10 @@ details[open] > summary .chevron { transform: rotate(45deg); }
 .scene .leaders line { stroke-width: 2px; stroke-linecap: round; }
 .scene .leaders .halo { stroke: #000; stroke-width: 4.5px; }
 .scene .dots circle { stroke: #000; stroke-width: 1.5px; }
+.scene.hovering { cursor: pointer; }
+.scene.hovering [data-id]:not(.hot) { opacity: 0.3; }
+.scene .dots > [data-id]:focus-visible { outline: none; }
+.scene .dots > [data-id]:focus-visible circle { stroke: #000; stroke-width: 3px; filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #fff); }
 .scene .dots text {
   fill: #000; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-weight: 650;
   text-anchor: middle; dominant-baseline: central;
@@ -189,6 +193,9 @@ thead th { color: var(--muted); font-weight: 600; font-size: 0.9rem; }
 .num { text-align: right; }
 tbody tr { cursor: pointer; }
 tbody tr:hover { background: var(--bg); }
+.no-viewer .stage { display: none; }
+.no-viewer tbody tr { cursor: auto; }
+.no-viewer tbody tr:hover { background: none; }
 tbody tr.active { background: var(--accent-soft); }
 tbody tr.active th { box-shadow: inset 4px 0 0 var(--accent); }
 
@@ -298,7 +305,11 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   .review .c-dot { width: 3.6rem; } .review .c-start { width: 5.6rem; } .review .c-length { width: 4rem; } .review .c-zoom { width: 3.6rem; }
   @container review (max-width: 27rem) { .c-zoom, td.zoom { display: none; } }
   thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); padding-top: 12px; }
-  .video:not(.judging) .review .tracks { position: absolute; inset: 0; }
+  .video:not(.judging):not(.no-viewer) .review .tracks { position: absolute; inset: 0; }
+  .video.no-viewer .body { display: block; }
+  .video.no-viewer .review { border-left: 0; }
+  .video.no-viewer .review table { width: auto; }
+  .video.no-viewer .review .tracks { padding: 0 20px 16px; }
   .judging-wide .video-box video { max-height: none; aspect-ratio: auto; }
 }
 @media (max-width: 640px) {
