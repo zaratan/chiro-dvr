@@ -1461,6 +1461,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
   - Lecture anticipée (`read_ahead`) : un fil de `std::thread::scope` décode jusqu'à 4
     images d'avance (`READ_AHEAD`) dans 5 tampons faits une fois puis recyclés. Le fil
     s'arrête dès que le consommateur s'arrête ou échoue.
+    - Les tampons faits vivent tous jusqu'à ce que le consommateur ait fini, même quand le fil a déjà atteint la fin du fichier ou échoué : le fil rend sa file de tampons et celui qu'il tenait, libérés après le consommateur (#321, voir « Stabilité de la mesure » au test de mémoire de la détection). Sur une vraie vidéo, le pic ne bouge pas : au-delà d'environ 1 800 images (50 × 36), les 25 images du fond sont gardées avant que le fil puisse approcher de la fin, et le vidage final (`Detector::finish`) vient après la libération des tampons (déduit, non mesuré).
   - Pertes (`Losses`), qui deviennent des plages abîmées (`damage`) :
     - `at_jumps`, aux sauts de `pts` : le pas est la moyenne des intervalles réguliers
       selon la médiane des écarts de `pts` entre images connues (juste aussi pour un pas
@@ -1791,22 +1792,22 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       pistes gardées ne jouant qu'en 1:1 ou sous un masque. Temps réels de 12,0 à 15,1 s,
       trop variables pour départager.
     - Mémoire (`tests/slow_memory_flash.rs`, `dhat`, 4 fils, 64 images) : un éclair plein
-      cadre dans chaque groupe de cibles, au premier lot, coûte 57,8 Mo de plus qu'une
-      vidéo calme, soit 20,9 octets par pixel de travail et par fil. Les deux pics
-      tombent dans la même phase de lecture, d'où une mesure stable. Arithmétique :
+      cadre dans chaque groupe de cibles, au premier lot, coûte 67,1 Mo de plus qu'une
+      vidéo calme, soit 24,27 octets par pixel de travail et par fil. Arithmétique :
       les pixels allumés (8 octets), touchés et fermés (4 octets chacun) d'un fil
       montent jusqu'à 2²⁰ éléments, 24,3 octets par pixel, gardés jusqu'à la fin
       (environ 170 Mo à 10 fils). Bornes du test : plus de 16, au plus 32. Les
       allocations de FFmpeg ne sont pas vues, les mêmes dans les deux vidéos.
       `WORK_PIXELS` vient de `WorkScale` et de la configuration (#150). Second cas,
       `tests/slow_memory_flash_wide.rs`, à 1440 pixels de travail (1 440 × 1 080) :
-      134,2 Mo de plus, 21,58 octets par pixel et par fil (20,90 à 960, inchangé).
+      134,2 Mo de plus, 21,58 octets par pixel et par fil.
       Troisième cas (#151), `tests/slow_memory_flash_long.rs`, 2 s au pas de 1, soit
-      61 échantillons : 53,0 Mo de plus, 19,18 octets par pixel et par fil. Les éclairs
-      y tombent dans le dernier vidage (images 35, 43, 51 et 59), le seul où les 4 fils
-      ont chacun une cible éclairée à cette demi-fenêtre de 30. Le pic de la vidéo
-      calme, 245 Mo, porte la fenêtre (2 octets par pixel et par image gardée) ; sur
-      64 images, il ne change pas avec la fenêtre.
+      61 échantillons : 67,1 Mo de plus, 24,27 octets par pixel et par fil. Les éclairs
+      y tombent dans le vidage de l'image 64 (images 3, 11, 19 et 27, cibles 2 à 33 en
+      4 groupes de 8), où chacun des 4 fils a une cible éclairée à cette demi-fenêtre
+      de 30. Le pic de la vidéo calme, 319 Mo, tombe dans ce même vidage et porte la
+      fenêtre (2 octets par pixel et par image gardée).
+    - Stabilité de la mesure (#321) : le pic au calme tombe pendant la lecture, avec les 37 tampons de la lecture anticipée. Avant #321, le fil de lecture les libérait à sa fin de fichier quand il était en avance, et pas quand il était en retard. Le pic au calme du cas long valait alors 244,8 Mo ou 272 à 275 Mo selon la vitesse du décodage (reproduit sur lumiel en ralentissant la lecture par la couture de paquets ; 274,5 Mo sur la CI macOS du 17 octobre 2026). Le pic du flash tombait au dernier vidage, après la lecture, toujours à 297,8 Mo : le surcoût mesuré passait de 53,0 à 23,3 Mo, sous la borne basse. Les tampons vivent maintenant jusqu'à la fin de la lecture (`read_ahead`). Les éclairs du cas long, qui tombaient au dernier vidage (images 35, 43, 51 et 59, après la lecture) et ne dépasseraient plus le pic au calme, passent dans le vidage de l'image 64. Mesuré sur lumiel après #321 : 24,27, 21,58 et 24,27 octets par pixel et par fil, à 2 Ko près sur 50 passes (cas long 20 à 12 cœurs et 10 à 3 cœurs, 10 de chacun des deux autres), et le même pic au calme du cas long, à 8 Ko près sur 6 profils, avec une lecture rapide ou ralentie.
   - **Gris de la détection** (#118, exception à la règle 5) : chaque Y passe par une
     table de 256 gris mesurée sur OpenCV (`GRAY` dans `gray`, privée, lue par
     `gray::gray(y)`, `const fn` publique depuis #107 : une rampe Y = 0 à

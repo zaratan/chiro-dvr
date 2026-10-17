@@ -11,7 +11,7 @@ static ALLOCATOR: dhat::Alloc = dhat::Alloc;
 
 const SAMPLES: usize = 61;
 const BYTES_PER_UNIT: usize = 2;
-const FLASHES_OF_THE_LAST_FLUSH: [usize; 4] = [35, 43, 51, 59];
+const FLASHES_OF_THE_SECOND_FLUSH: [usize; 4] = [3, 11, 19, 27];
 
 #[test]
 #[ignore = "slow"]
@@ -23,7 +23,7 @@ fn with_sixty_one_background_samples_a_flash_still_costs_at_most_32_bytes_per_wo
     })
     .unwrap();
 
-    let cost = flash_cost(&config, &FLASHES_OF_THE_LAST_FLUSH);
+    let cost = flash_cost(&config, &FLASHES_OF_THE_SECOND_FLUSH);
 
     assert_within_bounds(&cost);
     assert!(
