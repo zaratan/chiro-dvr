@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
 use draw::canvas::PixelBox;
-use draw::color::PALETTE;
+use draw::color::{PALETTE, Rgb};
 use engine::settings::Region;
+use summary::Painted;
 use types::detection::Detection;
 use types::frame::FrameIndex;
 use types::track::Track;
@@ -49,22 +50,26 @@ fn seen_once(id: usize) -> Track {
     Track::new(id, vec![point]).unwrap()
 }
 
+fn drawing(track: usize, color: Rgb) -> Drawing {
+    Drawing {
+        page: PathBuf::from("resume.png"),
+        painted: Painted {
+            track,
+            color,
+            path: vec![[10.0, 10.0]],
+            head: None,
+            dot: [10.0, 10.0],
+            anchor: None,
+        },
+    }
+}
+
 #[test]
 fn each_track_takes_the_colour_painted_under_its_number_and_none_when_it_is_not_on_the_summary() {
     let drawn = Drawn {
-        pages: Vec::new(),
-        painted: vec![
-            Drawing {
-                track: 7,
-                color: PALETTE[3],
-                page: PathBuf::from("resume.png"),
-            },
-            Drawing {
-                track: 2,
-                color: PALETTE[1],
-                page: PathBuf::from("resume.png"),
-            },
-        ],
+        background: PathBuf::from("fond.png"),
+        sheets: Vec::new(),
+        painted: vec![drawing(7, PALETTE[3]), drawing(2, PALETTE[1])],
     };
     let tracks = [seen_once(2), seen_once(5), seen_once(7)];
     assert_eq!(drawn.colors(&tracks), [Some(PALETTE[1]), None, Some(PALETTE[3])]);

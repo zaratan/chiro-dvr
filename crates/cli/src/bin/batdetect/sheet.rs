@@ -3,10 +3,10 @@ use batdetect::jobs::{NO_VIDEO, NOT_A_VIDEO, SHARED_FOLDER, UNOPENED};
 use batdetect::process::Wording;
 use files::params::language_code;
 use fluent_bundle::{FluentArgs, FluentValue};
-use page::labels::{Label, Labels};
+use page::labels::{Label, Labels, SceneText};
 use page::model::Date;
 use page::script::Script;
-use summary::header::duration;
+use summary::header::{clock, duration};
 
 use crate::messages::extensions;
 use crate::numbers::NO_BREAK_SPACE;
@@ -113,6 +113,40 @@ impl Texts {
             Label::ColumnVerdict => message("page-column-verdict", []),
             Label::TableLink => message("page-table-link", []),
             Label::AnnotatedLink => message("page-annotated-link", []),
+            Label::Scene(scene) => self.scene(scene),
+        }
+    }
+
+    fn scene(self, scene: SceneText<'_>) -> Spoken<'_> {
+        let span = |id, start, end| message(id, [("start", clock(start).into()), ("end", clock(end).into())]);
+        match scene {
+            SceneText::Alt { video, tracks } => {
+                message("page-scene-alt", [("video", video.into()), ("tracks", tracks.into())])
+            }
+            SceneText::PartAlt {
+                video,
+                part,
+                parts,
+                first,
+                last,
+            } => parted("page-scene-part-alt", Some(video), [part, parts, first, last]),
+            SceneText::Clock(seconds) => Spoken::Direct(clock(seconds)),
+            SceneText::Window { start, end } => span("page-scene-window", start, end),
+            SceneText::Span { start, end } => span("page-scene-span", start, end),
+            SceneText::NothingNotAnalysed => message("page-scene-nothing-not-analysed", []),
+            SceneText::NothingUnreadable => message("page-scene-nothing-unreadable", []),
+            SceneText::NotAnalysed(periods) => message("page-scene-not-analysed", [("periods", periods.into())]),
+            SceneText::Unreadable(periods) => message("page-scene-unreadable", [("periods", periods.into())]),
+            SceneText::More(count) => message("page-scene-more", [("count", count.into())]),
+            SceneText::Complete => message("page-scene-complete", []),
+            SceneText::NewTab => message("page-scene-new-tab", []),
+            SceneText::CompleteNewTab => message("page-scene-complete-new-tab", []),
+            SceneText::BandNotAnalysed => message("band-not-analysed", []),
+            SceneText::BandUnreadable => message("band-unreadable", []),
+            SceneText::StartOf { track, start } => message(
+                "page-strip-start",
+                [("track", track.into()), ("start", self.clock(start).into())],
+            ),
         }
     }
 

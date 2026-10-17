@@ -4,7 +4,7 @@ use batdetect::access::Access;
 use batdetect::failure::Cause;
 use batdetect::jobs::{Reason, Refused};
 use files::refusals::RefusedInput;
-use page::labels::{Label, Labels};
+use page::labels::{Label, Labels, SceneText};
 use page::model::Date;
 use page::script::Script;
 use types::language::Language;
@@ -96,9 +96,45 @@ pub(crate) fn samples() -> Vec<Label<'static>> {
         Label::Seconds(9.62),
     ];
     samples.extend(refusal_samples());
+    samples.extend(scene_samples());
     samples.extend(Script::ALL.iter().map(|&script| Label::Script(script)));
     samples.push(Label::Day(DATE));
     samples
+}
+
+fn scene_samples() -> Vec<Label<'static>> {
+    [
+        SceneText::Alt {
+            video: "vol",
+            tracks: 14,
+        },
+        SceneText::PartAlt {
+            video: "vol",
+            part: 2,
+            parts: 3,
+            first: 21,
+            last: 40,
+        },
+        SceneText::Clock(600.0),
+        SceneText::Window {
+            start: 0.0,
+            end: 300.07,
+        },
+        SceneText::Span { start: 12.0, end: 31.0 },
+        SceneText::NothingNotAnalysed,
+        SceneText::NothingUnreadable,
+        SceneText::NotAnalysed("0:12 – 0:31"),
+        SceneText::Unreadable("1:02 – 1:05"),
+        SceneText::More(4),
+        SceneText::Complete,
+        SceneText::NewTab,
+        SceneText::CompleteNewTab,
+        SceneText::BandNotAnalysed,
+        SceneText::BandUnreadable,
+        SceneText::StartOf { track: 3, start: 42.5 },
+    ]
+    .map(Label::Scene)
+    .to_vec()
 }
 
 fn refusal_samples() -> Vec<Label<'static>> {
@@ -141,6 +177,23 @@ fn the_start_of_a_track_reads_to_the_hundredth_with_the_decimal_mark_of_the_lang
     assert_eq!(french.label(&Label::Start(4.8)), "0:04,80");
     assert_eq!(english.label(&Label::Start(209.594)), "3:29.59");
     assert_eq!(french.label(&Label::Start(59.999)), "1:00,00");
+}
+
+#[test]
+fn the_line_and_the_strip_of_the_redrawn_image_read_in_whole_seconds_and_a_start_to_the_hundredth() {
+    let (french, english) = (Texts::new(Language::French), Texts::new(Language::English));
+    let window = Label::Scene(SceneText::Window {
+        start: 600.0,
+        end: 900.07,
+    });
+    assert_eq!(french.label(&window), "De 10:00 à 15:00");
+    assert_eq!(english.label(&window), "From 10:00 to 15:00");
+    assert_eq!(french.label(&Label::Scene(SceneText::Clock(59.99))), "0:59");
+    assert_eq!(french.label(&Label::Scene(SceneText::More(1))), "+ 1 autre");
+    assert_eq!(
+        french.label(&Label::Scene(SceneText::StartOf { track: 3, start: 42.5 })),
+        "Piste 3 · 0:42,50"
+    );
 }
 
 #[test]

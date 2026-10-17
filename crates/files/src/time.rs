@@ -20,7 +20,7 @@ pub fn clock(seconds: f64) -> String {
     )
 }
 
-pub(crate) fn hundredths(seconds: f64) -> f64 {
+pub fn hundredths(seconds: f64) -> f64 {
     (seconds * HUNDREDTHS).round() / HUNDREDTHS
 }
 

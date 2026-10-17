@@ -1,3 +1,4 @@
+use crate::colour::colour;
 use crate::escape::{href, text};
 use crate::labels::{Label, Labels, filled};
 use crate::model::{Track, Video};
@@ -72,10 +73,7 @@ fn row(video: &Video, track: &Track, labels: &dyn Labels) -> String {
             .map(|file| format!(r#" {attribute}="{}""#, href(&video.folder, file)))
             .unwrap_or_default()
     };
-    let colour = track
-        .color
-        .map(|[red, green, blue]| format!("rgb({red} {green} {blue})"))
-        .unwrap_or_default();
+    let colour = track.color.map(colour).unwrap_or_default();
     let dot = if colour.is_empty() {
         String::new()
     } else {

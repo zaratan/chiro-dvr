@@ -31,7 +31,7 @@ fn the_track_colours_are_the_ones_painted_on_the_summary_in_the_order_of_the_tra
         &DebugLabels,
     )
     .unwrap();
-    let painted: Vec<Painted> = written.iter().flat_map(|page| page.painted.clone()).collect();
+    let painted: Vec<Painted> = written.pages.iter().flat_map(|page| page.painted.clone()).collect();
     let expected: Vec<Option<Rgb>> = tracks
         .iter()
         .map(|track| painted.iter().find(|one| one.track == track.id()).map(|one| one.color))

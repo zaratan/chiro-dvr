@@ -1,6 +1,6 @@
 use super::{render, render_previous};
 use crate::model::TooMany;
-use crate::testing::{Named, summary, track, video};
+use crate::testing::{Named, drawn_video, summary, track, video};
 
 #[test]
 fn a_video_with_one_summary_image_has_no_tabs() {
@@ -87,6 +87,62 @@ fn the_judging_area_replaces_the_picture_in_the_same_column() {
     let section = render(&video("v"), "v1", &Named);
     let stage = section.split(r#"<div class="review">"#).next().unwrap();
     assert!(stage.contains(r#"<div class="judge" hidden"#));
-    assert!(section.contains(r#"<a class="thumb" hidden target="_blank">"#));
+    assert!(section.contains(r#"<a class="thumb" hidden target="_blank" aria-label="Scene(CompleteNewTab)">"#));
     assert!(section.contains(r#"<div class="orphans" hidden></div>"#));
+}
+
+#[test]
+fn a_video_written_with_its_background_and_layout_is_drawn_again_with_its_line_its_link_and_its_strip() {
+    let section = render(&drawn_video("v"), "v1", &Named);
+    let line = section.find(r#"<p class="scene-line"><span>Scene(Window"#).unwrap();
+    let scene = section.find(r#"<svg class="scene""#).unwrap();
+    let strip = section.find(r#"<div class="strip" aria-hidden="true">"#).unwrap();
+    assert!(line < scene && scene < strip, "{section}");
+    assert!(section.contains(r#"<a class="complete" href="v/v_resume.png" target="_blank">Scene(Complete)<span class="sr"> Scene(NewTab)</span></a>"#));
+    assert!(section.contains(r#"aria-label="Scene(Alt { video: &quot;v&quot;, tracks: 4 })""#));
+    assert_eq!(section.matches(r#"<g data-id=""#).count(), 4);
+    assert!(!section.contains("<img src="));
+}
+
+#[test]
+fn a_folder_written_before_the_background_existed_keeps_its_complete_image_without_strip() {
+    let mut older = drawn_video("v");
+    older.background = None;
+    let section = render(&older, "v1", &Named);
+    assert!(section.contains(r#"<img src="v/v_resume.png""#), "{section}");
+    assert!(!section.contains("<svg") && !section.contains(r#"class="strip""#));
+    let mut unlaid = drawn_video("v");
+    unlaid.summaries[0].layout = None;
+    assert!(render(&unlaid, "v1", &Named).contains(r#"<img src="v/v_resume.png""#));
+}
+
+#[test]
+fn each_part_draws_only_its_own_tracks() {
+    let mut night = drawn_video("v");
+    night.summaries = vec![summary("v_1.png"), summary("v_2.png")];
+    for summary in &mut night.summaries {
+        summary.layout = drawn_video("v").summaries[0].layout.clone();
+    }
+    for track in &mut night.tracks {
+        track.summary = Some(if track.id <= 3 { "v_1.png" } else { "v_2.png" }.to_owned());
+    }
+    let section = render(&night, "v1", &Named);
+    let (first, second) = section.split_once(r#"id="v1-p2""#).unwrap();
+    assert_eq!(first.matches(r#"<g data-id=""#).count(), 3);
+    assert_eq!(second.matches(r#"<g data-id=""#).count(), 1);
+    assert!(second.contains("Scene(PartAlt"));
+}
+
+#[test]
+fn a_video_without_tracks_still_draws_its_background_its_line_and_an_empty_strip() {
+    let mut quiet = drawn_video("v");
+    quiet.tracks.clear();
+    let section = render(&quiet, "v1", &Named);
+    assert!(
+        section.contains("<span>Scene(Window { start: 0.0, end: 300.07 }) · Tracks(0) ·"),
+        "{section}"
+    );
+    assert!(section.contains(r#"<image href="v/v_fond.png""#));
+    assert!(section.contains(r#"<div class="lane starts"></div>"#));
+    assert!(!section.contains("data-id="));
 }

@@ -25,8 +25,10 @@ use draw::text::{self, Typeface};
 use files::names::Part;
 
 use crate::compose::{Pen, backdrop, compose, palette_color};
+use crate::geometry::Spot;
 use crate::header::Labels;
-use crate::layout::{Summary, layout};
+use crate::layout::{Mark, Summary, layout};
+use crate::periods::TimeRange;
 use crate::placement::Frame;
 
 #[cfg(test)]
@@ -41,17 +43,45 @@ pub enum Error {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Summaries {
+    pub backdrop: Canvas,
+    pub pages: Vec<Page>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Page {
     pub minutes: Option<Range<u32>>,
     pub part: Option<Part>,
     pub canvas: Canvas,
+    pub window: TimeRange,
+    pub ignored: Vec<TimeRange>,
+    pub damaged: Vec<TimeRange>,
+    pub other_starts: Vec<f64>,
+    pub radius: f64,
     pub painted: Vec<Painted>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Painted {
     pub track: usize,
     pub color: Rgb,
+    pub path: Vec<Spot>,
+    pub head: Option<[Spot; 3]>,
+    pub dot: Spot,
+    pub anchor: Option<Spot>,
+}
+
+impl Painted {
+    fn of(mark: &Mark<'_>, radius: f64) -> Self {
+        Self {
+            track: mark.track.id(),
+            color: palette_color(mark.color),
+            path: mark.path.points().to_vec(),
+            head: mark.head,
+            dot: mark.center,
+            anchor: mark.leader(radius).map(|[anchor, _]| anchor),
+        }
+    }
 }
 
 pub fn pages(
@@ -59,7 +89,7 @@ pub fn pages(
     background: Canvas,
     masks: &[PixelBox],
     labels: &dyn Labels,
-) -> Result<Vec<Page>, Error> {
+) -> Result<Summaries, Error> {
     let typeface = Typeface::roboto().map_err(Error::Font)?;
     let (style, frame) = sized(summary, background.width(), background.height(), &typeface);
     let backdrop = backdrop(background, masks);
@@ -68,24 +98,25 @@ pub fn pages(
         style: &style,
         labels,
     };
-    layout(summary, frame, &style)
+    let radius = f64::from(style.radius);
+    let pages = layout(summary, frame, &style)
         .into_iter()
         .map(|page| {
+            let canvas = compose(&backdrop, &page, pen).map_err(Error::Canvas)?;
             Ok(Page {
-                canvas: compose(&backdrop, &page, pen).map_err(Error::Canvas)?,
-                painted: page
-                    .marks
-                    .iter()
-                    .map(|mark| Painted {
-                        track: mark.track.id(),
-                        color: palette_color(mark.color),
-                    })
-                    .collect(),
+                painted: page.marks.iter().map(|mark| Painted::of(mark, radius)).collect(),
                 minutes: page.minutes,
                 part: page.part,
+                canvas,
+                window: page.window,
+                ignored: page.ignored,
+                damaged: page.damaged,
+                other_starts: page.other_starts,
+                radius,
             })
         })
-        .collect()
+        .collect::<Result<_, Error>>()?;
+    Ok(Summaries { backdrop, pages })
 }
 
 pub(crate) fn sized(summary: &Summary<'_>, width: u32, height: u32, typeface: &Typeface) -> (SummaryStyle, Frame) {

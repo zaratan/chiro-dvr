@@ -20,6 +20,7 @@ pub mod progress;
 pub mod refusals;
 pub mod reuse;
 mod settings;
+mod sheets;
 pub mod space;
 #[cfg(test)]
 #[cfg(unix)]

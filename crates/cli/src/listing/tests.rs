@@ -1,8 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use draw::color::Rgb;
-use files::params::TrackEntry;
+use files::params::{Trace, TrackEntry};
 use render::clips::{Clip, Outputs};
+use summary::Painted;
 use types::detection::Detection;
 use types::frame::{FrameIndex, Pts};
 use types::rate::FrameRate;
@@ -36,6 +37,20 @@ fn seen(id: usize, frames: [usize; 2]) -> Track {
     Track::new(id, points).unwrap()
 }
 
+fn drawing(track: usize, color: Rgb, page: &str) -> Drawing {
+    Drawing {
+        page: PathBuf::from(page),
+        painted: Painted {
+            track,
+            color,
+            path: vec![[10.0, 10.0], [30.0, 10.0]],
+            head: None,
+            dot: [20.0, 40.0],
+            anchor: None,
+        },
+    }
+}
+
 fn clip(track: usize, path: &str) -> Clip {
     Clip {
         track,
@@ -47,16 +62,8 @@ fn clip(track: usize, path: &str) -> Clip {
 fn each_track_takes_its_times_its_colour_the_summary_part_that_draws_it_and_the_clips_written_for_its_position() {
     let tracks = [seen(1, [12, 30]), seen(2, [45, 46])];
     let painted = [
-        Drawing {
-            track: 2,
-            color: Rgb::new(76, 201, 240),
-            page: PathBuf::from("out/v/v_resume_2_sur_2.png"),
-        },
-        Drawing {
-            track: 1,
-            color: Rgb::new(255, 214, 10),
-            page: PathBuf::from("out/v/v_resume_1_sur_2.png"),
-        },
+        drawing(2, Rgb::new(76, 201, 240), "out/v/v_resume_2_sur_2.png"),
+        drawing(1, Rgb::new(255, 214, 10), "out/v/v_resume_1_sur_2.png"),
     ];
     let outputs = Outputs {
         clips: vec![
@@ -79,6 +86,12 @@ fn each_track_takes_its_times_its_colour_the_summary_part_that_draws_it_and_the_
                 clip: Some("extraits/piste_01_0m01s.mp4".to_owned()),
                 zoom: None,
                 start_xy: Some([10, 10]),
+                trace: Some(Trace {
+                    points: "10,10 30,10".to_owned(),
+                    head: None,
+                    dot: [20, 40],
+                    anchor: None,
+                }),
             },
             TrackEntry {
                 id: 2,
@@ -89,6 +102,12 @@ fn each_track_takes_its_times_its_colour_the_summary_part_that_draws_it_and_the_
                 clip: Some("extraits/piste_02_0m04s.mp4".to_owned()),
                 zoom: Some("extraits/piste_02_0m04s_zoom.mp4".to_owned()),
                 start_xy: Some([10, 10]),
+                trace: Some(Trace {
+                    points: "10,10 30,10".to_owned(),
+                    head: None,
+                    dot: [20, 40],
+                    anchor: None,
+                }),
             },
         ]
     );
@@ -97,11 +116,7 @@ fn each_track_takes_its_times_its_colour_the_summary_part_that_draws_it_and_the_
 #[test]
 fn without_clips_written_a_track_keeps_its_times_and_colour_but_names_no_file() {
     let tracks = [seen(1, [12, 30])];
-    let painted = [Drawing {
-        track: 1,
-        color: Rgb::new(255, 214, 10),
-        page: PathBuf::from("out/v/v_resume.png"),
-    }];
+    let painted = [drawing(1, Rgb::new(255, 214, 10), "out/v/v_resume.png")];
     let entries = listed(Path::new("out/v"), &tracks, &ten_per_second(), &painted, None);
     assert_eq!((entries[0].clip.as_deref(), entries[0].zoom.as_deref()), (None, None));
     assert_eq!(entries[0].color, Some([255, 214, 10]));
@@ -135,4 +150,31 @@ fn the_starting_point_of_a_track_is_its_first_point_to_the_nearest_pixel_of_the_
     track = Track::new(1, points).unwrap();
     let entries = listed(Path::new("out/v"), &[track], &ten_per_second(), &[], None);
     assert_eq!(entries[0].start_xy, Some([1436, 888]));
+}
+
+#[test]
+fn a_trace_is_written_in_whole_pixels_without_repeating_a_point_and_a_track_not_drawn_has_none() {
+    let tracks = [seen(1, [12, 30]), seen(2, [45, 46])];
+    let painted = [Drawing {
+        page: PathBuf::from("out/v/v_resume.png"),
+        painted: Painted {
+            track: 1,
+            color: Rgb::new(255, 214, 10),
+            path: vec![[10.2, 10.4], [9.8, 9.6], [30.5, 10.49], [31.0, 12.0]],
+            head: Some([[40.0, 12.0], [30.4, 6.6], [31.6, 17.4]]),
+            dot: [60.4, 80.6],
+            anchor: Some([30.6, 11.4]),
+        },
+    }];
+    let entries = listed(Path::new("out/v"), &tracks, &ten_per_second(), &painted, None);
+    assert_eq!(
+        entries[0].trace,
+        Some(Trace {
+            points: "10,10 31,10 31,12".to_owned(),
+            head: Some("40,12 30,7 32,17".to_owned()),
+            dot: [60, 81],
+            anchor: Some([31, 11]),
+        })
+    );
+    assert_eq!(entries[1].trace, None);
 }

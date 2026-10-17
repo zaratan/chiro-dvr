@@ -1,8 +1,10 @@
 use crate::escape::{href, text};
 use crate::judge;
-use crate::labels::{Label, Labels};
-use crate::model::Video;
-use crate::tracks;
+use crate::labels::{Label, Labels, SceneText};
+use crate::model::{Summary, Track, Video};
+use crate::scene::{self, Scene};
+use crate::strip::{self, Strip};
+use crate::{caption, tracks};
 
 #[cfg(test)]
 mod tests;
@@ -63,7 +65,7 @@ fn rendered(video: &Video, anchor: &str, labels: &dyn Labels, open: bool, previo
 {judge}
     </div>
     <div class="review">
-      <a class="thumb" hidden target="_blank"><img alt=""></a>
+      <a class="thumb" hidden target="_blank" aria-label="{complete}"></a>
       <div class="orphans" hidden></div>
       <div class="tracks">
 {table}
@@ -87,6 +89,7 @@ fn rendered(video: &Video, anchor: &str, labels: &dyn Labels, open: bool, previo
         pictures = pictures(video, anchor, labels),
         judge = judge::render(video, labels),
         table = tracks::render(video, labels),
+        complete = say(Label::Scene(SceneText::CompleteNewTab)),
     )
 }
 
@@ -134,36 +137,109 @@ fn pictures(video: &Video, anchor: &str, labels: &dyn Labels) -> String {
         .enumerate()
         .map(|(index, (summary, &(first, last)))| {
             let part = index + 1;
-            let alt = if parts > 1 {
-                Label::PartAlt {
-                    video: &video.name,
-                    part,
-                    parts,
-                    first,
-                    last,
-                }
-            } else {
-                Label::SummaryAlt {
-                    video: &video.name,
-                    tracks: video.tracks.len(),
-                }
-            };
             let role = if parts > 1 {
                 format!(r#" role="tabpanel" id="{anchor}-p{part}" aria-labelledby="{anchor}-t{part}""#)
             } else {
                 String::new()
             };
-            let link = href(&video.folder, &summary.file);
-            format!(
-                r#"<div class="panel"{role}{hidden}><a class="summary" href="{link}" target="_blank"><img src="{link}" width="{width}" height="{height}" alt="{alt}" loading="lazy"></a></div>"#,
-                hidden = if index > 0 { " hidden" } else { "" },
-                width = summary.width,
-                height = summary.height,
-                alt = text(&labels.label(&alt)),
-            )
+            let hidden = if index > 0 { " hidden" } else { "" };
+            let drawn = Panel {
+                video,
+                summary,
+                part,
+                parts,
+                first,
+                last,
+            };
+            let content = scene_panel(drawn, labels).unwrap_or_else(|| picture_panel(drawn, labels));
+            format!(r#"<div class="panel"{role}{hidden}>{content}</div>"#)
         })
         .collect();
     format!("{tabs}{}", panels.join("\n        "))
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Panel<'a> {
+    video: &'a Video,
+    summary: &'a Summary,
+    part: usize,
+    parts: usize,
+    first: usize,
+    last: usize,
+}
+
+impl Panel<'_> {
+    fn alt(&self, scene: bool) -> Label<'_> {
+        let video = self.video.name.as_str();
+        match (self.parts > 1, scene) {
+            (true, false) => Label::PartAlt {
+                video,
+                part: self.part,
+                parts: self.parts,
+                first: self.first,
+                last: self.last,
+            },
+            (true, true) => Label::Scene(SceneText::PartAlt {
+                video,
+                part: self.part,
+                parts: self.parts,
+                first: self.first,
+                last: self.last,
+            }),
+            (false, false) => Label::SummaryAlt {
+                video,
+                tracks: self.video.tracks.len(),
+            },
+            (false, true) => Label::Scene(SceneText::Alt {
+                video,
+                tracks: self.video.tracks.len(),
+            }),
+        }
+    }
+}
+
+fn picture_panel(drawn: Panel<'_>, labels: &dyn Labels) -> String {
+    let Panel { video, summary, .. } = drawn;
+    let link = href(&video.folder, &summary.file);
+    format!(
+        r#"<a class="summary" href="{link}" target="_blank"><img src="{link}" width="{width}" height="{height}" alt="{alt}" loading="lazy"></a>"#,
+        width = summary.width,
+        height = summary.height,
+        alt = text(&labels.label(&drawn.alt(false))),
+    )
+}
+
+fn scene_panel(drawn: Panel<'_>, labels: &dyn Labels) -> Option<String> {
+    let Panel { video, summary, .. } = drawn;
+    let background = video.background.as_ref()?;
+    let layout = summary.layout.as_ref()?;
+    let tracks: Vec<&Track> = video
+        .tracks
+        .iter()
+        .filter(|track| track.summary.as_deref() == Some(summary.file.as_str()))
+        .collect();
+    let alt = labels.label(&drawn.alt(true));
+    let scene = scene::render(Scene {
+        folder: &video.folder,
+        background,
+        radius: layout.radius,
+        tracks: &tracks,
+        alt: &alt,
+    });
+    let strip = strip::render(
+        Strip {
+            layout,
+            tracks: &tracks,
+        },
+        labels,
+    );
+    Some(format!(
+        r#"<p class="scene-line"><span>{caption}</span> <a class="complete" href="{link}" target="_blank">{complete}<span class="sr"> {new_tab}</span></a></p>{scene}{strip}"#,
+        caption = caption::render(layout, tracks.len(), labels),
+        link = href(&video.folder, &summary.file),
+        complete = text(&labels.label(&Label::Scene(SceneText::Complete))),
+        new_tab = text(&labels.label(&Label::Scene(SceneText::NewTab))),
+    ))
 }
 
 fn whole(seconds: f64) -> u64 {

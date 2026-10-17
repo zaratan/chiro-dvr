@@ -11,7 +11,8 @@ use types::span::Span;
 use types::timeline::Timeline;
 
 use super::{
-    Finish, Params, Recorded, TrackEntry, language_code, local_date, read_params, spans_in_seconds, write_params,
+    Finish, Params, Recorded, SummaryEntry, Trace, TrackEntry, language_code, local_date, read_params,
+    spans_in_seconds, write_params,
 };
 use crate::error::Error;
 
@@ -50,6 +51,16 @@ fn params<'a>(settings: &'a Value, date: &Zoned) -> Params<'a, Value> {
         video_bytes: 1_073_741_824,
         language: language_code(Language::French),
         date: local_date(date),
+        background: Some("nuit_1_fond.png".to_owned()),
+        summaries: vec![SummaryEntry {
+            file: "nuit_1_resume_3_sur_8.png".to_owned(),
+            window_s: [0.0, 300.07],
+            part: Some([3, 8]),
+            ignored_s: vec![[7.0, 8.5]],
+            damaged_s: Vec::new(),
+            other_starts_s: vec![209.5],
+            radius: 23.0,
+        }],
         tracks: vec![
             TrackEntry {
                 id: 1,
@@ -60,6 +71,12 @@ fn params<'a>(settings: &'a Value, date: &Zoned) -> Params<'a, Value> {
                 clip: Some("extraits/piste_01_0m04s.mp4".to_owned()),
                 zoom: Some("extraits/piste_01_0m04s_zoom.mp4".to_owned()),
                 start_xy: Some([1436, 888]),
+                trace: Some(Trace {
+                    points: "1436,888 1400,850".to_owned(),
+                    head: Some("1390,840 1410,846 1404,858".to_owned()),
+                    dot: [1380, 900],
+                    anchor: Some([1420, 870]),
+                }),
             },
             TrackEntry {
                 id: 2,
@@ -70,6 +87,7 @@ fn params<'a>(settings: &'a Value, date: &Zoned) -> Params<'a, Value> {
                 clip: None,
                 zoom: None,
                 start_xy: None,
+                trace: None,
             },
         ],
     }
@@ -114,6 +132,15 @@ fn settings_keep_the_keys_given_by_the_caller_beside_the_run_facts() {
         (value["version"].as_str(), value["ffmpeg"].as_str()),
         (Some("0.2.0"), Some("7.1.1"))
     );
+}
+
+#[test]
+fn the_background_and_the_layout_of_each_summary_are_written_for_the_page_to_draw_them_again() {
+    let (text, value) = written(&params(&settings(), &evening()));
+    assert_eq!(value["background"], "nuit_1_fond.png");
+    assert_eq!(value["summaries"][0]["part"], json!([3, 8]));
+    assert_eq!(value["summaries"][0]["other_starts_s"], json!([209.5]));
+    assert!(text.contains("\"points\": \"1436,888 1400,850\""));
 }
 
 #[test]
@@ -214,7 +241,7 @@ fn an_earlier_params_file_is_replaced_whole_and_no_partial_file_is_left() {
 }
 
 #[test]
-fn each_track_is_listed_with_its_exact_times_its_colour_its_summary_image_the_names_of_its_clips_and_its_starting_point_or_null()
+fn each_track_is_listed_with_its_exact_times_its_colour_its_summary_image_its_clips_its_starting_point_and_its_trace_or_null()
  {
     let (_, value) = written(&params(&settings(), &evening()));
     assert_eq!(
@@ -228,9 +255,15 @@ fn each_track_is_listed_with_its_exact_times_its_colour_its_summary_image_the_na
                 "summary": "nuit_1_resume_3_sur_8.png",
                 "clip": "extraits/piste_01_0m04s.mp4",
                 "zoom": "extraits/piste_01_0m04s_zoom.mp4",
-                "start_xy": [1436, 888]
+                "start_xy": [1436, 888],
+                "trace": {
+                    "points": "1436,888 1400,850",
+                    "head": "1390,840 1410,846 1404,858",
+                    "dot": [1380, 900],
+                    "anchor": [1420, 870]
+                }
             },
-            {"id": 2, "start_s": 209.5, "duration_s": 1.25, "color": null, "summary": null, "clip": null, "zoom": null, "start_xy": null}
+            {"id": 2, "start_s": 209.5, "duration_s": 1.25, "color": null, "summary": null, "clip": null, "zoom": null, "start_xy": null, "trace": null}
         ])
     );
 }

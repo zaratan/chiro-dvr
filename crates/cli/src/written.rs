@@ -14,7 +14,10 @@ use files::verdicts::read_verdicts_file;
 use jiff::Timestamp;
 use jiff::tz::TimeZone;
 use page::labels::Labels;
-use page::model::{Date, Entry, Failed, Page, Refusals, RefusedInput, Summary, TooMany, Track, VerdictsFile, Video};
+use page::model::{
+    Background, Date, Entry, Failed, Layout, Page, Refusals, RefusedInput, Summary, TooMany, Trace, Track,
+    VerdictsFile, Video,
+};
 use types::language::Language;
 
 use crate::failure::REFERS_TO_DETAIL;
@@ -190,6 +193,12 @@ fn video(folder: &OsStr, done: &Finished, open: bool) -> Video {
             clip: entry.clip.clone(),
             zoom: entry.zoom.clone(),
             start_xy: entry.start_xy,
+            trace: entry.trace.as_ref().map(|trace| Trace {
+                points: trace.points.clone(),
+                head: trace.head.clone(),
+                dot: trace.dot,
+                anchor: trace.anchor,
+            }),
         })
         .collect();
     Video {
@@ -203,6 +212,11 @@ fn video(folder: &OsStr, done: &Finished, open: bool) -> Video {
             count: written.tracks.len(),
             limit: written.render.max_tracks,
         }),
+        background: done.background.as_ref().map(|image| Background {
+            file: image.file.clone(),
+            width: image.width,
+            height: image.height,
+        }),
         summaries: done
             .summaries
             .iter()
@@ -210,6 +224,17 @@ fn video(folder: &OsStr, done: &Finished, open: bool) -> Video {
                 file: image.file.clone(),
                 width: image.width,
                 height: image.height,
+                layout: written
+                    .summaries
+                    .iter()
+                    .find(|entry| entry.file == image.file)
+                    .map(|entry| Layout {
+                        window_s: entry.window_s,
+                        ignored_s: entry.ignored_s.clone(),
+                        damaged_s: entry.damaged_s.clone(),
+                        other_starts_s: entry.other_starts_s.clone(),
+                        radius: entry.radius,
+                    }),
             })
             .collect(),
         tracks,

@@ -86,8 +86,47 @@ pub enum Label<'a> {
     AnnotatedLink,
     Start(f64),
     Seconds(f64),
+    Scene(SceneText<'a>),
     Script(Script),
     Day(Date),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SceneText<'a> {
+    Alt {
+        video: &'a str,
+        tracks: usize,
+    },
+    PartAlt {
+        video: &'a str,
+        part: usize,
+        parts: usize,
+        first: usize,
+        last: usize,
+    },
+    Clock(f64),
+    Window {
+        start: f64,
+        end: f64,
+    },
+    Span {
+        start: f64,
+        end: f64,
+    },
+    NothingNotAnalysed,
+    NothingUnreadable,
+    NotAnalysed(&'a str),
+    Unreadable(&'a str),
+    More(usize),
+    Complete,
+    NewTab,
+    CompleteNewTab,
+    BandNotAnalysed,
+    BandUnreadable,
+    StartOf {
+        track: usize,
+        start: f64,
+    },
 }
 
 pub trait Labels: Debug {

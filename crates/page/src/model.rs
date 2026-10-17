@@ -57,6 +57,7 @@ pub struct Video {
     pub not_analysed_s: f64,
     pub open: bool,
     pub too_many: Option<TooMany>,
+    pub background: Option<Background>,
     pub summaries: Vec<Summary>,
     pub tracks: Vec<Track>,
     pub table: Option<String>,
@@ -70,10 +71,27 @@ pub struct TooMany {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Background {
+    pub file: String,
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Summary {
     pub file: String,
     pub width: u32,
     pub height: u32,
+    pub layout: Option<Layout>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Layout {
+    pub window_s: [f64; 2],
+    pub ignored_s: Vec<[f64; 2]>,
+    pub damaged_s: Vec<[f64; 2]>,
+    pub other_starts_s: Vec<f64>,
+    pub radius: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -86,6 +104,15 @@ pub struct Track {
     pub clip: Option<String>,
     pub zoom: Option<String>,
     pub start_xy: Option<[i64; 2]>,
+    pub trace: Option<Trace>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Trace {
+    pub points: String,
+    pub head: Option<String>,
+    pub dot: [i64; 2],
+    pub anchor: Option<[i64; 2]>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

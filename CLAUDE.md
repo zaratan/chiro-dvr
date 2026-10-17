@@ -137,6 +137,7 @@ crates depuis #71, dépendances à sens unique :
 - `page` (#71) : la page de résultats d'une soirée en HTML, depuis un modèle sans disque
   (`model`), libellés par le trait `Labels`, CSS et JS embarqués ; ne dépend d'aucune crate.
   Les verdicts se saisissent dans la page (#228) : `verdicts.csv` à côté d'elle, lu en octets par `files::verdicts` et embarqué ; lecture, rattachement et brouillon en JS (`assets/csv.js`, `assets/store.js`, testés par `mise run page:js`, `node --test`, dans `check`).
+  L'image résumé y est redessinée en SVG sur le fond de la vidéo (`scene`), avec sa ligne (`caption`) et sa frise en HTML (`strip`), d'après la mise en page de `params.json`, jamais recalculée (#259).
 - `draw` : dessin pur sur une toile RGBA opaque, police Roboto embarquée, palette et tailles ; ne dépend d'aucune crate du workspace.
 - `render` → `media`, `draw`, `types` (#110, #112) : images des extraits choisies par `pts`
   (`source`), reprise sur la dernière image-clé saine, un seul fil de décodage sur une plage abîmée ;
@@ -145,7 +146,7 @@ crates depuis #71, dépendances à sens unique :
   `schedule`, `group`, `ahead`, `encoders`) ; zooms ralentis en openh264 (`zoom`, `work`, #103) ; vidéo annotée aux `pts` de la source, lue par tronçons (#103) ;
   `drawn` (feature `testing`) rend les images dessinées sans encodeur, pour les tests figés (#198).
 - `summary` → `draw`, `types`, `files` (#104) : l'image résumé (tranches, couleurs,
-  flèches, pastilles, bandeau, frise du temps, PNG), sans FFmpeg.
+  flèches, pastilles, bandeau, frise du temps, PNG), sans FFmpeg ; `pages` rend aussi le fond et la géométrie de chaque piste pour la page (#259).
 - `compare` → `engine`, `media`, `tracking`, `reference`, `types` (#119) : outil de
   développement, binaire `compare`, non livré ;
   `bench` → `engine`, `tracking`, `reference`, `media`, `types` (#100) : banc de mesure,
@@ -158,8 +159,8 @@ crates depuis #71, dépendances à sens unique :
   `.batdetect/echecs/` pour la page, effacé à la réussite, #71), `refusals` (entrées refusées du lancement dans `.batdetect/refus.json` pour la page, #267),
   `options` (réglages de la commande), `process` (une vidéo de bout en bout ; `tracked` en
   est le suivi, partagé avec les tests figés), `reuse` (vidéo déjà faite, sautée d'après son `params.json`, #70), `inventory` (inventaire au départ : reprise décidée, autres vidéos ouvertes et refusées si elles ne s'ouvrent pas, durée annoncée, #62), `space` (place à prévoir, au lancement et par vidéo, regroupée par volume, sans disque, #61), `checkup` (modèle de `doctor` : encodeur essayé, place libre par `disk`, droit d'écrire, #58), `disk` (place libre et volume d'un dossier par `statvfs`, rien sous Windows, #61), `eta` (heure de fin de la soirée : secondes par image des vidéos calculées, appliquées aux images restantes, sans horloge, #68), `consent` (question avant de traiter les vidéos
-  valides quand des entrées sont refusées, `--skip-refused`), `language`, `listing` (pistes de `params.json` : temps, couleur, extraits écrits, #66),
-  `overview` (image résumé), `settings` (réglages de `params.json`),
+  valides quand des entrées sont refusées, `--skip-refused`), `language`, `listing` (pistes de `params.json` : temps, couleur, extraits écrits, #66, trace, #259),
+  `overview` (image résumé et fond), `sheets` (mise en page des images résumé dans `params.json`, #259), `settings` (réglages de `params.json`),
   `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), `writable`
   (sonde d'écriture de chaque dossier de sortie avant tout calcul, #86), `access` (table
   fermée des raisons d'un chemin refusé, sans texte, #55), `jobs` (vidéos et dossiers de

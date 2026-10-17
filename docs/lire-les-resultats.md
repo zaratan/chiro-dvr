@@ -78,11 +78,17 @@ En haut de la page, une barre reste visible quand on fait défiler : le décomp
 
 Dans une section, l'image résumé et la liste des pistes. Chaque piste a son numéro, de la couleur de sa trajectoire sur l'image, son début, sa durée, son verdict (« à voir » tant qu'il n'est pas donné) et l'espèce notée, et une étiquette « Zoom » quand l'extrait zoomé existe. L'en-tête de la vidéo dit combien de ses pistes sont jugées.
 
-- Un clic sur une piste (sa ligne ou son numéro) ouvre le lecteur à la place de l'image : l'extrait de la piste passe en boucle, en grand, avec le verdict et l'espèce dessous. À droite, l'image résumé en petit (un clic l'ouvre en taille réelle) et la liste, où la piste jugée est en évidence.
-- « Extrait » et « Zoom » choisissent la vidéo ; « Image résumé » ferme le lecteur ; ‹ et › passent à la piste précédente ou suivante ; « À voir » saute à la prochaine piste sans verdict.
+L'image de la page est redessinée par la page elle-même : sur la scène de la vidéo, sans aucune trace, elle trace les trajectoires, les flèches et les pastilles numérotées aux places que l'outil a choisies pour l'image résumé. Les traits gardent la même épaisseur quelle que soit la taille de l'image, et les numéros sont écrits dans la police de l'ordinateur ; l'image redessinée peut donc différer très légèrement de l'image résumé.
+
+- Au-dessus de l'image, une ligne dit l'intervalle montré, le nombre de pistes, et les périodes hors analyse et illisibles (« rien hors analyse, rien d'illisible » quand il n'y en a pas ; au-delà de trois périodes, « + 4 autres »). Le lien « Ouvrir l'image complète » ouvre l'image résumé, avec son bandeau et sa frise : c'est le fichier à garder ou à envoyer.
+- Sous l'image, la frise du temps : un trait par début de piste, de la couleur de sa pastille (en gris, les pistes des autres parties de la tranche), les minutes, et les bandes « hors analyse » et « illisible » seulement quand il y en a. Le survol d'un trait donne la piste et son début.
+- La légende du bandeau de l'image résumé n'est pas redessinée : la liste des pistes, avec leurs pastilles et leurs débuts, en tient lieu.
+- Une vidéo calculée par une version précédente de l'outil garde son image résumé, sans frise sous l'image ; relancer la même commande la refait avec l'image redessinée.
+
+- Un clic sur une piste (sa ligne ou son numéro) ouvre le lecteur à la place de l'image : l'extrait de la piste passe en boucle, en grand, avec le verdict et l'espèce dessous. À droite, l'image en petit, avec toutes les trajectoires mais la seule pastille de la piste jugée (un clic ouvre l'image complète), et la liste, où la piste jugée est en évidence.
+- « Extrait » et « Zoom » choisissent la vidéo ; « Image résumé » ferme le lecteur ; ‹ et › passent à la piste précédente ou suivante ; « À voir » saute à la prochaine piste sans verdict. Sur un écran étroit, l'étiquette « Zoom » de la liste laisse sa place au verdict pendant le jugement : le bouton « Zoom », ou « pas de zoom », dit si la piste jugée en a un.
 - Le clavier : `O` oui, `N` non, `D` (ou `?`) doute, `Suppr` efface le verdict, `E` va au champ espèce, `Z` passe de l'extrait au zoom, les flèches ← et → changent de piste, Maj et → va à la prochaine piste à voir, Espace lit ou arrête. Un second appui sur le même verdict l'efface. Les lettres tapées dans le champ espèce restent du texte.
 - « Enchaîner », cochée d'origine : après « Oui », le curseur va dans le champ espèce, et Entrée passe à la piste suivante ; après « Non » ou « Doute », la page passe directement à la suivante. Décochée, rien ne bouge seul. On ne passe jamais d'une vidéo à l'autre.
-- Un clic sur l'image l'ouvre en taille réelle.
 - Une vidéo chargée a plusieurs images résumé : des onglets « Partie » les séparent, et chaque onglet dit quelles pistes il montre.
 
 Une vidéo en échec garde sa place dans la liste, marquée en rouge, avec la raison et ce qu'il
@@ -106,6 +112,7 @@ calcul efface les fichiers de l'autre langue.
 | Fichier | Français | Anglais |
 | --- | --- | --- |
 | Image résumé | `<vidéo>_resume.png` | `<vidéo>_summary.png` |
+| Scène seule, sans trace, pour la page | `<vidéo>_fond.png` | `<vidéo>_background.png` |
 | Tableau des pistes | `<vidéo>_pistes.csv` | `<vidéo>_tracks.csv` |
 | Extrait | `extraits/piste_01_0m04s.mp4` | `clips/track_01_0m04s.mp4` |
 | Extrait zoomé | `extraits/piste_01_0m04s_zoom.mp4` | `clips/track_01_0m04s_zoom.mp4` |
