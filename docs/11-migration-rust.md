@@ -651,9 +651,9 @@ Forme et tests :
 - Les fixtures se trouvent par `reference::fixture::fixture`, qui refuse un pointeur
   LFS non tiré avec le conseil `git lfs pull`.
 - Les tests `local_` de `bench` (#107 à #109) lisent les bancs de la v0.1.1
-  (`BATDETECT_REFERENCE_DIR/bench/`) : `local_injection` et `local_metrics` sans vidéo, en
+  (`BATDETECT_REFERENCE_DIR/bench/`) : `local_injection` sans vidéo, en
   moins d'une seconde ; `local_guard` rejoue les deux bancs sur la 092 du dépôt (LFS),
-  1 min 54 en profil `ci`.
+  1 min 54 en profil `ci`. `committed_metrics` (#277) lit les deux bancs de la v0.2.0, dans le dépôt, et tourne en CI sur les trois systèmes (0,07 s sur lumiel).
 - `tests/fixtures/rust/video_092_original_3m24-4m05/frames.jsonl` : les détections de
   l'extrait par le Rust, écrites sur le Mac depuis la racine du dépôt par
   `verrou lourd cargo run --profile ci -p compare -- extract --frames tests/fixtures/rust`
@@ -1396,7 +1396,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - La version 2 remplace `ffprobe` par `decoder`, ce que voit `media` : `error_frames`, `gap_frames`, `losses` (`before_first`, `after_last`) et `threads`. Ces pertes au bord ouvrent une plage abîmée, et `frames.jsonl` ne les garde pas (#176). `threads` (`DecoderThreads`, comme `media::decode::ActiveThreads`) vaut `{"kind": "single"}`, ou `{"kind": "frame"|"slice", "count": n}` avec n ≥ 1 : le nombre de fils change ce que le décodeur dissimule dans les plages abîmées. Un nombre nul, un genre inconnu ou un nombre sur `single` sont refusés à la lecture. La version 2 n'a pas de `tracks.csv` : le CSV du Rust (13 colonnes, en-têtes Fluent de `cli`) ne s'écrirait pas depuis `compare`, qui enregistrera la référence, sans faire de cycle avec `cli`.
     - `VideoSummary::read` refuse toute autre version, avant de lire les champs. `read` et `write` refusent aussi un résumé dont les blocs ne sont pas ceux de sa version (`MissingSection`, `ForeignSection`), et `write` le fait avant d'écrire.
     - `Recording` donne `rows` en `Option`. Il refuse d'écrire des lignes sans nom de fichier, ou l'inverse (`TableWithoutFile`), avant d'écrire le moindre fichier.
-    - `location::Reference` (`V011`, `V020`) choisit le dossier du dépôt (`tests/fixtures/reference/` ou `tests/fixtures/reference-v0.2.0/`) et la variable des données hors dépôt (`BATDETECT_REFERENCE_DIR` ou `BATDETECT_REFERENCE_V020_DIR`). `committed`, `committed_settings` et `recording_directories` prennent la référence, comme `compare::case::Target::cases` et `Case::committed`. Les bancs de la v0.1.1 restent hors dépôt (`recorded_bench(nom)`, `$BATDETECT_REFERENCE_DIR/bench/<nom>/`), ceux de la v0.2.0, 2,7 Mo, sont dans git (`committed_bench(nom)`, `tests/fixtures/reference-v0.2.0/bench/<nom>/`, #250). Toutes les gardes lisent encore `V011` ; elles passent à la v0.2.0 à #276 et #277.
+    - `location::Reference` (`V011`, `V020`) choisit le dossier du dépôt (`tests/fixtures/reference/` ou `tests/fixtures/reference-v0.2.0/`) et la variable des données hors dépôt (`BATDETECT_REFERENCE_DIR` ou `BATDETECT_REFERENCE_V020_DIR`). `committed`, `committed_settings` et `recording_directories` prennent la référence, comme `compare::case::Target::cases` et `Case::committed`. Les bancs de la v0.1.1 restent hors dépôt (`recorded_bench(nom)`, `$BATDETECT_REFERENCE_DIR/bench/<nom>/`), ceux de la v0.2.0, 2,7 Mo, sont dans git (`committed_bench(nom)`, `tests/fixtures/reference-v0.2.0/bench/<nom>/`, #250). Les gardes du suivi lisent `V020` depuis #277 ; celles de la détection passent à la v0.2.0 à #276.
   - Pas d'affirmation « points d'une piste ⊂ détections » : les points des pistes
     jumelles fusionnées sont combinés (17 sur 358 dans l'extrait, 63 sur 610 dans la
     092).
@@ -2402,8 +2402,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
   - La médiane porte sur toute la vidéo : la stabilité dépend de sa longueur (la
     concaténation 089-091 ignore 27,9 s, contre 28,9 s en morceaux, mesuré par #94 ;
     la médiane comme cause est une hypothèse, non vérifiée).
-  - Sur les 26 vidéos de la référence, plages instables et détections gardées sont
-    égales à la v0.1.1 (test local `crates/tracking/tests/local_exclusion.rs`).
+  - Sur les 26 vidéos de la référence, plages instables et détections gardées étaient
+    égales à la v0.1.1 (test local `crates/tracking/tests/local_exclusion.rs`, jusqu'à #277). Depuis #277, `committed_exclusion` (19 cas du dépôt) et `local_exclusion` (26 vidéos) comparent à la v0.2.0, avec une ligne figée par cas (`Kept`) : détections gardées en moins et en plus (écart net des totaux), et plages instables changées, toutes à 0.
   - `track` : `track_detections(détections, TrackConfig)` rend des `Track` numérotées à
     partir de 1, triées par (image de début, `x` du premier point).
     - `TrackConfig::new(max_jump, max_gap, min_hits, min_travel, twin_distance,
@@ -2438,12 +2438,14 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       966 appariées, 0 piste seule, 0 écart, et les 966 paires sont identiques au bit
       près sur les huit champs de chaque point et sur les numéros. Les fixtures
       (`committed_tracking.rs`) donnent 4 et 14 paires, identiques de même.
-    - Critères des tests : sur l'extrait et la 092 (`committed_tracking.rs`, en CI),
+    - Critères des tests jusqu'à #277 : sur l'extrait et la 092 (`committed_tracking.rs`, en CI),
       l'identité exacte fait échouer, en plus de l'appariement. Sur les 26 vidéos
       (`local_tracking.rs`), l'appariement avec tolérances fait échouer et l'identité
-      est rapportée (décision de l'utilisateur, 11 octobre 2026). Une amélioration voulue
-      du suivi mettra à jour l'attendu des fixtures, avec sa justification dans la même
-      série de changements.
+      est rapportée (décision de l'utilisateur, 11 octobre 2026). Ces mesures contre la v0.1.1 restent l'historique de la parité avec le Python.
+    - Gardes depuis #277 : le suivi courant tourne sur les détections, les plages abîmées et le nombre d'images signalées de la [référence v0.2.0](#référence-v020), sans décodage, donc sans dépendre du poste ni du décodeur. Ses pistes se comparent à celles de la v0.2.0 par `track_matching` (début ±5 images, points ±3). Chaque cas a sa ligne figée (`FROZEN`) : pistes de la référence, suivies, appariées, concordantes, perdues et ajoutées, `Tracks::same(n)` tant qu'il n'y a pas d'écart. Les 19 cas du dépôt n'ont aucune plage abîmée, et seul `sigma_0` a des plages instables : en CI, le suivi sur des plages abîmées n'est gardé que par les tests unitaires de `tracking`. Sur des données réelles, il ne l'est que par `local_tracking` et `local_exclusion`.
+      - `committed_tracking` : les 19 cas du dépôt (extrait, 092, 1440, 16 réglages), en CI sur les trois systèmes, avec en plus le nombre de pistes identiques au bit près et les numéros 1..n. Sur lumiel, toutes sont identiques (125 pistes) ; la CI de #277 dit si les trois systèmes le tiennent.
+      - `local_tracking` : les 26 vidéos (`BATDETECT_REFERENCE_V020_DIR`), 972 pistes. L'identité est seulement affichée : 972 sur 972 sur lumiel (17 octobre 2026), à confirmer sur le Mac avant de la figer.
+      - Une PR de suivi (#24, #21) met à jour ces lignes, avec la cause dans la même série de changements, et les colonnes de pistes des gardes de détection, qui disent l'effet.
 - **`files`** → `types` : fichiers écrits par la commande (#122). Reçoit un
   `types::Language`, celle de la commande (#123, #114).
   - `names` : `Names::new(langue)` et ses méthodes. Français : `extraits`, `piste`,
@@ -3014,10 +3016,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     et la cible lente viennent de `bench::noisy`, derrière la feature `testing` du banc
     (#154) : `bench` dépend de lui-même en dev-dependency avec cette feature, pour que
     `tests/command.rs` les voie aussi.
-    `local_injection`, `local_metrics` (les détections et les cibles enregistrées
-    redonnent `bench.json` cible par cible : entiers exacts, flottants à 1e−12 ; résumé
-    à 5e−4 pour Wilson et la complétude, 5e−3 pour les fragments, 5e−2 pour le contraste)
-    et `local_guard` lisent `BATDETECT_REFERENCE_DIR/bench/{transit,hunt}`.
+    `local_injection` et `local_guard` lisent `BATDETECT_REFERENCE_DIR/bench/{transit,hunt}`. Jusqu'à #277, `local_metrics` y vérifiait aussi que les détections et les cibles de la v0.1.1 redonnaient son `bench.json` cible par cible (entiers exacts, flottants à 1e−12 ; résumé à 5e−4 pour Wilson et la complétude, 5e−3 pour les fragments, 5e−2 pour le contraste) : c'est l'historique de la parité avec le Python.
+    `committed_metrics` (#277) relit chaque run v0.2.0 du dépôt par `folder::read`, le réévalue par `evaluate(&run, Judging::default())`, comme `--replay`, et exige le `bench.json` enregistré : entiers égaux, flottants à 1e−9 près (`matching.rs` passe par `hypot`), durées exclues. Les réglages track, stability et match de `bench.json` doivent donc être ceux de `Judging::default()` : un changement des défauts ne déplace pas la base sans le dire. Ce qui vient de l'évaluation se fige par banc dans `FROZEN` (`Metrics` : non visibles, fausses pistes, pistes des deux runs, cibles évaluées et trouvées, cibles et classes changées par rapport au `bench.json`, ces deux dernières à 0 à l'enregistrement) ; les lignes changées s'affichent. Une PR de suivi met à jour `FROZEN`, jamais la référence.
 
 ## Réglages
 
@@ -3405,4 +3405,4 @@ Ce que la v0.2.0 en Rust détecte et suit, enregistré par `record` (#250) le 17
 
 - Preuve par le binaire de `v0.2.0`, construit à part : les 19 cas du dépôt ont les mêmes `frames.jsonl` à l'octet ; les 26 vidéos ont les mêmes entrées et les mêmes détections hors plages abîmées (`--same-as`) ; les pistes de l'extrait et de la 092 sont celles du CSV de `batdetect` de `v0.2.0`, par valeurs ; les deux bancs donnent les mêmes fichiers, `bench.json` par valeurs hors `code` et durées.
 - Reproduction : hors des plages abîmées seulement, comme le dit #176 ; `SHA256SUMS` change à chaque enregistrement des 26 vidéos.
-- Les gardes lisent encore la v0.1.1 ; elles passent à la v0.2.0 à #275, #276 et #277.
+- Les gardes du suivi (`committed_tracking`, `committed_exclusion`, `local_tracking`, `local_exclusion`, `committed_metrics`) lisent la v0.2.0 depuis #277 ; celles de la détection y passent à #275 et #276.
