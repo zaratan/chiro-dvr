@@ -1,7 +1,7 @@
 #[path = "support/v011.rs"]
 mod v011;
 
-use reference::location::recording_directories;
+use reference::location::{Reference, recording_directories};
 
 const EXPECTED_DIFFERENCES: [&str; 22] = [
     "video_089: 6 header lines, v0.1.1 7",
@@ -31,7 +31,7 @@ const EXPECTED_DIFFERENCES: [&str; 22] = [
 #[test]
 #[ignore = "local"]
 fn the_twenty_six_reference_videos_get_the_layout_of_v0_1_1_but_for_pts_clocks_and_merged_spans() {
-    let directories = recording_directories().unwrap();
+    let directories = recording_directories(Reference::V011).unwrap();
     assert_eq!(directories.len(), 26);
     let (mut tracks, mut differences, mut misplaced) = (0, Vec::new(), Vec::new());
     for directory in directories {

@@ -30,7 +30,7 @@ use media::decode::{Decoder, Threads};
 use media::frame::ColorRange;
 use reference::fixture::fixture;
 use reference::frames::Frames;
-use reference::location::committed;
+use reference::location::{Reference, committed};
 use reference::recording::{Recording, SUMMARY_FILE};
 use reference::video::VideoSummary;
 use types::rate::FrameRate;
@@ -125,14 +125,17 @@ fn command(video: &Path, detected: &Detected, options: &Options) -> Result<Comma
 }
 
 fn at_1440() -> Result<Comparison, Box<dyn Error>> {
-    Ok(compare(&Case::setting(committed(WHOLE_AT_1440)), &Folders::default())?)
+    Ok(compare(
+        &Case::setting(committed(Reference::V011, WHOLE_AT_1440)),
+        &Folders::default(),
+    )?)
 }
 
 #[test]
 #[ignore = "reference"]
 fn the_092_gives_the_fourteen_tracks_and_clips_of_the_reference_and_its_single_zoom() {
     let command = shared().defaults.as_ref().unwrap().command.as_ref().unwrap();
-    let recording = Recording::read(&committed(WHOLE)).unwrap();
+    let recording = Recording::read(&committed(Reference::V011, WHOLE)).unwrap();
     let rate = FrameRate::new(recording.summary.stream.avg_frame_rate).unwrap();
     let found = agreement::agreement(&command.processed_in_removed_folder, &recording, rate);
     assert_eq!(command.processed_in_removed_folder.tracks.len(), 14);
@@ -168,7 +171,7 @@ fn the_092_gives_the_fourteen_tracks_and_clips_of_the_reference_and_its_single_z
 #[ignore = "reference"]
 fn the_whole_092_agrees_with_the_reference_on_98_percent_of_its_detections_both_ways() {
     let defaults = shared().defaults.as_ref().unwrap();
-    let recording = Recording::read(&committed(WHOLE)).unwrap();
+    let recording = Recording::read(&committed(Reference::V011, WHOLE)).unwrap();
     assert_eq!(recording.summary.video.name, format!("{WHOLE}.mp4"));
     let settings = recording.summary.detect_settings::<DetectSettings>().unwrap();
     assert_eq!(DetectConfig::try_from(&settings).unwrap(), Options::default().detect);
@@ -176,7 +179,7 @@ fn the_whole_092_agrees_with_the_reference_on_98_percent_of_its_detections_both_
         defaults.detected.half_window().get(),
         recording.summary.background_half_window
     );
-    let name = Case::committed(WHOLE).name(&recording.summary.video.name);
+    let name = Case::committed(Reference::V011, WHOLE).name(&recording.summary.video.name);
     let comparison = compared(&name, defaults.detected.detections(), &recording, defaults.detection_s).unwrap();
 
     write_report(slice::from_ref(&comparison), &mut io::stdout().lock()).unwrap();
@@ -206,7 +209,7 @@ fn the_whole_092_worked_at_1440_pixels_agrees_with_its_reference_on_98_percent_o
 #[ignore = "reference"]
 fn the_whole_092_reads_its_9011_frames_with_the_timestamps_key_frames_and_lack_of_damage_of_ffprobe() {
     let reading = shared().defaults.as_ref().unwrap().detected.reading();
-    let recorded = committed(WHOLE);
+    let recorded = committed(Reference::V011, WHOLE);
     let summary = VideoSummary::read(&recorded.join(SUMMARY_FILE)).unwrap();
     let probed = Frames::read(&recorded.join(&summary.files.frames)).unwrap();
     assert_eq!(reading.frames().len(), 9011);
@@ -224,8 +227,9 @@ fn the_whole_092_reads_its_9011_frames_with_the_timestamps_key_frames_and_lack_o
         .collect();
     assert_eq!(read, expected);
     let damage = Damage::of(reading, summary.background_half_window);
-    assert_eq!(damage.error_frames(), summary.ffprobe.error_frames);
-    assert_eq!(damage.jump_frames(), summary.ffprobe.gap_frames);
+    let probe = summary.ffprobe.as_ref().unwrap();
+    assert_eq!(damage.error_frames(), probe.error_frames);
+    assert_eq!(damage.jump_frames(), probe.gap_frames);
     assert_eq!(damage.spans(), summary.damaged_spans);
     assert_eq!(damage.spans(), []);
 }

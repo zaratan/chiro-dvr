@@ -1,7 +1,7 @@
 use std::io;
 use std::path::Path;
 
-use reference::location::committed;
+use reference::location::{Reference, committed};
 use reference::recording::Recording;
 
 use super::{write_failure, write_report, write_same_as};
@@ -22,7 +22,7 @@ fn report(comparisons: &[Comparison]) -> String {
 
 #[test]
 fn a_video_in_agreement_is_reported_with_its_totals_and_its_time() {
-    let recording = Recording::read(&committed(EXTRACT)).unwrap();
+    let recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
 
     let text = report(&[compared(
         &recording.summary.video.name,
@@ -39,7 +39,7 @@ fn a_video_in_agreement_is_reported_with_its_totals_and_its_time() {
 
 #[test]
 fn a_video_under_98_percent_is_named_at_the_end_with_its_gaps() {
-    let recording = Recording::read(&committed(EXTRACT)).unwrap();
+    let recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
     let empty = nothing_detected(&recording);
 
     let text = report(&[compared(&recording.summary.video.name, &empty, &recording, 1.0).unwrap()]);
@@ -64,7 +64,7 @@ fn a_failure_names_its_recording_then_each_of_its_causes() {
 
 #[test]
 fn the_runs_compared_with_an_earlier_folder_are_listed_under_its_name_then_counted() {
-    let recording = Recording::read(&committed(EXTRACT)).unwrap();
+    let recording = Recording::read(&committed(Reference::V011, EXTRACT)).unwrap();
     let name = &recording.summary.video.name;
     let with = |current: &reference::frames::Frames| Comparison {
         same_as: Some(Sameness::of(name, &recording.frames, current, &[])),

@@ -5,7 +5,7 @@ use engine::damage::Damage;
 use engine::input::{Error, Input};
 use media::decode::{FrameInfo, Threads};
 use media::fingerprint;
-use reference::location::{recorded_video, recording_directories};
+use reference::location::{Reference, recorded_video, recording_directories};
 use reference::recording::SUMMARY_FILE;
 use reference::video::VideoSummary;
 
@@ -28,7 +28,7 @@ fn frames(name: &str, half_window: usize, threads: Threads) -> (Damage, Vec<(Fra
 #[ignore = "local"]
 fn outside_damaged_spans_real_damaged_videos_do_not_depend_on_the_number_of_threads() {
     let mut out = io::stdout().lock();
-    for directory in recording_directories().unwrap() {
+    for directory in recording_directories(Reference::V011).unwrap() {
         let summary = VideoSummary::read(&directory.join(SUMMARY_FILE)).unwrap();
         let name = summary.video.name.as_str();
         if !DAMAGED_VIDEOS.contains(&name) {

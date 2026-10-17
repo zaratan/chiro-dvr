@@ -1,7 +1,7 @@
 use std::fs;
 
 use files::table::{COLUMNS, Column, Headings, write_tracks_csv};
-use reference::location::committed;
+use reference::location::{Reference, committed};
 use reference::recording::Recording;
 use types::language::Language;
 
@@ -109,12 +109,12 @@ fn whole_seconds(clock: &str) -> String {
 
 #[test]
 fn the_excerpt_table_holds_the_values_of_the_reference_with_its_times_cut_to_the_second() {
-    let recording = Recording::read(&committed("video_092_original_3m24-4m05")).unwrap();
+    let recording = Recording::read(&committed(Reference::V011, "video_092_original_3m24-4m05")).unwrap();
     let lines = written(&recording);
     assert_eq!(lines[0], "1,0:00:04,0:00:14,9.62,,290,709.7,912.7,94.8,338,110.3,0,4.8");
     let written: Vec<Written> = lines.iter().map(|line| Written::of(line)).collect();
-    assert_eq!(written.len(), recording.rows.len());
-    for (kept, found) in recording.rows.iter().zip(&written) {
+    assert_eq!(written.len(), recording.rows.as_deref().unwrap().len());
+    for (kept, found) in recording.rows.as_deref().unwrap().iter().zip(&written) {
         assert_eq!(
             (found.id, found.hits, found.max_area_px, found.filled_frames),
             (kept.id, kept.hits, kept.max_area_px, kept.filled_frames)
@@ -147,11 +147,11 @@ fn the_excerpt_table_holds_the_values_of_the_reference_with_its_times_cut_to_the
 
 #[test]
 fn the_092_table_differs_only_by_times_from_pts_and_areas_ending_in_a_half() {
-    let recording = Recording::read(&committed("video_092_original")).unwrap();
+    let recording = Recording::read(&committed(Reference::V011, "video_092_original")).unwrap();
     let written: Vec<Written> = written(&recording).iter().map(|line| Written::of(line)).collect();
     assert_eq!(written.len(), 14);
     let (mut starts, mut ends, mut larger_areas, mut faster) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
-    for (kept, found) in recording.rows.iter().zip(&written) {
+    for (kept, found) in recording.rows.as_deref().unwrap().iter().zip(&written) {
         assert_eq!(
             (found.id, found.hits, found.filled_frames),
             (kept.id, kept.hits, kept.filled_frames)

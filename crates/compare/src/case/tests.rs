@@ -1,13 +1,14 @@
 use std::path::PathBuf;
 
+use reference::location::Reference;
 use reference::recording::SUMMARY_FILE;
 
 use super::{Case, EXTRACT, Target, WHOLE, WHOLE_AT_1440};
 
 #[test]
 fn the_extract_and_the_whole_092_are_read_from_the_committed_reference() {
-    let [extract] = Target::Extract.cases().unwrap().try_into().unwrap();
-    let [whole] = Target::Whole.cases().unwrap().try_into().unwrap();
+    let [extract] = Target::Extract.cases(Reference::V011).unwrap().try_into().unwrap();
+    let [whole] = Target::Whole.cases(Reference::V011).unwrap().try_into().unwrap();
 
     assert!(extract.recording().ends_with(EXTRACT));
     assert!(whole.recording().ends_with(WHOLE));
@@ -16,7 +17,9 @@ fn the_extract_and_the_whole_092_are_read_from_the_committed_reference() {
 
 #[test]
 fn a_committed_case_finds_its_video_among_the_fixtures() {
-    let video = Case::committed(EXTRACT).video("full_range.mp4").unwrap();
+    let video = Case::committed(Reference::V011, EXTRACT)
+        .video("full_range.mp4")
+        .unwrap();
 
     assert!(video.is_file());
 }
@@ -31,7 +34,7 @@ fn a_recorded_case_finds_no_video_that_is_not_there() {
 
 #[test]
 fn the_setting_cases_are_the_sixteen_committed_recordings_of_the_settings_folder() {
-    let cases = Target::Settings.cases().unwrap();
+    let cases = Target::Settings.cases(Reference::V011).unwrap();
 
     assert_eq!(cases.len(), 16);
     assert!(cases.iter().all(|case| case.recording().join(SUMMARY_FILE).is_file()));
@@ -41,7 +44,7 @@ fn the_setting_cases_are_the_sixteen_committed_recordings_of_the_settings_folder
 #[test]
 fn a_setting_case_is_named_by_its_folder_since_its_video_is_shared_with_other_cases() {
     let setting = Case::setting(PathBuf::from("fixtures/reference/settings/threshold_25"));
-    let extract = Case::committed(EXTRACT);
+    let extract = Case::committed(Reference::V011, EXTRACT);
 
     assert_eq!(setting.name("video_092_original_3m24-4m05.mp4"), "threshold_25");
     assert_eq!(
@@ -53,7 +56,7 @@ fn a_setting_case_is_named_by_its_folder_since_its_video_is_shared_with_other_ca
 
 #[test]
 fn the_092_worked_at_1440_pixels_is_named_by_its_folder_so_as_not_to_overwrite_the_092() {
-    let [wide] = Target::WholeAt1440.cases().unwrap().try_into().unwrap();
+    let [wide] = Target::WholeAt1440.cases(Reference::V011).unwrap().try_into().unwrap();
 
     assert!(wide.recording().ends_with(WHOLE_AT_1440));
     assert_eq!(wide.name("video_092_original.mp4"), WHOLE_AT_1440);

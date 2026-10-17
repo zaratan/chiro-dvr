@@ -1,4 +1,4 @@
-use reference::location::recording_directories;
+use reference::location::{Reference, recording_directories};
 use reference::recording::Recording;
 use tracking::exclusion::exclude;
 use tracking::stability::StabilityConfig;
@@ -7,7 +7,7 @@ use types::rate::FrameRate;
 #[test]
 #[ignore = "local"]
 fn the_twenty_six_recorded_videos_keep_the_detections_and_spans_of_the_reference() {
-    let directories = recording_directories().unwrap();
+    let directories = recording_directories(Reference::V011).unwrap();
     assert_eq!(directories.len(), 26);
     let mut differences = Vec::new();
     for directory in directories {
