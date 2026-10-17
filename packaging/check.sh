@@ -72,8 +72,12 @@ at_most() {
   [ "$(printf '%s\n' "$1" "$2" | sort -V | tail -1)" = "$2" ]
 }
 
+in_english() {
+  env -u LANGUAGE -u LC_ALL -u LC_MESSAGES LANG=C "$@"
+}
+
 english() {
-  env -u LANGUAGE -u LC_ALL -u LC_MESSAGES LANG=C "$program" "$@"
+  in_english "$program" "$@"
 }
 
 outside() {
@@ -211,29 +215,49 @@ check_crates() {
   fi
 }
 
-check_tracks() {
-  local video=$repository/tests/fixtures/$extract.mp4 out=$work/out produced
+tracks_of_the_extract() {
+  local name=$1 out=$2 log=$2.log video=$repository/tests/fixtures/$extract.mp4 produced
+  shift 2
   if [ ! -f "$video" ] || head -c 24 "$video" | grep -q '^version https://git-lfs'; then
-    flunk C6-tracks "$video is missing or an LFS pointer: git lfs pull"
+    flunk "$name" "$video is missing or an LFS pointer: git lfs pull"
     return
   fi
-  if ! english "$video" -o "$out" > "$work/run.log" 2>&1; then
-    flunk C6-tracks "batdetect failed on the extract: $(tail -n 5 "$work/run.log" | paste -sd ' ' -)"
+  if ! in_english "$@" "$video" -o "$out" > "$log" 2>&1; then
+    flunk "$name" "batdetect failed on the extract: $({ grep -m 1 -A 3 'SDE-ERROR' "$log" || tail -n 5 "$log"; } | tr -d '\r' | paste -sd ' ' -)"
     return
   fi
   produced=$out/$extract/${extract}_tracks.csv
   if [ ! -f "$produced" ]; then
-    flunk C6-tracks "no ${extract}_tracks.csv in $out/$extract"
+    flunk "$name" "no ${extract}_tracks.csv in $out/$extract"
   elif ! cmp -s "$produced" "$expected_csv"; then
-    flunk C6-tracks "the table differs from ${expected_csv#"$repository"/}: $(diff "$expected_csv" "$produced" | head -n 6 | paste -sd ' ' -)"
+    flunk "$name" "the table differs from ${expected_csv#"$repository"/}: $(diff "$expected_csv" "$produced" | head -n 6 | paste -sd ' ' -)"
   else
-    pass C6-tracks
+    pass "$name"
   fi
+}
+
+check_cpu() {
+  local sde
+  if [ "$system" = macos ]; then
+    echo "skip C3-cpu (no Intel SDE on macOS)"
+    return
+  fi
+  sde=$(bash "$repository/packaging/sde.sh") || { flunk C3-cpu "could not fetch Intel SDE"; return; }
+  if [ "$system" = linux ] && ! "$sde" -nhm -- /bin/true > /dev/null 2>&1; then
+    flunk C3-cpu "this host cannot run a Nehalem process under Intel SDE (its glibc needs x86-64-v3, or kernel.yama.ptrace_scope is not 0): run it on the CI or in ubuntu:22.04"
+    return
+  fi
+  tracks_of_the_extract C3-cpu "$work/cpu" "$sde" -nhm -- "$program"
+}
+
+check_tracks() {
+  tracks_of_the_extract C6-tracks "$work/out" "$program"
 }
 
 check_contents
 check_links
 check_floor
+check_cpu
 check_version
 check_crates
 check_tracks

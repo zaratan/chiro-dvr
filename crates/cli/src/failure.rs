@@ -99,7 +99,7 @@ pub fn cause(error: &Error, options: &Options) -> Cause {
             limit: *limit,
             annotated: *annotated,
         },
-        Error::Progress(_) | Error::Timeline(_) | Error::Tracking(_) => Cause::Unexpected,
+        Error::Progress(_) | Error::Timeline(_) | Error::Tracking(_) | Error::Colors(_) => Cause::Unexpected,
     }
 }
 

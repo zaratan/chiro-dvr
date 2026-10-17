@@ -1,4 +1,4 @@
-use super::{Error, Span};
+use super::{Error, Run, Span, merged, merged_by};
 use crate::frame::FrameIndex;
 
 fn span(first: usize, last: usize) -> Result<Span, Error> {
@@ -80,4 +80,51 @@ fn spans_without_a_shared_frame_have_no_intersection() {
 #[test]
 fn the_widest_span_counts_as_many_frames_as_a_usize_holds_rather_than_overflowing() {
     assert_eq!(span(0, usize::MAX).unwrap().frame_count(), usize::MAX);
+}
+
+#[test]
+fn overlapping_or_touching_spans_merge_whatever_their_order_and_apart_ones_stay_apart() {
+    let spans = [(40, 50), (10, 20), (15, 25), (26, 30), (32, 33)].map(|(first, last)| span(first, last).unwrap());
+    assert_eq!(
+        merged(spans),
+        [span(10, 30).unwrap(), span(32, 33).unwrap(), span(40, 50).unwrap()]
+    );
+}
+
+#[test]
+fn a_span_held_inside_another_leaves_the_outer_one_whole() {
+    let spans = [span(10, 40).unwrap(), span(12, 15).unwrap(), span(41, 41).unwrap()];
+    assert_eq!(merged(spans), [span(10, 41).unwrap()]);
+}
+
+#[test]
+fn nothing_to_merge_gives_nothing() {
+    assert_eq!(merged([]), []);
+    assert_eq!(merged_by(Vec::<Span>::new(), |span| *span), []);
+}
+
+#[test]
+fn spans_reaching_the_last_frame_index_merge_without_overflow() {
+    let end = span(usize::MAX - 1, usize::MAX).unwrap();
+    assert_eq!(merged([end, end]), [end]);
+}
+
+#[test]
+fn each_run_keeps_its_members_ordered_by_first_frame_and_equal_starts_in_the_order_given() {
+    let items = [
+        ("late", (20, 25)),
+        ("first", (5, 10)),
+        ("second", (5, 8)),
+        ("touching", (11, 12)),
+    ];
+    let runs = merged_by(items, |(_, (first, last))| span(*first, *last).unwrap());
+    let names: Vec<Vec<&str>> = runs
+        .iter()
+        .map(|run| run.members.iter().map(|(name, _)| *name).collect())
+        .collect();
+    assert_eq!(names, [vec!["first", "second", "touching"], vec!["late"]]);
+    assert_eq!(
+        runs.iter().map(|run: &Run<_>| run.span).collect::<Vec<_>>(),
+        [span(5, 12).unwrap(), span(20, 25).unwrap()]
+    );
 }
