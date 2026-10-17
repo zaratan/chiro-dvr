@@ -2,13 +2,15 @@ use types::frame::FrameIndex;
 use types::track::Track;
 
 use super::Recording;
-use crate::location::committed;
+use crate::error::Error;
+use crate::location::{Reference, committed};
+use crate::video::{DECODED_FORMAT, Decoder, DecoderThreads, Losses};
 
 const EXCERPT: &str = "video_092_original_3m24-4m05";
 const FULL: &str = "video_092_original";
 
 fn recording(name: &str) -> Recording {
-    Recording::read(&committed(name)).unwrap()
+    Recording::read(&committed(Reference::V011, name)).unwrap()
 }
 
 fn starts(recording: &Recording) -> Vec<usize> {
@@ -39,7 +41,7 @@ fn the_excerpt_reads_with_its_raw_detections_and_tracks() {
     assert_eq!(excerpt.frames.detections().detection_count(), 402);
     assert_eq!(starts(&excerpt), [144, 705, 783, 972]);
     assert_eq!(point_counts(&excerpt), [290, 17, 24, 27]);
-    assert_eq!(excerpt.rows.len(), 4);
+    assert_eq!(excerpt.rows.as_deref().unwrap().len(), 4);
 }
 
 #[test]
@@ -93,7 +95,7 @@ fn a_recording_rewritten_with_compressed_frames_reads_the_same() {
 #[test]
 fn track_measures_agree_with_the_table_written_by_the_reference() {
     let full = recording(FULL);
-    for (track, row) in full.tracks.iter().zip(&full.rows) {
+    for (track, row) in full.tracks.iter().zip(full.rows.as_deref().unwrap()) {
         assert_eq!((track.id(), track.points().len()), (row.id, row.hits));
         assert!(
             (track.chord() - row.chord_px).abs() <= 0.05,
@@ -124,7 +126,7 @@ fn rate_times_give_back_the_start_times_of_the_table() {
     let timeline = full.timeline().unwrap();
     assert_eq!(timeline.frame_count(), 9011);
     assert_eq!(timeline.pts(FrameIndex::new(1)).map(types::frame::Pts::get), Some(333));
-    for (track, row) in full.tracks.iter().zip(&full.rows) {
+    for (track, row) in full.tracks.iter().zip(full.rows.as_deref().unwrap()) {
         assert!((timeline.seconds_by_rate(track.first().frame) - row.start_s).abs() <= 0.005);
     }
 }
@@ -137,4 +139,48 @@ fn a_recording_with_an_unknown_frame_rate_has_no_timeline() {
     excerpt.summary.stream.avg_frame_rate = types::rational::Rational::new(30, 1).unwrap();
     excerpt.summary.stream.time_base = types::rational::Rational::new(0, 1).unwrap();
     assert!(matches!(excerpt.timeline(), Err(crate::error::Error::Timeline(_))));
+}
+
+fn decoded(mut recording: Recording) -> Recording {
+    recording.summary.format_version = DECODED_FORMAT;
+    recording.summary.ffprobe = None;
+    recording.summary.decoder = Some(Decoder {
+        error_frames: Vec::new(),
+        gap_frames: Vec::new(),
+        losses: Losses {
+            before_first: 0,
+            after_last: 0,
+        },
+        threads: DecoderThreads::Single,
+    });
+    recording.summary.files.csv = None;
+    recording.rows = None;
+    recording
+}
+
+#[test]
+fn a_recording_of_the_decoder_is_written_and_read_without_a_tracks_table() {
+    let directory = tempfile::tempdir().unwrap();
+    let excerpt = decoded(recording(EXCERPT));
+
+    excerpt.write(directory.path()).unwrap();
+
+    assert!(!directory.path().join("tracks.csv").exists());
+    assert_eq!(Recording::read(directory.path()).unwrap(), excerpt);
+}
+
+#[test]
+fn table_rows_without_a_table_file_or_the_reverse_are_refused_rather_than_dropped() {
+    let rows_without_file = Recording {
+        rows: recording(EXCERPT).rows,
+        ..decoded(recording(EXCERPT))
+    };
+    let mut file_without_rows = recording(EXCERPT);
+    file_without_rows.rows = None;
+
+    for refused in [rows_without_file, file_without_rows] {
+        let directory = tempfile::tempdir().unwrap();
+        assert!(matches!(refused.write(directory.path()), Err(Error::TableWithoutFile)));
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+    }
 }

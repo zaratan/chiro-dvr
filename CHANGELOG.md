@@ -11,12 +11,17 @@ release échoue sans elle.
 - Chaque entrée refusée au départ, et chaque dossier de résultats où l'on ne peut pas écrire,
   est suivi d'une ligne « à faire », comme une vidéo en échec (#239, #82).
 - Une ligne annonce la soirée avant la première vidéo : nombre de vidéos, durée totale, et combien sont déjà faites (#62).
+- La place libre du disque des résultats est contrôlée au lancement, sur une estimation de 1 fois la taille des vidéos (2,8 fois de plus avec `--annotated`) et une marge ; un disque trop petit est refusé avant le calcul, avec la même question que les entrées refusées, et `--ignore-disk` passe outre. Chaque vidéo vérifie encore la place avant ses extraits et échoue en « disque plein » plutôt que de remplir le disque. Sous Windows, la place n'est pas contrôlée (#61).
 - La page de résultats montre les entrées refusées au départ du dernier lancement, avant les vidéos, avec la raison et ce qu'il faut faire, comme le bilan (#267).
 - Les verdicts se notent dans la page de résultats : un clic sur une piste ouvre son extrait en grand, en boucle, avec « Oui », « Non », « Doute » et l'espèce dessous, au clavier ou à la souris ; « Enchaîner » passe d'une piste à la suivante. La page les télécharge dans `verdicts.csv`, à glisser à côté d'elle ; elle le relit au calcul suivant, et « Recharger un fichier de verdicts… » relit un fichier choisi. Chaque verdict retrouve sa piste par son début et son point de départ, même renumérotée ; un verdict sans piste reste montré et gardé. Le navigateur garde les verdicts non téléchargés (#228).
+- `batdetect doctor` vérifie, avant une soirée, l'encodeur, la place libre et le droit d'écrire dans le dossier courant, avec quoi faire pour chaque défaut (#58).
+- `batdetect completion zsh` écrit la complétion de la touche Tab : options, valeurs de `--zoom`, vidéos et dossiers, et les commandes `doctor` et `completion` au premier mot (#59).
+- Pendant le calcul, une fois la première vidéo calculée, la ligne d'étape donne l'heure de fin estimée de la soirée (« fin vers 22:41 »), d'après le temps moyen par image des vidéos déjà calculées, et la corrige à chaque étape ; hors d'un terminal, l'heure suit la ligne de fin de chaque vidéo. Sur un terminal sous macOS et Linux, la ligne d'étape est coupée à la largeur de la fenêtre (#68).
 
 ### Modifié
 
 - Le tableau des pistes n'a plus de colonne `verdict` et appartient à l'outil : un recalcul le remplace quoi qu'il contienne. La mise de côté datée d'un tableau annoté (#83) est retirée, ainsi que la section « Tableau mis de côté » du bilan ; les tableaux déjà mis de côté restent où ils sont (#228).
+- Les extraits, les zooms et la vidéo annotée dessinent chaque piste de la couleur qu'elle a sur l'image résumé : boîte et numéro bordés d'un liseré noir, trace de la même couleur, au lieu de la boîte rouge et de la trace jaune orangé (#13).
 - Chaque vidéo est ouverte avant tout calcul : une vidéo illisible ou mal copiée est refusée au départ avec les autres entrées fautives, au lieu d'échouer à son tour. Hors d'un terminal, depuis un script par exemple, une seule vidéo mal copiée arrête donc tout le lot avant le calcul, en code 2, sauf avec `--skip-refused` ; avant, les autres vidéos étaient faites et le code valait 1 (#62).
 
 ### Corrigé

@@ -1,4 +1,6 @@
 pub mod arrows;
+#[cfg(feature = "testing")]
+pub mod assigned;
 pub mod colors;
 pub mod compose;
 pub mod geometry;
@@ -18,7 +20,7 @@ use std::ops::Range;
 
 use draw::canvas::{self, Canvas, PixelBox};
 use draw::color::Rgb;
-use draw::style::style_for;
+use draw::style::{SummaryStyle, style_for};
 use draw::text::{self, Typeface};
 use files::names::Part;
 
@@ -59,19 +61,7 @@ pub fn pages(
     labels: &dyn Labels,
 ) -> Result<Vec<Page>, Error> {
     let typeface = Typeface::roboto().map_err(Error::Font)?;
-    let widest_label = summary
-        .tracks
-        .iter()
-        .map(types::track::Track::id)
-        .max()
-        .unwrap_or_default()
-        .to_string();
-    let width = NonZeroU32::new(background.width()).unwrap_or(NonZeroU32::MIN);
-    let style = style_for(width, &widest_label, &typeface);
-    let frame = Frame {
-        width: f64::from(background.width()),
-        height: f64::from(background.height()),
-    };
+    let (style, frame) = sized(summary, background.width(), background.height(), &typeface);
     let backdrop = backdrop(background, masks);
     let pen = Pen {
         typeface: &typeface,
@@ -96,4 +86,24 @@ pub fn pages(
             })
         })
         .collect()
+}
+
+pub(crate) fn sized(summary: &Summary<'_>, width: u32, height: u32, typeface: &Typeface) -> (SummaryStyle, Frame) {
+    let widest_label = summary
+        .tracks
+        .iter()
+        .map(types::track::Track::id)
+        .max()
+        .unwrap_or_default()
+        .to_string();
+    let style = style_for(
+        NonZeroU32::new(width).unwrap_or(NonZeroU32::MIN),
+        &widest_label,
+        typeface,
+    );
+    let frame = Frame {
+        width: f64::from(width),
+        height: f64::from(height),
+    };
+    (style, frame)
 }

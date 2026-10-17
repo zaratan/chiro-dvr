@@ -22,12 +22,16 @@ pub fn unwritable_folders(jobs: &[Job]) -> Vec<Unwritable> {
     folders
         .into_iter()
         .filter_map(|folder| {
-            probe(folder).err().map(|error| Unwritable {
+            writing_refused(folder).map(|access| Unwritable {
                 folder: folder.to_path_buf(),
-                access: Access::from(error.kind()),
+                access,
             })
         })
         .collect()
+}
+
+pub fn writing_refused(folder: &Path) -> Option<Access> {
+    probe(folder).err().map(|error| Access::from(error.kind()))
 }
 
 fn probe(folder: &Path) -> io::Result<()> {
@@ -41,7 +45,7 @@ fn probe(folder: &Path) -> io::Result<()> {
         .and_then(tempfile::NamedTempFile::close)
 }
 
-fn nearest_existing(folder: &Path) -> Option<&Path> {
+pub(crate) fn nearest_existing(folder: &Path) -> Option<&Path> {
     folder
         .ancestors()
         .map(|ancestor| {

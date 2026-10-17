@@ -1,6 +1,10 @@
+mod admission;
 mod arguments;
 mod board;
 mod clock;
+mod commands;
+mod completion;
+mod doctor;
 mod errors;
 mod messages;
 mod notify;
@@ -9,6 +13,7 @@ mod parsing;
 mod sheet;
 mod status;
 mod style;
+mod terminal;
 mod texts;
 
 use std::env;
@@ -17,18 +22,16 @@ use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
 use std::sync::Arc;
 
-use batdetect::consent::{Asking, Choice};
-use batdetect::inventory::{Stock, take_stock};
-use batdetect::jobs::{self, Job, Refused, plan};
+use batdetect::eta::Evening;
+use batdetect::inventory::Stock;
+use batdetect::jobs::{Job, Refused};
 use batdetect::language::system_language;
 use batdetect::ledger::Ledger;
 use batdetect::outcome::{self, Ran, run_all};
 use batdetect::process::Wording as _;
 use batdetect::process::{Versions, process};
 use batdetect::refusals::Refusals;
-use batdetect::reuse::{self, Run};
 use batdetect::tally::Tally;
-use batdetect::writable::unwritable_folders;
 use batdetect::written::{self, Wording};
 use jiff::Timestamp;
 use media::decode::Threads;
@@ -36,13 +39,16 @@ use media::decode::Threads;
 use crate::arguments::Request;
 use crate::errors::report;
 use crate::status::{Status, Video};
-use crate::texts::{Fixed, Message, Texts};
+use crate::texts::Texts;
 
 const INTERRUPTED: i32 = 130;
 
 fn main() -> ExitCode {
     outcome::quiet_panics();
     let texts = Texts::new(system_language());
+    if let Some(code) = commands::other_command(texts) {
+        return code;
+    }
     if env::args_os().len() <= 1 {
         return if arguments::print_common_uses(texts).is_ok() {
             ExitCode::SUCCESS
@@ -54,17 +60,17 @@ fn main() -> ExitCode {
         Ok(request) => request,
         Err(error) => return report(texts, error),
     };
-    let stock = match admitted(&request, texts) {
+    let stock = match admission::admitted(&request, texts) {
         Ok(admitted) => admitted,
         Err(code) => return code,
     };
     let jobs = stock.jobs();
-    let refused = unwritable_folders(&jobs);
-    if !refused.is_empty() {
-        let (heading, lines) = messages::folders_refused(texts, &refused);
-        return report(texts, arguments::rejection(texts, &heading, &lines));
-    }
-    let status = Arc::new(Status::new(texts, io::stderr().is_terminal(), jobs.len()).redoing_all(request.force));
+    let status = Arc::new(
+        Status::new(texts, io::stderr().is_terminal(), jobs.len())
+            .redoing_all(request.admission.force)
+            .fitted_to(terminal::stderr_columns)
+            .timed(Evening::new(stock.frames_to_compute())),
+    );
     let watched = Arc::clone(&status);
     let stopped = jobs.clone();
     let launched = Timestamp::now();
@@ -83,53 +89,6 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
     run(stock, &jobs, &status, &request, launched)
-}
-
-fn admitted(request: &Request, texts: Texts) -> Result<Stock, ExitCode> {
-    let (jobs, mut refused) = match plan(&request.inputs, request.out_dir.as_deref()) {
-        Ok(jobs) => (jobs, Vec::new()),
-        Err(jobs::Error::Refused { refused, valid }) => (valid, refused),
-        Err(error) => {
-            let (heading, lines) = messages::inputs_refused(texts, &error);
-            return Err(report(texts, arguments::rejection(texts, &heading, &lines)));
-        }
-    };
-    let run = Run {
-        options: &request.options,
-        version: messages::version(),
-        language: texts.language(),
-    };
-    let mut stock = take_stock(jobs, |job| if request.force { None } else { reuse::earlier(job, run) });
-    refused.append(&mut stock.refused);
-    stock.refused = refused;
-    if stock.refused.is_empty() {
-        return Ok(stock);
-    }
-    let asking = Asking {
-        skip_refused: request.skip_refused,
-        terminal: io::stdin().is_terminal(),
-    };
-    if stock.listed.is_empty() || !asking.shows_the_refusals_first() {
-        let error = jobs::Error::Refused {
-            valid: stock.jobs(),
-            refused: stock.refused,
-        };
-        let (heading, lines) = messages::inputs_refused(texts, &error);
-        return Err(report(texts, arguments::rejection(texts, &heading, &lines)));
-    }
-    let valid = stock.listed.len();
-    let (heading, lines) = messages::inputs_skipped(texts, &stock.refused);
-    if errors::show(texts, arguments::rejection(texts, &heading, &lines)).is_err() {
-        return Err(ExitCode::FAILURE);
-    }
-    let question = texts.say(&Message::SkipRefusedQuestion { count: valid });
-    match asking.choose(&question, &mut io::stdin().lock(), &mut io::stderr().lock()) {
-        Ok(Choice::Process) => Ok(stock),
-        Ok(Choice::Refuse) | Err(_) => {
-            let declined = Message::Fixed(Fixed::SkipRefusedDeclined);
-            Err(report(texts, arguments::rejection(texts, &declined, &[])))
-        }
-    }
 }
 
 fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request, launched: Timestamp) -> ExitCode {
@@ -167,6 +126,9 @@ fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request, launched:
             unwritten.extend(ledger.note(job, result.as_ref().err(), options, Timestamp::now()));
             unwritten.extend(refusals.note());
             unwritten.extend(written::write_page(&written::root_of(job), jobs, rank.position, wording).err());
+            if matches!(result, Ok(Ran::Processed(_))) {
+                status.computed(rank);
+            }
             let video = Video { status, rank, job };
             video.tell(&mut io::stderr().lock(), result, options)
         },

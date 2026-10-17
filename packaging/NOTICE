@@ -56,6 +56,7 @@ Rust crates:
 - cfg-if 1.0.5, MIT
 - clap 4.6.7, MIT
 - clap_builder 4.6.7, MIT
+- clap_complete 4.6.11, MIT
 - clap_lex 1.1.1, MIT
 - colorchoice 1.0.5, MIT
 - crc32fast 1.5.2, MIT

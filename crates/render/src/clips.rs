@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::thread;
 
+use draw::color::Rgb;
 use draw::text::{self, Typeface};
 use media::encode::{self, Codec, StampsError};
 use media::frame;
@@ -10,6 +11,7 @@ use types::track::Track;
 use crate::config::RenderConfig;
 use crate::encoders::{Encoders, Ffmpeg, Open};
 use crate::group::{Rendering, Scratch};
+use crate::ink::inks;
 use crate::overlay::Overlay;
 use crate::picture;
 use crate::schedule::{self, Alone};
@@ -112,12 +114,18 @@ pub struct Rendered {
 pub fn render(
     source: &Source,
     tracks: &[Track],
+    colors: &[Option<Rgb>],
     outputs: &Outputs,
     config: RenderConfig,
     codecs: &[Codec],
 ) -> Result<Rendered, Error> {
     let threads = thread::available_parallelism().map_or(1, |cores| cores.get() / CORES_PER_THREAD);
-    let video = Video { source, tracks, config };
+    let video = Video {
+        source,
+        tracks,
+        colors,
+        config,
+    };
     render_with(&Ffmpeg, threads, &video, outputs, codecs)
 }
 
@@ -125,6 +133,7 @@ pub fn render(
 pub(crate) struct Video<'a> {
     pub(crate) source: &'a Source,
     pub(crate) tracks: &'a [Track],
+    pub(crate) colors: &'a [Option<Rgb>],
     pub(crate) config: RenderConfig,
 }
 
@@ -135,7 +144,12 @@ pub(crate) fn render_with<O: Open>(
     outputs: &Outputs,
     codecs: &[Codec],
 ) -> Result<Rendered, Error> {
-    let Video { source, tracks, config } = *video;
+    let Video {
+        source,
+        tracks,
+        colors,
+        config,
+    } = *video;
     let paths = by_track(&outputs.clips, tracks.len())?;
     let zooms = by_track(&outputs.zooms, tracks.len())?;
     let (frames, rate) = (source.frame_count(), source.rate());
@@ -157,7 +171,8 @@ pub(crate) fn render_with<O: Open>(
         return Err(Error::UnknownTrack { track: clip.track });
     }
     let typeface = Typeface::roboto().map_err(Error::Typeface)?;
-    let overlay = Overlay::new(tracks, frames, config, rate, &typeface);
+    let inks = inks(colors, tracks.len());
+    let overlay = Overlay::new(tracks, &inks, frames, config, rate, &typeface);
     let encoders = Encoders::new(open, codecs, rate);
     let table = Paths {
         clips: &paths,
@@ -169,6 +184,7 @@ pub(crate) fn render_with<O: Open>(
         encoders: &encoders,
         paths: table,
         tracks,
+        inks: &inks,
         trail_frames: config.trail_frames(rate),
     };
     let works = works(

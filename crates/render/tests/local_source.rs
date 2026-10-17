@@ -6,7 +6,7 @@ mod windows;
 use std::io::{self, Write};
 use std::path::Path;
 
-use reference::location::{recorded_video, recording_directories};
+use reference::location::{Reference, recorded_video, recording_directories};
 use reference::recording::SUMMARY_FILE;
 use reference::video::VideoSummary;
 use render::source::{Origin, Source};
@@ -69,7 +69,7 @@ fn the_only_clip_across_lost_frames_serves_the_pixels_of_a_sequential_reading() 
 #[test]
 #[ignore = "local"]
 fn clips_over_damaged_spans_serve_the_pixels_of_a_sequential_reading() {
-    for directory in recording_directories().unwrap() {
+    for directory in recording_directories(Reference::V011).unwrap() {
         let summary = VideoSummary::read(&directory.join(SUMMARY_FILE)).unwrap();
         let name = summary.video.name.as_str();
         if !DAMAGED.contains(&name) {

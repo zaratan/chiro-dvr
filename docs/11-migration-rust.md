@@ -1255,7 +1255,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
   - Modules : `geometry` (chemins en `f64`, point à une longueur, rééchantillonnage,
     point le plus proche), `colors`, `arrows`, `placement`, `periods`, `header`,
     `marker`, `legend`, `layout` (les données d'une page), `compose` (le dessin),
-    `image_file` (PNG).
+    `image_file` (PNG). `assigned::track_colors(summary, largeur, hauteur)` (#13, feature `testing`, tests seulement) rend, dans l'ordre des pistes, la couleur de chacune sur l'image résumé de cette taille, par la même mise en page sans dessin : les tests figés de `cli` la passent au rendu des extraits, comme `process` y passe les couleurs de l'image dessinée.
   - Mêmes règles que la v0.1.1 pour les couleurs (indice le moins employé autour), les
     flèches (25°, 3 % de la longueur), la légende (colonnes, coupe par « ... ») et les
     tranches. Les tris Python deviennent des clés entières ; les points ne sont pas
@@ -1369,9 +1369,9 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
   - Tests du JS : `node --test` sur `csv.js` et `store.js` (`assets/tests/*.test.mjs`, qui chargent les scripts par `vm`), tâche `page:js` de `mise`, dans `check` et dans la tâche CI `page-js`, sous Linux seulement : ce sont des fonctions pures. Les vues se vérifient dans un navigateur.
 - **`reference`** → `types` : la référence v0.1.1 en Rust. Gelée pendant le lot 6
   (#124), comme `types`.
-  - `fixture` : chemins des fixtures et garde LFS. `location` : `committed(nom)` pour
-    l'extrait et la 092 du dépôt, `recording_directories()` pour les dossiers `data/*`
-    de `BATDETECT_REFERENCE_DIR`, triés par nom ; une variable absente ou vide est
+  - `fixture` : chemins des fixtures et garde LFS. `location` : `committed(référence, nom)` pour
+    l'extrait et la 092 du dépôt, `recording_directories(référence)` pour les dossiers `data/*`
+    de la variable de la référence, triés par nom ; une variable absente ou vide est
     refusée. `recorded_video(nom)` trouve le `.mp4` d'un enregistrement par son nom
     (`video.name` de `video.json`) dans le dossier de `BATDETECT_VIDEOS_DIR` (sur le Mac
     de l'enregistrement : `~/dossier sans titre/img_0000/`), avec le même refus d'une
@@ -1381,9 +1381,15 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     longueur, vérifiée par `Frames::new`),
     `tracks`, `table` (CSV, fins de ligne CRLF, flottants à l'écriture la plus courte).
     `recording` les réunit et donne la `Timeline`. Un nom en `.gz` est compressé
-    (gzip sans nom ni date) ; les sections sans type de `video.json` (décodeur, réglages,
+    (gzip sans nom ni date) ; les sections sans type de `video.json` (`opencv`, réglages,
     versions) sont gardées telles quelles dans `recorded`. Relus puis réécrits, les
     fichiers redonnent les mêmes valeurs.
+  - Deux versions du format de `video.json` (#274), pour la référence v0.2.0 du Rust (#250) :
+    - La version 1 est celle de la v0.1.1 : un bloc `ffprobe` et un `tracks.csv`.
+    - La version 2 remplace `ffprobe` par `decoder`, ce que voit `media` : `error_frames`, `gap_frames`, `losses` (`before_first`, `after_last`) et `threads`. Ces pertes au bord ouvrent une plage abîmée, et `frames.jsonl` ne les garde pas (#176). `threads` (`DecoderThreads`, comme `media::decode::ActiveThreads`) vaut `{"kind": "single"}`, ou `{"kind": "frame"|"slice", "count": n}` avec n ≥ 1 : le nombre de fils change ce que le décodeur dissimule dans les plages abîmées. Un nombre nul, un genre inconnu ou un nombre sur `single` sont refusés à la lecture. La version 2 n'a pas de `tracks.csv` : le CSV du Rust (13 colonnes, en-têtes Fluent de `cli`) ne s'écrirait pas depuis `compare`, qui enregistrera la référence, sans faire de cycle avec `cli`.
+    - `VideoSummary::read` refuse toute autre version, avant de lire les champs. `read` et `write` refusent aussi un résumé dont les blocs ne sont pas ceux de sa version (`MissingSection`, `ForeignSection`), et `write` le fait avant d'écrire.
+    - `Recording` donne `rows` en `Option`. Il refuse d'écrire des lignes sans nom de fichier, ou l'inverse (`TableWithoutFile`), avant d'écrire le moindre fichier.
+    - `location::Reference` (`V011`, `V020`) choisit le dossier du dépôt (`tests/fixtures/reference/` ou `tests/fixtures/reference-v0.2.0/`) et la variable des données hors dépôt (`BATDETECT_REFERENCE_DIR` ou `BATDETECT_REFERENCE_V020_DIR`). `committed`, `committed_settings`, `recording_directories` et `recorded_bench` prennent la référence, comme `compare::case::Target::cases` et `Case::committed`. Toutes les gardes lisent encore `V011` ; elles passent à la v0.2.0 à #276 et #277.
   - Pas d'affirmation « points d'une piste ⊂ détections » : les points des pistes
     jumelles fusionnées sont combinés (17 sur 358 dans l'extrait, 63 sur 610 dans la
     092).
@@ -1820,6 +1826,9 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     (« [par défaut : batdetect/ à côté de chaque vidéo] »). `--output` n'existe plus.
     Les anciennes sorties de la v0.1.1 (`out/`, relatif au dossier de lancement) restent où
     elles sont, sans migration.
+  - Autres commandes (#58, #59) : `commands::other_command` (binaire) lit le premier argument avant `arguments::parse` ; `doctor` et `completion` partent vers leur module, tout le reste vers le parseur, sans changer `batdetect <vidéos>`. Une vidéo ou un dossier nommé ainsi se donne en `./doctor` ou `./completion`, ce que dit l'aide (`other-commands`, sous les options de `-h` et de `--help`).
+    - `batdetect completion zsh` écrit sur la sortie standard le script `_batdetect` que produit `clap_complete` depuis le parseur complet (`arguments::full_command`, `Level::Full`), dans la langue du système. La ligne du positionnel est réécrite (`completion::inputs_spec`) : répétée (`*:`), elle appelle `_batdetect_inputs`, ajoutée au script (`completion::inputs_function`), qui propose `doctor` et `completion` avec leur description au premier mot seulement (`CURRENT == 2`), puis les vidéos par `_files -g "[^.]*.(#i)(mp4|mov|avi|mkv|m4v)"`, aux extensions de `jobs::video_extensions()`, et les dossiers, sans fichiers cachés ; `-o` complète des dossiers (`ValueHint::DirPath`, `_files -/`), `--zoom` ses trois valeurs. Quand la sortie standard est un terminal, la sortie d'erreur donne les lignes de `~/.zshrc`, avec et sans Homebrew ; la commande n'écrit jamais dans le profil. Un autre shell est refusé (code 2).
+    - `batdetect doctor`, sans argument, vérifie le dossier courant (`checkup::checkup`, bibliothèque) et écrit sur la sortie standard une ligne par point (`doctor::report_of`) : version de batdetect et de FFmpeg ; essai réel de l'encodeur, le même que le traitement (`Fallback::for_this_platform().trial`, 1440 × 1080 à 30 i/s) ; place libre du volume (`disk::volume`, la même lecture que le contrôle de place au lancement : `statfs` sous macOS, `statvfs` sous Linux, depuis le plus proche dossier existant ; non mesurée sous Windows) ; droit d'écrire (`writable::writing_refused`, la sonde du contrôle d'écriture). ✗ et un « à faire » pour un encodeur absent (`NoEncoder` : réinstaller), un essai impossible faute de dossier temporaire (`Scratch`, `Destination` : place sur le disque du système, pas une réinstallation), moins de 20 Go libres (`checkup::ENOUGH_FREE_BYTES`, affichés arrondis par défaut au dixième) ou l'écriture refusée : code 1. ⚠ pour openh264 quand VideoToolbox ne répond pas, ou une place non mesurée : rien d'obligatoire, code 0.
   - Usages courants en tête de l'aide (#56), au format de `tldr` : « - description : », puis
     la commande en retrait. Six exemples : un dossier de soirée, plusieurs soirées, une
     vidéo, `-o`, `--zoom all`, `--annotated`. Le nom de la commande est
@@ -2011,6 +2020,17 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       introuvable : « choisir un autre dossier avec -o » (`other-folder`). Inaccessible :
       `unreachable`, comme pour une entrée.
     - Un `-o` qui est un fichier est refusé de même, avant la détection.
+  - Contrôle de place au lancement (`space`, `disk`, `admission`, #61), après l'inventaire, sauf `--ignore-disk`.
+    - Chaque vidéo que la reprise ne saute pas compte sa taille multipliée par le coefficient des sorties, et par celui de la vidéo annotée en plus sous `--annotated` (`space::launch_estimate` ; coefficients et mesure en docs/02, § Place prise).
+    - Les besoins s'additionnent par volume du dossier de résultats (`-o`, ou le `batdetect/` voisin), pas par volume des vidéos : un disque externe pour les vidéos et le Mac pour les résultats se comptent à part. Le volume se reconnaît à `MetadataExt::dev()` du plus proche dossier existant. Sous btrfs, chaque sous-volume a son propre `dev()` : deux dossiers d'un même système de fichiers s'y comptent chacun contre toute la place libre, ce qui sous-estime le besoin (cas rare, sans effet sur le Mac).
+    - La place libre est `f_bavail × f_bsize` de `rustix::fs::statfs` sous macOS (compteurs de blocs sur 64 bits, quand ceux de `statvfs` n'en ont que 32), et `f_bavail × f_frsize` de `rustix::fs::statvfs` sous Linux, exFAT monté sous `/Volumes/…` compris. Sous APFS, elle ne compte pas l'espace purgeable, que le Finder ajoute : le contrôle est donc plus prudent que le Finder. Sous Windows, la place n'est pas lue et rien n'est refusé.
+    - Un volume est refusé si l'estimation plus la marge (10 % de l'estimation, au moins 1 Go, décision du 9 octobre) dépasse sa place libre. La ligne de refus nomme le premier dossier de résultats de ce volume, un chemin que la naturaliste reconnaît : « le disque qui contient … : 12,3 Go à prévoir, 4,1 Go libres », Go décimaux, à prévoir arrondi au-dessus et libre au-dessous. Son « à faire » cite `--annotated` seulement quand il est donné (`disk-short`, `disk-short-annotated`).
+    - Le refus suit le circuit des refus d'entrées : liste, question dans un terminal, `--skip-refused` vaut un oui, code 2 sinon (décision de l'utilisateur du 16 octobre). Avant la question, il a son bloc à lui, « le disque des résultats semble trop petit : », après celui des entrées refusées ; hors terminal, il reste sous « aucune vidéo n'est traitée : » avec elles. Un oui lance tout le lot (`Stock::go_ahead_despite_the_disks`), et le refus de place ne compte pas parmi les entrées refusées du bilan, ni dans `.batdetect/refus.json` et sur la page (#267) : seul un lot lancé écrit ce fichier, et il ne l'est malgré un disque trop petit qu'après ce oui, qui retire le refus.
+    - La sonde d'écriture (`writable::unwritable_folders`) passe dans `admission`, après l'inventaire et avant le contrôle de place : un dossier de résultats où rien ne s'écrit n'est refusé qu'une fois, pour l'écriture.
+  - Contrôle de place par vidéo (`process::room_for_clips`, #61), après le suivi et l'image résumé, juste avant les extraits, même sous `--ignore-disk`.
+    - L'estimation est presque exacte : secondes des fenêtres d'extrait (piste et marges, `render::windows::clip_windows`) et de zoom (pistes que `ZoomConfig::wants` retient), multipliées par le débit de la vidéo d'entrée et par leur coefficient, plus la vidéo annotée (`space::render_estimate`). Au-delà de `--max-tracks`, rien n'est compté, puisque rien n'est rendu.
+    - Si elle dépasse la place libre du volume du dossier de la vidéo, sans marge, la vidéo échoue avec `Error::DiskSpace`, classée « disque plein » : son « à faire » dit de libérer de la place sur le disque du dossier. `params.json` n'est pas écrit, la vidéo sera refaite à la relance, et la suivante est tentée.
+    - Les tests des deux contrôles prennent une vraie vidéo allongée par `set_len` à 10 To, en fichier épars : FFmpeg la lit comme l'originale, et son estimation dépasse tout disque, sans couture dans le code. Ils ne tournent que sous Unix.
   - Bilan de fin de soirée (#65), écrit une fois après `run_all`, sur la sortie standard.
     - Modèle sans texte dans la bibliothèque : `tally::Tally` (les `Row` de `run_all`),
       avec `roots()` (les dossiers de résultats dans l'ordre où ils apparaissent, et
@@ -2082,7 +2102,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       `step` avant la détection (lecture comprise), le suivi (ménage, CSV, essai des
       encodeurs et `params.json` compris), l'image résumé et les extraits (zooms et vidéo
       annotée compris). `progress::Silent` sert aux tests. Pas d'avancement image par
-      image : c'est #68.
+      image : l'heure de fin (#68) se compte d'une vidéo à l'autre.
     - Une écriture ratée de l'étape fait échouer la vidéo avant sa détection
       (`Error::Progress`). Le rapport de cette vidéo échoue ensuite sur la même sortie
       d'erreur, et le lot s'arrête là, en code 1. Avant #63, le lot ne s'arrêtait qu'à
@@ -2093,6 +2113,11 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       compte dans le lot.
     - La ligne d'une vidéo finie reste : « [3/12] video_092 — 14 pistes », « — trop de
       pistes » (le mot du bilan, #196) ou « — échec ».
+    - Heure de fin estimée de la soirée (#68) : « [3/12] video_094 — détection · fin vers 22:41 » sur un terminal, à chaque étape ; hors terminal, à la fin de la ligne d'une vidéo finie, jamais sur une étape. Rien tant qu'aucune vidéo n'a été calculée, ni quand il ne reste rien à calculer (dernière ligne d'une vidéo finie hors terminal).
+      - `eta::Evening`, pur : les secondes passées sur les vidéos calculées depuis le début du lot, divisées par leurs images, s'appliquent aux images restantes. Les images sont celles qu'annonce l'inventaire (#62, `Listed::frames_to_compute`) ; une vidéo que la reprise saute en a 0. Pendant une vidéo, le temps qu'elle a déjà pris se retire de sa part, sans descendre sous 0.
+      - Seule une vidéo calculée jusqu'au bout donne du temps (`Status::computed`, après l'écriture de la page) : une vidéo en échec, souvent arrêtée tôt, tirerait l'estimation vers le bas. Le temps se mesure de l'entrée dans la vidéo (`Status::enter`) à ce moment, par `Instant`.
+      - L'heure est locale (`jiff::Zoned::now`), arrondie à la minute la plus proche, sans jour : au-delà de 24 h de calcul restant, elle ne dit pas le jour.
+      - La coupe à la largeur du terminal prend la fin de la ligne : sur une fenêtre trop étroite pour la ligne entière, l'heure de fin disparaît la première.
     - Ctrl-C (#196) : un gestionnaire `ctrlc`, posé par `main` une fois le lot admis,
       efface la ligne d'étape sur un terminal, écrit « lot interrompu à la vidéo 3/12 ;
       relancer la même commande reprend là où le lot s'est arrêté » (« refait le lot »
@@ -2108,8 +2133,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       - Redirigée : une ligne par étape, rien n'est effacé.
       - Sur un terminal : la ligne d'étape est redessinée sur place, par `\r`, des espaces
         jusqu'à la longueur précédente, puis `\r`, sans séquence d'échappement (console
-        Windows ancienne). La longueur compte des caractères. Une ligne plus large que le
-        terminal (nom long, fenêtre étroite) ne s'efface qu'à partir de sa dernière rangée.
+        Windows ancienne). La longueur compte des caractères. Sous Unix, la ligne est coupée à la largeur du terminal moins une colonne, lue à chaque étape par `tcgetwinsize` (`terminal.rs`) : une ligne qui passerait à la rangée suivante ne s'effacerait qu'à partir de sa dernière rangée. Sous Windows, la largeur n'est pas lue et une ligne plus large que le terminal garde ce défaut.
     - Le rang vient de `outcome::run_all`, qui passe `Rank { position, total }` au travail
       et au rapport de chaque vidéo.
   - Chaîne : `engine::detection::detect` (fils automatiques), puis la `Timeline` des
@@ -2525,11 +2549,11 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - `refusals` (#267) : `.batdetect/refus.json`, les entrées refusées au dernier lancement, écrit par `.partial` et renommage ; illisible ou vide, il ne donne rien.
     - `names::results_page` : `resultats.html` / `results.html`.
 - **`render`** → `media`, `draw`, `types` (#110, #112) : les extraits, du choix
-  des images à l'écriture. `clips::render(source, pistes, Outputs { clips, zooms },
+  des images à l'écriture. `clips::render(source, pistes, couleurs, Outputs { clips, zooms },
   RenderConfig, encodeurs)` en est le point d'entrée ; `cli` l'appelle depuis #112, et
   choisit les zooms par `ZoomConfig::wants` (#103).
   - `drawn`, derrière la feature `testing` (tests seulement, #198) : `drawn(source,
-    pistes, Outputs, RenderConfig)` passe par le même rendu, sur un fil, mais chaque
+    pistes, couleurs, Outputs, RenderConfig)` passe par le même rendu, sur un fil, mais chaque
     encodeur est remplacé par un enregistreur qui garde l'empreinte de chaque image
     poussée, fichier par fichier. Les tests figés de `cli` s'en servent.
   - `source` : `Source::new(chemin, Timeline, images-clés, images en erreur)`, puis
@@ -2604,8 +2628,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     touchent forment un groupe, décodé une fois sur son enveloppe et encodé une fois.
   - `overlay` et `picture` : sur chaque image, toutes les pistes présentes sont dessinées,
     une fois, et l'image dessinée est partagée par les extraits du groupe (comme
-    `overlay.py` de la v0.1.1). Boîte rouge de 2 px sur un point détecté, de 1 px sur un
-    point interpolé, `#N` au-dessus, trace jaune sur `trail_s`. Les couleurs et les
+    `overlay.py` de la v0.1.1). Boîte de 2 px sur un point détecté, de 1 px sur un
+    point interpolé, `#N` au-dessus, trace sur `trail_s`. Depuis #13, chaque piste a son encre (`ink`) : la couleur que `cli` lui passe, celle de l'image résumé, pour la boîte, le numéro et la trace, avec un liseré `INK` de 1 px de part et d'autre de la boîte et autour du numéro ; sans couleur, `BOX` et `TRAIL` sans liseré, le dessin d'avant. Les couleurs et les
     tailles viennent de `draw` ; les constantes propres aux extraits restent dans
     `overlay`. `Picture::draw` prend tout ce qui implémente `Marks` (ses zones, son
     dessin) : l'`Overlay` des extraits et la trace du zoom. Les zones viennent de
@@ -2627,7 +2651,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - Agrandissement au plus proche, en YUV : pixel de sortie `x` ← `gauche + x ×
       largeur du cadre / largeur de sortie` (entiers), chroma de sortie `cx` ← chroma de
       la source de la luma `2·cx`. Les lignes répétées se recopient.
-    - Trace seule, 1 px, jaune : centres des points détectés sur `trail_s` et position
+    - Trace seule, 1 px, de la couleur de la piste (#13) : centres des points détectés sur `trail_s` et position
       courante (boîte bornée, interpolée entre deux points), coupée dans la boîte
       courante élargie de 16 px (Liang-Barsky), placée à `(x − gauche + 0,5) × échelle`.
       Ni boîte ni `#N`. Affichage et conversion par zones comme les extraits.

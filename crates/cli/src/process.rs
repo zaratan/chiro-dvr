@@ -3,6 +3,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use draw::color::Rgb;
 use engine::detection::{self, Detected, detect};
 use engine::input::Video;
 use files::names::{Names, params_json};
@@ -17,6 +18,7 @@ use media::encode::fallback::{self, Fallback};
 use render::clips::{self, Clip, Outputs, Rendered};
 use render::config::RenderConfig;
 use render::source::{self, Source};
+use render::windows::{Window, clip_windows};
 use summary::header::Labels;
 use summary::layout::Summary;
 use tracking::exclusion::{Exclusion, exclude};
@@ -26,12 +28,14 @@ use types::language::Language;
 use types::timeline::{self, Timeline};
 use types::track::Track;
 
+use crate::disk;
 use crate::jobs::Job;
 use crate::listing::listed;
 use crate::options::Options;
 use crate::overview::{self, Overview, write_overview};
 use crate::progress::{Progress, Step};
 use crate::settings::Settings;
+use crate::space::{Rendering, render_estimate};
 
 #[cfg(test)]
 mod tests;
@@ -70,6 +74,8 @@ pub enum Error {
     Source(#[source] source::Error),
     #[error("the clips cannot be written")]
     Clips(#[source] clips::Error),
+    #[error("{needed} bytes are needed on the disk of {}, {free} are free", dest.display())]
+    DiskSpace { dest: PathBuf, needed: u64, free: u64 },
     #[error("{count} tracks, above {limit}: clips skipped")]
     TooManyTracks {
         count: usize,
@@ -229,15 +235,18 @@ fn processed_since(
     };
     progress.step(Step::Summary).map_err(Error::Progress)?;
     let drawn = write_overview(overview, detected, &summary).map_err(Error::Overview)?;
+    let colors = drawn.colors(&tracks);
     let clips = Clips {
         job,
         names,
         detected,
+        colors: &colors,
         timeline: &timeline,
         options,
         extent: extent(&timeline, &exclusion),
         kept: &kept,
     };
+    room_for_clips(&clips, &tracks, video_bytes)?;
     progress.step(Step::Clips).map_err(Error::Progress)?;
     let written = render_clips(&clips, &tracks, trial);
     if let Some(state) = finish(&written) {
@@ -332,10 +341,36 @@ struct Clips<'a> {
     job: &'a Job,
     names: Names,
     detected: &'a Detected,
+    colors: &'a [Option<Rgb>],
     timeline: &'a Timeline,
     options: &'a Options,
     extent: Extent,
     kept: &'a [Kept],
+}
+
+fn room_for_clips(clips: &Clips<'_>, tracks: &[Track], video_bytes: u64) -> Result<(), Error> {
+    let render = clips.options.render;
+    let rate = clips.timeline.rate();
+    if !render.renders_clips_for(tracks.len()) {
+        return Ok(());
+    }
+    let seconds = |window: &Window| rate.seconds(FrameIndex::new(window.span.frame_count()));
+    let windows = clip_windows(tracks, clips.timeline.frame_count(), render, rate);
+    let zoomed = |window: &&Window| tracks.get(window.track).is_some_and(|track| render.zoom().wants(track));
+    let rendering = Rendering {
+        clip_s: windows.iter().map(seconds).sum(),
+        zoom_s: windows.iter().filter(zoomed).map(seconds).sum(),
+        annotated: clips.options.annotated,
+    };
+    let needed = render_estimate(video_bytes, clips.extent.length_s, rendering);
+    match disk::volume(&clips.job.dest) {
+        Some(volume) if needed > volume.free => Err(Error::DiskSpace {
+            dest: clips.job.dest.clone(),
+            needed,
+            free: volume.free,
+        }),
+        _ => Ok(()),
+    }
 }
 
 fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, Error>) -> Result<Written, Error> {
@@ -383,6 +418,6 @@ fn render_clips(clips: &Clips<'_>, tracks: &[Track], trial: Result<Vec<Codec>, E
             source,
         })?;
     }
-    let rendered = clips::render(&source, tracks, &outputs, render, &encoders).map_err(Error::Clips)?;
+    let rendered = clips::render(&source, tracks, clips.colors, &outputs, render, &encoders).map_err(Error::Clips)?;
     Ok(Written { rendered, outputs })
 }

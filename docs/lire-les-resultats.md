@@ -247,14 +247,7 @@ pour que les traits ressortent.
 
 ### La couleur ne veut rien dire
 
-La couleur sert seulement à distinguer une piste de ses voisines sur la même image. Il y en a
-12 : chaque piste prend la couleur la moins présente parmi les traits proches déjà dessinés,
-et à égalité la moins employée. Les 12 premières pistes d'une image ont chacune la sienne ; à partir de la
-13ᵉ, une couleur revient, sur une piste éloignée si possible. Deux traits de même couleur
-sont donc deux pistes, et la même couleur sur deux images ne désigne pas la même piste. Elle ne
-dit rien de l'animal, de sa vitesse ni de la confiance de l'outil, et les extraits ne la
-reprennent pas : leur boîte est toujours rouge et la trace du vol toujours jaune orangé.
-Seul le numéro identifie une piste.
+La couleur sert seulement à distinguer une piste de ses voisines sur la même image. Il y en a 12 : chaque piste prend la couleur la moins présente parmi les traits proches déjà dessinés, et à égalité la moins employée. Les 12 premières pistes d'une image ont chacune la sienne ; à partir de la 13ᵉ, une couleur revient, sur une piste éloignée si possible. Deux traits de même couleur sont donc deux pistes, et la même couleur sur deux images ne désigne pas la même piste. Elle ne dit rien de l'animal, de sa vitesse ni de la confiance de l'outil. Les extraits, les zooms et la vidéo entière reprennent la couleur que chaque piste a sur l'image résumé : sa boîte, son numéro et la trace de son vol sont de cette couleur. Seul le numéro identifie une piste.
 
 ## Juger un extrait
 
@@ -284,14 +277,10 @@ agrandie et ralentie dans un lecteur ; c'est de là que vient le zoom.
 *Extrait de la piste 2 de l'extrait de test (0:00:23), à 1,9 s du début de l'extrait : une
 chauve-souris qui descend de droite à gauche.*
 
-1. **La boîte** rouge entoure la cible, avec par défaut une marge de 12 pixels de chaque
-   côté.
-2. **Le numéro** `#2`, au-dessus de la boîte, est celui de la piste : dans le tableau, la
-   légende de l'image résumé et le nom du fichier.
-3. **La trace** jaune orangé suit le trajet de la dernière seconde (par défaut), jusqu'à la
-   cible. Pour un vol rapide comme celui-ci, elle montre presque tout le passage.
-4. **L'affichage des jumelles** (chrono d'enregistrement en rouge, heure, date, batterie)
-   reste tel qu'il a été filmé : ce rouge-là n'est pas celui de l'outil.
+1. **La boîte** entoure la cible, avec par défaut une marge de 12 pixels de chaque côté. Elle a la couleur de la piste sur l'image résumé, bordée d'un liseré noir qui la détache de la roche claire comme du ciel sombre.
+2. **Le numéro** `#2`, au-dessus de la boîte et de la même couleur, est celui de la piste : dans le tableau, la légende de l'image résumé et le nom du fichier.
+3. **La trace**, de la même couleur, suit le trajet de la dernière seconde (par défaut), jusqu'à la cible. Pour un vol rapide comme celui-ci, elle montre presque tout le passage.
+4. **L'affichage des jumelles** (chrono d'enregistrement en rouge, heure, date, batterie) reste tel qu'il a été filmé : ce rouge-là ne vient pas de l'outil.
 
 Les autres pistes présentes au même moment sont dessinées aussi, chacune avec sa boîte, son
 numéro et sa trace. Les réglages du dessin sont dans [docs/02](02-methode.md#rendu).
@@ -312,9 +301,7 @@ L'image du milieu est de celles-là ; le tableau des pistes en donne le nombre p
 avec `--zoom all` : cette piste est assez grande et contrastée pour ne pas en avoir par défaut.
 Agrandie environ ×1,6 ici, parce que son trajet couvre une grande partie de l'image.*
 
-**Sur le zoom**, seule la trace est dessinée, en trait fin : ni boîte, ni numéro, ni autres
-pistes, pour ne rien cacher d'une cible ténue. La trace s'arrête un peu avant la cible. Le
-cadre ne bouge pas pendant tout le zoom.
+**Sur le zoom**, seule la trace est dessinée, en trait fin et de la couleur de la piste : ni boîte, ni numéro, ni autres pistes, pour ne rien cacher d'une cible ténue. La trace s'arrête un peu avant la cible. Le cadre ne bouge pas pendant tout le zoom.
 
 ### Désigner une piste
 
