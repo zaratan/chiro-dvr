@@ -9,8 +9,8 @@ et [CLAUDE.md](../CLAUDE.md).
 ## Outils du poste
 
 - **mise** fixe la version de chaque outil (`mise.toml`) : lefthook, `cargo-llvm-cov`,
-  `cargo-deny`, `cargo-shear`, et Python 3.14.8, qui ne sert qu'aux scripts en ligne de
-  `rust:rules` (règles de la charte) et de `rust:data` (récupération de la référence). La
+  `cargo-deny`, `cargo-shear`, et Python 3.14.8, qui ne sert qu'au script en ligne de
+  `rust:rules` (règles de la charte) et à `tools/reference-data.sh`, lancé par `rust:data` (récupération de la référence) et par le test `bucket_data`. La
   toolchain Rust vient de `rust-toolchain.toml`, installée par rustup. Sur une tâche à
   plusieurs commandes, `mise run TÂCHE -- ARGS` ne passe les arguments qu'à la dernière, et
   jamais à une sous-tâche `{ task = … }` : `rust:static -- X` les donne à `cargo shear` seul.

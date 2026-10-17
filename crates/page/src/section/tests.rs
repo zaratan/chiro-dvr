@@ -94,7 +94,9 @@ fn the_judging_area_replaces_the_picture_in_the_same_column() {
 #[test]
 fn a_video_written_with_its_background_and_layout_is_drawn_again_with_its_line_its_link_and_its_strip() {
     let section = render(&drawn_video("v"), "v1", &Named);
-    let line = section.find(r#"<p class="scene-line"><span>Scene(Window"#).unwrap();
+    let line = section
+        .find(r#"<p class="scene-line"><span><span aria-hidden="true">Scene(Window"#)
+        .unwrap();
     let scene = section.find(r#"<svg class="scene""#).unwrap();
     let strip = section.find(r#"<div class="strip" aria-hidden="true">"#).unwrap();
     assert!(line < scene && scene < strip, "{section}");
@@ -139,7 +141,7 @@ fn a_video_without_tracks_still_draws_its_background_its_line_and_an_empty_strip
     quiet.tracks.clear();
     let section = render(&quiet, "v1", &Named);
     assert!(
-        section.contains("<span>Scene(Window { start: 0.0, end: 300.07 }) · Tracks(0) ·"),
+        section.contains(r#"<span aria-hidden="true">Scene(Window { start: &quot;Scene(Clock(0.0))&quot;, end: &quot;Scene(Clock(300.07))&quot; }) · Tracks(0) ·"#),
         "{section}"
     );
     assert!(section.contains(r#"<image href="v/v_fond.png""#));

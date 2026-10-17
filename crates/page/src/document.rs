@@ -10,10 +10,11 @@ mod tests;
 
 pub const GENERATOR: &str = r#"<meta name="generator" content="batdetect">"#;
 const STYLE: &str = include_str!("assets/page.css");
-const SCRIPTS: [&str; 10] = [
+const SCRIPTS: [&str; 11] = [
     include_str!("assets/csv.js"),
     include_str!("assets/store.js"),
     include_str!("assets/bar.js"),
+    include_str!("assets/time.js"),
     include_str!("assets/list.js"),
     include_str!("assets/judge.js"),
     include_str!("assets/hits.js"),
