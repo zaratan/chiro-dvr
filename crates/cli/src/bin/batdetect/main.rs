@@ -2,6 +2,9 @@ mod admission;
 mod arguments;
 mod board;
 mod clock;
+mod commands;
+mod completion;
+mod doctor;
 mod errors;
 mod messages;
 mod notify;
@@ -41,6 +44,9 @@ const INTERRUPTED: i32 = 130;
 fn main() -> ExitCode {
     outcome::quiet_panics();
     let texts = Texts::new(system_language());
+    if let Some(code) = commands::other_command(texts) {
+        return code;
+    }
     if env::args_os().len() <= 1 {
         return if arguments::print_common_uses(texts).is_ok() {
             ExitCode::SUCCESS

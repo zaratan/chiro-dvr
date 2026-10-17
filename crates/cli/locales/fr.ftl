@@ -384,3 +384,40 @@ page-next-clip = Extrait de la piste suivante
 page-player = Lecteur des extraits de { $video }
 page-table-link = Tableau des pistes, pour un tableur
 page-annotated-link = Vidéo entière avec les pistes dessinées
+other-commands = Autres commandes : « batdetect doctor » vérifie que tout est prêt avant une soirée, « batdetect completion zsh » écrit la complétion de la touche Tab. Un dossier nommé doctor ou completion se donne en ./doctor ou ./completion.
+completion-zsh-only = seul zsh est pris en charge : batdetect completion zsh
+completion-with-homebrew = Avec Homebrew, le script est déjà installé : ajouter à ~/.zshrc la ligne
+completion-without-homebrew = Sans Homebrew : enregistrer le script par
+completion-then-profile = puis ajouter à ~/.zshrc ces deux lignes, dans cet ordre :
+doctor-no-argument = doctor ne prend aucun argument : le lancer dans le dossier à vérifier
+doctor-version = batdetect { $version } — FFmpeg { $ffmpeg } inclus
+doctor-hardware = ✓ encodeur : VideoToolbox (matériel)
+doctor-software = ✓ encodeur : openh264 (logiciel)
+doctor-fallback = ⚠ encodeur : openh264 seulement, VideoToolbox ne répond pas
+doctor-broken = ✗ encodeur : aucun ne fonctionne
+doctor-space = ✓ place libre : { $gigabytes } Go dans { $folder }
+doctor-space-short = ✗ place libre : { $gigabytes } Go dans { $folder }, moins de { $least } Go
+doctor-space-unknown = ⚠ place libre : non mesurée dans { $folder }
+doctor-writable = ✓ écriture : permise dans { $folder }
+doctor-unwritable = ✗ écriture : refusée dans { $folder } ({ $access ->
+        [refused] droits insuffisants
+        [not-a-folder] pas un dossier
+        [missing] introuvable
+        [read-only] lecture seule
+        [disk-full] disque plein
+       *[unavailable] inaccessible
+    })
+doctor-todo-fallback = {"  "}à faire : rien d'obligatoire, les extraits seront plus lents à écrire ; redémarrer le Mac peut rétablir VideoToolbox
+doctor-todo-broken = {"  "}à faire : réinstaller batdetect
+doctor-todo-space = {"  "}à faire : libérer de la place, ou choisir un autre dossier avec -o
+doctor-todo-writing = {"  "}à faire : choisir un dossier où l'écriture est permise, avec -o
+doctor-ready = Tout est prêt.
+doctor-problems = { $count ->
+        [one] 1 point à corriger.
+       *[other] { $count } points à corriger.
+    }
+doctor-untried = ✗ encodeur : non essayé, le dossier temporaire du système refuse l'écriture
+doctor-todo-untried = {"  "}à faire : libérer de la place sur le disque du système, puis relancer batdetect doctor
+completion-commands-group = commande
+completion-doctor = vérifie que tout est prêt avant une soirée
+completion-completion = écrit la complétion de la touche Tab
