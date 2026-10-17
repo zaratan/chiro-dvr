@@ -136,6 +136,10 @@ pub fn compared(name: &str, current: &Pass, recording: &Recording, seconds: f64)
         video: video.clone(),
         source,
     })?;
+    let size = summary
+        .stream
+        .size()
+        .ok_or_else(|| Error::Size { video: video.clone() })?;
     let entries = recording.frames.entries();
     if let Some(gap) = input_gap(recording, current) {
         return Err(Error::Inputs {
@@ -154,9 +158,11 @@ pub fn compared(name: &str, current: &Pass, recording: &Recording, seconds: f64)
     Ok(Comparison {
         decode_errors: decode_errors(entries, current.frames.entries()),
         detections: Agreement::of(name, detections, rate, recording, &ignored),
-        tracks: TrackAgreement::of(name, detections, rate, recording, &damage).map_err(|source| Error::Tracking {
-            video: video.clone(),
-            source,
+        tracks: TrackAgreement::of(name, detections, (rate, size), recording, &damage).map_err(|source| {
+            Error::Tracking {
+                video: video.clone(),
+                source,
+            }
         })?,
         ignored,
         seconds,

@@ -60,6 +60,10 @@ pub(crate) const TWIN_DISTANCE_HELP: &str = "two tracks that stay this close on 
      as one animal; source pixels; 0 disables";
 pub(crate) const MAX_MEDIAN_TURN_HELP: &str =
     "tracks that zigzag more are dropped as noise; radians; 3.15 or more disables";
+pub(crate) const REJOIN_HIDDEN_HELP: &str = "a track that hides longer than --max-gap, up to this many frames, is \
+     joined to the one that starts where both point; frames; 0 disables";
+pub(crate) const REJOIN_DISTANCE_HELP: &str = "farthest the start of the second track may lie from where both tracks \
+     point; source pixels; 0 disables";
 pub(crate) const BENCH_HEADING: &str = "bench";
 pub(crate) const DETECTION_HEADING: &str = "detection";
 pub(crate) const TRACKING_HEADING: &str = "tracking";
@@ -97,6 +101,8 @@ fn tracking_option(setting: TrackingSetting) -> &'static str {
         TrackingSetting::MinTravel => "--min-travel",
         TrackingSetting::TwinDistance => "--twin-distance",
         TrackingSetting::MaxMedianTurn => "--max-median-turn",
+        TrackingSetting::RejoinHidden => "--rejoin-hidden",
+        TrackingSetting::RejoinDistance => "--rejoin-distance",
     }
 }
 

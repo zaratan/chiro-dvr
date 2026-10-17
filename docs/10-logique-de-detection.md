@@ -57,7 +57,7 @@ l'œil.
 L'outil prolonge le trajet de chaque piste pour prédire où elle sera à l'image suivante, et
 lui donne le point le plus proche de cette prédiction, s'il n'est pas trop loin ; un point
 resté seul ouvre une nouvelle piste. C'est suivre des yeux un ballon lancé en devinant sa
-course. Il coupe en deux pistes un vol qui disparaît trop longtemps, et une piste ne
+course. Un vol qui disparaît plus de 6 images en sort en deux pistes, que le recollage réunit ensuite quand il le peut. Une piste ne
 commence qu'une fois que la cible se détache assez du fond, après l'arrivée réelle de
 l'animal.
 
@@ -72,12 +72,14 @@ elle garde à peu près sa direction d'une image à l'autre. Un oiseau traverse 
 une poussière danse sur place dans un rayon de soleil. Ce filtre peut rejeter un vol très
 lent, qui paraît hésitant, ou une boucle qui revient à son point de départ.
 
+**Le recollage** ([§ 9 bis](#9-bis-recoller-un-vol-caché-derrière-la-végétation)). Une chauve-souris qui passe derrière un buisson disparaît de l'image quelques images, puis réapparaît de l'autre côté : le suivi en fait deux pistes. L'outil prolonge la fin de la première et le début de la seconde ; si les deux prolongements se rejoignent au bon moment, c'est le même vol. C'est voir une voiture passer sous un pont et savoir que c'est la même qui en ressort. Il ne recolle pas une piste qui finit ou commence tout près du bord de l'image, où la chauve-souris a pu sortir du cadre, ni une disparition de plusieurs secondes.
+
 ## La chaîne de traitement
 
 ```
 vidéo ─► image grise réduite et filtrée ─► fond (médiane) ─► résidu ─► seuil par pixel ─► taches
   │                                                                     │
-  │   pistes gardées ◄─ filtres ◄─ fusion des jumelles ◄─ suivi ◄─ images instables retirées
+  │ pistes ◄─ recollage ◄─ filtres ◄─ fusion des jumelles ◄─ suivi ◄─ images instables retirées
   │                                                                     ▲
   └─► signalements du décodeur et horodatages (même lecture) ──► images illisibles retirées
 ```
@@ -95,6 +97,7 @@ vidéo ─► image grise réduite et filtrée ─► fond (médiane) ─► ré
 | Suivi | `tracking/src/track.rs` et `track/` | prédiction linéaire, plus proche voisin | Cette tache prolonge-t-elle une piste ? |
 | Jumelles | `tracking/src/track/twins.rs` | union-find | Deux pistes sont-elles un seul animal ? |
 | Filtres | `tracking/src/track.rs`, `types/src/track.rs` | comptage, distance, angle médian | Cette piste ressemble-t-elle à un vol ? |
+| Recollage | `tracking/src/track/rejoin.rs` | prolongement des deux bouts, paires du plus proche au plus lointain | Deux pistes sont-elles un même vol caché un moment ? |
 
 Seuls quatre réglages sont des options de la commande : `--threshold`, `--min-hits`,
 `--max-blobs` et `--work-width`, plus le masque `--osd-region`. Les autres ont une valeur fixe, écrite dans `params.json` ;
@@ -364,8 +367,7 @@ plus proche voisin** (`tracking/src/track.rs`, `track/growing.rs`, `track/associ
 glouton donne le même résultat, et il reste court. Kalman deviendra utile pour
 élargir la porte pendant un trou (issue #21).
 
-**Limites.** Une interruption de plus de 6 images coupe le vol en deux pistes (issue
-#24). La piste commence quand la tache dépasse le seuil, donc après l'arrivée réelle de
+**Limites.** Une interruption de plus de 6 images coupe le vol en deux pistes ; le recollage les réunit quand le trou ne dure pas plus de 19 images ([§ 9 bis](#9-bis-recoller-un-vol-caché-derrière-la-végétation)). La piste commence quand la tache dépasse le seuil, donc après l'arrivée réelle de
 l'animal (issue #8). `max_jump` et `max_gap` ne se règlent que dans le banc.
 
 ## 8. Fusionner les pistes jumelles
@@ -394,10 +396,47 @@ Trois filtres, du plus simple au plus fin (`tracking/src/track.rs`, `types/src/t
   petits ; du bruit enchaîné par le suivi part dans tous les sens, avec un virage médian de
   1,5 radian. La médiane tolère un demi-tour isolé, ce qu'une moyenne ne ferait pas.
 
-Les pistes gardées sont numérotées dans l'ordre de leur première image.
+Les pistes gardées passent ensuite au recollage ([§ 9 bis](#9-bis-recoller-un-vol-caché-derrière-la-végétation)), puis sont numérotées dans l'ordre de leur première image.
 
 **Limite.** Un vol très lent avance de quelques pixels par image, et l'arrondi des
 positions fait tourner sa direction mesurée.
+
+## 9 bis. Recoller un vol caché derrière la végétation
+
+**Le problème.** Sur les vidéos 095 à 100, prises du même endroit, une chauve-souris passe souvent derrière une touffe de végétation accrochée à la falaise, puis réapparaît de l'autre côté. Pendant ce temps, elle n'est plus dans l'image : le suivi tient 6 images sans la voir (`max_gap`), puis ferme la piste, et la suite du vol ouvre une seconde piste. Un animal compte alors pour deux, et c'est le nombre de pistes que la naturaliste lit en premier.
+
+**Ce qui a été mesuré** (référence v0.2.0, 26 vidéos, 17 octobre 2026, sans décoder sauf pour regarder les trous).
+
+- *Où la cible disparaît.* Sur le cadrage de la 095 à la 100, les images manquantes dans les pistes se concentrent dans deux zones : en bas, vers x 920 à 1080 et y 720 à 800 (pixels de la vidéo d'origine), il manque jusqu'à 81 % des images des pistes qui y passent, contre 2 à 10 % autour ; en haut, vers x 920 à 1040 et y 400 à 520, jusqu'à 70 %. Même les pistes qui traversent ces zones sans se couper y perdent leur cible plus de 4 images sur 10. Ce sont deux zones de végétation, sombres sur l'image.
+- *Ce que voit la détection pendant le trou.* À l'endroit où la chauve-souris devrait être, l'écart au fond tombe au niveau du bruit (0 à 13 niveaux, contre 16 à 41 juste avant), et le seuil reste à son plancher de 12 : ce n'est pas la végétation agitée qui relève le seuil, et ce n'est pas une cible juste trop faible. La végétation est froide, donc sombre ; une chauve-souris chaude devant elle ressortirait. Elle passe derrière. Baisser le seuil n'y changerait rien : il n'y a rien à détecter.
+- *Combien de temps elle reste cachée.* Une chauve-souris vole à 12 à 13 px par image près de ces zones, et traverse chacune en 8 images en médiane, 12 à 18 images pour les plus lentes (une sur dix).
+
+**La règle des deux bouts** (`tracking/src/track/rejoin.rs`). Deux pistes sont un même vol si :
+
+- la seconde commence après la fin de la première, après un trou de **plus de 6 images** (sinon le suivi l'aurait reliée lui-même, et s'il ne l'a pas fait, c'est qu'il avait une raison) et de **19 images au plus**, soit 8 à 20 images entre le dernier point de l'une et le premier de l'autre, à peine plus d'une demi-seconde ;
+- **les deux bouts s'accordent** : on mesure la vitesse de la fin de la première piste et celle du début de la seconde (sur leurs 5 points les plus proches du trou), on prolonge la fin de la première sur toute la durée du trou à la moyenne de ces deux vitesses, et la seconde piste doit démarrer à **60 px au plus** de ce point. C'est comme si l'animal virait au milieu du trou : prendre les deux bouts, plutôt que la première piste seule, suit une chauve-souris qui tourne pendant qu'elle est cachée ;
+- aucune image du trou n'appartient à une **période ignorée** (jumelles qui bougent, image abîmée) : on ne sait pas ce qui s'y est passé ;
+- ni la fin de la première ni le début de la seconde ne sont **à moins de 30 px d'un bord** de l'image : une chauve-souris qui sort du cadre et y revient n'est jamais recollée, rien ne dit que c'est la même. Les fins de piste s'entassent près des bords (188 à moins de 5 px, puis 81, 49, 26 par tranche de 5 px) et retombent au niveau du reste vers 30 px.
+
+Quand une fin peut se prolonger par plusieurs débuts, ou un début continuer plusieurs fins, les paires sont prises de la plus proche à la plus lointaine, chaque fin et chaque début une seule fois. Un vol caché deux fois devient une seule piste. Aucun point n'est inventé dans le trou : l'image résumé et les extraits le comblent en ligne droite, comme les trous plus courts.
+
+**Ce qui n'est pas recollé.** Une disparition de plusieurs secondes : sur la 096, une chauve-souris entre dans la végétation haute et une autre piste en sort 5,9 s plus tard ; l'utilisateur a jugé que ce n'était pas le même passage. À cette échelle, ni la vitesse ni la direction ne disent plus rien, et sur la 095 à la 100, 124 fins de piste sur 709 ont une autre piste qui démarre 1 à 6 s plus tard à moins de 130 px, contre 92 et 83 si l'on décale les pistes de 10 ou 20 s : deux recollages sur trois souderaient deux animaux. Pas davantage une sortie du cadre suivie d'un retour.
+
+**Ce que ça donne.**
+
+- *Sur les 26 vidéos* : 67 soudures, 972 pistes ramenées à 905, toutes sur 11 vidéos (093 : 2, 094 : 1, 095 : 11, 096 : 13, 097 : 15, 098 : 8, 099 : 7, 100 : 5, 101 : 1, 102 : 1, 125 : 3). 70 paires remplissaient les conditions : 2 fins et 3 débuts en avaient deux, et l'ordre du plus proche a tranché. 16 autres paires ont été écartées parce qu'un bout touchait le bord. La 092 garde ses 14 pistes.
+- *Fausses soudures au hasard* : les mêmes règles appliquées à des pistes décalées de 10 ou 20 s, qui ne peuvent pas être le même animal, en soudent 2,7 en moyenne. Sur le banc de chasse, très dense (720 cibles synthétiques en 5 minutes), une soudure sur 15 a collé deux cibles différentes qui se suivaient au même endroit.
+- *Les cas regardés à l'œil* : sur une planche de 10 paires, l'utilisateur en a jugé 8 « même passage » et 2 « non » (le trou de 5,9 s, une sortie du cadre) ; la règle recolle les 8 et aucun des 2. Le plus grand écart des 8 au point de rencontre est de 45 px, le plus long trou de 13 images.
+- *Le zoom* : une piste recollée garde son extrait zoomé si l'un de ses bouts, seul, y avait droit (plus grande tache sous 100 px² ou écart au fond sous 40, [02](02-methode.md#extrait-zoomé-et-ralenti)). Sans cela, la piste recollée prendrait la plus grande tache et le plus fort écart de ses bouts, et le bout net ferait perdre son zoom au bout faible : 10 pistes sur les 26 vidéos l'auraient perdu. Une piste qui n'est pas recollée suit la règle de toujours.
+- *Pourquoi 60 px et 19 images* : voir [02 § 7 bis](02-methode.md#7-bis-recollage). Plus long, le prolongement ne vaut plus grand-chose : sur des vols continus, prolonger une piste de 20 images manque déjà sa vraie position de 114 px une fois sur deux, de 216 px à 30 images.
+
+**Pourquoi pas autre chose.**
+
+- *Prolonger la première piste seule, dans un cône qui s'élargit avec le temps.* Calibré sur des trous creusés dans des pistes continues (un même animal, à coup sûr), le cône part de 37° à 8 images et s'ouvre de 2,7° par image ; à trou égal (8 à 20 images, sans la règle du bord), il soude 91 paires pour 7,7 au hasard, contre 83 pour 3,3 avec les deux bouts : un virage pendant le trou l'oblige à s'ouvrir.
+- *Baisser le seuil dans les zones de végétation* : il n'y a rien sous le seuil.
+- *Une affectation optimale* (chercher la meilleure combinaison de toutes les paires à la fois, plutôt que de les prendre de la plus proche à la plus lointaine) : elle ne changerait le résultat que là où une fin ou un début a plusieurs candidats, 5 fois sur 70 ; l'ordre du plus proche y suffit tant qu'aucun cas jugé ne le contredit.
+
+**Limites.** Un recollage ne se voit pas comme tel dans les résultats : la piste recollée a simplement un trou. Une soudure fausse reste possible quand deux chauves-souris se suivent de près au même endroit. Le recollage se fait après les filtres du § 9 : un morceau trop court au milieu d'un vol caché deux fois est perdu avant d'avoir pu servir de pont. Les réglages `rejoin_hidden` (19) et `rejoin_distance` (60 px) sont écrits dans `params.json` et réglables dans le banc ([08](08-banc-de-mesure.md)) ; leur justification est dans [02](02-methode.md).
 
 ## 10. Aller vite sans changer le résultat
 

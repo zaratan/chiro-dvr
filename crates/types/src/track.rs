@@ -10,6 +10,13 @@ mod tests;
 pub struct Track {
     id: usize,
     points: Vec<Detection>,
+    part_starts: Vec<usize>,
+}
+
+/// A run of a track seen without a hiding in between: the whole track unless it was rejoined.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Part<'a> {
+    points: &'a [Detection],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -31,7 +38,29 @@ impl Track {
                 frame: step[1].frame,
             });
         }
-        Ok(Self { id, points })
+        Ok(Self {
+            id,
+            points,
+            part_starts: Vec::new(),
+        })
+    }
+
+    pub fn rejoined(id: usize, parts: Vec<Vec<Detection>>) -> Result<Self, Error> {
+        if parts.iter().any(Vec::is_empty) {
+            return Err(Error::Empty { id });
+        }
+        let mut part_starts = Vec::new();
+        let mut points = Vec::new();
+        for part in parts {
+            if !points.is_empty() {
+                part_starts.push(points.len());
+            }
+            points.extend(part);
+        }
+        Ok(Self {
+            part_starts,
+            ..Self::new(id, points)?
+        })
     }
 
     #[must_use]
@@ -65,18 +94,24 @@ impl Track {
             .fold(0.0, |length, step| length + step[0].distance(&step[1]))
     }
 
-    pub fn max_area(&self) -> f64 {
-        self.points
+    pub fn parts(&self) -> impl Iterator<Item = Part<'_>> {
+        let starts = std::iter::once(0).chain(self.part_starts.iter().copied());
+        let ends = self
+            .part_starts
             .iter()
-            .map(|point| point.area)
-            .fold(f64::NEG_INFINITY, f64::max)
+            .copied()
+            .chain(std::iter::once(self.points.len()));
+        starts.zip(ends).map(|(start, end)| Part {
+            points: &self.points[start..end],
+        })
+    }
+
+    pub fn max_area(&self) -> f64 {
+        max_area(&self.points)
     }
 
     pub fn peak_amplitude(&self) -> f64 {
-        self.points
-            .iter()
-            .map(|point| point.amplitude)
-            .fold(f64::NEG_INFINITY, f64::max)
+        peak_amplitude(&self.points)
     }
 
     pub fn median_turn(&self) -> f64 {
@@ -93,6 +128,31 @@ impl Track {
         turns.sort_by(f64::total_cmp);
         median(&turns)
     }
+}
+
+impl<'a> Part<'a> {
+    pub fn points(&self) -> &'a [Detection] {
+        self.points
+    }
+
+    pub fn max_area(&self) -> f64 {
+        max_area(self.points)
+    }
+
+    pub fn peak_amplitude(&self) -> f64 {
+        peak_amplitude(self.points)
+    }
+}
+
+fn max_area(points: &[Detection]) -> f64 {
+    points.iter().map(|point| point.area).fold(f64::NEG_INFINITY, f64::max)
+}
+
+fn peak_amplitude(points: &[Detection]) -> f64 {
+    points
+        .iter()
+        .map(|point| point.amplitude)
+        .fold(f64::NEG_INFINITY, f64::max)
 }
 
 fn median(sorted: &[f64]) -> f64 {

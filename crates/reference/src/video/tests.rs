@@ -46,6 +46,22 @@ fn the_stream_of_the_092_reads_as_exact_rationals() {
 }
 
 #[test]
+fn a_stream_has_a_size_unless_one_side_is_zero() {
+    let stream = summary_092().stream;
+    let size = stream.size().unwrap();
+    assert_eq!((size.width().get(), size.height().get()), (1440, 1080));
+    assert_eq!(
+        super::Stream {
+            width: 0,
+            ..stream.clone()
+        }
+        .size(),
+        None
+    );
+    assert_eq!(super::Stream { height: 0, ..stream }.size(), None);
+}
+
+#[test]
 fn the_092_summary_reports_no_damage_and_its_counts() {
     let summary = summary_092();
     assert_eq!(summary.ffprobe.as_ref().unwrap().frame_count, 9011);

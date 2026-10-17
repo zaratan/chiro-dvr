@@ -13,7 +13,7 @@ use engine::config::DetectConfig;
 use engine::settings::{DetectSettings, Region, Setting};
 use tracking::settings::{StabilitySettings, TrackSettings};
 use tracking::stability::StabilityConfig;
-use tracking::track::TrackConfig;
+use tracking::track::{RejoinConfig, TrackConfig};
 
 use crate::messages;
 
@@ -175,6 +175,13 @@ fn tracking_arguments() -> Vec<Arg> {
             messages::MAX_MEDIAN_TURN_HELP,
         )
         .value_parser(value_parser!(f64)),
+        number("rejoin-hidden", &track.rejoin_hidden, messages::REJOIN_HIDDEN_HELP).value_parser(value_parser!(usize)),
+        number(
+            "rejoin-distance",
+            &track.rejoin_distance,
+            messages::REJOIN_DISTANCE_HELP,
+        )
+        .value_parser(value_parser!(f64)),
     ]
 }
 
@@ -227,6 +234,14 @@ fn settings(matches: &mut ArgMatches) -> Result<Judging, clap::Error> {
     )
     .map_err(tracking_refused)?;
     let twin_distance: f64 = one(matches, "twin-distance")?;
+    let rejoin_hidden: usize = one(matches, "rejoin-hidden")?;
+    let rejoin_distance: f64 = one(matches, "rejoin-distance")?;
+    let rejoin = match NonZeroUsize::new(rejoin_hidden) {
+        Some(max_hidden) if rejoin_distance != 0.0 => {
+            Some(RejoinConfig::new(max_hidden, rejoin_distance).map_err(tracking_refused)?)
+        }
+        _ => None,
+    };
     let track = TrackConfig::new(
         one(matches, "max-jump")?,
         one(matches, "max-gap")?,
@@ -234,6 +249,7 @@ fn settings(matches: &mut ArgMatches) -> Result<Judging, clap::Error> {
         one(matches, "min-travel")?,
         (twin_distance != 0.0).then_some(twin_distance),
         one(matches, "max-median-turn")?,
+        rejoin,
     )
     .map_err(tracking_refused)?;
     let matching = MatchConfig::new(one(matches, "match-radius")?, DEFAULT_PURITY)

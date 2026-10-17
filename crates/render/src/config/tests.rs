@@ -116,6 +116,27 @@ fn auto_zooms_a_track_strictly_below_either_threshold_of_v0_1_1() {
 }
 
 #[test]
+fn auto_zooms_a_rejoined_track_when_one_part_alone_is_small_or_faint_although_the_whole_is_not() {
+    let auto = ZoomConfig::default();
+    let part = |first: usize, area: f64, amplitude: f64| {
+        measured(area, amplitude)
+            .points()
+            .iter()
+            .map(|point| Detection {
+                frame: FrameIndex::new(point.frame.get() + first),
+                ..*point
+            })
+            .collect::<Vec<_>>()
+    };
+    let small_then_large = Track::rejoined(1, vec![part(0, 60.0, 60.0), part(20, 300.0, 60.0)]).unwrap();
+    let large_then_faint = Track::rejoined(1, vec![part(0, 300.0, 80.0), part(20, 300.0, 30.0)]).unwrap();
+    let large_twice = Track::rejoined(1, vec![part(0, 300.0, 80.0), part(20, 200.0, 60.0)]).unwrap();
+    assert!(auto.wants(&small_then_large));
+    assert!(auto.wants(&large_then_faint));
+    assert!(!auto.wants(&large_twice));
+}
+
+#[test]
 fn all_zooms_every_track_and_none_no_track() {
     let large = measured(500.0, 90.0);
     assert!(ZoomConfig::choosing(Zoom::All).wants(&large));

@@ -5,6 +5,7 @@ use types::detection::FrameDetections;
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
+use types::size::SourceSize;
 
 use super::{TrackAgreement, TrackCounts};
 use crate::damaged::{joined, reported_by};
@@ -25,11 +26,15 @@ fn agreement(detections: &FrameDetections, recording: &Recording, current: &Repo
     TrackAgreement::of(
         EXTRACT_VIDEO,
         detections,
-        rate(),
+        (rate(), size(recording)),
         recording,
         &damage(recording, current),
     )
     .unwrap()
+}
+
+fn size(recording: &Recording) -> SourceSize {
+    recording.summary.stream.size().unwrap()
 }
 
 fn rate() -> FrameRate {

@@ -18,7 +18,7 @@ Ce document tient trois choses ([qui tient quoi](README.md#qui-tient-quoi)) :
 
 | Mesure | Rust | v0.1.1 | Quand | Détail |
 | --- | --- | --- | --- | --- |
-| Pistes des 26 vidéos de la référence (`compare local`) | 963 sur 966 appariées (958 concordantes), 3 perdues, 9 ajoutées | — | 15 octobre, f364698 | [Mesure de la bascule](#mesure-de-la-bascule-198-15-octobre-2026-m1-max-sous-le-verrou) |
+| Pistes des 26 vidéos de la référence (`compare local`) | contre la v0.2.0 : 905 sur 972 appariées (844 concordantes), 67 perdues, 0 ajoutée, les 67 vols recollés de #24 ; contre la v0.1.1 (`--reference v0.1.1`) : 897 sur 966 (833), 69 perdues, 8 ajoutées | — | 17 octobre, #24, lumiel | [10 § 9 bis](10-logique-de-detection.md#9-bis-recoller-un-vol-caché-derrière-la-végétation) ; avant #24 : 963 sur 966 (958), 3 perdues, 9 ajoutées, [mesure de la bascule](#mesure-de-la-bascule-198-15-octobre-2026-m1-max-sous-le-verrou) |
 | Pistes de la 092 (`rust:reference`) | 14, toutes concordantes | 14 | 15 octobre, f364698 | idem |
 | Garde du banc, transit / chasse | 148 / 455 cibles trouvées | 148 / 456 | 15 octobre, f364698 | idem |
 | La 092 par la commande, temps réel | 19,81 s | 135,4 s | 16 octobre, b38748a | [09](09-profilage.md) |
@@ -1053,7 +1053,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     plages instables et abîmées se bâtissent ainsi, sans variante d'erreur.
   - `span::merged` et `span::merged_by` (#302) : la seule fusion des plages qui se recouvrent ou se touchent (une plage qui commence l'image après la fin d'une autre la rejoint), triées par première image ; `merged_by` garde les éléments de chaque groupe (`Run`), à égalité de début dans l'ordre reçu. Les plages abîmées d'`engine` (`Damage`), les groupes d'extraits de `render` (`windows::groups`) et la réunion des plages de `compare` passent par elle.
   - `EdgeLosses` (#275) : images perdues avant la première image décodée et après la dernière, partagées par `engine` (`Damage::reported`) et `reference` (`video.json` v2) ; `union` garde la plus grande perte de chaque bord.
-  - `Track` : numéro et points, au moins un, images strictement croissantes. Mesures :
+  - `Track` : numéro et points, au moins un, images strictement croissantes, et pour une piste recollée ses bouts (`Track::rejoined`, chacun non vide ; `parts()` rend la piste entière sinon ; `with_id` les garde, #24). Mesures :
     corde, longueur du trajet (+0 pour un seul point, jamais −0), surface maximale,
     amplitude de crête, virage médian (médiane des changements de cap, positions
     répétées ignorées, 0 sans virage). `with_id` renumérote sans revalider.
@@ -2422,10 +2422,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     la médiane comme cause est une hypothèse, non vérifiée).
   - Sur les 26 vidéos de la référence, plages instables et détections gardées étaient
     égales à la v0.1.1 (test local `crates/tracking/tests/local_exclusion.rs`, jusqu'à #277). Depuis #277, `committed_exclusion` (19 cas du dépôt) et `local_exclusion` (26 vidéos) comparent à la v0.2.0, avec une ligne figée par cas (`Kept`) : détections gardées en moins et en plus (écart net des totaux), et plages instables changées, toutes à 0.
-  - `track` : `track_detections(détections, TrackConfig)` rend des `Track` numérotées à
-    partir de 1, triées par (image de début, `x` du premier point).
+  - `track` : `track_detections(&Exclusion, SourceSize, TrackConfig)` rend des `Track` numérotées à
+    partir de 1, triées par (image de début, `x` du premier point). Depuis #24, elle prend l'`Exclusion` entière (détections et plages ignorées) et la taille de l'image, dont le recollage a besoin.
     - `TrackConfig::new(max_jump, max_gap, min_hits, min_travel, twin_distance,
-      max_median_turn)`, par défaut 120, 6, 6, 45, `Some(36)` et 0,8. Les accesseurs
+      max_median_turn, rejoin)`, par défaut 120, 6, 6, 45, `Some(36)`, 0,8 et `Some(RejoinConfig::default())` (19 images, 60 px) ; `without_rejoin()` rend le suivi d'avant #24, celui des références v0.1.1 et v0.2.0. Les accesseurs
       portent les noms des clés de `params.json`. `max_gap` et `min_hits` sont des
       `NonZeroUsize`, `twin_distance` un `Option<f64>` (`None` coupe la fusion ; la
       commande traduira `0`). Un réglage hors bornes rend `Error::Setting` avec son
@@ -2448,6 +2448,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       barycentre pondéré, amplitude maximale.
     - Filtres après fusion : `min_hits`, corde ≥ `min_travel`, virage médian ≤
       `max_median_turn` (mesures de `types::track::Track`).
+    - Recollage après les filtres (`track/rejoin.rs`, #24) : règle et mesures dans [10 § 9 bis](10-logique-de-detection.md#9-bis-recoller-un-vol-caché-derrière-la-végétation), valeurs dans [02 § 7 bis](02-methode.md#7-bis-recollage). `RejoinConfig::new(max_hidden, max_distance)` refuse une distance hors bornes (`Setting::RejoinDistance`). Les liens se prennent du plus petit écart au plus grand, une fois par fin et par début ; les chaînes donnent une seule piste ; aucun point n'est ajouté dans le trou. `TrackSettings` gagne `rejoin_hidden` et `rejoin_distance` (0 = coupé), lus à 0 dans un fichier écrit avant #24. `--replay` et `--targets` jugent avec les réglages de la commande, donc avec recollage par défaut ; seul `--against` exige les réglages enregistrés, d'où `--rejoin-hidden 0` contre la v0.1.1 (`local_guard` juge avec `without_rejoin()`). `TrackConfig::new` refuse un `max_hidden` qui ne dépasse pas `max_gap` (`Setting::RejoinHidden`) : le recollage n'aurait plus rien à faire.
     - Limite : plusieurs seuils tombent sur une distance exacte, et `f64::hypot` peut
       différer d'un ulp de celui de Python. Le critère des tests est l'appariement avec
       tolérances ; l'identité est mesurée en plus.
@@ -2462,7 +2463,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       est rapportée (décision de l'utilisateur, 11 octobre 2026). Ces mesures contre la v0.1.1 restent l'historique de la parité avec le Python.
     - Gardes depuis #277 : le suivi courant tourne sur les détections, les plages abîmées et le nombre d'images signalées de la [référence v0.2.0](#référence-v020), sans décodage, donc sans dépendre du poste ni du décodeur. Ses pistes se comparent à celles de la v0.2.0 par `track_matching` (début ±5 images, points ±3). Chaque cas a sa ligne figée (`FROZEN`) : pistes de la référence, suivies, appariées, concordantes, perdues et ajoutées, `Tracks::same(n)` tant qu'il n'y a pas d'écart. Les 19 cas du dépôt n'ont aucune plage abîmée, et seul `sigma_0` a des plages instables : en CI, le suivi sur des plages abîmées n'est gardé que par les tests unitaires de `tracking`. Sur des données réelles, il ne l'est que par `local_tracking` et `local_exclusion`.
       - `committed_tracking` : les 19 cas du dépôt (extrait, 092, 1440, 16 réglages), en CI sur les trois systèmes, avec en plus le nombre de pistes identiques au bit près et les numéros 1..n. Sur lumiel, toutes sont identiques (125 pistes) ; la CI de #277 dit si les trois systèmes le tiennent.
-      - `local_tracking` : les 26 vidéos (`BATDETECT_REFERENCE_V020_DIR`), 972 pistes. L'identité est seulement affichée : 972 sur 972 sur lumiel (17 octobre 2026), à confirmer sur le Mac avant de la figer.
+      - `local_tracking` : les 26 vidéos (`BATDETECT_REFERENCE_V020_DIR`), 972 pistes dans la référence, 905 suivies depuis #24. L'identité est seulement affichée : 972 sur 972 sur lumiel avant #24 (17 octobre 2026).
+      - Depuis #24 : les 19 cas du dépôt ne bougent pas. Sur les 26 vidéos, 67 soudures ramènent 972 pistes à 905 sur 11 vidéos ; et `compare local` contre la v0.2.0 donne les mêmes comptes, vidéo par vidéo (détections identiques, 905 pistes appariées sur 972, 67 perdues, 0 ajoutée) ; contre la v0.1.1 (`--reference v0.1.1`), 897 appariées sur 966 (833 concordantes), 69 perdues, 8 ajoutées, au lieu de 963, 958, 3 et 9. Dans `local_tracking`, `local_agreement` et `local_command`, chacune de ces lignes est `rejoined(référence, soudures, pistes recollées)` : une piste recollée reste appariée à sa première partie mais n'est plus concordante, sa seconde partie compte comme perdue. `local_clips` fige pour les mêmes 11 vidéos 67 fenêtres d'extrait en moins (905 au lieu de 972), deux fenêtres fondues en une à chaque soudure. Une piste recollée garde les bouts dont elle est faite (`Track::rejoined`, `Track::parts`), et le zoom automatique la prend si l'un d'eux y avait droit seul : sans cela, 10 pistes des 095, 096, 097, 098 et 100 perdaient leur zoom. `local_command` compare donc le zoom de chaque piste à celui de toutes les pistes de la v0.2.0 qu'elle contient (premier point compris dans les siens), et en exige 0 changement ; il exige aussi que chaque piste de la v0.2.0 soit contenue dans une piste et une seule. `committed_metrics` déclare les deux réglages gagnés depuis la v0.2.0 (`judged_now`) et fige l'effet : transit, 1 cible en un fragment au lieu de 2 (162 pistes injectées au lieu de 163) ; chasse, 499 pistes au lieu de 514, 12 cibles moins fragmentées et une cible perdue, dont la piste a été soudée à celle d'une autre cible qui la précédait au même endroit (454 trouvées au lieu de 455).
       - Une PR de suivi (#24, #21) met à jour ces lignes, avec la cause dans la même série de changements, et les colonnes de pistes des gardes de détection, qui disent l'effet.
 - **`files`** → `types` : fichiers écrits par la commande (#122). Reçoit un
   `types::Language`, celle de la commande (#123, #114).
@@ -2653,7 +2655,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     construction (ni `NaN`, ni infini, ni négatif). Les secondes deviennent des images
     par `round(secondes × cadence)` (`f64::round`). `ZoomConfig` (#103) : `Zoom::Auto`,
     `All` ou `None`, et les seuils de la v0.1.1, `max_area < 100` px² ou
-    `peak_amplitude < 40`, comparés strictement sur les mesures de la piste ; seuils finis
+    `peak_amplitude < 40`, comparés strictement sur les mesures de chacun de ses bouts (`Track::parts`, un seul pour une piste non recollée, #24) ; seuils finis
     et au-dessus de 0.
   - `windows` : la fenêtre d'une piste va de sa première image moins la marge à sa
     dernière plus la marge, bornée à la vidéo. Les fenêtres qui se chevauchent ou se
@@ -3410,13 +3412,13 @@ Chaque garde compare à la v0.2.0 par la règle de `compare` (#275) et fige ses 
 
 - `compare/tests/slow_extract` : l'extrait, `Gaps::agreeing(4)`, plus le bit près de `tests/fixtures/rust/` et `--same-as`, inchangés.
 - `compare/tests/settings_agreement` : les 16 cas, détections égales et toutes les pistes appariées et concordantes, `sigma_0` (30 pistes) et `window_2s` compris. Le test qui figeait 98 % sous la bande d'affichage pour ces deux cas contre la v0.1.1 est retiré : contre la v0.2.0, ils n'ont aucun écart ; l'écart de la table `GRAY` à la v0.1.1 reste expliqué dans la mesure de #150.
-- `compare/tests/local_agreement` : 26 lignes figées, une par vidéo, 972 pistes.
+- `compare/tests/local_agreement` : 26 lignes figées, une par vidéo, 972 pistes ; depuis #24, 11 d'entre elles portent les vols recollés (`rejoined`).
 - `cli/tests/reference_092` :
   - la 092 et la 092 à 1440 pixels : `Gaps::agreeing(14)` ;
   - la commande sur la 092 : 14 pistes appariées et concordantes, sans écart, ses 15 extraits figés et son zoom ;
   - les faits de la naturaliste, seuls affirmés sans référence : les 13 chauves-souris confirmées le 9 octobre ([03](03-resultats-092.md)) ont chacune leur piste, qui commence à ±5 images de leur début (temps aux `pts` de la lecture du calcul), et à côté d'elles, au plus une piste à chacun de ces deux endroits : l'objet lent de 3:29, qui n'en est pas une, et la cible connue de 3:42.10, objet réel manqué aujourd'hui par le réglage par défaut et pas encore vu par la naturaliste ([03](03-resultats-092.md#cibles-connues-pour-les-issues-suivantes)). Toute autre piste nouvelle fait échouer le test : c'est une question pour elle. Le nombre de pistes n'est plus affirmé que par les écarts figés : un recollage (#24) peut passer de 14 à 13 pistes sans perdre un passage.
 - `cli/tests/slow_command` : les 4 pistes de l'extrait, sans écart ; la colonne des détections du CSV est celle de `tests/fixtures/rust/…/tracks.csv`, en-tête exclu.
-- `cli/tests/local_command` : les pistes de la commande sur les 26 vidéos, une ligne figée par vidéo (`[référence, appariées, concordantes, perdues, ajoutées]`), sans changement de zoom automatique par rapport aux pistes de la v0.2.0. Les 17 divergences et le changement de zoom de la 097 connus contre la v0.1.1 disparaissent. Les zooms enregistrés par la v0.1.1, décidés sur ses propres pistes, se vérifient à part (`the_zooms_recorded_with_the_v011_are_those_its_own_tracks_ask_for`, sans décodage).
-- `cli/tests/local_clips` : les fenêtres des extraits des 26 vidéos, toutes exigées, sont égales à celles des pistes de la v0.2.0, vidéo par vidéo ; les divergences de la 097 contre la v0.1.1 disparaissent.
+- `cli/tests/local_command` : les pistes de la commande sur les 26 vidéos, une ligne figée par vidéo (`[référence, appariées, concordantes, perdues, ajoutées]`), sans changement de zoom automatique par rapport aux pistes de la v0.2.0 que chacune contient ; depuis #24, une piste recollée est comparée à tous ses bouts. Les 17 divergences et le changement de zoom de la 097 connus contre la v0.1.1 disparaissent. Les zooms enregistrés par la v0.1.1, décidés sur ses propres pistes, se vérifient à part (`the_zooms_recorded_with_the_v011_are_those_its_own_tracks_ask_for`, sans décodage).
+- `cli/tests/local_clips` : les fenêtres des extraits des 26 vidéos, toutes exigées, sont égales à celles des pistes de la v0.2.0, vidéo par vidéo, hors les 11 vidéos où #24 recolle des vols, figées par leurs nombres de fenêtres ; les divergences de la 097 contre la v0.1.1 disparaissent.
 - `process` et `tracked` n'écartent que les plages du décodeur courant : `reference_092`, `slow_command`, `local_command` et `local_clips` dépendent donc du poste sur les 8 vidéos où lumiel voit 14 images en erreur de plus que le Mac. Leurs lignes sont figées sur lumiel, et à vérifier sur le Mac. `compare` réunit les deux lectures (#275) et n'en dépend pas.
 - Restent sur la v0.1.1 : les entrées, avec ffprobe pour témoin (`slow_extract`, entrées de l'extrait ; `reference_092`, 9 011 images de la 092 ; `local_command`, `pts` de la 103 annotée ; `engine` : `slow_input`, `local_input`, `local_damage`, dont la règle de lumiel reste celle de #250), l'aval nourri des pistes de la v0.1.1 (`summary`, `files`, `render`), les sorties (`local_outputs`), le banc (`local_guard`) et le format v1.

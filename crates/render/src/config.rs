@@ -105,7 +105,9 @@ impl ZoomConfig {
         match self.choice {
             Zoom::All => true,
             Zoom::Off => false,
-            Zoom::Auto => track.max_area() < self.below_area || track.peak_amplitude() < self.below_amplitude,
+            Zoom::Auto => track
+                .parts()
+                .any(|part| part.max_area() < self.below_area || part.peak_amplitude() < self.below_amplitude),
         }
     }
 }

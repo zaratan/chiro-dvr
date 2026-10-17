@@ -1,5 +1,5 @@
 use std::fs;
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::path::Path;
 
 use serde::de::DeserializeOwned;
@@ -8,6 +8,7 @@ use serde_json::{Map, Value};
 use types::frame::FrameIndex;
 use types::losses::EdgeLosses;
 use types::rational::Rational;
+use types::size::SourceSize;
 use types::span::Span;
 
 use crate::error::Error;
@@ -62,6 +63,15 @@ pub struct Stream {
     pub time_base: Rational,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub nb_frames: Option<String>,
+}
+
+impl Stream {
+    pub fn size(&self) -> Option<SourceSize> {
+        Some(SourceSize::new(
+            NonZeroU32::new(self.width)?,
+            NonZeroU32::new(self.height)?,
+        ))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -3,7 +3,7 @@ use std::num::NonZeroU32;
 use serde::{Deserialize, Serialize};
 
 use crate::stability::StabilityConfig;
-use crate::track::TrackConfig;
+use crate::track::{RejoinConfig, TrackConfig};
 
 #[cfg(test)]
 mod tests;
@@ -17,6 +17,10 @@ pub struct TrackSettings {
     pub min_travel: f64,
     pub twin_distance: f64,
     pub max_median_turn: f64,
+    #[serde(default)]
+    pub rejoin_hidden: usize,
+    #[serde(default)]
+    pub rejoin_distance: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
@@ -35,6 +39,8 @@ impl From<TrackConfig> for TrackSettings {
             min_travel: track.min_travel(),
             twin_distance: track.twin_distance().unwrap_or(0.0),
             max_median_turn: track.max_median_turn(),
+            rejoin_hidden: track.rejoin().map_or(0, |rejoin| rejoin.max_hidden().get()),
+            rejoin_distance: track.rejoin().map_or(0.0, RejoinConfig::max_distance),
         }
     }
 }

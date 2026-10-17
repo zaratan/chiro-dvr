@@ -7,6 +7,7 @@ use engine::config::DetectConfig;
 use media::decode::Threads;
 use reference::fixture::fixture;
 use reference::location::recorded_bench;
+use tracking::track::TrackConfig;
 
 #[cfg(test)]
 fn listed(changes: &[Change]) -> String {
@@ -61,7 +62,10 @@ fn the_two_benches_of_the_v011_replayed_on_the_092_fall_below_no_lower_wilson_bo
             &video,
             Threads::Automatic,
             &DetectConfig::default(),
-            Judging::default(),
+            Judging {
+                track: TrackConfig::default().without_rejoin(),
+                ..Judging::default()
+            },
             &recorded_bench(name).unwrap(),
         )
         .unwrap();

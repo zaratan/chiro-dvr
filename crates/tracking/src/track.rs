@@ -1,18 +1,24 @@
 mod association;
 mod growing;
+mod rejoin;
 mod twins;
 
 use std::num::NonZeroUsize;
 
-use types::detection::FrameDetections;
 use types::frame::FrameIndex;
+use types::size::SourceSize;
+use types::span::Span;
 use types::track::Track;
 
 use crate::error::Error;
+use crate::exclusion::Exclusion;
 use crate::setting::Setting;
 use crate::track::association::Association;
 use crate::track::growing::Growing;
+use crate::track::rejoin::{Hiding, rejoin};
 use crate::track::twins::merge_twins;
+
+pub use crate::track::rejoin::RejoinConfig;
 
 #[cfg(test)]
 mod tests;
@@ -34,6 +40,7 @@ pub struct TrackConfig {
     min_travel: f64,
     twin_distance: Option<f64>,
     max_median_turn: f64,
+    rejoin: Option<RejoinConfig>,
 }
 
 impl Default for TrackConfig {
@@ -45,6 +52,7 @@ impl Default for TrackConfig {
             min_travel: 45.0,
             twin_distance: Some(36.0),
             max_median_turn: 0.8,
+            rejoin: Some(RejoinConfig::default()),
         }
     }
 }
@@ -57,6 +65,7 @@ impl TrackConfig {
         min_travel: f64,
         twin_distance: Option<f64>,
         max_median_turn: f64,
+        rejoin: Option<RejoinConfig>,
     ) -> Result<Self, Error> {
         positive(max_jump, Setting::MaxJump)?;
         if !(min_travel.is_finite() && min_travel >= 0.0) {
@@ -69,6 +78,14 @@ impl TrackConfig {
             positive(distance, Setting::TwinDistance)?;
         }
         positive(max_median_turn, Setting::MaxMedianTurn)?;
+        if let Some(hidden) = rejoin.map(RejoinConfig::max_hidden)
+            && hidden <= max_gap
+        {
+            return Err(Error::Setting {
+                setting: Setting::RejoinHidden,
+                value: hidden.get() as f64,
+            });
+        }
         Ok(Self {
             max_jump,
             max_gap,
@@ -76,6 +93,7 @@ impl TrackConfig {
             min_travel,
             twin_distance,
             max_median_turn,
+            rejoin,
         })
     }
 
@@ -103,6 +121,15 @@ impl TrackConfig {
         self.max_median_turn
     }
 
+    pub fn rejoin(self) -> Option<RejoinConfig> {
+        self.rejoin
+    }
+
+    #[must_use]
+    pub fn without_rejoin(self) -> Self {
+        Self { rejoin: None, ..self }
+    }
+
     fn expired(self, track: &Growing, frame: FrameIndex) -> bool {
         frame.abs_diff(track.last().frame) > self.max_gap.get().saturating_add(1)
     }
@@ -122,11 +149,11 @@ fn positive(value: f64, setting: Setting) -> Result<(), Error> {
     }
 }
 
-pub fn track_detections(detections: &FrameDetections, config: TrackConfig) -> Result<Vec<Track>, Error> {
+pub fn track_detections(excluded: &Exclusion, size: SourceSize, config: TrackConfig) -> Result<Vec<Track>, Error> {
     let mut active: Vec<Growing> = Vec::new();
     let mut finished: Vec<Track> = Vec::new();
     let mut association = Association::default();
-    for (frame, found) in detections.iter() {
+    for (frame, found) in excluded.detections.iter() {
         for ended in active.extract_if(.., |track| config.expired(track, frame)) {
             finished.push(Track::new(0, ended.into_points())?);
         }
@@ -143,7 +170,19 @@ pub fn track_detections(detections: &FrameDetections, config: TrackConfig) -> Re
         Some(distance) => merge_twins(finished, distance)?,
         None => finished,
     };
-    let mut kept: Vec<Track> = merged.into_iter().filter(|track| config.keeps(track)).collect();
+    let kept: Vec<Track> = merged.into_iter().filter(|track| config.keeps(track)).collect();
+    let mut kept = match config.rejoin {
+        Some(rejoining) => {
+            let ignored: Vec<Span> = excluded.ignored_spans().collect();
+            let hiding = Hiding {
+                longer_than: config.max_gap.get(),
+                ignored: &ignored,
+                size,
+            };
+            rejoin(&kept, hiding, rejoining)?
+        }
+        None => kept,
+    };
     kept.sort_by(|a, b| {
         a.first()
             .frame
