@@ -1,5 +1,5 @@
 use reference::frames::{FrameEntry, Frames};
-use types::detection::{FrameDetections, Measures};
+use types::detection::{FrameDetections, Measures, Strength};
 use types::frame::{FrameIndex, Pts};
 use types::span::Span;
 
@@ -26,6 +26,7 @@ fn measures(x: f64) -> Measures {
         height: 3.0,
         area: 4.5,
         amplitude: 13.0,
+        strength: Strength::Strong,
     }
 }
 

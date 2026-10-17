@@ -2,7 +2,7 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use std::path::{Path, PathBuf};
 
 use engine::settings::DetectSettings;
-use types::detection::{Detection, FrameDetections, Measures};
+use types::detection::{Detection, FrameDetections, Measures, Strength};
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
@@ -39,6 +39,7 @@ pub(crate) fn detection(frame: usize, x: f64, y: f64) -> Detection {
         height: 5.0,
         area: 20.0,
         amplitude: -30.0,
+        strength: Strength::Strong,
     }
 }
 

@@ -1,4 +1,4 @@
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
@@ -20,6 +20,7 @@ fn track(id: usize, start: usize, points: usize) -> Track {
             height: 3.0,
             area: 9.0,
             amplitude: 20.0,
+            strength: Strength::Strong,
         })
         .collect();
     Track::new(id, points).unwrap()

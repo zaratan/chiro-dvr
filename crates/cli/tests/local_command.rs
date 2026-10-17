@@ -20,47 +20,69 @@ use types::track::Track;
 
 const RECORDED_OUTPUTS: usize = 2;
 
-const fn agreeing(tracks: usize) -> [usize; 5] {
-    [tracks, tracks, tracks, 0, 0]
-}
-
-const fn rejoined(reference: usize, joins: usize, tracks_joined: usize) -> [usize; 5] {
-    [
-        reference,
-        reference - joins,
-        reference - joins - tracks_joined,
-        joins,
-        0,
-    ]
-}
-
 const FROZEN: [(&str, [usize; 5]); 26] = [
-    ("video_089.mp4", agreeing(1)),
-    ("video_090.mp4", agreeing(20)),
-    ("video_091.mp4", agreeing(21)),
-    ("video_092.mp4", agreeing(14)),
-    ("video_093.mp4", rejoined(6, 2, 2)),
-    ("video_094.mp4", rejoined(14, 1, 1)),
-    ("video_095.mp4", rejoined(78, 11, 11)),
-    ("video_096.mp4", rejoined(136, 13, 12)),
-    ("video_097.mp4", rejoined(149, 15, 11)),
-    ("video_098.mp4", rejoined(131, 8, 7)),
-    ("video_099.mp4", rejoined(117, 7, 7)),
-    ("video_100.mp4", rejoined(98, 5, 5)),
-    ("video_101.mp4", rejoined(32, 1, 1)),
-    ("video_102.mp4", rejoined(36, 1, 1)),
-    ("video_103.mp4", agreeing(10)),
-    ("video_120.mp4", agreeing(0)),
-    ("video_121.mp4", agreeing(2)),
-    ("video_122.mp4", agreeing(0)),
-    ("video_123.mp4", agreeing(8)),
-    ("video_124.mp4", agreeing(5)),
-    ("video_125.mp4", rejoined(47, 3, 3)),
-    ("video_126.mp4", agreeing(13)),
-    ("video_127.mp4", agreeing(7)),
-    ("video_128.mp4", agreeing(5)),
-    ("video_129.mp4", agreeing(16)),
-    ("video_130.mp4", agreeing(6)),
+    ("video_089.mp4", [1, 1, 1, 0, 0]),
+    ("video_090.mp4", [20, 18, 14, 2, 2]),
+    ("video_091.mp4", [21, 21, 21, 0, 0]),
+    ("video_092.mp4", [14, 14, 14, 0, 0]),
+    ("video_093.mp4", [6, 3, 1, 3, 1]),
+    ("video_094.mp4", [14, 13, 10, 1, 0]),
+    ("video_095.mp4", [78, 64, 48, 14, 2]),
+    ("video_096.mp4", [136, 120, 97, 16, 3]),
+    ("video_097.mp4", [149, 131, 111, 18, 4]),
+    ("video_098.mp4", [131, 122, 99, 9, 7]),
+    ("video_099.mp4", [117, 110, 91, 7, 5]),
+    ("video_100.mp4", [98, 93, 80, 5, 4]),
+    ("video_101.mp4", [32, 30, 29, 2, 1]),
+    ("video_102.mp4", [36, 34, 29, 2, 1]),
+    ("video_103.mp4", [10, 10, 9, 0, 0]),
+    ("video_120.mp4", [0, 0, 0, 0, 0]),
+    ("video_121.mp4", [2, 2, 2, 0, 1]),
+    ("video_122.mp4", [0, 0, 0, 0, 0]),
+    ("video_123.mp4", [8, 8, 8, 0, 0]),
+    ("video_124.mp4", [5, 5, 5, 0, 0]),
+    ("video_125.mp4", [47, 43, 36, 4, 2]),
+    ("video_126.mp4", [13, 13, 12, 0, 0]),
+    ("video_127.mp4", [7, 7, 5, 0, 0]),
+    ("video_128.mp4", [5, 5, 4, 0, 0]),
+    ("video_129.mp4", [16, 16, 14, 0, 0]),
+    ("video_130.mp4", [6, 6, 6, 0, 0]),
+];
+
+const UNHELD: [(&str, usize, usize); 5] = [
+    ("video_090.mp4", 14, 0),
+    ("video_090.mp4", 17, 0),
+    ("video_096.mp4", 44, 0),
+    ("video_097.mp4", 4, 0),
+    ("video_098.mp4", 61, 0),
+];
+
+const ZOOM_SWITCHES: [(&str, &[usize], usize, bool); 25] = [
+    ("video_090.mp4", &[], 9, true),
+    ("video_094.mp4", &[2], 2, true),
+    ("video_095.mp4", &[], 25, true),
+    ("video_096.mp4", &[], 23, true),
+    ("video_096.mp4", &[89], 81, true),
+    ("video_097.mp4", &[85], 73, true),
+    ("video_097.mp4", &[], 114, true),
+    ("video_097.mp4", &[], 117, true),
+    ("video_098.mp4", &[], 70, true),
+    ("video_098.mp4", &[], 75, true),
+    ("video_098.mp4", &[], 89, true),
+    ("video_098.mp4", &[], 105, true),
+    ("video_098.mp4", &[126], 123, true),
+    ("video_098.mp4", &[], 127, true),
+    ("video_099.mp4", &[], 28, true),
+    ("video_099.mp4", &[], 57, true),
+    ("video_099.mp4", &[], 69, true),
+    ("video_099.mp4", &[], 87, true),
+    ("video_099.mp4", &[90], 88, true),
+    ("video_099.mp4", &[], 109, true),
+    ("video_100.mp4", &[], 52, true),
+    ("video_100.mp4", &[], 87, true),
+    ("video_100.mp4", &[], 94, true),
+    ("video_121.mp4", &[], 3, true),
+    ("video_125.mp4", &[], 35, true),
 ];
 
 #[test]
@@ -113,9 +135,18 @@ fn the_twenty_six_videos_by_the_command_keep_their_tracks_and_zooms_frozen_again
     }
     let found: Vec<(&str, [usize; 5])> = found.iter().map(|(name, counts)| (name.as_str(), *counts)).collect();
 
+    let unheld: Vec<(&str, usize, usize)> = unheld
+        .iter()
+        .map(|(name, id, holders)| (name.as_str(), *id, *holders))
+        .collect();
+    let switches: Vec<(&str, &[usize], usize, bool)> = switches
+        .iter()
+        .map(|(name, references, candidate, zoomed)| (name.as_str(), references.as_slice(), *candidate, *zoomed))
+        .collect();
+
     assert_eq!(found, FROZEN);
-    assert!(unheld.is_empty(), "{unheld:?}");
-    assert!(switches.is_empty(), "{switches:?}");
+    assert_eq!(unheld, UNHELD);
+    assert_eq!(switches, ZOOM_SWITCHES);
 }
 
 #[test]

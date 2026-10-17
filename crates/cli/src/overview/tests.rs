@@ -4,7 +4,7 @@ use draw::canvas::PixelBox;
 use draw::color::{PALETTE, Rgb};
 use engine::settings::Region;
 use summary::Painted;
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::frame::FrameIndex;
 use types::track::Track;
 
@@ -42,6 +42,7 @@ fn seen_once(id: usize) -> Track {
         y: 10.0,
         area: 4.0,
         amplitude: 50.0,
+        strength: Strength::Strong,
         left: 9.0,
         top: 9.0,
         width: 2.0,

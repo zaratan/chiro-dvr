@@ -1,4 +1,4 @@
-use super::{Detection, FrameDetections, Measures};
+use super::{Detection, FrameDetections, Measures, Strength};
 use crate::frame::FrameIndex;
 use crate::span::Span;
 
@@ -13,6 +13,7 @@ fn detection(frame: usize, x: f64, y: f64) -> Detection {
         height: 3.0,
         area: 4.5,
         amplitude: 13.0,
+        strength: Strength::Strong,
     }
 }
 
@@ -26,6 +27,7 @@ fn measures(x: f64) -> Measures {
         height: 3.0,
         area: 4.5,
         amplitude: 13.0,
+        strength: Strength::Strong,
     }
 }
 
@@ -162,4 +164,29 @@ fn measures_read_from_a_line_of_the_v011_are_written_back_byte_for_byte() {
     let read: Measures = serde_json::from_str(line).unwrap();
 
     assert_eq!(serde_json::to_string(&read).unwrap(), line);
+}
+
+#[test]
+fn measures_written_before_weak_detections_existed_are_read_back_strong() {
+    let line = r#"{"x":1.5,"y":2.0,"left":1.0,"top":1.5,"width":1.5,"height":1.5,"area":2.25,"amplitude":13.5}"#;
+    let read: Measures = serde_json::from_str(line).unwrap();
+    assert_eq!(read.strength, Strength::Strong);
+}
+
+#[test]
+fn a_weak_detection_writes_its_strength_and_reads_it_back() {
+    let weak = Measures {
+        strength: Strength::Weak,
+        ..measures(5.0)
+    };
+    let line = serde_json::to_string(&weak).unwrap();
+    assert!(line.ends_with(r#","strength":"weak"}"#), "{line}");
+    assert_eq!(serde_json::from_str::<Measures>(&line).unwrap(), weak);
+}
+
+#[test]
+fn two_detections_joined_take_the_stronger_strength() {
+    assert_eq!(Strength::Weak.stronger(Strength::Strong), Strength::Strong);
+    assert_eq!(Strength::Strong.stronger(Strength::Weak), Strength::Strong);
+    assert_eq!(Strength::Weak.stronger(Strength::Weak), Strength::Weak);
 }

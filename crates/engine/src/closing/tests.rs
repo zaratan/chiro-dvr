@@ -103,7 +103,7 @@ fn a_radius_half_way_between_two_rounds_up() {
 fn a_radius_of_zero_closes_nothing() {
     let pixels = BTreeSet::from([0, 5, 6, 30, 200, 431]);
 
-    let closed = closing(0.0).run(&lit(&pixels)).to_vec();
+    let closed = closing(0.0).run(&[&lit(&pixels)]).to_vec();
 
     assert_eq!(closed, pixels.into_iter().collect::<Vec<_>>());
 }
@@ -113,7 +113,7 @@ fn a_radius_wider_than_the_frame_keeps_only_what_can_land_in_it_and_closes_the_s
     let pixels = BTreeSet::from([0, 13, 40, 250, 431]);
     let disk = Disk::new(1e12, geometry());
 
-    let closed = Closing::new(geometry(), &disk).run(&lit(&pixels)).to_vec();
+    let closed = Closing::new(geometry(), &disk).run(&[&lit(&pixels)]).to_vec();
 
     assert_eq!(disk.halves.len(), 2 * (HEIGHT - 1) + 1);
     assert!(disk.halves.iter().all(|&half| half < WIDTH));
@@ -124,7 +124,7 @@ fn a_radius_wider_than_the_frame_keeps_only_what_can_land_in_it_and_closes_the_s
 fn a_full_frame_flash_closes_to_the_whole_frame() {
     let every: BTreeSet<u32> = (0..(WIDTH * HEIGHT) as u32).collect();
 
-    let closed = closing(4.0).run(&lit(&every)).to_vec();
+    let closed = closing(4.0).run(&[&lit(&every)]).to_vec();
 
     assert_eq!(closed, every.into_iter().collect::<Vec<_>>());
 }
@@ -133,7 +133,7 @@ fn a_full_frame_flash_closes_to_the_whole_frame() {
 fn a_lone_pixel_in_a_corner_stays_lit_because_the_outside_counts_as_lit() {
     let corner = BTreeSet::from([0]);
 
-    assert_eq!(closing(4.0).run(&lit(&corner)), [0]);
+    assert_eq!(closing(4.0).run(&[&lit(&corner)]), [0]);
 }
 
 #[test]
@@ -142,8 +142,8 @@ fn one_closing_after_another_starts_from_a_clean_frame() {
     let first = BTreeSet::from([30, 31, 40, 200]);
     let second = BTreeSet::from([100, 104]);
 
-    closing.run(&lit(&first));
-    let again = closing.run(&lit(&second)).to_vec();
+    closing.run(&[&lit(&first)]);
+    let again = closing.run(&[&lit(&second)]).to_vec();
 
     assert_eq!(again, dense_closing(&second));
 }
@@ -154,7 +154,7 @@ proptest! {
         pixels in prop::collection::btree_set(0..(WIDTH * HEIGHT) as u32, 0..60),
         radius in 0..=6_usize,
     ) {
-        let closed = closing(radius as f64).run(&lit(&pixels)).to_vec();
+        let closed = closing(radius as f64).run(&[&lit(&pixels)]).to_vec();
 
         prop_assert_eq!(closed, dense_closing_by(radius, &pixels));
     }

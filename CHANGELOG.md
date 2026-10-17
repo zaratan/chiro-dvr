@@ -23,6 +23,7 @@ release échoue sans elle.
 
 ### Modifié
 
+- Une tache un peu trop faible pour le seuil, au-dessus des trois quarts, comble le trou d'une piste quand une vraie tache la précède et la suit de près, sur le même chemin : les pistes rapides ont un cinquième de positions estimées en moins (mesuré sur 26 vidéos), et quelques pistes de plus apparaissent. Une tache faible n'ouvre jamais de piste et ne passe jamais avant une vraie tache, pour ne pas réunir deux chauves-souris voisines (#21).
 - La détection prend environ 10 % de temps en moins sur un Mac à puce Apple et 4 % sous Linux, sans changer ses résultats (#214).
 - Dans la page de résultats, le début d'une piste s'écrit partout comme dans le tableau des pistes (« 0:00:51 ») : la liste et le survol de la frise ne l'écrivent plus au centième (#304).
 - Le tableau des pistes n'a plus de colonne `verdict` et appartient à l'outil : un recalcul le remplace quoi qu'il contienne. La mise de côté datée d'un tableau annoté (#83) est retirée, ainsi que la section « Tableau mis de côté » du bilan ; les tableaux déjà mis de côté restent où ils sont (#228).

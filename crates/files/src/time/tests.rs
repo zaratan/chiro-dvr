@@ -1,4 +1,4 @@
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::frame::{FrameIndex, Pts};
 use types::language::Language;
 use types::rate::FrameRate;
@@ -113,6 +113,7 @@ fn still_on(frames: &[usize]) -> Track {
             height: 2.0,
             area: 4.0,
             amplitude: 30.0,
+            strength: Strength::Strong,
         })
         .collect();
     Track::new(1, points).unwrap()

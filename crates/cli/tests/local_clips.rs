@@ -112,8 +112,8 @@ fn groups_over_damaged_spans_serve_the_pixels_of_a_single_threaded_reading_from_
 
 #[test]
 #[ignore = "local"]
-fn the_windows_of_the_twenty_six_videos_keep_their_gaps_to_those_of_the_v020_tracks_frozen_where_flights_are_rejoined()
-{
+fn the_windows_of_the_twenty_six_videos_keep_their_gaps_to_those_of_the_v020_tracks_frozen_where_weak_detections_complete_or_rejoin_flights()
+ {
     let mut videos = Vec::new();
     let mut diverging: Vec<Diverging> = Vec::new();
     for directory in recording_directories(Reference::V020).unwrap() {
@@ -153,17 +153,21 @@ fn the_windows_of_the_twenty_six_videos_keep_their_gaps_to_those_of_the_v020_tra
     assert_eq!(
         diverging,
         [
-            ("video_093", 4, 6, 2, 4),
-            ("video_094", 13, 14, 1, 2),
-            ("video_095", 67, 78, 10, 21),
-            ("video_096", 123, 136, 12, 25),
-            ("video_097", 134, 149, 11, 26),
-            ("video_098", 123, 131, 7, 15),
-            ("video_099", 110, 117, 7, 14),
-            ("video_100", 93, 98, 5, 10),
-            ("video_101", 31, 32, 1, 2),
-            ("video_102", 35, 36, 1, 2),
-            ("video_125", 44, 47, 3, 6),
+            ("video_090", 20, 20, 5, 5),
+            ("video_091", 21, 21, 1, 1),
+            ("video_093", 4, 6, 3, 5),
+            ("video_094", 13, 14, 3, 4),
+            ("video_095", 66, 78, 11, 23),
+            ("video_096", 123, 136, 22, 35),
+            ("video_097", 135, 149, 16, 30),
+            ("video_098", 129, 131, 16, 19),
+            ("video_099", 115, 117, 14, 16),
+            ("video_100", 97, 98, 10, 11),
+            ("video_101", 31, 32, 3, 4),
+            ("video_102", 35, 36, 3, 4),
+            ("video_103", 10, 10, 1, 1),
+            ("video_121", 3, 2, 1, 0),
+            ("video_125", 45, 47, 5, 7),
         ]
     );
 }

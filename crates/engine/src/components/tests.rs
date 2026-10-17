@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::num::NonZeroU32;
 
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::frame::FrameIndex;
 use types::size::SourceSize;
 
@@ -22,10 +22,14 @@ fn geometry() -> Geometry {
 }
 
 fn detected(lit: &[Lit]) -> Vec<Detection> {
+    detected_with_weak(lit, &[])
+}
+
+fn detected_with_weak(lit: &[Lit], weak: &[Lit]) -> Vec<Detection> {
     let geometry = geometry();
     let mut closing = Closing::new(geometry, &Disk::new(4.0, geometry));
     let mut found = Vec::new();
-    Components::new(geometry, &DetectConfig::default()).run(closing.run(lit), lit, &mut found);
+    Components::new(geometry, &DetectConfig::default()).run(closing.run(&[lit, weak]), lit, weak, &mut found);
     found.into_iter().map(|measures| measures.at(FRAME)).collect()
 }
 
@@ -133,6 +137,7 @@ fn one_by_one(closed: &[u32], lit: &[Lit]) -> Vec<Detection> {
                 height: scale.length_to_source((bottom - top + 1) as f64),
                 area,
                 amplitude: f64::from(hits.iter().copied().fold(0.0, f32::max)) / 64.0,
+                strength: Strength::Strong,
             });
         }
     }
@@ -142,7 +147,9 @@ fn one_by_one(closed: &[u32], lit: &[Lit]) -> Vec<Detection> {
 #[test]
 fn many_blobs_are_measured_as_one_by_one_in_scanning_order() {
     let lit = many_blobs_with_bridged_pairs();
-    let closed = Closing::new(geometry(), &Disk::new(4.0, geometry())).run(&lit).to_vec();
+    let closed = Closing::new(geometry(), &Disk::new(4.0, geometry()))
+        .run(&[&lit])
+        .to_vec();
 
     let found = detected(&lit);
 
@@ -166,6 +173,7 @@ fn a_blob_is_placed_boxed_and_measured_in_source_pixels() {
             height: 3.0,
             area: 9.0,
             amplitude: 12.5,
+            strength: Strength::Strong,
         }],
     );
 }
@@ -222,10 +230,22 @@ fn one_frame_after_another_starts_from_unlabelled_pixels() {
     let second = square(12, 22, 2, 900.0);
     let mut found = Vec::new();
 
-    components.run(closing.run(&first), &first, &mut found);
+    components.run(closing.run(&[&first]), &first, &[], &mut found);
     found.clear();
-    components.run(closing.run(&second), &second, &mut found);
+    components.run(closing.run(&[&second]), &second, &[], &mut found);
 
     let again: Vec<Detection> = found.into_iter().map(|measures| measures.at(FRAME)).collect();
     assert_close(&again, &detected(&second));
+}
+
+#[test]
+fn a_blob_is_strong_with_a_single_strong_pixel_and_weak_without_any() {
+    let touched = square(40, 40, 4, 600.0);
+    let (one, rest) = touched.split_at(1);
+    let faint = square(200, 40, 4, 600.0);
+
+    let found = detected_with_weak(one, &[rest, &faint].concat());
+
+    let strengths: Vec<Strength> = found.iter().map(|detection| detection.strength).collect();
+    assert_eq!(strengths, [Strength::Strong, Strength::Weak]);
 }

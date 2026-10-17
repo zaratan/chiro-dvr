@@ -1,6 +1,6 @@
 use std::fs;
 
-use types::detection::{FrameDetections, Measures};
+use types::detection::{FrameDetections, Measures, Strength};
 use types::frame::Pts;
 
 use super::{FrameEntry, Frames};
@@ -16,6 +16,7 @@ fn measures() -> Measures {
         height: 1.5,
         area: 4.5,
         amplitude: 13.370_320_638_020_829,
+        strength: Strength::Strong,
     }
 }
 

@@ -8,6 +8,7 @@ use types::frame::FrameIndex;
 
 use crate::background::BackgroundFrames;
 use crate::blur::{self, Blur};
+use crate::bracketing::bracketed;
 use crate::closing::Disk;
 use crate::config::{self, DetectConfig};
 use crate::damage::Damage;
@@ -136,7 +137,7 @@ pub fn detect_injected(
         detector.push(frame.y(), |copy| inject(info.index(), LumaMut::of_frame(copy, width)));
         Ok::<(), Error>(())
     })?;
-    let detections = detector.finish();
+    let detections = bracketed(&detector.finish());
     let damage = Damage::of(&reading, half_window.get());
     let background = background.into_background(damage.spans());
     Ok(Detected {

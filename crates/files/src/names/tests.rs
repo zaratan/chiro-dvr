@@ -2,7 +2,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::frame::FrameIndex;
 use types::language::Language;
 use types::track::Track;
@@ -22,6 +22,7 @@ fn track(id: usize) -> Track {
         height: 3.0,
         area: 9.0,
         amplitude: 80.0,
+        strength: Strength::Strong,
     };
     Track::new(id, vec![point]).unwrap()
 }

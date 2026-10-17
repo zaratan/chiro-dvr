@@ -218,7 +218,7 @@ fn the_092_by_the_command_keeps_its_tracks_frozen_against_the_v020_with_their_cl
 
 #[test]
 #[ignore = "reference"]
-fn the_whole_092_keeps_the_gaps_frozen_against_the_v020_on_its_detections_and_tracks() {
+fn the_whole_092_keeps_its_fourteen_tracks_of_the_v020_and_only_adds_twenty_weak_detections() {
     let defaults = shared().defaults.as_ref().unwrap();
     let recording = Recording::read(&committed(Reference::V020, WHOLE)).unwrap();
     assert_eq!(recording.summary.video.name, format!("{WHOLE}.mp4"));
@@ -238,16 +238,17 @@ fn the_whole_092_keeps_the_gaps_frozen_against_the_v020_on_its_detections_and_tr
     .unwrap();
 
     write_report(slice::from_ref(&comparison), &mut io::stdout().lock()).unwrap();
-    assert_eq!(comparison.gaps(), Gaps::agreeing(14));
+    assert_eq!(comparison.gaps(), Gaps::added_only(19, 20, [14, 14, 0, 0]));
 }
 
 #[test]
 #[ignore = "reference"]
-fn the_whole_092_worked_at_1440_pixels_keeps_the_gaps_frozen_against_the_v020() {
+fn the_whole_092_worked_at_1440_pixels_adds_one_track_a_second_piece_of_the_pass_at_1_49_completed_by_a_weak_detection()
+{
     let comparison = shared().at_1440.as_ref().unwrap();
 
     write_report(slice::from_ref(comparison), &mut io::stdout().lock()).unwrap();
-    assert_eq!(comparison.gaps(), Gaps::agreeing(14));
+    assert_eq!(comparison.gaps(), Gaps::added_only(9, 9, [14, 14, 0, 1]));
 }
 
 #[test]

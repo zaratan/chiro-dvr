@@ -1,6 +1,6 @@
 use std::fs;
 
-use types::detection::{FrameDetections, Measures};
+use types::detection::{FrameDetections, Measures, Strength};
 
 use super::{
     Patch, TargetLine, read_detections, read_report, read_targets, write_detections, write_report, write_targets,
@@ -102,6 +102,7 @@ fn measures(x: f64) -> Measures {
         height: 6.0,
         area: 24.75,
         amplitude: -21.334_605_477_072_97,
+        strength: Strength::Strong,
     }
 }
 

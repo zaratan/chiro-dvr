@@ -22,7 +22,7 @@ use render::config::{RenderConfig, Zoom, ZoomConfig};
 use render::windows::clip_windows;
 use summary::header::{Band, HeaderLine, Labels};
 use tracking::exclusion::Exclusion;
-use types::detection::{Detection, FrameDetections};
+use types::detection::{Detection, FrameDetections, Strength};
 use types::frame::{FrameIndex, Pts};
 use types::language::Language;
 use types::rate::FrameRate;
@@ -51,6 +51,7 @@ fn still(id: usize) -> Track {
             height: 10.0,
             area: 100.0,
             amplitude: 40.0,
+            strength: Strength::Strong,
         })
         .collect();
     Track::new(id, points).unwrap()

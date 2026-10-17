@@ -36,15 +36,15 @@ const ALONG_THE_EDGE_ZOOM: Frozen = Frozen {
 };
 const ZOOMED_FOUR_TIMES_ZOOM: Frozen = Frozen {
     frames: 110,
-    fingerprint: 17_777_991_179_345_001_169,
+    fingerprint: 14_403_198_931_176_304_616,
 };
 const SHORT_TRACK_CLIP: Frozen = Frozen {
     frames: 96,
-    fingerprint: 912_426_859_394_260_697,
+    fingerprint: 10_990_300_987_943_497_459,
 };
 const INTERPOLATED_BOX_CLIP: Frozen = Frozen {
     frames: 270,
-    fingerprint: 6_458_377_840_674_619_821,
+    fingerprint: 980_471_138_442_225_676,
 };
 const CROWDED_097: [(&str, u64); 8] = [
     ("video_097_resume_1_sur_8.png", 3_016_591_617_919_252_239),

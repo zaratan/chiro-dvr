@@ -1,5 +1,5 @@
 use reference::recording::Recording;
-use types::detection::{Detection, FrameDetections, Measures};
+use types::detection::{Detection, FrameDetections, Measures, Strength};
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
@@ -209,6 +209,7 @@ fn gaps_at_most_30_frames_apart_form_one_group_and_31_frames_split() {
         height: 3.0,
         area: 4.5,
         amplitude: 20.0,
+        strength: Strength::Strong,
     };
     let mut agreement = agreement(recording.frames.detections(), &recording);
     agreement.gaps = vec![
