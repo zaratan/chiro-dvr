@@ -1,6 +1,6 @@
 too-many-tracks = { $video } : { $count } pistes, au-delà de { $limit } : { $annotated ->
-        [yes] extraits et vidéo annotée non écrits
-       *[no] extraits non écrits
+        [yes] ni extraits, ni image résumé, ni vidéo annotée
+       *[no] ni extraits ni image résumé
     }
 clips-redone = { $video } : { $names } { $count ->
         [one] réécrit
@@ -56,15 +56,16 @@ failure-todo = {"  "}à faire : { $cause ->
         [damaged] la recopier depuis les jumelles par le câble USB, sans passer par Stream Vision 2, puis relancer ; si elle reste abîmée, le signaler
         [unsupported] le signaler, avec le détail ci-dessous
         [settings] relancer sans --work-width ni --osd-region
-        [disk-full] libérer de la place sur le disque de { $folder }, puis relancer
+        [disk-full] libérer de la place sur le disque qui contient { $folder }, puis relancer
         [forbidden] vérifier les droits de ce dossier, ou en choisir un autre avec -o
         [in-use] le fermer, puis relancer
         [encoding] relancer ; si cela recommence, le signaler avec le détail ci-dessous
-        [too-many-tracks] regarder l'image résumé ; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
-        [input-missing] vérifier le chemin ; le dossier ou la vidéo a peut-être été déplacé ou renommé
+        [too-many-tracks] ouvrir le tableau des pistes et regarder la vidéo à quelques-uns de ses temps ; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
+        [input-missing] vérifier le chemin { $folder } ; le dossier ou la vidéo a peut-être été déplacé ou renommé
+        [input-read-refused] vérifier les droits de { $folder } ; sur Mac, autoriser le Terminal dans Réglages Système, Confidentialité et sécurité, Fichiers et dossiers
         [unreachable] vérifier que le disque est toujours branché, puis relancer ; si cela recommence, le signaler
         [not-a-video-name] ne donner que des vidéos, ou des dossiers de vidéos
-        [no-video] vérifier que c'est le bon dossier : seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers
+        [no-video] vérifier que { $folder } est le bon dossier : seules les vidéos posées directement dedans sont traitées, pas celles de ses sous-dossiers
         [shared-folder] renommer l'une de ces vidéos, ou les traiter en deux fois avec un -o différent
         [read-only] copier les vidéos sur le Mac, ou choisir un autre dossier avec -o
         [other-folder] choisir un autre dossier avec -o
@@ -144,7 +145,7 @@ setting-refused = { $option } doit être { $bound ->
         [at-least] un entier ≥ { $limit }
        *[up-to] un nombre fini entre 0 et { $limit }
     }, pas { $value }
-region-refused = --osd-region { $index } ne vérifie pas 0 ≤ x0 < x1 ≤ 1 et 0 ≤ y0 < y1 ≤ 1 : { $region }
+region-refused = la zone n° { $index } de --osd-region ne vérifie pas 0 ≤ x0 < x1 ≤ 1 et 0 ≤ y0 < y1 ≤ 1 : { $region }
 clip-margin-refused = --clip-margin doit être un nombre fini de secondes, au moins 0, pas { $value }
 settings-refused = les réglages par défaut sont refusés ; le signaler
 option-refused = { $option } ne peut pas s'appliquer ; le signaler
@@ -202,7 +203,7 @@ tally-not-analysed = non analysé
 tally-compute = calcul
 tally-failed-cell = échec
 tally-too-many-cell = { $count }, trop
-tally-too-many-heading = Trop de pistes (tableau et image résumé écrits, pas d'extraits) :
+tally-too-many-heading = Trop de pistes (tableau écrit, ni extraits ni image résumé) :
 tally-too-many = { $video } : { $count } pistes, au-delà de { $limit }
 tally-failed-heading = { $failed ->
         [one] { $failed } vidéo

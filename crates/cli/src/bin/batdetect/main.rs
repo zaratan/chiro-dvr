@@ -62,6 +62,7 @@ fn main() -> ExitCode {
     let status = Arc::new(
         Status::new(texts, io::stderr().is_terminal(), jobs.len())
             .redoing_all(request.admission.force)
+            .naming(&jobs)
             .fitted_to(terminal::stderr_columns)
             .timed(Evening::new(stock.frames_to_compute())),
     );

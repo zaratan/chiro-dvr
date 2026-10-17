@@ -23,6 +23,10 @@ pub(crate) const PROGRAM: &str = env!("CARGO_BIN_NAME");
 pub(crate) const MIN_HITS: &str = "min-hits";
 pub(crate) const MAX_BLOBS: &str = "max-blobs";
 pub(crate) const OSD_REGION: &str = "osd-region";
+pub(crate) const ZOOM: &str = "zoom";
+pub(crate) const ANNOTATED: &str = "annotated";
+pub(crate) const MAX_TRACKS: &str = "max-tracks";
+pub(crate) const CLIP_MARGIN: &str = "clip-margin";
 const SKIP_REFUSED: &str = "skip-refused";
 const NO_NOTIFY: &str = "no-notify";
 const FORCE: &str = "force";
@@ -99,8 +103,8 @@ fn essential_arguments(texts: Texts) -> Vec<Arg> {
                 &texts.text(Fixed::BesideTheVideos),
                 texts,
             )),
-        Arg::new("zoom")
-            .long("zoom")
+        Arg::new(ZOOM)
+            .long(ZOOM)
             .value_name(texts.text(Fixed::ValueWhich))
             .default_value(Zoom::Auto.name())
             .hide_default_value(true)
@@ -120,12 +124,12 @@ fn essential_arguments(texts: Texts) -> Vec<Arg> {
 fn useful_arguments(level: Level, texts: Texts) -> Vec<Arg> {
     let render = RenderConfig::default();
     vec![
-        Arg::new("annotated")
-            .long("annotated")
+        Arg::new(ANNOTATED)
+            .long(ANNOTATED)
             .action(ArgAction::SetTrue)
             .help(texts.text(Fixed::AnnotatedHelp)),
         number(
-            "max-tracks",
+            MAX_TRACKS,
             &render.max_tracks(),
             Fixed::ValueCount,
             Fixed::MaxTracksHelp,
@@ -133,7 +137,7 @@ fn useful_arguments(level: Level, texts: Texts) -> Vec<Arg> {
         )
         .value_parser(Reader::<usize>::exact(Expected::Setting(Bound::AtLeast(0)))),
         number(
-            "clip-margin",
+            CLIP_MARGIN,
             &render.clip_margin_s(),
             Fixed::ValueSeconds,
             Fixed::ClipMarginHelp,
@@ -333,12 +337,12 @@ fn options(matches: &mut ArgMatches, texts: Texts) -> Result<Options, clap::Erro
     )
     .map_err(|error| refusal(texts, &messages::tracking_refused(MAX_BLOBS, &error)))?;
     let default_render = RenderConfig::default();
-    let choice = one::<Zoom>(matches, "zoom", texts)?;
+    let choice = one::<Zoom>(matches, ZOOM, texts)?;
     let render = RenderConfig::new(
         default_render.box_pad(),
         default_render.trail_s(),
-        one(matches, "clip-margin", texts)?,
-        one(matches, "max-tracks", texts)?,
+        one(matches, CLIP_MARGIN, texts)?,
+        one(matches, MAX_TRACKS, texts)?,
     )
     .map_err(|error| refusal(texts, &messages::render_refused(&error)))?
     .with_zoom(ZoomConfig::choosing(choice));
@@ -347,7 +351,7 @@ fn options(matches: &mut ArgMatches, texts: Texts) -> Result<Options, clap::Erro
         track,
         stability,
         render,
-        annotated: matches.get_flag("annotated"),
+        annotated: matches.get_flag(ANNOTATED),
     })
 }
 

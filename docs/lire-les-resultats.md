@@ -126,7 +126,7 @@ calcul efface les fichiers de l'autre langue.
   petites ou faibles ([Juger un extrait](#juger-un-extrait)).
 - La vidéo annotée, la vidéo entière avec toutes les pistes dessinées, n'est écrite qu'avec
   `--annotated` ; sans l'option, celle d'un calcul précédent est effacée. Au-delà du
-  [garde-fou](#garde-fou-du-nombre-de-pistes), il n'y a ni extraits ni vidéo annotée.
+  [garde-fou](#garde-fou-du-nombre-de-pistes), il n'y a ni extraits, ni image résumé, ni vidéo annotée.
 - `params.json` s'écrit en dernier : un dossier sans lui n'est pas terminé (calcul interrompu,
   ou vidéo en échec autrement qu'au-delà du garde-fou), et la vidéo est refaite à la relance.
 - Le tableau français s'ouvre dans un tableur réglé en français (point-virgule, virgule
@@ -410,10 +410,7 @@ de l'image résumé est obtenu de la même façon, mais sur toute la vidéo.
 
 ### Garde-fou du nombre de pistes
 
-Au-delà d'un certain nombre de pistes, elles sont presque sûrement du bruit d'image :
-l'outil écrit l'image résumé et le tableau des pistes, mais aucun extrait. Le bilan de la
-soirée compte cette vidéo à part, avec son nombre de pistes, et les autres vidéos du lot
-sont traitées normalement.
+Au-delà d'un certain nombre de pistes, elles sont presque sûrement du bruit d'image : l'outil écrit le tableau des pistes, mais ni extraits ni image résumé. Pour en juger, ouvrir le tableau et regarder la vidéo à quelques-uns de ses temps ; si ce sont de vrais passages, relancer avec un `--max-tracks` plus grand. Le bilan de la soirée compte cette vidéo à part, avec son nombre de pistes, et les autres vidéos du lot sont traitées normalement.
 
 ### Image résumé
 
@@ -468,8 +465,7 @@ d'un même objet, et dont le trajet ressemble à un vol
 ([docs/10](10-logique-de-detection.md#7-relier-les-taches-dans-le-temps--le-suivi),
 [§ 9](10-logique-de-detection.md#9-garder-ce-qui-ressemble-à-un-vol)). Ce peut être une
 chauve-souris, un autre animal ou du bruit d'image, et un même vol peut être coupé en deux
-pistes ; chaque piste a sa pastille sur l'image résumé, sa ligne dans le tableau des pistes
-et, sauf au-delà du garde-fou, son extrait.
+pistes ; chaque piste a sa ligne dans le tableau des pistes et, sauf au-delà du garde-fou, sa pastille sur l'image résumé et son extrait.
 
 ### Point
 

@@ -61,7 +61,7 @@ fn unopened() -> RefusedInput {
 }
 
 #[test]
-fn each_refused_input_says_its_reason_then_what_to_do() {
+fn each_refused_input_says_its_reason_then_what_to_do_both_breakable_at_the_path_separators() {
     let card = refused(
         &Refusals {
             date: None,
@@ -71,7 +71,7 @@ fn each_refused_input_says_its_reason_then_what_to_do() {
     );
     let reason = card.find("RefusedInput { path: &quot;/<wbr>nuit/<wbr>video_093.mp4&quot;, reason: &quot;unopened&quot;, cause: Some(&quot;unsupported&quot;)").unwrap();
     let todo = card
-        .find("Todo { cause: &quot;unsupported&quot;, folder: &quot;/nuit/video_093.mp4&quot; }")
+        .find("Todo { cause: &quot;unsupported&quot;, folder: &quot;/<wbr>nuit/<wbr>video_093.mp4&quot; }")
         .unwrap();
     assert!(reason < todo);
     assert!(card.contains("Detail(&quot;codec hevc&quot;)"));

@@ -15,6 +15,7 @@ mod tests;
 
 const CURRENT_FOLDER: &str = ".";
 const INPUT_MISSING: &str = "input-missing";
+const INPUT_READ_REFUSED: &str = "input-read-refused";
 pub const UNREACHABLE: &str = "unreachable";
 const NOT_A_VIDEO_NAME: &str = "not-a-video-name";
 pub const NO_VIDEO: &str = "no-video";
@@ -59,8 +60,16 @@ impl Reason {
 
     pub const fn todo(&self) -> &'static str {
         match self {
-            Self::Missing | Self::Unreadable(Access::Missing | Access::NotAFolder) => INPUT_MISSING,
-            Self::Unreadable(Access::Refused) => Cause::ReadRefused.key(),
+            Self::Missing
+            | Self::Unreadable(Access::Missing | Access::NotAFolder)
+            | Self::Unopened {
+                cause: Cause::Missing, ..
+            } => INPUT_MISSING,
+            Self::Unreadable(Access::Refused)
+            | Self::Unopened {
+                cause: Cause::ReadRefused,
+                ..
+            } => INPUT_READ_REFUSED,
             Self::Unreadable(Access::ReadOnly | Access::DiskFull | Access::Unavailable) => UNREACHABLE,
             Self::NotAVideo => NOT_A_VIDEO_NAME,
             Self::NoVideo => NO_VIDEO,

@@ -1,6 +1,6 @@
 too-many-tracks = { $video }: { $count } tracks, above { $limit }: { $annotated ->
-        [yes] clips and annotated video skipped
-       *[no] clips skipped
+        [yes] no clips, no summary image, no annotated video
+       *[no] no clips, no summary image
     }
 clips-redone = { $video }: { $names } written again with openh264 after a VideoToolbox error: { $causes }
 video-step = [{ $position }/{ $total }] { $video } — { $step ->
@@ -52,15 +52,16 @@ failure-todo = {"  "}what to do: { $cause ->
         [damaged] copy it again from the binoculars over the USB cable, not through Stream Vision 2, then run again; if it stays damaged, report it
         [unsupported] report it, with the detail below
         [settings] run again without --work-width or --osd-region
-        [disk-full] free some space on the disk of { $folder }, then run again
+        [disk-full] free some space on the disk holding { $folder }, then run again
         [forbidden] check the rights of this folder, or choose another one with -o
         [in-use] close it, then run again
         [encoding] run again; if it happens again, report it with the detail below
-        [too-many-tracks] look at the summary image; if these are real passes, run again with a larger --max-tracks
-        [input-missing] check the path; the folder or the video may have been moved or renamed
+        [too-many-tracks] open the tracks table and watch the video at a few of its times; if these are real passes, run again with a larger --max-tracks
+        [input-missing] check the path { $folder }; the folder or the video may have been moved or renamed
+        [input-read-refused] check the rights of { $folder }; on a Mac, allow the Terminal in System Settings, Privacy & Security, Files and Folders
         [unreachable] check that the disk is still connected, then run again; if it happens again, report it
         [not-a-video-name] give only videos, or folders of videos
-        [no-video] check it is the right folder: only the videos directly inside it are processed, not those of its subfolders
+        [no-video] check that { $folder } is the right folder: only the videos directly inside it are processed, not those of its subfolders
         [shared-folder] rename one of these videos, or process them in two runs with a different -o
         [read-only] copy the videos to the Mac, or choose another folder with -o
         [other-folder] choose another folder with -o
@@ -131,7 +132,7 @@ setting-refused = { $option } must be { $bound ->
         [at-least] an integer ≥ { $limit }
        *[up-to] a finite number between 0 and { $limit }
     }, not { $value }
-region-refused = --osd-region { $index } does not satisfy 0 ≤ x0 < x1 ≤ 1 and 0 ≤ y0 < y1 ≤ 1: { $region }
+region-refused = region no. { $index } of --osd-region does not satisfy 0 ≤ x0 < x1 ≤ 1 and 0 ≤ y0 < y1 ≤ 1: { $region }
 clip-margin-refused = --clip-margin must be a finite number of seconds, at least 0, not { $value }
 settings-refused = the default settings are refused; please report it
 option-refused = { $option } cannot be applied; please report it
@@ -183,7 +184,7 @@ tally-not-analysed = not analysed
 tally-compute = compute
 tally-failed-cell = failed
 tally-too-many-cell = { $count }, too many
-tally-too-many-heading = Too many tracks (table and summary image written, no clips):
+tally-too-many-heading = Too many tracks (table written, no clips, no summary image):
 tally-too-many = { $video }: { $count } tracks, above { $limit }
 tally-failed-heading = { $failed ->
         [one] { $failed } video

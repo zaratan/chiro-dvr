@@ -1913,6 +1913,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       porte le réglage refusé (`Seconds::ClipMargin`), et non son nom en texte.
     - `--osd-region` se lit par `FromStr for engine::settings::Region` (`x0,y0,x1,y1`), la
       même lecture que le banc ; `Display` l'écrit de la même façon.
+    - Une zone dont les bornes ne vérifient pas `0 ≤ x0 < x1 ≤ 1` et `0 ≤ y0 < y1 ≤ 1` est refusée par son numéro parmi les zones données : « la zone n° 2 de --osd-region ne vérifie pas … : -0.1,0,1,1 » (« region no. 2 of --osd-region … » en anglais, #221). Avant, « --osd-region 2 » se lisait comme une valeur.
     - Le rappel des réglages avancés modifiés ira dans le bilan (#65) ; `params.json` les
       enregistre déjà. `--force` part à #70.
   - Un dossier donne ses vidéos (`mp4`, `mov`, `avi`, `mkv`, `m4v`), par ordre de nom, au
@@ -1924,11 +1925,10 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - Une vidéo nommée, cachée ou non, reste jugée sur sa seule extension.
   - Refus en bloc avant tout calcul (`jobs::plan`, #55). Toutes les entrées sont relevées
     avant la première détection, et une seule fautive arrête tout le lot (code 2, aucun
-    dossier créé). Chaque refus est une ligne « chemin : raison », sous « aucune vidéo
+    dossier créé). Chaque refus est une ligne « nom : raison », sous « aucune vidéo
     n'est traitée : », sans ligne d'usage ni renvoi à l'aide. Sous chaque refus vient, en
     retrait, sa ligne « à faire » (#239), comme sous un échec du bilan. Ses textes sont des
-    clés du même message `failure-todo`. Une lecture refusée reprend la clé de l'échec
-    équivalent, `read-refused`. Les autres ont leur clé : `input-missing` (introuvable, ou
+    clés du même message `failure-todo`, propres aux entrées : `input-read-refused` (lecture refusée), `input-missing` (introuvable, ou
     un élément du chemin qui n'est pas un dossier : « le dossier ou la vidéo a peut-être
     été déplacé ou renommé », quand l'échec `missing` ne parle que de la vidéo),
     `unreachable` (inaccessible), `not-a-video-name`, `no-video`, `shared-folder`. Les raisons, typées par
@@ -1941,7 +1941,8 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       sinon inaccessible) ;
     - plusieurs vidéos vers le même dossier de résultats : une ligne par dossier, qui
       nomme toutes ses vidéos, après les refus d'entrées puisque ce sont des sorties.
-    - vidéo qui ne s'ouvre pas (`Reason::Unopened`, #62), vue par l'inventaire, après les précédentes : sa ligne est la phrase de l'échec équivalent et son « à faire » celui de cet échec (`failure::reading_cause`, la classification d'une lecture ratée), suivi du détail anglais quand ce « à faire » y renvoie (`unsupported`). Le bilan reprend les mêmes lignes, détail compris, puisque ce « à faire » y renvoie ; un échec à son tour, lui, y perd son détail.
+    - vidéo qui ne s'ouvre pas (`Reason::Unopened`, #62), vue par l'inventaire, après les précédentes : sa ligne est la phrase de l'échec équivalent et son « à faire » celui de cet échec (`failure::reading_cause`, la classification d'une lecture ratée), suivi du détail anglais quand ce « à faire » y renvoie (`unsupported`). Une vidéo introuvable ou dont la lecture est refusée prend les clés d'entrée, `input-missing` et `input-read-refused`, qui portent son chemin. Le bilan reprend les mêmes lignes, détail compris, puisque ce « à faire » y renvoie ; un échec à son tour, lui, y perd son détail.
+    - Nom et chemin (#247) : la ligne refusée nomme l'entrée par le dernier nom de son chemin (`messages::last_name`), comme on la voit dans le Finder ; un chemin glissé dans le Terminal est absolu et noyait la raison. Le chemin entier reste dans le « à faire » quand il sert à agir : `input-missing` (« vérifier le chemin {chemin} »), `input-read-refused` (« vérifier les droits de {chemin} ») et `no-video` (« vérifier que {chemin} est le bon dossier »). Les autres « à faire » n'en ont pas besoin. Le disque trop petit (#61) garde le chemin entier du dossier de résultats, qui nomme le disque, et les dossiers où l'on ne peut pas écrire gardent le leur. La page (`sheet.rs`) raccourcit la ligne de la même façon : le test qui compare la page au terminal le tient.
 
     Si toutes les entrées sont des dossiers sans vidéo, le refus devient « aucune vidéo
     (mp4, mov, avi, mkv ou m4v) trouvée dans ce dossier : », suivi des dossiers, chacun
@@ -2028,7 +2029,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     - La sonde d'écriture (`writable::unwritable_folders`) passe dans `admission`, après l'inventaire et avant le contrôle de place : un dossier de résultats où rien ne s'écrit n'est refusé qu'une fois, pour l'écriture.
   - Contrôle de place par vidéo (`process::room_for_clips`, #61), après le suivi et l'image résumé, juste avant les extraits, même sous `--ignore-disk`.
     - L'estimation est presque exacte : secondes des fenêtres d'extrait (piste et marges, `render::windows::clip_windows`) et de zoom (pistes que `ZoomConfig::wants` retient), multipliées par le débit de la vidéo d'entrée et par leur coefficient, plus la vidéo annotée (`space::render_estimate`). Au-delà de `--max-tracks`, rien n'est compté, puisque rien n'est rendu.
-    - Si elle dépasse la place libre du volume du dossier de la vidéo, sans marge, la vidéo échoue avec `Error::DiskSpace`, classée « disque plein » : son « à faire » dit de libérer de la place sur le disque du dossier. `params.json` n'est pas écrit, la vidéo sera refaite à la relance, et la suivante est tentée.
+    - Si elle dépasse la place libre du volume du dossier de la vidéo, sans marge, la vidéo échoue avec `Error::DiskSpace`, classée « disque plein » : son « à faire » dit de libérer de la place « sur le disque qui contient » le dossier, la même tournure que le contrôle au lancement (#221). `params.json` n'est pas écrit, la vidéo sera refaite à la relance, et la suivante est tentée.
     - Les tests des deux contrôles prennent une vraie vidéo allongée par `set_len` à 10 To, en fichier épars : FFmpeg la lit comme l'originale, et son estimation dépasse tout disque, sans couture dans le code. Ils ne tournent que sous Unix.
   - Bilan de fin de soirée (#65), écrit une fois après `run_all`, sur la sortie standard.
     - Modèle sans texte dans la bibliothèque : `tally::Tally` (les `Row` de `run_all`),
@@ -2079,8 +2080,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       - `Processed` et `Error::TooManyTracks` les portent. `TooManyTracks` porte aussi le
         CSV laissé : il naît dans `render_clips`, après le CSV.
     - Sous le tableau, des sections omises quand elles sont vides, dont :
-      - « Trop de pistes (tableau et image résumé écrits, pas d'extraits) », avec le « à
-        faire » de #64 ;
+      - « Trop de pistes (tableau écrit, ni extraits ni image résumé) », avec le « à faire » de #64 : « ouvrir le tableau des pistes et regarder la vidéo à quelques-uns de ses temps ; si ce sont de vrais passages, relancer avec un --max-tracks plus grand » (#221) ;
       - « 1 vidéo sur 12 en échec », avec la raison et le « à faire » de #64, sans le
         détail anglais, qui reste sur la sortie d'erreur. Le « à faire » qui renvoie au
         détail ci-dessous devient, dans le bilan, « avec le détail écrit pendant le
@@ -2090,10 +2090,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       - « Tableau laissé tel quel » (#115), pour une entrée qui n'a pas pu être mise de
         côté parce qu'elle n'est pas un fichier, ou pour un fichier qui occupe encore le
         nom (autre casse) ;
-      - « Réglages changés : --threshold 11, --max-blobs 0 ». Ce sont les cinq réglages de
-        la détection (`--threshold`, `--min-hits`, `--max-blobs`, `--work-width`,
-        `--osd-region` avec son nombre de zones), donnés par `Options::changed`, avec
-        leur valeur telle qu'elle se tape.
+      - « Réglages changés : --zoom all, --max-tracks 0, --threshold 11,5 ». Ce sont toutes les options qui font recalculer une vidéo à la relance (#221, #247) : `Options::changed` compare les réglages à ceux par défaut avec ce que compare la reprise (`settings::compared` : `params.json` sans les fils ni les encodeurs, partagé avec `reuse`), champ par champ (`settings::differing`), et nomme chaque champ par son option. Elles viennent dans l'ordre de l'aide : `--zoom`, `--annotated`, `--max-tracks`, `--clip-margin`, `--osd-region` avec son nombre de zones, `--threshold`, `--min-hits`, `--max-blobs`, `--work-width`. La valeur s'écrit comme elle se tape, avec la virgule décimale en français, comme le reste du bilan. Un champ sans option, qui ne peut pas changer depuis la commande, se nommerait `section.champ` (`Change::Unnamed`). Deux tests du binaire tiennent la liste : toute option de la commande est rangée parmi celles qui font recalculer ou celles qui laissent les résultats tels quels, et chacune des premières, donnée seule, est nommée.
     - Le rappel des réglages n'existait pas avant #65 : #113 n'écrit pas de ligne de départ.
     - Codes de sortie inchangés : 1 si une vidéo a échoué ou a trop de pistes. Un bilan
       qui ne peut pas s'écrire donne aussi 1. Si une écriture au fil de l'eau échoue,
@@ -2111,8 +2108,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       la première ligne d'événement ou d'échec.
     - Avant le premier rang, une ligne annonce le lot sur la sortie d'erreur (#62) : « 12 vidéos, 1 h 2 min 5 s de vidéo, dont 3 déjà faites », la fin seulement s'il y en a ; la durée s'écrit comme la colonne « durée » du bilan (`clock`), vidéos déjà faites comprises.
     - Le binaire (`status.rs`) écrit « [3/12] video_092 — détection », puis « — suivi »,
-      « — image résumé », « — extraits ». La vidéo est nommée sans extension, et son rang
-      compte dans le lot.
+      « — image résumé », « — extraits ». La vidéo est nommée sans extension, sauf quand une autre vidéo du lancement a le même nom sans extension : les deux gardent alors la leur, « video_092.mov » et « video_092.mp4 » (#247, `messages::homonyms`). Quand l'extension ne suffit pas, même nom de fichier dans deux dossiers (`batdetect nuit-12/ nuit-13/`, la numérotation des jumelles repartant à zéro), la ligne nomme aussi le dossier parent : « nuit-12/video_001.mp4 » et « nuit-13/video_001.mp4 ». Son rang compte dans le lot.
     - La ligne d'une vidéo finie reste : « [3/12] video_092 — 14 pistes », « — trop de
       pistes » (le mot du bilan, #196) ou « — échec ».
     - Heure de fin estimée de la soirée (#68) : « [3/12] video_094 — détection · fin vers 22:41 » sur un terminal, à chaque étape ; hors terminal, à la fin de la ligne d'une vidéo finie, jamais sur une étape. Rien tant qu'aucune vidéo n'a été calculée, ni quand il ne reste rien à calculer (dernière ligne d'une vidéo finie hors terminal).
@@ -2243,7 +2239,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
     sortie vaut 1 si une vidéo a échoué.
     - Les trois lignes : « {vidéo} : {phrase} », « à faire : {conseil} », « détail :
       {chaîne anglaise des causes} ». « Trop de pistes » garde sa phrase de #113, a un « à
-      faire » et pas de détail.
+      faire » et pas de détail. Depuis #221, cette phrase finit par « ni extraits ni image résumé » : au-delà de `--max-tracks`, `process` n'écrit pas non plus l'image résumé (sur une vidéo de bruit, elle se coupait en dizaines de parties) et n'annonce ni son étape ni celle des extraits : la vidéo passe de « suivi » à « trop de pistes », et les pistes de `params.json` n'ont pas de couleur.
     - `failure::cause(&process::Error, &Options) -> Cause` classe sans texte.
       - Le `match` est exhaustif, sans `_`, sur `process::Error`, `detection::Error`,
         `input::Error` et `decode::Error`. `detection::Error::Input` est transparent :

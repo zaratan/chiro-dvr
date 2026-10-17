@@ -107,10 +107,10 @@ fn refused_input(input: &RefusedInput, labels: &dyn Labels) -> String {
             cause: input.cause.as_deref(),
             videos: &input.videos,
         })),
-        todo = say(Label::Todo {
+        todo = breakable(&say(Label::Todo {
             cause: &input.todo,
             folder: &input.path
-        }),
+        })),
     )
 }
 

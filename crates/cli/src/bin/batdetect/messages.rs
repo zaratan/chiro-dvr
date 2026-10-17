@@ -1,4 +1,6 @@
+use std::collections::BTreeSet;
 use std::error::Error;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -99,7 +101,7 @@ pub(crate) fn inputs_refused(texts: Texts, error: &jobs::Error) -> (Message, Vec
             },
             folders
                 .iter()
-                .flat_map(|folder| [folder.display().to_string(), texts.say(&todo_in(NO_VIDEO, folder))])
+                .flat_map(|folder| [last_name(folder), texts.say(&todo_in(NO_VIDEO, folder))])
                 .collect(),
         ),
         jobs::Error::Refused { refused, .. } => (Message::Fixed(Fixed::InputsRefused), refused_lines(texts, refused)),
@@ -144,6 +146,13 @@ fn refusal_messages(texts: Texts, refused: &[Refused]) -> Vec<Message> {
     messages
 }
 
+pub(crate) fn last_name(path: &Path) -> String {
+    path.file_name().map_or_else(
+        || path.display().to_string(),
+        |name| name.to_string_lossy().into_owned(),
+    )
+}
+
 pub(crate) fn extensions() -> (String, String) {
     match jobs::video_extensions().split_last() {
         Some((last, listed)) => (listed.join(", "), (*last).to_owned()),
@@ -152,7 +161,7 @@ pub(crate) fn extensions() -> (String, String) {
 }
 
 fn input_refused(texts: Texts, refusal: &Refused, listed: &str, last: &str) -> Message {
-    let path = refusal.path.display().to_string();
+    let path = last_name(&refusal.path);
     let reason = match &refusal.reason {
         Reason::Missing | Reason::Unreadable(_) => refusal.reason.key(),
         Reason::NotAVideo | Reason::NoVideo => {
@@ -172,14 +181,14 @@ fn input_refused(texts: Texts, refusal: &Refused, listed: &str, last: &str) -> M
         }
         Reason::Unopened { cause, .. } => {
             return Message::Failure {
-                video: path.clone(),
+                video: path,
                 cause: cause.key(),
-                place: path,
+                place: refusal.path.display().to_string(),
             };
         }
         Reason::DiskShort { needed, free, .. } => {
             return Message::DiskShort {
-                path,
+                path: refusal.path.display().to_string(),
                 needed: texts.fixed((*needed as f64 / TENTHS_OF_GIGABYTE).ceil() / TENTHS, 1),
                 free: texts.fixed((*free as f64 / TENTHS_OF_GIGABYTE).floor() / TENTHS, 1),
             };
@@ -260,40 +269,67 @@ pub(crate) fn long_version(ffmpeg_version: &str, ffmpeg_license: &str) -> String
     format!("{}\nFFmpeg {ffmpeg_version} — {ffmpeg_license}", version())
 }
 
-pub(crate) fn video_step(rank: Rank, job: &Job, step: Step) -> Message {
-    Message::VideoStep {
-        rank,
-        video: short_name(job),
-        step,
-    }
+pub(crate) fn video_step(rank: Rank, video: String, step: Step) -> Message {
+    Message::VideoStep { rank, video, step }
 }
 
-pub(crate) fn video_done(rank: Rank, job: &Job, tracks: usize) -> Message {
-    Message::VideoDone {
-        rank,
-        video: short_name(job),
-        tracks,
-    }
+pub(crate) fn video_done(rank: Rank, video: String, tracks: usize) -> Message {
+    Message::VideoDone { rank, video, tracks }
 }
 
-pub(crate) fn video_skipped(rank: Rank, job: &Job, tracks: usize) -> Message {
-    Message::VideoSkipped {
-        rank,
-        video: short_name(job),
-        tracks,
-    }
+pub(crate) fn video_skipped(rank: Rank, video: String, tracks: usize) -> Message {
+    Message::VideoSkipped { rank, video, tracks }
 }
 
-pub(crate) fn video_failed(rank: Rank, job: &Job, failure: &Failure) -> Message {
+pub(crate) fn video_failed(rank: Rank, video: String, failure: &Failure) -> Message {
     Message::VideoFailed {
         rank,
-        video: short_name(job),
+        video,
         too_many: matches!(failure, Failure::Error(process::Error::TooManyTracks { .. })),
     }
 }
 
-fn short_name(job: &Job) -> String {
-    job.video.file_stem().unwrap_or_default().to_string_lossy().into_owned()
+#[derive(Debug)]
+pub(crate) struct Homonyms {
+    stems: BTreeSet<OsString>,
+    names: BTreeSet<OsString>,
+}
+
+impl Homonyms {
+    pub(crate) const fn none() -> Self {
+        Self {
+            stems: BTreeSet::new(),
+            names: BTreeSet::new(),
+        }
+    }
+}
+
+pub(crate) fn homonyms(jobs: &[Job]) -> Homonyms {
+    Homonyms {
+        stems: shared(jobs.iter().filter_map(|job| job.video.file_stem())),
+        names: shared(jobs.iter().filter_map(|job| job.video.file_name())),
+    }
+}
+
+fn shared<'a>(names: impl Iterator<Item = &'a OsStr>) -> BTreeSet<OsString> {
+    let mut seen = BTreeSet::new();
+    names
+        .filter(|name| !seen.insert(name.to_os_string()))
+        .map(OsStr::to_os_string)
+        .collect()
+}
+
+pub(crate) fn shown_name(job: &Job, homonyms: &Homonyms) -> String {
+    let stem = job.video.file_stem().unwrap_or_default();
+    let name = job.video.file_name().unwrap_or(stem);
+    if !homonyms.stems.contains(stem) {
+        return stem.to_string_lossy().into_owned();
+    }
+    if !homonyms.names.contains(name) {
+        return name.to_string_lossy().into_owned();
+    }
+    let parent = job.video.parent().and_then(Path::file_name).unwrap_or_default();
+    Path::new(parent).join(name).display().to_string()
 }
 
 pub(crate) fn redone(job: &Job, clips: &[PathBuf], cause: &dyn Error) -> Message {

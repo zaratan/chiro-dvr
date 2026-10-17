@@ -61,7 +61,7 @@ la main y est cherché, n'est pas trouvé, et rien n'est traité :
 
 > erreur : aucune vidéo n'est traitée :\
 > nuit-12-oct : introuvable\
-> à faire : vérifier le chemin ; le dossier ou la vidéo a peut-être été déplacé ou renommé
+> à faire : vérifier le chemin nuit-12-oct ; le dossier ou la vidéo a peut-être été déplacé ou renommé
 
 Glisser le dossier évite cette erreur.
 
@@ -70,8 +70,7 @@ autoriser. Si l'accès a été refusé, rien n'est traité :
 
 > erreur : aucune vidéo n'est traitée :\
 > nuit-12-oct : lecture refusée\
-> à faire : vérifier ses droits ; sur Mac, autoriser le Terminal dans Réglages Système,
-> Confidentialité et sécurité, Fichiers et dossiers
+> à faire : vérifier les droits de /Users/naturaliste/Desktop/nuit-12-oct ; sur Mac, autoriser le Terminal dans Réglages Système, Confidentialité et sécurité, Fichiers et dossiers
 
 Il faut alors ouvrir Réglages Système › Confidentialité et sécurité › Fichiers et dossiers,
 autoriser le Terminal pour ce dossier (le Bureau, par exemple), puis relancer.
@@ -79,14 +78,14 @@ autoriser le Terminal pour ce dossier (le Bureau, par exemple), puis relancer.
 **Avant de calculer, l'outil ouvre chaque vidéo.** Une vidéo qui ne peut pas être lue, ou dont la copie est ratée, est refusée tout de suite, avec ce qu'il faut faire, au lieu d'échouer au milieu de la soirée :
 
 > erreur : aucune vidéo n'est traitée :\
-> nuit-12-oct/video_093.mp4 : ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète\
+> video_093.mp4 : ce fichier n'est pas une vidéo lisible, ou sa copie est incomplète\
 > à faire : s'il vient des jumelles, le recopier par le câble USB, sans passer par Stream Vision 2 ; sinon, le retirer du dossier
 
 **Avec plusieurs dossiers d'un coup**, ou quand une seule vidéo est refusée parmi d'autres, la commande nomme l'entrée refusée (introuvable, illisible…) et demande s'il faut traiter quand même les autres. Entrée ou `o` lance le calcul, `n` l'arrête ; toute autre réponse repose la question :
 
 > erreur : une entrée est refusée :\
 > nuit-13-oct : introuvable\
-> à faire : vérifier le chemin ; le dossier ou la vidéo a peut-être été déplacé ou renommé\
+> à faire : vérifier le chemin /Users/naturaliste/Desktop/nuit-13-oct ; le dossier ou la vidéo a peut-être été déplacé ou renommé\
 > Traiter quand même la vidéo valide ? (O/n)
 
 **Si le disque des résultats semble trop petit**, l'outil le dit avant de calculer, en nommant le dossier de résultats qui s'y trouve, et demande s'il faut lancer quand même :

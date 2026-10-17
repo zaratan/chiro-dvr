@@ -334,7 +334,7 @@ nombre de pistes, la durée, le temps non analysé et le temps de calcul (`track
 `length_s`, `not_analysed_s`, `elapsed_s`, en secondes non arrondies), la taille de la vidéo en
 octets (`video_bytes`), la langue des noms (`language`, `fr` ou `en`) et l'heure locale de la fin
 du calcul (`date`). `tracks` liste les pistes : numéro (`id`), début et durée non arrondis
-(`start_s`, `duration_s`), couleur de la trajectoire sur l'image résumé en RVB (`color`), image
+(`start_s`, `duration_s`), couleur de la trajectoire sur l'image résumé en RVB (`color`, `null` au-delà du garde-fou, qui n'a pas d'image résumé), image
 résumé qui la dessine (`summary`, par exemple `video_097_resume_3_sur_8.png`), et chemins de
 l'extrait et du zoom écrits, relatifs au dossier de la vidéo (`null` quand il n'y en a pas).
 Les périodes ignorées sont dans `ignored_s`, les illisibles dans `damaged_s`, avec
@@ -353,10 +353,7 @@ dans le dossier de la vidéo, `params.json` d'abord, puis les sorties des deux l
 `<nom>.tracks.*`, `<nom>_boxes.mp4`). Les sorties de la v0.1.1, écrites dans `out/` du dossier
 où la commande était lancée, restent où elles sont.
 
-Garde-fou : au-delà de `max_tracks` pistes (300 par défaut, 0 désactive), les extraits
-et la vidéo annotée ne sont pas produits, et la vidéo est comptée à part au bilan. Le CSV,
-`params.json` (avec le seuil, dans `RenderConfig`, et `"state": "too_many_tracks"`) et l'image
-résumé restent écrits. 300 est au-dessus de la vidéo la plus chargée sans explosion (148
+Garde-fou : au-delà de `max_tracks` pistes (300 par défaut, 0 désactive), ni les extraits, ni l'image résumé, ni la vidéo annotée ne sont produits, et la vidéo est comptée à part au bilan. Le CSV et `params.json` (avec le seuil, dans `RenderConfig`, et `"state": "too_many_tracks"`) restent écrits ; l'image résumé n'est plus écrite depuis #221, car sur une vidéo de bruit elle se coupait en dizaines de parties. 300 est au-dessus de la vidéo la plus chargée sans explosion (148
 pistes, 097) et en dessous de la plus petite explosion connue (374 pistes, seuil 12 sans
 facteur de bruit). Le
 seuil est fixe, pas un taux par minute : il suppose des clips d'environ 5 min, comme ceux

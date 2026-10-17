@@ -15,6 +15,7 @@ use engine::lost::Losses;
 use engine::settings::DetectSettings;
 use files::params::Finish;
 use files::previous::Kept;
+use render::config::{RenderConfig, Zoom, ZoomConfig};
 use tracking::stability::StabilityConfig;
 use tracking::track::TrackConfig;
 use types::language::Language;
@@ -136,9 +137,9 @@ autre/batdetect
   vidéo            durée   pistes   non analysé       calcul
   video_121   9 min 58 s    1\u{202f}234          12 s   1 min 40 s
 
-Trop de pistes (tableau et image résumé écrits, pas d'extraits)\u{a0}:
+Trop de pistes (tableau écrit, ni extraits ni image résumé)\u{a0}:
   video_099\u{a0}: 412 pistes, au-delà de 300
-    à faire\u{a0}: regarder l'image résumé\u{a0}; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
+    à faire\u{a0}: ouvrir le tableau des pistes et regarder la vidéo à quelques-uns de ses temps\u{a0}; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
 
 1 vidéo sur 5 en échec\u{a0}:
   video_094\u{a0}: la vidéo est abîmée ou incomplète
@@ -287,7 +288,7 @@ fn several_failures_and_several_tables_left_as_they_are_are_counted_in_the_plura
 }
 
 #[test]
-fn the_changed_settings_are_written_as_they_are_typed() {
+fn the_changed_settings_are_written_in_the_order_of_the_help_with_the_decimal_mark_of_the_language() {
     let settings = DetectSettings {
         threshold: 6.5,
         work_width: 480,
@@ -295,6 +296,7 @@ fn the_changed_settings_are_written_as_they_are_typed() {
         ..DetectSettings::default()
     };
     let track = TrackConfig::default();
+    let render = RenderConfig::default();
     let options = Options {
         detect: DetectConfig::try_from(&settings).unwrap(),
         track: TrackConfig::new(
@@ -307,19 +309,31 @@ fn the_changed_settings_are_written_as_they_are_typed() {
         )
         .unwrap(),
         stability: StabilityConfig::new(None, StabilityConfig::default().pad_s()).unwrap(),
-        ..Options::default()
+        render: RenderConfig::new(render.box_pad(), render.trail_s(), 2.5, 0)
+            .unwrap()
+            .with_zoom(ZoomConfig::choosing(Zoom::All)),
+        annotated: true,
     };
     let tally = Tally {
         refused: Vec::new(),
         unwritten: Vec::new(),
         rows: vec![row("nuit/batdetect/v", 1, done(1, extent(1.0, 0.0)))],
     };
-    let summary = written(&tally, &options, Language::French);
+    let french = written(&tally, &options, Language::French);
     assert!(
-        summary.ends_with(
-            "Réglages changés\u{a0}: --threshold 6.5, --min-hits 3, --max-blobs 0, --work-width 480, --osd-region (2 zones)\n"
+        french.ends_with(
+            "Réglages changés\u{a0}: --zoom all, --annotated, --max-tracks 0, --clip-margin 2,5, --osd-region (2 \
+             zones), --threshold 6,5, --min-hits 3, --max-blobs 0, --work-width 480\n"
         ),
-        "{summary}"
+        "{french}"
+    );
+    let english = written(&tally, &options, Language::English);
+    assert!(
+        english.ends_with(
+            "Changed settings: --zoom all, --annotated, --max-tracks 0, --clip-margin 2.5, --osd-region (2 regions), \
+             --threshold 6.5, --min-hits 3, --max-blobs 0, --work-width 480\n"
+        ),
+        "{english}"
     );
 }
 
@@ -351,8 +365,8 @@ fn the_inputs_refused_before_the_valid_videos_ran_are_counted_and_listed_with_wh
         written(&two, &Options::default(), Language::French),
         "Bilan\u{a0}: 1 vidéo, 1 réussie, 2 entrées refusées\n\nnuit/batdetect\n  vidéo           durée   pistes   non \
          analysé   calcul\n  video_092   5 min 1 s        1           0 s     17 s\n\nEntrées refusées, non \
-         traitées\u{a0}:\n  absente.mp4\u{a0}: introuvable\n    à faire\u{a0}: vérifier le chemin\u{a0}; le dossier ou la \
-         vidéo a peut-être été déplacé ou renommé\n  README.md\u{a0}: pas une vidéo (mp4, mov, avi, mkv ou m4v)\n    à \
+         traitées\u{a0}:\n  absente.mp4\u{a0}: introuvable\n    à faire\u{a0}: vérifier le chemin absente.mp4\u{a0}; le dossier ou \
+         la vidéo a peut-être été déplacé ou renommé\n  README.md\u{a0}: pas une vidéo (mp4, mov, avi, mkv ou m4v)\n    à \
          faire\u{a0}: ne donner que des vidéos, ou des dossiers de vidéos\n"
     );
     let english = written(&two, &Options::default(), Language::English);
@@ -363,7 +377,7 @@ fn the_inputs_refused_before_the_valid_videos_ran_are_counted_and_listed_with_wh
         [
             "Refused inputs, not processed:",
             "  absente.mp4: not found",
-            "    what to do: check the path; the folder or the video may have been moved or renamed",
+            "    what to do: check the path absente.mp4; the folder or the video may have been moved or renamed",
             "  README.md: not a video (mp4, mov, avi, mkv or m4v)",
             "    what to do: give only videos, or folders of videos"
         ]

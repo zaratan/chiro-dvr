@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 use tracking::stability::StabilityConfig;
 use tracking::track::TrackConfig;
 
-use super::Settings;
+use super::{Leaf, Settings, compared, differing};
 use crate::options::Options;
 
 fn written(track: TrackConfig, stability: StabilityConfig, decoding: ActiveThreads) -> Value {
@@ -135,5 +135,33 @@ fn the_zoom_choice_its_thresholds_and_the_annotated_video_are_written_with_the_k
             &render["annotated"]
         ),
         (&json!("none"), &json!(90.0), &json!(30.5), &json!(true))
+    );
+}
+
+#[test]
+fn what_a_rerun_compares_leaves_out_the_threads_and_the_encoders_the_machine_chose() {
+    let settings = compared(&Options::default()).unwrap();
+    let sections: Vec<&str> = settings.keys().map(String::as_str).collect();
+    assert_eq!(
+        sections,
+        ["DetectConfig", "RenderConfig", "StabilityConfig", "TrackConfig"]
+    );
+    assert_eq!(settings["RenderConfig"].get("encoders"), None);
+    assert_eq!(settings["RenderConfig"]["max_tracks"], 300);
+}
+
+#[test]
+fn the_settings_that_differ_are_named_by_section_and_field() {
+    let options = Options {
+        annotated: true,
+        ..Options::default()
+    };
+    assert_eq!(differing(&Options::default(), &Options::default()), []);
+    assert_eq!(
+        differing(&options, &Options::default()),
+        [Leaf {
+            section: "RenderConfig".to_owned(),
+            field: "annotated".to_owned(),
+        }]
     );
 }
