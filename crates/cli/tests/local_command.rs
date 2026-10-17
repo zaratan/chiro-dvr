@@ -87,34 +87,41 @@ fn the_twenty_six_videos_by_the_command_keep_their_tracks_and_zooms_frozen_again
         found,
         [
             ("video_089.mp4", agreeing(1)),
-            ("video_090.mp4", agreeing(20)),
+            ("video_090.mp4", [20, 18, 14, 2, 2]),
             ("video_091.mp4", agreeing(21)),
             ("video_092.mp4", agreeing(14)),
-            ("video_093.mp4", agreeing(6)),
-            ("video_094.mp4", agreeing(14)),
-            ("video_095.mp4", agreeing(78)),
-            ("video_096.mp4", agreeing(136)),
-            ("video_097.mp4", agreeing(149)),
-            ("video_098.mp4", agreeing(131)),
-            ("video_099.mp4", agreeing(117)),
-            ("video_100.mp4", agreeing(98)),
-            ("video_101.mp4", agreeing(32)),
-            ("video_102.mp4", agreeing(36)),
-            ("video_103.mp4", agreeing(10)),
+            ("video_093.mp4", [6, 6, 6, 0, 1]),
+            ("video_094.mp4", [14, 14, 12, 0, 0]),
+            ("video_095.mp4", [78, 78, 70, 0, 2]),
+            ("video_096.mp4", [136, 135, 122, 1, 4]),
+            ("video_097.mp4", [149, 148, 137, 1, 5]),
+            ("video_098.mp4", [131, 130, 114, 1, 8]),
+            ("video_099.mp4", [117, 117, 105, 0, 5]),
+            ("video_100.mp4", [98, 98, 90, 0, 4]),
+            ("video_101.mp4", [32, 31, 31, 1, 1]),
+            ("video_102.mp4", [36, 36, 32, 0, 2]),
+            ("video_103.mp4", [10, 10, 9, 0, 0]),
             ("video_120.mp4", agreeing(0)),
-            ("video_121.mp4", agreeing(2)),
+            ("video_121.mp4", [2, 2, 2, 0, 1]),
             ("video_122.mp4", agreeing(0)),
             ("video_123.mp4", agreeing(8)),
             ("video_124.mp4", agreeing(5)),
-            ("video_125.mp4", agreeing(47)),
-            ("video_126.mp4", agreeing(13)),
-            ("video_127.mp4", agreeing(7)),
-            ("video_128.mp4", agreeing(5)),
-            ("video_129.mp4", agreeing(16)),
+            ("video_125.mp4", [47, 46, 42, 1, 2]),
+            ("video_126.mp4", [13, 13, 12, 0, 0]),
+            ("video_127.mp4", [7, 7, 5, 0, 0]),
+            ("video_128.mp4", [5, 5, 4, 0, 0]),
+            ("video_129.mp4", [16, 16, 14, 0, 0]),
             ("video_130.mp4", agreeing(6)),
         ]
     );
-    assert_eq!(switches.len(), 0, "{switches:?}");
+    assert_eq!(
+        identified(&switches),
+        [
+            ("video_094.mp4", 2, 2, true),
+            ("video_097.mp4", 85, 84, true),
+            ("video_099.mp4", 90, 94, true),
+        ]
+    );
 }
 
 #[test]
@@ -138,6 +145,20 @@ struct Switch {
     zoomed: bool,
     reference: (f64, f64),
     candidate: (f64, f64),
+}
+
+fn identified(switches: &[Switch]) -> Vec<(&str, usize, usize, bool)> {
+    switches
+        .iter()
+        .map(|switch| {
+            (
+                switch.video.as_str(),
+                switch.reference_id,
+                switch.candidate_id,
+                switch.zoomed,
+            )
+        })
+        .collect()
 }
 
 #[cfg(test)]

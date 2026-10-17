@@ -1703,6 +1703,13 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       `components` rend des `Measures`, sans image : le détecteur les range dans
       `FrameDetections` par `push`, dans l'ordre des images. Ce qui garde cet ordre est le
       test des fils et des lots (`detector`, 1, 3 ou 4 fils, lots de 1 à 64).
+      Depuis #21, `threshold` range les pixels au-dessus des trois quarts du seuil dans une
+      seconde liste (`Scratch::weak`) ; `closing` et `components` prennent les deux listes
+      sans les fusionner (la fermeture ne dépend pas de l'ordre), et une composante est
+      forte si elle a un pixel de la première (`Strength`, dans `types`).
+    - `bracketing` (#21) : après `Detector::finish`, garde une détection faible encadrée
+      par deux fortes (règle et mesures dans [10](10-logique-de-detection.md#5-ter-garder-les-taches-faibles-qui-comblent-un-vol)) ;
+      dans `detect_injected`, donc pour la commande, `compare` et le banc.
     - `window` : fenêtre glissante, tampons recyclés ; échantillons pris une image sur
       3 depuis le début de la fenêtre, coupée aux bords de la vidéo.
     - `detector` : lots de 32 images (copie du plan Y). Chaque lot est préparé, puis
@@ -1798,6 +1805,12 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       ont chacun une cible éclairée à cette demi-fenêtre de 30. Le pic de la vidéo
       calme, 245 Mo, porte la fenêtre (2 octets par pixel et par image gardée) ; sur
       64 images, il ne change pas avec la fenêtre.
+      Depuis #21, les pixels faibles (trois quarts du seuil) vont dans leur propre liste,
+      sans recopie des forts : 20,95, 21,58 et 19,23 octets par pixel et par fil sur les
+      trois cas, contre 20,9, 21,58 et 19,18 avant. Un premier jet qui recopiait les pixels
+      forts et marquait chaque pixel (12 octets) montait à 45,17 sur le premier. Non testé :
+      un éclair fort puis un éclair entre 0,75 et 1 sur une autre image, où chaque liste
+      garde sa capacité, environ 8 octets de plus par pixel et par fil.
   - **Gris de la détection** (#118, exception à la règle 5) : chaque Y passe par une
     table de 256 gris mesurée sur OpenCV (`GRAY` dans `gray`, privée, lue par
     `gray::gray(y)`, `const fn` publique depuis #107 : une rampe Y = 0 à
@@ -2421,6 +2434,11 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       `Setting`. `Error::Track` ne vient d'aucune entrée : c'est un garde-fou, qui
       signale un bogue de l'association ou de la fusion des jumelles (deux points sur
       une même image). La renumérotation finale passe par `Track::with_id`.
+    - Depuis #21, l'association attribue d'abord les détections fortes, puis les faibles
+      aux pistes restées sans détection ; une faible libre n'ouvre pas de piste, et un
+      point réuni par les jumelles est fort si l'un des deux l'est. Sur des détections
+      toutes fortes, comme celles des références, rien ne change : `committed_tracking`
+      et `local_tracking` restent à 0 écart ([10](10-logique-de-detection.md#7-relier-les-taches-dans-le-temps--le-suivi)).
     - Écarts voulus à la v0.1.1 : NaN refusé pour `max_jump`, `min_travel` et
       `twin_distance` ; infini refusé pour les quatre réglages `f64` ; `Some(0)` refusé
       pour `twin_distance`, le `0` de la v0.1.1 devenant `None`.
@@ -3084,7 +3102,7 @@ l'intérieur du verrou (CPU = utilisateur + système).
     appariées (début ±5 images, points ±3), chaque écart listé (cas, temps) et jugé par
     l'utilisateur.
   - Un cas sous 98 % bloque tant que sa cause n'est pas isolée, par ablation comme à #118.
-  - Test de réglages : `crates/compare/tests/settings_agreement.rs` exige les 16 cas comparés sans échec, et, depuis #276, aucun écart à la [référence v0.2.0](#gardes-de-détection-276) ; jusque-là, 98 % dans les deux sens contre la v0.1.1 (sauf `sigma_0` et `window_2s`, figés à 98 % sous la bande d'affichage, voir #150 et #151) et toutes les pistes appariées et concordantes. `crates/reference/tests/committed_settings.rs` relit les 16
+  - Test de réglages : `crates/compare/tests/settings_agreement.rs` exige les 16 cas comparés sans échec, et, depuis #276, leurs écarts figés à la [référence v0.2.0](#gardes-de-détection-276) (aucun jusqu'à #21, seulement des détections faibles ajoutées depuis) ; jusque-là, 98 % dans les deux sens contre la v0.1.1 (sauf `sigma_0` et `window_2s`, figés à 98 % sous la bande d'affichage, voir #150 et #151) et toutes les pistes appariées et concordantes. `crates/reference/tests/committed_settings.rs` relit les 16
     cas en test rapide.
 - **Niveau 2, sans Python** : invariances en tests rapides. Faits à #150 : même flux
   remuxé en plage pleine (`tests/full_range.rs`), noyau et disque contre la formule,
@@ -3360,7 +3378,7 @@ pas reproductible d'une machine à l'autre) :
     jamais été comparés au pixel près d'un système à l'autre : la CI de la PR #208 a
     confirmé les mêmes empreintes sous macOS, Linux et Windows.
   - `cli/tests/local_frozen.rs`, jamais en CI (vidéos hors dépôt) : les six cas sur
-    leurs vidéos entières, exactement les images jugées.
+    leurs vidéos entières, exactement les images jugées. Depuis #21, trois d'entre eux sont refigés après une planche avant/après jugée par l'utilisateur le 17 octobre 2026 : le zoom de la 125 à 0:47.12 et les deux extraits de la 097 (1:48.52 et 1:54.62) gardent leurs pistes et leurs débuts, gagnent des détections faibles à la place de positions estimées ; les deux extraits de la 097 perdent un numéro, et changent de couleur, avec la piste de 0:16.42 que #21 ne garde plus.
 - **Images résumé** : les pixels de chaque PNG écrit par `batdetect` en français
   (`of_pixels`), la 097 et la 089-091, dans `cli/tests/local_frozen.rs`. Ce test ne
   peut pas vivre dans `summary` : le fond est la médiane calculée par la détection, et
@@ -3395,17 +3413,18 @@ Ce que la v0.2.0 en Rust détecte et suit, enregistré par `record` (#250) le 17
 
 ### Gardes de détection (#276)
 
-Chaque garde compare à la v0.2.0 par la règle de `compare` (#275) et fige ses écarts **par vidéo et par cas** (`Comparison::gaps`) : images qui diffèrent, détections perdues et ajoutées, puis pistes appariées, concordantes, perdues et ajoutées. Ils valent tous 0 sur lumiel : `Gaps::agreeing(n)`, n pistes appariées et concordantes et aucun autre écart. Une PR qui change la détection les met à jour avec leur cause ([05](05-outillage.md)). Les gardes `local_*` lisent la v0.2.0 des 26 vidéos par `BATDETECT_REFERENCE_V020_DIR`, les vidéos par `BATDETECT_VIDEOS_DIR`, et `local_command` les zooms et la 103 annotée de la v0.1.1 par `BATDETECT_REFERENCE_DIR`.
+Chaque garde compare à la v0.2.0 par la règle de `compare` (#275) et fige ses écarts **par vidéo et par cas** (`Comparison::gaps`) : images qui diffèrent, détections perdues et ajoutées, puis pistes appariées, concordantes, perdues et ajoutées. Ils valaient tous 0 sur lumiel jusqu'à #21 (`Gaps::agreeing(n)`). Depuis #21, les détections faibles encadrées ([10](10-logique-de-detection.md#5-ter-garder-les-taches-faibles-qui-comblent-un-vol)) ne font qu'ajouter des détections, aucune n'est perdue : `Gaps::added_only(images, ajoutées, [appariées, concordantes, perdues, ajoutées])`, mesuré sur lumiel le 17 octobre 2026. Une PR qui change la détection les met à jour avec leur cause ([05](05-outillage.md)). Les gardes `local_*` lisent la v0.2.0 des 26 vidéos par `BATDETECT_REFERENCE_V020_DIR`, les vidéos par `BATDETECT_VIDEOS_DIR`, et `local_command` les zooms et la 103 annotée de la v0.1.1 par `BATDETECT_REFERENCE_DIR`.
 
-- `compare/tests/slow_extract` : l'extrait, `Gaps::agreeing(4)`, plus le bit près de `tests/fixtures/rust/` et `--same-as`, inchangés.
-- `compare/tests/settings_agreement` : les 16 cas, détections égales et toutes les pistes appariées et concordantes, `sigma_0` (30 pistes) et `window_2s` compris. Le test qui figeait 98 % sous la bande d'affichage pour ces deux cas contre la v0.1.1 est retiré : contre la v0.2.0, ils n'ont aucun écart ; l'écart de la table `GRAY` à la v0.1.1 reste expliqué dans la mesure de #150.
-- `compare/tests/local_agreement` : 26 lignes figées, une par vidéo, 972 pistes.
+- `compare/tests/slow_extract` : l'extrait, 6 détections faibles ajoutées et ses 4 pistes, plus le bit près de `tests/fixtures/rust/` (réécrit à #21) et `--same-as`.
+- `compare/tests/settings_agreement` : les 16 cas. Jusqu'à #21, détections égales et toutes les pistes appariées et concordantes, `sigma_0` (30 pistes) et `window_2s` compris. Depuis #21 : 755 détections faibles ajoutées en tout, dont 664 sans filtre (`sigma_0`, 6 pistes perdues et 16 ajoutées sur 30) ; ailleurs, au plus 2 pistes ajoutées (`width_720`), une perdue et une ajoutée à `sigma_3`, une ajoutée à `max_area_400` ; `threshold_25` ne change pas. Le test qui figeait 98 % sous la bande d'affichage pour ces deux cas contre la v0.1.1 est retiré : contre la v0.2.0, ils n'ont aucun écart ; l'écart de la table `GRAY` à la v0.1.1 reste expliqué dans la mesure de #150.
+- `compare/tests/local_agreement` : 26 lignes figées, une par vidéo, 972 pistes. Depuis #21 : 236 622 détections faibles ajoutées (155 968 sur la 103), 965 pistes appariées, 876 concordantes, 7 perdues et 37 ajoutées.
 - `cli/tests/reference_092` :
-  - la 092 et la 092 à 1440 pixels : `Gaps::agreeing(14)` ;
+  - la 092 : 14 pistes appariées et concordantes, 20 détections faibles ajoutées sur 19 images (#21) ;
+  - la 092 à 1440 pixels : 9 détections faibles ajoutées et une piste de plus, un second morceau du passage de 1:48.93, à 27-36 px de lui, qui atteint 6 points grâce à une détection faible (#21) ;
   - la commande sur la 092 : 14 pistes appariées et concordantes, sans écart, ses 15 extraits figés et son zoom ;
   - les faits de la naturaliste, seuls affirmés sans référence : les 13 chauves-souris confirmées le 9 octobre ([03](03-resultats-092.md)) ont chacune leur piste, qui commence à ±5 images de leur début (temps aux `pts` de la lecture du calcul), et à côté d'elles, au plus une piste à chacun de ces deux endroits : l'objet lent de 3:29, qui n'en est pas une, et la cible connue de 3:42.10, objet réel manqué aujourd'hui par le réglage par défaut et pas encore vu par la naturaliste ([03](03-resultats-092.md#cibles-connues-pour-les-issues-suivantes)). Toute autre piste nouvelle fait échouer le test : c'est une question pour elle. Le nombre de pistes n'est plus affirmé que par les écarts figés : un recollage (#24) peut passer de 14 à 13 pistes sans perdre un passage.
 - `cli/tests/slow_command` : les 4 pistes de l'extrait, sans écart ; la colonne des détections du CSV est celle de `tests/fixtures/rust/…/tracks.csv`, en-tête exclu.
-- `cli/tests/local_command` : les pistes de la commande sur les 26 vidéos, une ligne figée par vidéo (`[référence, appariées, concordantes, perdues, ajoutées]`), sans changement de zoom automatique par rapport aux pistes de la v0.2.0. Les 17 divergences et le changement de zoom de la 097 connus contre la v0.1.1 disparaissent. Les zooms enregistrés par la v0.1.1, décidés sur ses propres pistes, se vérifient à part (`the_zooms_recorded_with_the_v011_are_those_its_own_tracks_ask_for`, sans décodage).
-- `cli/tests/local_clips` : les fenêtres des extraits des 26 vidéos, toutes exigées, sont égales à celles des pistes de la v0.2.0, vidéo par vidéo ; les divergences de la 097 contre la v0.1.1 disparaissent.
+- `cli/tests/local_command` : les pistes de la commande sur les 26 vidéos, une ligne figée par vidéo (`[référence, appariées, concordantes, perdues, ajoutées]`, les mêmes que `local_agreement` depuis #21), et les changements de zoom automatique par rapport aux pistes de la v0.2.0, aucun jusqu'à #21. Depuis #21, trois pistes appariées passent sous les seuils du zoom et en gagnent un : la 094 #2 (une petite tache repasse, une image plus tard et à moins de 8 px, là où était la grande : leurs deux pistes échangent leur seconde moitié après deux détections faibles), la 097 #85 (la tache unique de deux chauves-souris qui se croisent, 2:41.72-2:41.76, va à l'autre piste, mieux prédite grâce à une détection faible) et la 099 #90 (le début de 7 points qui reste après la réunion juste de #88 et #90). Les 17 divergences et le changement de zoom de la 097 connus contre la v0.1.1 disparaissent. Les zooms enregistrés par la v0.1.1, décidés sur ses propres pistes, se vérifient à part (`the_zooms_recorded_with_the_v011_are_those_its_own_tracks_ask_for`, sans décodage).
+- `cli/tests/local_clips` : les fenêtres des extraits des 26 vidéos, toutes exigées, comparées à celles des pistes de la v0.2.0, vidéo par vidéo ; les divergences de la 097 contre la v0.1.1 disparaissent. Depuis #21, 15 vidéos ont des fenêtres qui changent avec leurs pistes : le nombre de fenêtres propres à chaque côté est figé par vidéo.
 - `process` et `tracked` n'écartent que les plages du décodeur courant : `reference_092`, `slow_command`, `local_command` et `local_clips` dépendent donc du poste sur les 8 vidéos où lumiel voit 14 images en erreur de plus que le Mac. Leurs lignes sont figées sur lumiel, et à vérifier sur le Mac. `compare` réunit les deux lectures (#275) et n'en dépend pas.
 - Restent sur la v0.1.1 : les entrées, avec ffprobe pour témoin (`slow_extract`, entrées de l'extrait ; `reference_092`, 9 011 images de la 092 ; `local_command`, `pts` de la 103 annotée ; `engine` : `slow_input`, `local_input`, `local_damage`, dont la règle de lumiel reste celle de #250), l'aval nourri des pistes de la v0.1.1 (`summary`, `files`, `render`), les sorties (`local_outputs`), le banc (`local_guard`) et le format v1.

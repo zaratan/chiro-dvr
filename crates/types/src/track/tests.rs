@@ -1,7 +1,7 @@
 use std::f64::consts::{FRAC_PI_2, PI};
 
 use super::{Error, Track, median};
-use crate::detection::Detection;
+use crate::detection::{Detection, Strength};
 use crate::frame::FrameIndex;
 
 fn detection(frame: usize, x: f64, y: f64) -> Detection {
@@ -15,6 +15,7 @@ fn detection(frame: usize, x: f64, y: f64) -> Detection {
         height: 3.0,
         area: 9.0,
         amplitude: 80.0,
+        strength: Strength::Strong,
     }
 }
 

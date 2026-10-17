@@ -1,4 +1,4 @@
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
@@ -96,6 +96,7 @@ fn measured(area: f64, amplitude: f64) -> Track {
             height: 10.0,
             area,
             amplitude,
+            strength: Strength::Strong,
         })
         .collect();
     Track::new(1, points).unwrap()

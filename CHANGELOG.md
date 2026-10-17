@@ -23,6 +23,7 @@ release échoue sans elle.
 
 ### Modifié
 
+- Une tache un peu trop faible pour le seuil, au-dessus des trois quarts, comble le trou d'une piste quand une vraie tache la précède et la suit de près, sur le même chemin : les pistes rapides ont près d'un tiers de positions estimées en moins (mesuré sur 26 vidéos), et quelques pistes de plus apparaissent. Une tache faible n'ouvre jamais de piste et ne passe jamais avant une vraie tache, pour ne pas réunir deux chauves-souris voisines (#21).
 - Le tableau des pistes n'a plus de colonne `verdict` et appartient à l'outil : un recalcul le remplace quoi qu'il contienne. La mise de côté datée d'un tableau annoté (#83) est retirée, ainsi que la section « Tableau mis de côté » du bilan ; les tableaux déjà mis de côté restent où ils sont (#228).
 - Les extraits, les zooms et la vidéo annotée dessinent chaque piste de la couleur qu'elle a sur l'image résumé : boîte et numéro bordés d'un liseré noir, trace de la même couleur, au lieu de la boîte rouge et de la trace jaune orangé (#13).
 - Une vidéo arrêtée pour trop de pistes n'a plus ni image résumé ni fond, seulement son tableau : son « à faire » dit d'ouvrir le tableau et de regarder la vidéo à quelques-uns de ses temps (#221).

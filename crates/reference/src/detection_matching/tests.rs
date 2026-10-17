@@ -1,5 +1,5 @@
 use proptest::prelude::*;
-use types::detection::{Detection, FrameDetections, Measures};
+use types::detection::{Detection, FrameDetections, Measures, Strength};
 use types::frame::FrameIndex;
 
 use super::{DETECTION_DISTANCE_PX, match_detections};
@@ -25,6 +25,7 @@ fn detection(frame: usize, x: f64, y: f64) -> Detection {
         height: 3.0,
         area: 4.5,
         amplitude: 13.0,
+        strength: Strength::Strong,
     }
 }
 

@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use super::{Frame, Gains, Lit, MIN_NOISE_SAMPLES, Scratch, Threshold, median};
+use super::{Frame, Gains, Lit, MIN_NOISE_SAMPLES, Scratch, Threshold, WEAK_RATIO, median};
 use crate::config::DetectConfig;
 use crate::mask::Mask;
 use crate::network::Network;
@@ -63,10 +63,29 @@ fn lit_under(mask: &Mask, threshold: Threshold, samples: &[Vec<u16>], current: u
     scratch.lit
 }
 
-fn lit_one_by_one(samples: &[Vec<u16>], current: usize, gains: &[f32], noisy: bool) -> Vec<Lit> {
+fn weak_under(samples: &[Vec<u16>], current: usize, gains: &[f32]) -> Scratch {
+    let views: Vec<&[u16]> = samples.iter().map(Vec::as_slice).collect();
+    let mut scratch = Scratch::default();
+    Threshold::new(&DetectConfig::default()).lit(
+        Frame {
+            samples: &views,
+            current: &samples[current],
+            network: &Network::median(NonZeroUsize::new(samples.len()).unwrap()),
+            gains: Gains {
+                current: gains[current],
+                samples: gains,
+            },
+            mask: &Mask::new(&[], PIXELS, 1, 0).unwrap(),
+        },
+        &mut scratch,
+    );
+    scratch
+}
+
+fn bars_one_by_one(samples: &[Vec<u16>], current: usize, gains: &[f32], noisy: bool) -> Vec<(Lit, f32)> {
     let threshold = Threshold::new(&DetectConfig::default());
     (0..PIXELS)
-        .filter_map(|pixel| {
+        .map(|pixel| {
             let mut column: Vec<f32> = samples.iter().map(|sample| f32::from(sample[pixel])).collect();
             let background = median(&mut column);
             let magnitude = (f32::from(samples[current][pixel]) - background - gains[current]).abs();
@@ -83,11 +102,28 @@ fn lit_one_by_one(samples: &[Vec<u16>], current: usize, gains: &[f32], noisy: bo
             } else {
                 threshold.floor
             };
-            (magnitude > bar).then_some(Lit {
-                pixel: pixel as u32,
-                magnitude,
-            })
+            (
+                Lit {
+                    pixel: pixel as u32,
+                    magnitude,
+                },
+                bar,
+            )
         })
+        .collect()
+}
+
+fn lit_one_by_one(samples: &[Vec<u16>], current: usize, gains: &[f32], noisy: bool) -> Vec<Lit> {
+    bars_one_by_one(samples, current, gains, noisy)
+        .into_iter()
+        .filter_map(|(lit, bar)| (lit.magnitude > bar).then_some(lit))
+        .collect()
+}
+
+fn weak_one_by_one(samples: &[Vec<u16>], current: usize, gains: &[f32]) -> Vec<Lit> {
+    bars_one_by_one(samples, current, gains, true)
+        .into_iter()
+        .filter_map(|(lit, bar)| (lit.magnitude > bar * WEAK_RATIO && lit.magnitude <= bar).then_some(lit))
         .collect()
 }
 
@@ -226,4 +262,30 @@ fn a_spot_under_the_display_band_stays_dark_and_one_beside_it_lights_as_without_
     let pixels: Vec<u32> = found.iter().map(|lit| lit.pixel).collect();
     assert!(pixels.contains(&702) && pixels.contains(&750), "{pixels:?}");
     assert!(!pixels.contains(&250) && !pixels.contains(&650), "{pixels:?}");
+}
+
+#[test]
+fn a_pixel_between_three_quarters_of_the_threshold_and_the_threshold_lights_weak() {
+    let mut samples = samples(11, 0.0, 6);
+    for (spot, levels) in [(100, 8), (200, 10), (300, 14)] {
+        samples[5][spot] += levels * 64;
+    }
+    let gains = gains_of(&samples);
+
+    let scratch = weak_under(&samples, 5, &gains);
+
+    let pixels = |lit: &[Lit]| -> Vec<u32> { lit.iter().map(|lit| lit.pixel).collect() };
+    assert_eq!(pixels(&scratch.lit), [300]);
+    assert_eq!(pixels(&scratch.weak), [200]);
+}
+
+#[test]
+fn flickering_pixels_light_weak_between_three_quarters_of_their_raised_threshold_and_the_threshold_one_by_one() {
+    let samples = samples(11, 6.0, 7);
+    let gains = gains_of(&samples);
+
+    let weak = weak_under(&samples, 5, &gains).weak;
+
+    assert_eq!(weak, weak_one_by_one(&samples, 5, &gains));
+    assert_ne!(weak, []);
 }

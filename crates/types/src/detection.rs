@@ -6,6 +6,33 @@ use crate::span::Span;
 #[cfg(test)]
 mod tests;
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Strength {
+    #[default]
+    Strong,
+    Weak,
+}
+
+impl Strength {
+    pub fn is_strong(self) -> bool {
+        self == Self::Strong
+    }
+
+    #[must_use]
+    pub fn stronger(self, other: Self) -> Self {
+        if self.is_strong() || other.is_strong() {
+            Self::Strong
+        } else {
+            Self::Weak
+        }
+    }
+}
+
+fn is_default<T: Default + PartialEq>(value: &T) -> bool {
+    *value == T::default()
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Detection {
     pub frame: FrameIndex,
@@ -17,6 +44,7 @@ pub struct Detection {
     pub height: f64,
     pub area: f64,
     pub amplitude: f64,
+    pub strength: Strength,
 }
 
 impl Detection {
@@ -35,6 +63,8 @@ pub struct Measures {
     pub height: f64,
     pub area: f64,
     pub amplitude: f64,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub strength: Strength,
 }
 
 impl Measures {
@@ -48,6 +78,7 @@ impl Measures {
             height: detection.height,
             area: detection.area,
             amplitude: detection.amplitude,
+            strength: detection.strength,
         }
     }
 
@@ -62,6 +93,7 @@ impl Measures {
             height: self.height,
             area: self.area,
             amplitude: self.amplitude,
+            strength: self.strength,
         }
     }
 }

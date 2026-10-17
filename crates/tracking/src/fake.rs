@@ -1,4 +1,4 @@
-use types::detection::{Detection, FrameDetections, Measures};
+use types::detection::{Detection, FrameDetections, Measures, Strength};
 use types::frame::FrameIndex;
 use types::span::Span;
 
@@ -18,6 +18,7 @@ pub(crate) fn crowd(counts: &[usize]) -> FrameDetections {
             height: 3.0,
             area: 9.0,
             amplitude: 80.0,
+            strength: Strength::Strong,
         }));
     }
     frames
@@ -34,6 +35,14 @@ pub(crate) fn detection(frame: usize, x: f64, y: f64) -> Detection {
         height: 3.0,
         area: 9.0,
         amplitude: 80.0,
+        strength: Strength::Strong,
+    }
+}
+
+pub(crate) fn weak(frame: usize, x: f64, y: f64) -> Detection {
+    Detection {
+        strength: Strength::Weak,
+        ..detection(frame, x, y)
     }
 }
 

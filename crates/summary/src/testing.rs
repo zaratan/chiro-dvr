@@ -1,4 +1,4 @@
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::frame::{FrameIndex, Pts};
 use types::rate::FrameRate;
 use types::rational::Rational;
@@ -18,6 +18,7 @@ pub(crate) fn detection(frame: usize, [x, y]: Spot) -> Detection {
         height: 4.0,
         area: 16.0,
         amplitude: 30.0,
+        strength: Strength::Strong,
     }
 }
 

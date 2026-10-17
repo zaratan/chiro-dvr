@@ -67,6 +67,22 @@ impl Gaps {
             added_tracks: 0,
         }
     }
+
+    pub fn added_only(
+        differing_frames: usize,
+        added_detections: usize,
+        [paired_tracks, agreeing_tracks, lost_tracks, added_tracks]: [usize; 4],
+    ) -> Self {
+        Self {
+            differing_frames,
+            lost_detections: 0,
+            added_detections,
+            paired_tracks,
+            agreeing_tracks,
+            lost_tracks,
+            added_tracks,
+        }
+    }
 }
 
 impl Comparison {

@@ -56,7 +56,7 @@ impl Closing {
         }
     }
 
-    pub(crate) fn run(&mut self, lit: &[Lit]) -> &[u32] {
+    pub(crate) fn run(&mut self, groups: &[&[Lit]]) -> &[u32] {
         let Self {
             geometry,
             disk,
@@ -67,7 +67,7 @@ impl Closing {
         let width = geometry.width();
         touched.clear();
         closed.clear();
-        for pixel in lit.iter().map(|lit| lit.pixel) {
+        for pixel in groups.iter().flat_map(|lit| lit.iter()).map(|lit| lit.pixel) {
             for (row, columns) in covered(*geometry, disk, pixel) {
                 for column in columns {
                     let around = row * width + column;

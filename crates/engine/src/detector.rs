@@ -43,6 +43,7 @@ struct Worker {
     components: Components,
     gains: Vec<f32>,
     scratch: Scratch,
+    joined: Vec<Measures>,
 }
 
 struct Shared<'a> {
@@ -177,6 +178,7 @@ impl Worker {
             components: Components::new(geometry, config),
             gains: Vec::with_capacity(most.get()),
             scratch: Scratch::default(),
+            joined: Vec::new(),
         }
     }
 
@@ -217,8 +219,14 @@ impl Worker {
             },
             &mut self.scratch,
         );
-        let closed = self.closing.run(&self.scratch.lit);
-        self.components.run(closed, &self.scratch.lit, &mut found);
+        let Scratch { lit, weak, .. } = &self.scratch;
+        let closed = self.closing.run(&[lit]);
+        self.components.run(closed, lit, &[], &mut found);
+        if !weak.is_empty() {
+            let closed = self.closing.run(&[lit, weak]);
+            self.components.run(closed, lit, weak, &mut self.joined);
+            found.extend(self.joined.drain(..).filter(|measures| !measures.strength.is_strong()));
+        }
         found
     }
 }

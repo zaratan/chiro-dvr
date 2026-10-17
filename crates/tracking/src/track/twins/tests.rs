@@ -1,9 +1,9 @@
 use proptest::prelude::*;
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::track::Track;
 
 use super::{are_twins, combine, merge_twins};
-use crate::fake::{detection, line};
+use crate::fake::{detection, line, weak};
 
 fn track(points: Vec<Detection>) -> Track {
     Track::new(0, points).unwrap()
@@ -120,4 +120,16 @@ proptest! {
         let b = track(line(start, length, (shift, shift / 2.0), (10.0, 0.0)));
         prop_assert_eq!(are_twins(&a, &b, 36.0), are_twins(&b, &a, 36.0));
     }
+}
+
+#[test]
+fn a_point_joined_from_a_weak_and_a_strong_detection_is_strong() {
+    assert_eq!(
+        combine(weak(3, 10.0, 10.0), detection(3, 14.0, 10.0)).strength,
+        Strength::Strong
+    );
+    assert_eq!(
+        combine(weak(3, 10.0, 10.0), weak(3, 14.0, 10.0)).strength,
+        Strength::Weak
+    );
 }

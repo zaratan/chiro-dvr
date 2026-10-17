@@ -58,8 +58,8 @@ fn committed_detections() -> PathBuf {
 
 #[test]
 #[ignore = "slow"]
-fn the_extract_has_no_gap_to_the_v020_on_its_detections_or_its_four_tracks() {
-    assert_eq!(run().comparison.gaps(), Gaps::agreeing(4));
+fn the_extract_keeps_its_four_tracks_of_the_v020_and_only_adds_six_weak_detections() {
+    assert_eq!(run().comparison.gaps(), Gaps::added_only(6, 6, [4, 4, 0, 0]));
 }
 
 #[test]

@@ -7,7 +7,7 @@ use types::track::Track;
 
 use super::{TrackConfig, track_detections};
 use crate::error::Error;
-use crate::fake::{detection, frames_of, line};
+use crate::fake::{detection, frames_of, line, weak};
 use crate::setting::Setting;
 
 const SCALE: f64 = 3.0;
@@ -247,4 +247,33 @@ proptest! {
             prop_assert!(a.frame < b.frame || (a.frame == b.frame && a.x <= b.x));
         }
     }
+}
+
+#[test]
+fn a_flight_seen_only_through_weak_detections_opens_no_track() {
+    let faint: Vec<Detection> = line(0, 12, (10.0, 50.0), (20.0, 0.0))
+        .iter()
+        .map(|point| weak(point.frame.get(), point.x, point.y))
+        .collect();
+    assert_eq!(tracked(&faint, TrackConfig::default()), []);
+}
+
+#[test]
+fn a_weak_detection_fills_the_frame_a_strong_flight_misses() {
+    let mut flight = line(0, 12, (10.0, 50.0), (20.0, 0.0));
+    flight[6] = weak(6, flight[6].x, flight[6].y);
+    let tracks = tracked(&flight, TrackConfig::default());
+    assert_eq!(tracks.len(), 1);
+    assert_eq!(tracks[0].points().len(), 12);
+}
+
+#[test]
+fn a_weak_detection_between_two_close_flights_does_not_join_them() {
+    let mut both = [
+        line(0, 12, (10.0, 100.0), (20.0, 0.0)),
+        line(0, 12, (10.0, 140.0), (20.0, 0.0)),
+    ]
+    .concat();
+    both.push(weak(6, 130.0, 120.0));
+    assert_eq!(tracked(&both, TrackConfig::default()).len(), 2);
 }

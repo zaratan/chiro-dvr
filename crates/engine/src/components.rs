@@ -1,4 +1,4 @@
-use types::detection::Measures;
+use types::detection::{Measures, Strength};
 use types::scale::WorkScale;
 
 use crate::config::DetectConfig;
@@ -32,6 +32,7 @@ struct Stats {
     pixels: usize,
     hits: usize,
     peak: f32,
+    strong: bool,
 }
 
 impl Components {
@@ -47,9 +48,9 @@ impl Components {
         }
     }
 
-    pub(crate) fn run(&mut self, closed: &[u32], lit: &[Lit], found: &mut Vec<Measures>) {
+    pub(crate) fn run(&mut self, closed: &[u32], lit: &[Lit], weak: &[Lit], found: &mut Vec<Measures>) {
         self.label(closed);
-        self.measure(closed, lit);
+        self.measure(closed, lit, weak);
         let scale = self.geometry.scale();
         found.extend(
             self.stats
@@ -85,7 +86,7 @@ impl Components {
         }
     }
 
-    fn measure(&mut self, closed: &[u32], lit: &[Lit]) {
+    fn measure(&mut self, closed: &[u32], lit: &[Lit], weak: &[Lit]) {
         let Self {
             geometry,
             labels,
@@ -107,9 +108,11 @@ impl Components {
             stats[component].add(column, row);
             labels[pixel as usize] = numbered(component + 1);
         }
-        for lit in lit {
-            if let Some(component) = (labels[lit.pixel as usize] as usize).checked_sub(1) {
-                stats[component].hit(lit.magnitude);
+        for (group, strong) in [(lit, true), (weak, false)] {
+            for lit in group {
+                if let Some(component) = (labels[lit.pixel as usize] as usize).checked_sub(1) {
+                    stats[component].hit(lit.magnitude, strong);
+                }
             }
         }
         for &pixel in closed {
@@ -130,6 +133,7 @@ impl Stats {
             pixels: 0,
             hits: 0,
             peak: 0.0,
+            strong: false,
         }
     }
 
@@ -143,9 +147,10 @@ impl Stats {
         self.pixels += 1;
     }
 
-    fn hit(&mut self, magnitude: f32) {
+    fn hit(&mut self, magnitude: f32, strong: bool) {
         self.hits += 1;
         self.peak = self.peak.max(magnitude);
+        self.strong |= strong;
     }
 
     fn measures(&self, scale: WorkScale) -> Measures {
@@ -159,6 +164,7 @@ impl Stats {
             height: scale.length_to_source(real(self.bottom - self.top + 1)),
             area: scale.area_to_source(real(self.hits)),
             amplitude: to_level(self.peak),
+            strength: if self.strong { Strength::Strong } else { Strength::Weak },
         }
     }
 }

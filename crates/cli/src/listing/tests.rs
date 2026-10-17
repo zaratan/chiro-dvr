@@ -4,7 +4,7 @@ use draw::color::Rgb;
 use files::params::{Trace, TrackEntry};
 use render::clips::{Clip, Outputs};
 use summary::Painted;
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::frame::{FrameIndex, Pts};
 use types::rate::FrameRate;
 use types::rational::Rational;
@@ -32,6 +32,7 @@ fn seen(id: usize, frames: [usize; 2]) -> Track {
             height: 2.0,
             area: 4.0,
             amplitude: 30.0,
+            strength: Strength::Strong,
         })
         .to_vec();
     Track::new(id, points).unwrap()

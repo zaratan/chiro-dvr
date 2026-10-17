@@ -134,7 +134,11 @@ pub fn track_detections(detections: &FrameDetections, config: TrackConfig) -> Re
             continue;
         }
         let unmatched = association.assign(&mut active, found, frame, config.max_jump);
-        active.extend(unmatched.map(Growing::new));
+        active.extend(
+            unmatched
+                .filter(|detection| detection.strength.is_strong())
+                .map(Growing::new),
+        );
     }
     for track in active {
         finished.push(Track::new(0, track.into_points())?);
