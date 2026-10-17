@@ -29,6 +29,7 @@ pub enum Reason {
     Unreadable(Access),
     SharedFolder { videos: Vec<PathBuf> },
     Unopened { cause: Cause, detail: String },
+    DiskShort { needed: u64, free: u64, annotated: bool },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

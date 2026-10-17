@@ -63,6 +63,8 @@ failure-todo = {"  "}what to do: { $cause ->
         [shared-folder] rename one of these videos, or process them in two runs with a different -o
         [read-only] copy the videos to the Mac, or choose another folder with -o
         [other-folder] choose another folder with -o
+        [disk-short] free some space, or write the results to another disk with -o; --ignore-disk starts the run anyway
+        [disk-short-annotated] free some space, drop --annotated, or write the results to another disk with -o; --ignore-disk starts the run anyway
        *[unexpected] report it with the detail below
     }
 failure-detail = {"  "}detail: { $detail }
@@ -147,6 +149,11 @@ shared-folder = { $path }: results folder shared by { $videos }
 no-video = no video ({ $listed } or { $last }) found in { $count ->
         [one] this folder
        *[other] these folders
+    }:
+disk-short = the disk holding { $path }: { $needed } GB needed, { $free } GB free
+disks-short = { $count ->
+        [one] the disk of the results looks too small
+       *[other] the disks of the results look too small
     }:
 folders-refused = no video is processed, the results cannot be written in { $count ->
         [one] this folder
@@ -248,8 +255,9 @@ skip-refused-question = Process { $count ->
        *[other] the { $count } valid videos
     } anyway? (Y/n)
 skip-refused-declined = no video is processed
-skip-refused-help = Processes the valid videos without asking when some inputs are refused
+skip-refused-help = Processes the valid videos without asking when some inputs are refused or the disk of the results looks too small
 no-notify-help = Neither notifies the end of the batch nor opens the results page (macOS)
+ignore-disk-help = Starts the run even when the disk of the results looks too small; each video still checks the room before its clips
 force-help = Redoes every video, even those already done with the same settings
 tally-refused-count = { $count ->
         [one] { $count } input refused

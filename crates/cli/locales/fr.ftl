@@ -67,6 +67,8 @@ failure-todo = {"  "}à faire : { $cause ->
         [shared-folder] renommer l'une de ces vidéos, ou les traiter en deux fois avec un -o différent
         [read-only] copier les vidéos sur le Mac, ou choisir un autre dossier avec -o
         [other-folder] choisir un autre dossier avec -o
+        [disk-short] libérer de la place, ou écrire les résultats sur un autre disque avec -o ; --ignore-disk lance quand même le calcul
+        [disk-short-annotated] libérer de la place, retirer --annotated, ou écrire les résultats sur un autre disque avec -o ; --ignore-disk lance quand même le calcul
        *[unexpected] le signaler avec le détail ci-dessous
     }
 failure-detail = {"  "}détail : { $detail }
@@ -160,6 +162,11 @@ shared-folder = { $path } : dossier de résultats commun à { $videos }
 no-video = aucune vidéo ({ $listed } ou { $last }) trouvée dans { $count ->
         [one] ce dossier
        *[other] ces dossiers
+    } :
+disk-short = le disque qui contient { $path } : { $needed } Go à prévoir, { $free } Go libres
+disks-short = { $count ->
+        [one] le disque des résultats semble trop petit
+       *[other] les disques des résultats semblent trop petits
     } :
 folders-refused = aucune vidéo n'est traitée, les résultats ne peuvent pas s'écrire dans { $count ->
         [one] ce dossier
@@ -267,8 +274,9 @@ skip-refused-question = Traiter quand même { $count ->
        *[other] les { $count } vidéos valides
     } ? (O/n)
 skip-refused-declined = aucune vidéo n'est traitée
-skip-refused-help = Traite les vidéos valides sans poser la question quand des entrées sont refusées
+skip-refused-help = Traite les vidéos valides sans poser la question quand des entrées sont refusées ou que le disque des résultats semble trop petit
 no-notify-help = Ne signale pas la fin du lot et n'ouvre pas la page de résultats (macOS)
+ignore-disk-help = Lance le calcul même quand le disque des résultats semble trop petit ; chaque vidéo vérifie encore la place avant ses extraits
 force-help = Refait toutes les vidéos, même celles déjà faites avec les mêmes réglages
 tally-refused-count = { $count ->
         [one] { $count } entrée refusée

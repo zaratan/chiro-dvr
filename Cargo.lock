@@ -126,6 +126,7 @@ dependencies = [
  "png",
  "reference",
  "render",
+ "rustix",
  "serde",
  "serde_json",
  "summary",

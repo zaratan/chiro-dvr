@@ -29,6 +29,7 @@ use types::track::Track;
 
 use super::{
     Clips, Error, Extent, Versions, Wording, Written, extent, finish, process, process_detected, render_clips,
+    room_for_clips,
 };
 use crate::flight;
 use crate::jobs::Job;
@@ -62,6 +63,12 @@ fn rendered_into_a_fresh_folder(
     max_tracks: usize,
     trial: Result<Vec<Codec>, Error>,
 ) -> (Result<Rendered, Error>, PathBuf) {
+    in_a_fresh_folder(folder, max_tracks, |clips| {
+        render_clips(clips, &[still(1), still(2)], trial).map(|written| written.rendered)
+    })
+}
+
+fn in_a_fresh_folder<T>(folder: &Path, max_tracks: usize, run: impl FnOnce(&Clips<'_>) -> T) -> (T, PathBuf) {
     let video = folder.join("flight.mp4");
     flight::write_flight(&video);
     let detected = detect(&video, Threads::Automatic, &DetectConfig::default()).unwrap();
@@ -89,8 +96,23 @@ fn rendered_into_a_fresh_folder(
             ours: true,
         }],
     };
-    let rendered = render_clips(&clips, &[still(1), still(2)], trial).map(|written| written.rendered);
-    (rendered, names.clips_dir(&job.dest))
+    (run(&clips), names.clips_dir(&job.dest))
+}
+
+#[test]
+fn above_the_track_limit_the_room_is_not_checked_since_nothing_is_rendered() {
+    let folder = tempfile::tempdir().unwrap();
+    let (room, _) = in_a_fresh_folder(folder.path(), 1, |clips| {
+        room_for_clips(clips, &[still(1), still(2)], u64::MAX)
+    });
+    assert!(room.is_ok(), "{room:?}");
+}
+
+#[test]
+fn a_video_without_track_still_needs_room_for_its_annotated_video() {
+    let folder = tempfile::tempdir().unwrap();
+    let (room, _) = in_a_fresh_folder(folder.path(), 300, |clips| room_for_clips(clips, &[], u64::MAX));
+    assert!(matches!(room, Err(Error::DiskSpace { .. })), "{room:?}");
 }
 
 #[test]
