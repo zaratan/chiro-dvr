@@ -32,6 +32,11 @@ fingerprint() {
 
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
 arch=$(uname -m)
+case $os-$arch in
+  linux-x86_64) cpu=-march=x86-64-v2 ;;
+  darwin-arm64) cpu=-mcpu=apple-m1 ;;
+  *) fail "no pinned CPU target for $os-$arch" ;;
+esac
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/batdetect/ffmpeg
 target=$cache/$(fingerprint)-$os-$arch
 
@@ -64,7 +69,7 @@ build_openh264() {
   if [ "$os" = darwin ]; then
     flags=(STATIC_LDFLAGS=-lc++)
   fi
-  make -C "$work/src/OPENH264" -j "$jobs" PREFIX="$prefix" "${flags[@]+"${flags[@]}"}" install-static
+  make -C "$work/src/OPENH264" -j "$jobs" PREFIX="$prefix" CFLAGS_OPT="-O3 $cpu" "${flags[@]+"${flags[@]}"}" install-static
 }
 
 build_ffmpeg() {
@@ -83,7 +88,7 @@ build_ffmpeg() {
   (
     cd "$work/src/FFMPEG"
     PKG_CONFIG_LIBDIR=$prefix/lib/pkgconfig PKG_CONFIG_PATH='' ./configure \
-      --prefix="$prefix" --pkg-config-flags=--static --extra-version="$(fingerprint)" \
+      --prefix="$prefix" --pkg-config-flags=--static --extra-version="$(fingerprint)" --extra-cflags="$cpu" \
       --disable-everything --disable-programs --disable-doc --disable-network --disable-autodetect \
       --enable-static --disable-shared --enable-pic --disable-avdevice --disable-avfilter --disable-swresample --enable-swscale \
       --enable-decoder=h264,hevc --enable-parser=h264,hevc --enable-demuxer=mov --enable-protocol=file \
