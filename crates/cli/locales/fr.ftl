@@ -339,6 +339,25 @@ page-summary-alt = Image résumé de { $video } : { $tracks ->
        *[other] { $tracks } pistes
     }, chaque trajectoire numérotée et colorée comme dans le tableau. Ouvrir en taille réelle (nouvel onglet)
 page-part-alt = Image résumé de { $video }, partie { $part } sur { $parts } : pistes { $first } à { $last }, chaque trajectoire numérotée et colorée comme dans le tableau. Ouvrir en taille réelle (nouvel onglet)
+page-scene-alt = Image résumé de { $video } : { $tracks ->
+        [one] { $tracks } piste
+       *[other] { $tracks } pistes
+    }, chaque trajectoire numérotée et colorée comme dans le tableau
+page-scene-part-alt = Image résumé de { $video }, partie { $part } sur { $parts } : pistes { $first } à { $last }, chaque trajectoire numérotée et colorée comme dans le tableau
+page-scene-window = De { $start } à { $end }
+page-scene-span = { $start } – { $end }
+page-scene-nothing-not-analysed = rien hors analyse
+page-scene-nothing-unreadable = rien d'illisible
+page-scene-not-analysed = hors analyse { $periods }
+page-scene-unreadable = illisible { $periods }
+page-scene-more = + { $count } { $count ->
+        [one] autre
+       *[other] autres
+    }
+page-scene-complete = Ouvrir l'image complète
+page-scene-new-tab = (nouvel onglet)
+page-scene-complete-new-tab = Ouvrir l'image complète (nouvel onglet)
+page-strip-start = Piste { $track } · { $start }
 page-part = Partie
 page-parts = Parties de l'image résumé de { $video }
 page-part-tab = Partie { $part } sur { $parts }, pistes { $first } à { $last }

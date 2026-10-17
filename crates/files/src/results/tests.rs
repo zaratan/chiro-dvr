@@ -195,4 +195,46 @@ fn a_folder_written_by_v0_2_0_without_starting_points_is_still_a_finished_video(
     };
     assert_eq!(finished.written.tracks.len(), 2);
     assert_eq!(finished.written.tracks[0].start_xy, None);
+    assert_eq!(finished.written.tracks[0].trace, None);
+    assert_eq!(finished.written.summaries, []);
+    assert_eq!(finished.background, None);
+}
+
+#[test]
+fn a_folder_written_with_a_background_brings_it_with_its_size_and_the_layout_of_its_summaries() {
+    let root = tempfile::tempdir().unwrap();
+    finished_folder(root.path(), "v");
+    let dest = root.path().join("v");
+    let laid_out = params(r#""state": "done","#).replace(
+        r#""tracks": ["#,
+        r#""background": "v_fond.png",
+  "summaries": [{ "file": "v_resume_1_sur_2.png", "window_s": [0.0, 40.4], "part": [1, 2], "ignored_s": [], "damaged_s": [[2.0, 3.5]], "other_starts_s": [23.48], "radius": 23.0 }],
+  "tracks": ["#,
+    );
+    fs::write(dest.join("params.json"), laid_out).unwrap();
+    fs::write(dest.join("v_fond.png"), png(1440, 1080)).unwrap();
+    let folders = read_results(root.path());
+    let Found::Finished(finished) = &folders[0].found else {
+        panic!("{:?}", folders[0].found);
+    };
+    let background = finished.background.as_ref().unwrap();
+    assert_eq!(
+        (background.file.as_str(), background.width, background.height),
+        ("v_fond.png", 1440, 1080)
+    );
+    assert_eq!(finished.written.summaries[0].part, Some([1, 2]));
+    assert_eq!(finished.written.summaries[0].damaged_s, [[2.0, 3.5]]);
+}
+
+#[test]
+fn a_background_named_but_missing_on_the_disk_is_left_out() {
+    let root = tempfile::tempdir().unwrap();
+    finished_folder(root.path(), "v");
+    let named = params(r#""state": "done","#).replace(r#""tracks": ["#, r#""background": "v_fond.png", "tracks": ["#);
+    fs::write(root.path().join("v").join("params.json"), named).unwrap();
+    let folders = read_results(root.path());
+    let Found::Finished(finished) = &folders[0].found else {
+        panic!("{:?}", folders[0].found);
+    };
+    assert_eq!(finished.background, None);
 }

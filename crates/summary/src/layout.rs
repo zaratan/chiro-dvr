@@ -9,7 +9,7 @@ use types::track::Track;
 
 use crate::arrows::arrow_head;
 use crate::colors::assign_colors;
-use crate::geometry::{Spot, Trajectory};
+use crate::geometry::{Spot, Trajectory, distance};
 use crate::header::{HeaderLine, Scope, clock, header_lines};
 use crate::periods::{Period, TimeRange, split_by_period};
 use crate::placement::{Frame, KeepClear, place_markers};
@@ -38,6 +38,12 @@ pub struct Mark<'a> {
     pub center: Spot,
     pub anchor: Spot,
     pub start_seconds: f64,
+}
+
+impl Mark<'_> {
+    pub fn leader(&self, radius: f64) -> Option<[Spot; 2]> {
+        (distance(self.anchor, self.center) > radius).then_some([self.anchor, self.center])
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -45,7 +45,28 @@ pub struct Params<'a, S> {
     pub video_bytes: u64,
     pub language: &'a str,
     pub date: String,
+    pub background: Option<String>,
+    pub summaries: Vec<SummaryEntry>,
     pub tracks: Vec<TrackEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SummaryEntry {
+    pub file: String,
+    pub window_s: [f64; 2],
+    pub part: Option<[usize; 2]>,
+    pub ignored_s: Vec<[f64; 2]>,
+    pub damaged_s: Vec<[f64; 2]>,
+    pub other_starts_s: Vec<f64>,
+    pub radius: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Trace {
+    pub points: String,
+    pub head: Option<String>,
+    pub dot: [i64; 2],
+    pub anchor: Option<[i64; 2]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -58,6 +79,7 @@ pub struct TrackEntry {
     pub clip: Option<String>,
     pub zoom: Option<String>,
     pub start_xy: Option<[i64; 2]>,
+    pub trace: Option<Trace>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]

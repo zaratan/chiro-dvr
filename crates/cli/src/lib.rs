@@ -17,6 +17,7 @@ pub mod progress;
 pub mod refusals;
 pub mod reuse;
 mod settings;
+mod sheets;
 pub mod tally;
 pub mod writable;
 pub mod written;

@@ -8,6 +8,7 @@ use engine::config::DetectConfig;
 use engine::detection::detect;
 use files::names::{Names, names_the_video, params_json};
 use files::params::Finish;
+use files::picture::png_size;
 use files::previous::Kept;
 use files::table::{Column, Headings};
 use media::decode::{Decoder, Threads};
@@ -356,6 +357,7 @@ fn the_outputs_of_an_earlier_run_in_any_language_are_replaced_by_those_of_this_r
         "flight.tracks.csv",
         "flight_resume_2_sur_3.png",
         "flight_summary_000m-010m.png",
+        "flight_fond.png",
         "flight_annotee.mp4",
         ".flight_annotated.mp4.partial",
         "flight_boxes.mp4",
@@ -367,7 +369,13 @@ fn the_outputs_of_an_earlier_run_in_any_language_are_replaced_by_those_of_this_r
     let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
     assert_eq!(
         left_in(&job.dest),
-        ["clips", "flight_summary.png", "flight_tracks.csv", "params.json"]
+        [
+            "clips",
+            "flight_background.png",
+            "flight_summary.png",
+            "flight_tracks.csv",
+            "params.json"
+        ]
     );
     assert_eq!(processed.csv, Some(job.dest.join("flight_tracks.csv")));
     assert_eq!(processed.kept, []);
@@ -388,7 +396,13 @@ fn a_table_written_by_hand_in_either_language_is_replaced_by_the_new_one() {
         assert_eq!(processed.csv, Some(written), "{name}");
         assert_eq!(
             left_in(&job.dest),
-            ["clips", "flight_summary.png", "flight_tracks.csv", "params.json"],
+            [
+                "clips",
+                "flight_background.png",
+                "flight_summary.png",
+                "flight_tracks.csv",
+                "params.json"
+            ],
             "{name}"
         );
     }
@@ -572,6 +586,26 @@ fn two_tracks_above_a_limit_of_one(folder: &Path) -> (Job, Options) {
         ..Options::default()
     };
     (job, options)
+}
+
+#[test]
+fn the_background_is_written_at_the_size_of_the_video_and_params_json_names_it_with_the_layout_of_each_summary() {
+    let folder = tempfile::tempdir().unwrap();
+    let job = flight_job(folder.path());
+    let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
+    let params = params_of(&job);
+    assert_eq!(params["background"], "flight_background.png");
+    assert_eq!(png_size(&job.dest.join("flight_background.png")), Some((1440, 1080)));
+    let summaries = params["summaries"].as_array().unwrap();
+    assert_eq!(summaries.len(), processed.summaries.len());
+    assert_eq!(summaries[0]["file"], "flight_summary.png");
+    assert_eq!(summaries[0]["window_s"][0], 0.0);
+    assert!(summaries[0]["radius"].as_f64().unwrap() > 0.0);
+    for track in params["tracks"].as_array().unwrap() {
+        let trace = &track["trace"];
+        assert!(trace["points"].as_str().unwrap().contains(','), "{track}");
+        assert_eq!(trace["dot"].as_array().unwrap().len(), 2);
+    }
 }
 
 fn params_of(job: &Job) -> serde_json::Value {

@@ -317,6 +317,22 @@ page-summary-alt = Summary image of { $video }: { $tracks ->
        *[other] { $tracks } tracks
     }, each path numbered and coloured as in the table. Open at full size (new tab)
 page-part-alt = Summary image of { $video }, part { $part } of { $parts }: tracks { $first } to { $last }, each path numbered and coloured as in the table. Open at full size (new tab)
+page-scene-alt = Summary image of { $video }: { $tracks ->
+        [one] { $tracks } track
+       *[other] { $tracks } tracks
+    }, each path numbered and coloured as in the table
+page-scene-part-alt = Summary image of { $video }, part { $part } of { $parts }: tracks { $first } to { $last }, each path numbered and coloured as in the table
+page-scene-window = From { $start } to { $end }
+page-scene-span = { $start } – { $end }
+page-scene-nothing-not-analysed = nothing left out of the analysis
+page-scene-nothing-unreadable = nothing unreadable
+page-scene-not-analysed = not analysed { $periods }
+page-scene-unreadable = unreadable { $periods }
+page-scene-more = + { $count } more
+page-scene-complete = Open the complete image
+page-scene-new-tab = (new tab)
+page-scene-complete-new-tab = Open the complete image (new tab)
+page-strip-start = Track { $track } · { $start }
 page-part = Part
 page-parts = Parts of the summary image of { $video }
 page-part-tab = Part { $part } of { $parts }, tracks { $first } to { $last }

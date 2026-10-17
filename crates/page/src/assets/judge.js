@@ -25,7 +25,6 @@ const VerdictsJudge = ({ section, tracks, store, say, motion, chained, onOpen })
   const toggles = [...root.querySelectorAll("[data-verdict]")];
   const noZoom = root.querySelector(".no-zoom");
   const thumb = section.querySelector(".thumb");
-  const thumbImage = thumb.querySelector("img");
   const keys = {
     [say("key-yes").toLowerCase()]: "yes",
     [say("key-no").toLowerCase()]: "no",
@@ -109,6 +108,28 @@ const VerdictsJudge = ({ section, tracks, store, say, motion, chained, onOpen })
     if (document.activeElement !== species) species.value = value.species;
   };
 
+  const showThumb = (track) => {
+    const panel = pictures.querySelectorAll(".panel")[Math.max(Number(track.part || 1) - 1, 0)];
+    const link = panel?.querySelector("a.complete, a.summary");
+    if (!link) return;
+    const scene = panel.querySelector("svg.scene");
+    let picture;
+    if (scene) {
+      picture = scene.cloneNode(true);
+      picture.setAttribute("aria-hidden", "true");
+      picture.querySelectorAll("[data-id]").forEach((shape) => {
+        shape.classList.toggle("active", shape.dataset.id === String(track.id));
+      });
+    } else {
+      picture = document.createElement("img");
+      picture.alt = "";
+      picture.src = link.getAttribute("href");
+    }
+    thumb.replaceChildren(picture);
+    thumb.href = link.getAttribute("href");
+    thumb.hidden = false;
+  };
+
   const open = (track, { focus = true, said = "" } = {}) => {
     onOpen(section);
     current = track;
@@ -132,12 +153,7 @@ const VerdictsJudge = ({ section, tracks, store, say, motion, chained, onOpen })
     species.setAttribute("aria-label", say("species-of", { track: track.id }));
     species.placeholder = say("species");
     species.value = store.get(track).species;
-    const panel = pictures.querySelectorAll(".panel img")[Math.max(Number(track.part || 1) - 1, 0)];
-    if (panel) {
-      thumbImage.src = panel.getAttribute("src");
-      thumb.href = panel.getAttribute("src");
-      thumb.hidden = false;
-    }
+    showThumb(track);
     refresh();
     play();
     layout();

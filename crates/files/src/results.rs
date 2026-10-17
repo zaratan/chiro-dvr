@@ -8,7 +8,7 @@ use types::language::Language;
 
 use crate::failures::{FailureRecord, read_failures};
 use crate::names::{Names, is_hidden, names_the_video, params_json};
-use crate::params::{Finish, TrackEntry};
+use crate::params::{Finish, SummaryEntry, TrackEntry};
 use crate::picture::png_size;
 
 #[cfg(test)]
@@ -24,6 +24,10 @@ pub struct Written {
     pub not_analysed_s: f64,
     pub language: String,
     pub date: String,
+    #[serde(default)]
+    pub background: Option<String>,
+    #[serde(default)]
+    pub summaries: Vec<SummaryEntry>,
     pub tracks: Vec<TrackEntry>,
     #[serde(rename = "RenderConfig")]
     pub render: Limits,
@@ -44,6 +48,7 @@ pub struct Image {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Finished {
     pub written: Written,
+    pub background: Option<Image>,
     pub summaries: Vec<Image>,
     pub table: Option<String>,
     pub annotated: Option<String>,
@@ -152,14 +157,13 @@ fn finished(dest: &Path, written: Written) -> Finished {
     if files.is_empty() {
         files.extend(present(names.summary_png(dest, &stem, None, None)));
     }
-    let summaries = files
-        .into_iter()
-        .filter_map(|file| {
-            let (width, height) = png_size(&dest.join(&file))?;
-            Some(Image { file, width, height })
-        })
-        .collect();
+    let image = |file: String| {
+        let (width, height) = png_size(&dest.join(&file))?;
+        Some(Image { file, width, height })
+    };
+    let summaries = files.into_iter().filter_map(image).collect();
     Finished {
+        background: written.background.clone().and_then(image),
         summaries,
         table: present(table_path),
         annotated: present(names.annotated_video(dest, &stem)),

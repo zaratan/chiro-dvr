@@ -27,11 +27,12 @@ use types::timeline::{self, Timeline};
 use types::track::Track;
 
 use crate::jobs::Job;
-use crate::listing::listed;
+use crate::listing::{listed, relative};
 use crate::options::Options;
 use crate::overview::{self, Overview, write_overview};
 use crate::progress::{Progress, Step};
 use crate::settings::Settings;
+use crate::sheets::summaries;
 
 #[cfg(test)]
 mod tests;
@@ -259,6 +260,8 @@ fn processed_since(
             video_bytes,
             language: language_code(wording.language()),
             date: local_date(&Zoned::now()),
+            background: relative(&job.dest, &drawn.background),
+            summaries: summaries(&job.dest, &drawn.sheets),
             tracks: listed(&job.dest, &tracks, &timeline, &drawn.painted, outputs),
         };
         write_params(&params_json(&job.dest), &params).map_err(Error::Files)?;
@@ -269,7 +272,7 @@ fn processed_since(
         extent: clips.extent,
         csv,
         kept,
-        summaries: drawn.pages,
+        summaries: drawn.sheets.into_iter().map(|sheet| sheet.page).collect(),
         rendered,
     })
 }

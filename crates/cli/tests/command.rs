@@ -134,8 +134,16 @@ fn outside_a_french_locale_the_table_clips_and_summary_are_named_in_english_with
         assert!(object.remove("date").is_some_and(|date| date.is_string()));
         assert!(object.remove("elapsed_s").is_some_and(|elapsed| elapsed.is_f64()));
         let language = object.remove("language");
+        let background = object.remove("background");
+        let summary = params["summaries"][0].as_object_mut().unwrap().remove("file");
         let track = params["tracks"][0].as_object_mut().unwrap();
-        let named = [language, track.remove("clip"), track.remove("summary")];
+        let named = [
+            language,
+            track.remove("clip"),
+            track.remove("summary"),
+            background,
+            summary,
+        ];
         (params, named)
     };
     let (english, french) = (settings(&english), settings(&french));
@@ -143,8 +151,22 @@ fn outside_a_french_locale_the_table_clips_and_summary_are_named_in_english_with
     assert_eq!(
         [english.1, french.1],
         [
-            ["en", "clips/track_01_0m00s.mp4", "flight_summary.png"].map(|name| Some(Value::from(name))),
-            ["fr", "extraits/piste_01_0m00s.mp4", "flight_resume.png"].map(|name| Some(Value::from(name)))
+            [
+                "en",
+                "clips/track_01_0m00s.mp4",
+                "flight_summary.png",
+                "flight_background.png",
+                "flight_summary.png"
+            ]
+            .map(|name| Some(Value::from(name))),
+            [
+                "fr",
+                "extraits/piste_01_0m00s.mp4",
+                "flight_resume.png",
+                "flight_fond.png",
+                "flight_resume.png"
+            ]
+            .map(|name| Some(Value::from(name)))
         ]
     );
 }
@@ -314,6 +336,7 @@ fn without_an_output_folder_the_results_go_to_a_batdetect_folder_beside_the_vide
             "flight/",
             "flight/extraits/",
             "flight/extraits/piste_01_0m00s.mp4",
+            "flight/flight_fond.png",
             "flight/flight_pistes.csv",
             "flight/flight_resume.png",
             "flight/params.json",
@@ -342,6 +365,7 @@ fn a_video_without_tracks_leaves_no_clips_folder_even_with_its_annotated_video()
         tree::tree(&out.join("flight")),
         [
             "flight_annotee.mp4",
+            "flight_fond.png",
             "flight_pistes.csv",
             "flight_resume.png",
             "params.json"
@@ -392,6 +416,7 @@ fn two_videos_whose_names_differ_only_by_case_keep_their_own_clips_in_one_output
         tree::tree(&out),
         [
             "a_Vol_mp4/",
+            "a_Vol_mp4/Vol_background.png",
             "a_Vol_mp4/Vol_summary.png",
             "a_Vol_mp4/Vol_tracks.csv",
             "a_Vol_mp4/clips/",
@@ -401,6 +426,7 @@ fn two_videos_whose_names_differ_only_by_case_keep_their_own_clips_in_one_output
             "b_vol_mp4/clips/",
             "b_vol_mp4/clips/track_01_0m00s.mp4",
             "b_vol_mp4/params.json",
+            "b_vol_mp4/vol_background.png",
             "b_vol_mp4/vol_summary.png",
             "b_vol_mp4/vol_tracks.csv",
             "results.html",
@@ -776,6 +802,7 @@ fn a_run_in_french_then_in_english_then_in_french_in_the_same_folder_leaves_only
     let french = [
         "extraits/",
         "extraits/piste_01_0m00s.mp4",
+        "flight_fond.png",
         "flight_pistes.csv",
         "flight_resume.png",
         "params.json",
@@ -783,6 +810,7 @@ fn a_run_in_french_then_in_english_then_in_french_in_the_same_folder_leaves_only
     let english = [
         "clips/",
         "clips/track_01_0m00s.mp4",
+        "flight_background.png",
         "flight_summary.png",
         "flight_tracks.csv",
         "params.json",
