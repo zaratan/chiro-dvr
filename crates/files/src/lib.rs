@@ -8,6 +8,7 @@ pub mod names;
 pub mod params;
 pub mod picture;
 pub mod previous;
+pub mod refusals;
 pub mod results;
 pub mod table;
 pub mod time;

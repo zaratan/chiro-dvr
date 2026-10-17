@@ -311,6 +311,15 @@ page-date = { $day } { $month ->
     } { $year }, { $hour }:{ $minute }
 page-computed = computed on { $date }
 page-tried = tried on { $date }
+page-refused-heading = { $count ->
+        [one] Refused input, not processed
+       *[other] Refused inputs, not processed
+    }
+page-refused-when = launch of { $date }
+page-refused-consequence = { $count ->
+        [one] Nothing was done for it. Fix it as shown below, then run batdetect again: videos already done will not be redone.
+       *[other] Nothing was done for them. Fix each one as shown below, then run batdetect again: videos already done will not be redone.
+    }
 page-not-analysed = { $duration } not analysed
 page-unfinished-badge = unfinished
 page-too-many-badge = too many tracks

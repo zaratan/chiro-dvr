@@ -19,6 +19,11 @@ pub fn is_ours(head: &[u8]) -> bool {
 
 pub fn render(page: &Page, labels: &dyn Labels) -> String {
     let say = |label: Label<'_>| text(&labels.label(&label));
+    let refused = page
+        .refused
+        .as_ref()
+        .map(|refusals| format!("{}\n", cards::refused(refusals, labels)))
+        .unwrap_or_default();
     let entries: Vec<String> = page
         .entries
         .iter()
@@ -68,7 +73,7 @@ pub fn render(page: &Page, labels: &dyn Labels) -> String {
   {toggle}
 </header>
 <main>
-{entries}
+{refused}{entries}
 </main>
 <script>
 {SCRIPT}</script>
@@ -108,10 +113,19 @@ fn tally(page: &Page, labels: &dyn Labels) -> String {
         parts.push(span("count", &labels.label(&Label::Done(done))));
     }
     if let Some(first) = first_too_many {
-        parts.push(link(first, &labels.label(&Label::TooManyCount(too_many))));
+        parts.push(link(
+            &format!("v{first}"),
+            &labels.label(&Label::TooManyCount(too_many)),
+        ));
     }
     if let Some(first) = first_failed {
-        parts.push(link(first, &labels.label(&Label::FailedCount(failed))));
+        parts.push(link(&format!("v{first}"), &labels.label(&Label::FailedCount(failed))));
+    }
+    if let Some(refusals) = &page.refused {
+        parts.push(link(
+            cards::REFUSED_ANCHOR,
+            &labels.label(&Label::RefusedCount(refusals.inputs.len())),
+        ));
     }
     if unfinished > 0 {
         parts.push(span("count", &labels.label(&Label::UnfinishedCount(unfinished))));
@@ -123,8 +137,8 @@ fn tally(page: &Page, labels: &dyn Labels) -> String {
     parts.join("\n    ")
 }
 
-fn link(entry: usize, content: &str) -> String {
-    format!(r##"<a class="count bad" href="#v{entry}">{}</a>"##, text(content))
+fn link(anchor: &str, content: &str) -> String {
+    format!(r##"<a class="count bad" href="#{anchor}">{}</a>"##, text(content))
 }
 
 fn span(class: &str, content: &str) -> String {

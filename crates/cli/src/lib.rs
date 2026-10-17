@@ -15,6 +15,7 @@ pub mod outcome;
 pub mod overview;
 pub mod process;
 pub mod progress;
+pub mod refusals;
 pub mod reuse;
 mod settings;
 pub mod space;

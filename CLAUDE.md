@@ -154,7 +154,7 @@ crates depuis #71, dépendances à sens unique :
   `summary`, `render`, `draw`, `media`, `page`, `types`, et `compare` pour ses tests (#184) ;
   `written` (page à la racine de chaque dossier de sortie, au début du lot puis à chaque fin de
   vidéo, seulement si elle est à nous, #71), `ledger` (échec d'une vidéo gardé dans
-  `.batdetect/echecs/` pour la page, effacé à la réussite, #71),
+  `.batdetect/echecs/` pour la page, effacé à la réussite, #71), `refusals` (entrées refusées du lancement dans `.batdetect/refus.json` pour la page, #267),
   `options` (réglages de la commande), `process` (une vidéo de bout en bout ; `tracked` en
   est le suivi, partagé avec les tests figés), `reuse` (vidéo déjà faite, sautée d'après son `params.json`, #70), `inventory` (inventaire au départ : reprise décidée, autres vidéos ouvertes et refusées si elles ne s'ouvrent pas, durée annoncée, #62), `space` (place à prévoir, au lancement et par vidéo, regroupée par volume, sans disque, #61), `disk` (place libre et volume d'un dossier par `statvfs`, rien sous Windows, #61), `consent` (question avant de traiter les vidéos
   valides quand des entrées sont refusées, `--skip-refused`), `language`, `listing` (pistes de `params.json` : temps, couleur, extraits écrits, #66),

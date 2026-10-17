@@ -5,11 +5,12 @@ use std::time::Duration;
 use batdetect::access::Access;
 use batdetect::failure::{self, Cause, INTERNAL, REFERS_TO_DETAIL, TOO_MANY_TRACKS};
 use batdetect::inventory::Stock;
-use batdetect::jobs::{self, Job, Reason, Refused};
+use batdetect::jobs::{self, Job, NO_VIDEO, Reason, Refused, UNREACHABLE};
 use batdetect::options::Options;
 use batdetect::outcome::{Failure, Rank};
 use batdetect::process;
 use batdetect::progress::Step;
+use batdetect::refusals::{self, VIDEOS_SEPARATOR};
 use batdetect::space::GIGABYTE;
 use batdetect::writable::Unwritable;
 use engine::settings;
@@ -22,15 +23,8 @@ use crate::texts::{Fixed, Message, Shown, Texts};
 #[cfg(test)]
 mod tests;
 
-const INPUT_MISSING: &str = "input-missing";
-const DISK_SHORT: &str = "disk-short";
-const DISK_SHORT_ANNOTATED: &str = "disk-short-annotated";
 const TENTHS: f64 = 10.0;
 const TENTHS_OF_GIGABYTE: f64 = GIGABYTE as f64 / TENTHS;
-const UNREACHABLE: &str = "unreachable";
-const NOT_A_VIDEO_NAME: &str = "not-a-video-name";
-const NO_VIDEO: &str = "no-video";
-const SHARED_FOLDER: &str = "shared-folder";
 const READ_ONLY: &str = "read-only";
 const OTHER_FOLDER: &str = "other-folder";
 
@@ -140,17 +134,15 @@ fn refusal_messages(texts: Texts, refused: &[Refused]) -> Vec<Message> {
     let mut messages = Vec::with_capacity(refused.len() * 2);
     for refusal in refused {
         messages.push(input_refused(texts, refusal, &listed, &last));
-        messages.push(todo_in(input_todo(&refusal.reason), &refusal.path));
-        if let Reason::Unopened { cause, detail } = &refusal.reason
-            && REFERS_TO_DETAIL.contains(&cause.key())
-        {
-            messages.push(Message::FailureDetail { detail: detail.clone() });
+        messages.push(todo_in(refusal.reason.todo(), &refusal.path));
+        if let Some(detail) = refusals::input(refusal).detail {
+            messages.push(Message::FailureDetail { detail });
         }
     }
     messages
 }
 
-fn extensions() -> (String, String) {
+pub(crate) fn extensions() -> (String, String) {
     match jobs::video_extensions().split_last() {
         Some((last, listed)) => (listed.join(", "), (*last).to_owned()),
         None => (String::new(), String::new()),
@@ -160,8 +152,7 @@ fn extensions() -> (String, String) {
 fn input_refused(texts: Texts, refusal: &Refused, listed: &str, last: &str) -> Message {
     let path = refusal.path.display().to_string();
     let reason = match &refusal.reason {
-        Reason::Missing => "missing",
-        Reason::Unreadable(access) => read_access(*access),
+        Reason::Missing | Reason::Unreadable(_) => refusal.reason.key(),
         Reason::NotAVideo | Reason::NoVideo => {
             return Message::InputWithoutVideo {
                 path,
@@ -174,7 +165,7 @@ fn input_refused(texts: Texts, refusal: &Refused, listed: &str, last: &str) -> M
             let named: Vec<String> = videos.iter().map(|video| video.display().to_string()).collect();
             return Message::SharedFolder {
                 path,
-                videos: named.join(", "),
+                videos: named.join(VIDEOS_SEPARATOR),
             };
         }
         Reason::Unopened { cause, .. } => {
@@ -193,29 +184,6 @@ fn input_refused(texts: Texts, refusal: &Refused, listed: &str, last: &str) -> M
         }
     };
     Message::InputRefused { path, reason }
-}
-
-const fn input_todo(reason: &Reason) -> &'static str {
-    match reason {
-        Reason::Missing | Reason::Unreadable(Access::Missing | Access::NotAFolder) => INPUT_MISSING,
-        Reason::Unreadable(Access::Refused) => Cause::ReadRefused.key(),
-        Reason::Unreadable(Access::ReadOnly | Access::DiskFull | Access::Unavailable) => UNREACHABLE,
-        Reason::NotAVideo => NOT_A_VIDEO_NAME,
-        Reason::NoVideo => NO_VIDEO,
-        Reason::SharedFolder { .. } => SHARED_FOLDER,
-        Reason::Unopened { cause, .. } => cause.key(),
-        Reason::DiskShort { annotated: false, .. } => DISK_SHORT,
-        Reason::DiskShort { annotated: true, .. } => DISK_SHORT_ANNOTATED,
-    }
-}
-
-const fn read_access(access: Access) -> &'static str {
-    match access {
-        Access::Missing => "missing",
-        Access::Refused => "refused",
-        Access::NotAFolder => "not-a-folder",
-        Access::ReadOnly | Access::DiskFull | Access::Unavailable => "unavailable",
-    }
 }
 
 pub(crate) fn folders_refused(texts: Texts, refused: &[Unwritable]) -> (Message, Vec<String>) {

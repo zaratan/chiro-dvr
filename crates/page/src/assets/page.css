@@ -107,6 +107,11 @@ details[open] > summary .chevron { transform: rotate(45deg); }
 .failure p { margin: 0 0 4px; max-width: 75ch; }
 
 .pending .badge { color: var(--muted); background: var(--bg); }
+.inputs { list-style: none; margin: 12px 0 0; padding: 0; }
+.inputs li { padding: 8px 0; }
+.inputs li + li { border-top: 1px solid var(--line); }
+.inputs .reason { font-weight: 600; overflow-wrap: anywhere; }
+.inputs .todo { color: var(--text); }
 .failure .detail { color: var(--muted); font-family: ui-monospace, Menlo, monospace; font-size: 0.85rem; overflow-wrap: anywhere; }
 .notice { padding: 12px 20px; border-top: 1px solid var(--line); background: var(--danger-soft); }
 .notice p { margin: 0 0 4px; max-width: 75ch; }
@@ -182,4 +187,6 @@ button.dot:hover { box-shadow: 0 0 0 1px var(--dot-ring), 0 0 0 3px var(--accent
   summary.video-head { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; }
   summary.video-head .chevron { grid-row: 1 / span 2; align-self: start; margin-top: 0.55em; }
   summary.video-head .name, summary.video-head .meta { grid-column: 2; }
+  .refused .video-head { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; }
+  .refused .video-head .meta { grid-column: 2; }
 }

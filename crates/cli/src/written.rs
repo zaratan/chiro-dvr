@@ -6,20 +6,20 @@ use std::path::{Path, PathBuf};
 
 use files::error::Error;
 use files::failures::FailureRecord;
-use files::names::partial_path;
-use files::names::{RESULTS_FOLDER, composed, results_page};
+use files::names::{RESULTS_FOLDER, name_key, partial_file, results_page};
 use files::params::Finish;
+use files::refusals::{RefusalRecord, read_refusals};
 use files::results::{Finished, Found, read_results};
 use files::table::Headings;
 use jiff::Timestamp;
 use jiff::tz::TimeZone;
 use page::labels::Labels;
-use page::model::{Date, Entry, Failed, Page, Summary, TooMany, Track, Video};
-use tempfile::TempPath;
+use page::model::{Date, Entry, Failed, Page, Refusals, RefusedInput, Summary, TooMany, Track, Video};
 use types::language::Language;
 
 use crate::failure::REFERS_TO_DETAIL;
 use crate::jobs::Job;
+use crate::refusals::VIDEOS_SEPARATOR;
 
 #[cfg(test)]
 mod tests;
@@ -80,7 +80,7 @@ fn replace(target: &Path, html: &str) -> Result<(), Error> {
         path: target.to_path_buf(),
         source,
     };
-    let partial = TempPath::try_from_path(partial_path(target)).map_err(failed)?;
+    let partial = partial_file(target).map_err(failed)?;
     File::create(&partial)
         .and_then(|mut file| file.write_all(html.as_bytes()))
         .map_err(failed)?;
@@ -100,13 +100,13 @@ fn page_of(root: &Path, jobs: &[Job], finished: usize, headings: &dyn Headings) 
         .enumerate()
         .filter(|(_, job)| root_of(job) == root)
         .collect();
-    let in_batch_names: Vec<String> = in_batch
+    let in_batch_names: Vec<Vec<u8>> = in_batch
         .iter()
-        .map(|(_, job)| key(job.dest.file_name().unwrap_or_default()))
+        .map(|(_, job)| name_key(job.dest.file_name().unwrap_or_default()))
         .collect();
-    let mut entries: BTreeMap<String, Entry> = BTreeMap::new();
+    let mut entries: BTreeMap<Vec<u8>, Entry> = BTreeMap::new();
     for folder in read_results(root, headings) {
-        let open = in_batch_names.contains(&key(&folder.name));
+        let open = in_batch_names.contains(&name_key(&folder.name));
         let entry = match (folder.found, folder.failure) {
             (found, Some(record)) => Entry::Failed(failed(root, &folder.name, record, found)),
             (Found::Finished(done), None) => Entry::Video(video(&folder.name, &done, open)),
@@ -117,12 +117,12 @@ fn page_of(root: &Path, jobs: &[Job], finished: usize, headings: &dyn Headings) 
                 name: shown(&folder.name),
             },
         };
-        entries.insert(key(&folder.name), entry);
+        entries.insert(name_key(&folder.name), entry);
     }
     for &(rank, job) in &in_batch {
         if rank >= finished {
             entries.insert(
-                key(job.dest.file_name().unwrap_or_default()),
+                name_key(job.dest.file_name().unwrap_or_default()),
                 Entry::Waiting {
                     name: shown(job.video.file_stem().unwrap_or_default()),
                 },
@@ -132,6 +132,25 @@ fn page_of(root: &Path, jobs: &[Job], finished: usize, headings: &dyn Headings) 
     Page {
         title: title(root),
         entries: entries.into_values().collect(),
+        refused: read_refusals(root).map(refusals),
+    }
+}
+
+fn refusals(record: RefusalRecord) -> Refusals {
+    Refusals {
+        date: date(&record.date),
+        inputs: record
+            .inputs
+            .into_iter()
+            .map(|input| RefusedInput {
+                path: input.path,
+                reason: input.reason,
+                cause: input.cause,
+                todo: input.todo,
+                videos: input.videos.join(VIDEOS_SEPARATOR),
+                detail: input.detail,
+            })
+            .collect(),
     }
 }
 
@@ -213,10 +232,6 @@ fn title(root: &Path) -> String {
         other => other,
     };
     shown(named.unwrap_or(root.as_os_str()))
-}
-
-fn key(name: &OsStr) -> String {
-    composed(&name.to_string_lossy())
 }
 
 fn shown(path: impl AsRef<Path>) -> String {

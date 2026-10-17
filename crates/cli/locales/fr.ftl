@@ -333,6 +333,15 @@ page-date = { $day } { $month ->
     } { $year }, { $hour }:{ $minute }
 page-computed = calculée le { $date }
 page-tried = essayée le { $date }
+page-refused-heading = { $count ->
+        [one] Entrée refusée, non traitée
+       *[other] Entrées refusées, non traitées
+    }
+page-refused-when = lancement du { $date }
+page-refused-consequence = { $count ->
+        [one] Rien n'a été fait pour elle. La corriger comme indiqué ci-dessous, puis relancer batdetect : les vidéos déjà faites ne seront pas refaites.
+       *[other] Rien n'a été fait pour elles. Corriger chacune comme indiqué ci-dessous, puis relancer batdetect : les vidéos déjà faites ne seront pas refaites.
+    }
 page-not-analysed = { $duration } non analysées
 page-unfinished-badge = inachevée
 page-too-many-badge = trop de pistes

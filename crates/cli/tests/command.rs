@@ -616,6 +616,29 @@ fn an_output_folder_whose_name_is_not_utf8_is_written_as_given() {
     assert!(out.join("flight").join("clips").join("track_01_0m00s.mp4").is_file());
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn a_video_whose_name_is_not_utf8_is_processed_and_its_table_shown_on_the_page() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
+    fs::rename(
+        videos.join("flight.mp4"),
+        videos.join(OsStr::from_bytes(b"vol_\xe9.mp4")),
+    )
+    .unwrap();
+    let out = root.path().join("out");
+    let output = run(&[&videos, Path::new("-o"), &out], "C");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let dest = out.join(OsStr::from_bytes(b"vol_\xe9"));
+    assert!(dest.join(OsStr::from_bytes(b"vol_\xe9_tracks.csv")).is_file());
+    assert!(dest.join("params.json").is_file());
+    assert!(dest.join("clips").join("track_01_0m00s.mp4").is_file());
+    let page = fs::read_to_string(out.join("results.html")).unwrap();
+    assert!(page.contains("vol_\u{fffd}_tracks.csv"), "{page}");
+}
+
 #[test]
 fn each_track_gets_a_clip_named_after_its_start_that_holds_its_window() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
@@ -1321,7 +1344,7 @@ fn skip_refused_starts_the_lot_despite_the_disk_and_does_not_count_the_disk_amon
 
 #[cfg(unix)]
 #[test]
-fn skip_refused_with_a_missing_input_and_a_disk_too_small_lists_both_but_counts_only_the_input_as_refused() {
+fn skip_refused_with_a_missing_input_and_a_disk_too_small_lists_both_but_records_only_the_input_as_refused() {
     let (root, videos) = videos_with_a_flight(&["a.mp4"]);
     sparse::stretched_beyond_any_disk(&videos.join("a.mp4"));
     let (missing, out) = (videos.join("absente.mp4"), root.path().join("out"));
@@ -1359,6 +1382,15 @@ fn skip_refused_with_a_missing_input_and_a_disk_too_small_lists_both_but_counts_
         "{summary}"
     );
     assert!(!summary.contains("the disk holding"), "{summary}");
+    let recorded: Value =
+        serde_json::from_str(&fs::read_to_string(files::refusals::refusals_path(&out)).unwrap()).unwrap();
+    let paths: Vec<&Value> = recorded["inputs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|input| &input["path"])
+        .collect();
+    assert_eq!(paths, [&Value::from(missing.display().to_string())], "{recorded}");
 }
 
 #[cfg(unix)]

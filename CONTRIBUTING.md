@@ -25,6 +25,8 @@ Depuis les sources, la commande se lance par `target/release/batdetect` ou par
 `cargo run --release -p batdetect -- <vidéos>`. `batdetect -h` donne l'essentiel,
 `batdetect --help` toutes les options avec leur valeur par défaut : c'est lui qui fait foi.
 
+Hors d'un tag, `batdetect --version` affiche `X.Y.Z-N-gSHA` (N commits après le tag `vX.Y.Z`), suivi de `-dirty` quand l'arbre a des modifications non commitées : `crates/cli/build.rs` grave `BATDETECT_VERSION` si elle est posée, sinon `git describe`, sinon la version de `Cargo.toml`. Pour graver une autre version : `BATDETECT_VERSION=0.2.0 cargo build --release -p batdetect`. Le détail est dans [docs/11](docs/11-migration-rust.md#crates), à la crate `cli` (`params.json`).
+
 ## Vérifier
 
 ```bash

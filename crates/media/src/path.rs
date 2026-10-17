@@ -1,15 +1,17 @@
 use std::ffi::{CString, OsString};
-use std::path::{Path, PathBuf};
+use std::fs::File;
+use std::io;
+use std::path::Path;
+
+use tempfile::{Builder, NamedTempFile, TempPath};
 
 #[cfg(test)]
 mod tests;
 
 const PARTIAL_PREFIX: &str = ".";
 const PARTIAL_SUFFIX: &str = ".partial";
-
-pub(crate) fn for_ffmpeg(path: &Path) -> Option<&str> {
-    path.to_str().filter(|text| !text.contains('\0'))
-}
+const UNIQUE_SEPARATOR: &str = ".";
+const UNIQUE_LENGTH: usize = 6;
 
 #[cfg(unix)]
 pub(crate) fn location(path: &Path) -> Option<CString> {
@@ -19,12 +21,17 @@ pub(crate) fn location(path: &Path) -> Option<CString> {
 
 #[cfg(not(unix))]
 pub(crate) fn location(path: &Path) -> Option<CString> {
-    for_ffmpeg(path).and_then(|text| CString::new(text).ok())
+    path.to_str().and_then(|text| CString::new(text).ok())
 }
 
-pub(crate) fn partial(path: &Path) -> Option<PathBuf> {
-    let mut name = OsString::from(PARTIAL_PREFIX);
-    name.push(path.file_name()?);
-    name.push(PARTIAL_SUFFIX);
-    Some(path.with_file_name(name))
+pub(crate) fn partial(path: &Path) -> Option<io::Result<TempPath>> {
+    let mut prefix = OsString::from(PARTIAL_PREFIX);
+    prefix.push(path.file_name()?);
+    prefix.push(UNIQUE_SEPARATOR);
+    let created = Builder::new()
+        .prefix(&prefix)
+        .suffix(PARTIAL_SUFFIX)
+        .rand_bytes(UNIQUE_LENGTH)
+        .make_in(path.parent()?, |path| File::create_new(path));
+    Some(created.map(NamedTempFile::into_temp_path))
 }

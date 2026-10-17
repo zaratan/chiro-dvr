@@ -4,15 +4,13 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use tempfile::TempPath;
 
 use crate::error::Error;
-use crate::names::partial_path;
+use crate::names::{hidden_dir, partial_file};
 
 #[cfg(test)]
 mod tests;
 
-const HIDDEN_FOLDER: &str = ".batdetect";
 const FAILURES_FOLDER: &str = "echecs";
 const EXTENSION: &str = "json";
 
@@ -26,7 +24,7 @@ pub struct FailureRecord {
 }
 
 pub fn failures_dir(root: &Path) -> PathBuf {
-    root.join(HIDDEN_FOLDER).join(FAILURES_FOLDER)
+    hidden_dir(root).join(FAILURES_FOLDER)
 }
 
 fn record_path(root: &Path, folder: &OsStr) -> PathBuf {
@@ -49,7 +47,7 @@ pub fn record_failure(root: &Path, folder: &OsStr, record: &FailureRecord) -> Re
         source,
     })?;
     text.push('\n');
-    let partial = TempPath::try_from_path(partial_path(&path)).map_err(failed)?;
+    let partial = partial_file(&path).map_err(failed)?;
     File::create(&partial)
         .and_then(|mut file| file.write_all(text.as_bytes()))
         .map_err(failed)?;

@@ -11,7 +11,8 @@ release échoue sans elle.
 - Chaque entrée refusée au départ, et chaque dossier de résultats où l'on ne peut pas écrire,
   est suivi d'une ligne « à faire », comme une vidéo en échec (#239, #82).
 - Une ligne annonce la soirée avant la première vidéo : nombre de vidéos, durée totale, et combien sont déjà faites (#62).
-- La place libre du disque des résultats est contrôlée au lancement, sur une estimation de 1 fois la taille des vidéos (2,8 fois de plus avec `--annotated`) et une marge ; un disque trop petit rejoint les entrées refusées, et `--ignore-disk` passe outre. Chaque vidéo vérifie encore la place avant ses extraits et échoue en « disque plein » plutôt que de remplir le disque. Sous Windows, la place n'est pas contrôlée (#61).
+- La place libre du disque des résultats est contrôlée au lancement, sur une estimation de 1 fois la taille des vidéos (2,8 fois de plus avec `--annotated`) et une marge ; un disque trop petit est refusé avant le calcul, avec la même question que les entrées refusées, et `--ignore-disk` passe outre. Chaque vidéo vérifie encore la place avant ses extraits et échoue en « disque plein » plutôt que de remplir le disque. Sous Windows, la place n'est pas contrôlée (#61).
+- La page de résultats montre les entrées refusées au départ du dernier lancement, avant les vidéos, avec la raison et ce qu'il faut faire, comme le bilan (#267).
 
 ### Modifié
 
@@ -22,6 +23,8 @@ release échoue sans elle.
 - Les fichiers cachés d'un dossier, comme les `._x.mp4` que macOS dépose sur une clé exFAT, ne
   sont plus pris pour des vidéos (#204).
 - Sous macOS, le premier calcul n'échoue plus quand le dossier de résultats est sur une clé exFAT (#236).
+- Deux lancements sur le même dossier, ou un Ctrl-C pendant l'écriture de la page de résultats, ne mélangent plus deux versions d'un même fichier (#245).
+- Sous Linux, une vidéo dont le nom n'est pas en UTF-8 est traitée, et une relance la reconnaît comme déjà faite. Dans la page de résultats, son tableau et ses verdicts s'affichent, mais ni son image résumé ni sa vidéo annotée, et les liens vers son tableau, ses extraits et son dossier sont cassés (#227).
 
 ## [0.2.0] - 2026-10-16
 
