@@ -1,4 +1,5 @@
 pub mod access;
+pub mod checkup;
 pub mod consent;
 pub mod failure;
 #[cfg(test)]
@@ -17,6 +18,7 @@ pub mod progress;
 pub mod refusals;
 pub mod reuse;
 mod settings;
+pub mod space;
 pub mod tally;
 pub mod writable;
 pub mod written;

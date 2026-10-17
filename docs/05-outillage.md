@@ -38,6 +38,7 @@ matrice, les six tâches `rust*` font huit exécutions, et `package` six de plus
 | `package` | macOS 26, Ubuntu 22.04, Windows 2025 | `package.yml` : les trois archives `release`, `check.sh`, les sources LGPL, `SHA256SUMS` |
 | `verdict` | Linux | rouge si une tâche a échoué ou a été annulée, vert sinon |
 
+- **zsh sous Linux.** La tâche `rust` installe zsh (`apt-get`) pour le test `zsh -n` du script de complétion (`crates/cli/tests/completion.rs`, #59) ; macOS l'a d'origine, et le test ne se compile pas sous Windows.
 - **PR de docs seules.** Une PR dont chaque fichier finit en `.md` ou est sous `docs/images/`
   (`git diff --name-only --no-renames` contre la branche de base, sur le commit de fusion que
   prépare GitHub ; un renommage compte ses deux chemins) saute les sept tâches du Rust,
@@ -108,6 +109,7 @@ et les noms des fichiers produits sont en français quand la locale l'est, en an
   - Elle n'a plus de `depends_on "ffmpeg"` : FFmpeg est lié en statique. Sa licence est
     `all_of: ["MIT", "LGPL-2.1-or-later"]`.
   - Ses planchers : Apple Silicon (`arch: :arm64`) et macOS 14 (`macos: :sonoma`).
+- **Complétion zsh (#59, #60)** : la formule de la 0.2.1 installera le script par `generate_completions_from_executable(bin/"batdetect", "completion", shells: [:zsh])` (Homebrew ajoute `zsh` en dernier argument), qui écrit `_batdetect` dans `share/zsh/site-functions` ; il ne reste à l'utilisateur que la ligne `compinit` de `~/.zshrc`. Le script est dans la langue du système au moment de l'installation : à vérifier au Mac sous Homebrew.
 - **La 0.1.1**, binaire Python sous GPL v3, est décrite par le `packaging/NOTICE` du tag
   `v0.1.1`, et son mode d'emploi par le README de ce tag.
 - **Le binaire Rust se publie par un tag** (#223), sous MIT et LGPL 2.1 ou ultérieure :

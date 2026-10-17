@@ -11,6 +11,7 @@ name = "batdetect"
 
 [dependencies]
 clap.workspace = true
+clap_complete.workspace = true
 ctrlc.workspace = true
 draw.workspace = true
 engine.workspace = true
@@ -29,6 +30,9 @@ thiserror.workspace = true
 tracking.workspace = true
 types.workspace = true
 unic-langid.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+rustix.workspace = true
 
 [dev-dependencies]
 compare.workspace = true

@@ -115,6 +115,26 @@ pub(crate) enum Fixed {
     TableAmplitude,
     TableFilledFrames,
     TableStartSeconds,
+    OtherCommands,
+    CompletionZshOnly,
+    CompletionWithHomebrew,
+    CompletionWithoutHomebrew,
+    CompletionThenProfile,
+    DoctorNoArgument,
+    DoctorHardware,
+    DoctorSoftware,
+    DoctorFallback,
+    DoctorBroken,
+    DoctorReady,
+    DoctorTodoFallback,
+    DoctorTodoBroken,
+    DoctorTodoSpace,
+    DoctorTodoWriting,
+    DoctorUntried,
+    DoctorTodoUntried,
+    CompletionCommandsGroup,
+    CompletionDoctor,
+    CompletionCompletion,
 }
 
 impl Fixed {
@@ -198,6 +218,26 @@ impl Fixed {
             Self::TableAmplitude => "table-amplitude",
             Self::TableFilledFrames => "table-filled-frames",
             Self::TableStartSeconds => "table-start-seconds",
+            Self::OtherCommands => "other-commands",
+            Self::CompletionZshOnly => "completion-zsh-only",
+            Self::CompletionWithHomebrew => "completion-with-homebrew",
+            Self::CompletionWithoutHomebrew => "completion-without-homebrew",
+            Self::CompletionThenProfile => "completion-then-profile",
+            Self::DoctorNoArgument => "doctor-no-argument",
+            Self::DoctorHardware => "doctor-hardware",
+            Self::DoctorSoftware => "doctor-software",
+            Self::DoctorFallback => "doctor-fallback",
+            Self::DoctorBroken => "doctor-broken",
+            Self::DoctorReady => "doctor-ready",
+            Self::DoctorTodoFallback => "doctor-todo-fallback",
+            Self::DoctorTodoBroken => "doctor-todo-broken",
+            Self::DoctorTodoSpace => "doctor-todo-space",
+            Self::DoctorTodoWriting => "doctor-todo-writing",
+            Self::DoctorUntried => "doctor-untried",
+            Self::DoctorTodoUntried => "doctor-todo-untried",
+            Self::CompletionCommandsGroup => "completion-commands-group",
+            Self::CompletionDoctor => "completion-doctor",
+            Self::CompletionCompletion => "completion-completion",
         }
     }
 }
@@ -450,6 +490,32 @@ pub(crate) enum Message {
         length: String,
         done: usize,
     },
+    DoctorVersion {
+        version: String,
+        ffmpeg: String,
+    },
+    DoctorSpace {
+        gigabytes: String,
+        folder: String,
+    },
+    DoctorSpaceShort {
+        gigabytes: String,
+        folder: String,
+        least: String,
+    },
+    DoctorSpaceUnknown {
+        folder: String,
+    },
+    DoctorWritable {
+        folder: String,
+    },
+    DoctorUnwritable {
+        folder: String,
+        access: &'static str,
+    },
+    DoctorProblems {
+        count: usize,
+    },
 }
 
 impl Message {
@@ -521,6 +587,13 @@ impl Message {
             Self::TallyRefusedHeading { .. } => "tally-refused-heading",
             Self::Interrupted { .. } => "interrupted",
             Self::Announce { .. } => "announce",
+            Self::DoctorVersion { .. } => "doctor-version",
+            Self::DoctorSpace { .. } => "doctor-space",
+            Self::DoctorSpaceShort { .. } => "doctor-space-short",
+            Self::DoctorSpaceUnknown { .. } => "doctor-space-unknown",
+            Self::DoctorWritable { .. } => "doctor-writable",
+            Self::DoctorUnwritable { .. } => "doctor-unwritable",
+            Self::DoctorProblems { .. } => "doctor-problems",
         }
     }
 
@@ -730,6 +803,13 @@ impl Message {
                 arguments.set("path", path.as_str());
                 arguments.set("access", *access);
             }
+            Self::DoctorVersion { .. }
+            | Self::DoctorSpace { .. }
+            | Self::DoctorSpaceShort { .. }
+            | Self::DoctorSpaceUnknown { .. }
+            | Self::DoctorWritable { .. }
+            | Self::DoctorUnwritable { .. }
+            | Self::DoctorProblems { .. } => self.doctor_arguments(arguments),
             Self::Fixed(_)
             | Self::DefaultValue { .. }
             | Self::RegionShape { .. }
@@ -786,6 +866,39 @@ impl Message {
             | Self::SummaryMore { .. }
             | Self::SummaryUnreadable { .. }
             | Self::SummaryMoreUnreadable { .. } => {}
+        }
+    }
+}
+
+impl Message {
+    fn doctor_arguments<'a>(&'a self, arguments: &mut FluentArgs<'a>) {
+        match self {
+            Self::DoctorVersion { version, ffmpeg } => {
+                arguments.set("version", version.as_str());
+                arguments.set("ffmpeg", ffmpeg.as_str());
+            }
+            Self::DoctorSpace { gigabytes, folder } => {
+                arguments.set("gigabytes", gigabytes.as_str());
+                arguments.set("folder", folder.as_str());
+            }
+            Self::DoctorSpaceShort {
+                gigabytes,
+                folder,
+                least,
+            } => {
+                arguments.set("gigabytes", gigabytes.as_str());
+                arguments.set("folder", folder.as_str());
+                arguments.set("least", least.as_str());
+            }
+            Self::DoctorSpaceUnknown { folder } | Self::DoctorWritable { folder } => {
+                arguments.set("folder", folder.as_str());
+            }
+            Self::DoctorUnwritable { folder, access } => {
+                arguments.set("folder", folder.as_str());
+                arguments.set("access", *access);
+            }
+            Self::DoctorProblems { count } => arguments.set("count", *count),
+            _ => {}
         }
     }
 }

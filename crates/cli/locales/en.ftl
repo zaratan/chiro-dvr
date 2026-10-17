@@ -354,3 +354,40 @@ page-next-clip = Clip of the next track
 page-player = Clip player for { $video }
 page-table-link = Tracks table, for a spreadsheet
 page-annotated-link = Whole video with the tracks drawn
+other-commands = Other commands: "batdetect doctor" checks that everything is ready before an evening, "batdetect completion zsh" writes the Tab completion. A folder named doctor or completion is given as ./doctor or ./completion.
+completion-zsh-only = only zsh is supported: batdetect completion zsh
+completion-with-homebrew = With Homebrew, the script is already installed: add to ~/.zshrc the line
+completion-without-homebrew = Without Homebrew: save the script with
+completion-then-profile = then add to ~/.zshrc these two lines, in this order:
+doctor-no-argument = doctor takes no argument: run it in the folder to check
+doctor-version = batdetect { $version } — FFmpeg { $ffmpeg } included
+doctor-hardware = ✓ encoder: VideoToolbox (hardware)
+doctor-software = ✓ encoder: openh264 (software)
+doctor-fallback = ⚠ encoder: openh264 only, VideoToolbox does not respond
+doctor-broken = ✗ encoder: none works
+doctor-space = ✓ free space: { $gigabytes } GB in { $folder }
+doctor-space-short = ✗ free space: { $gigabytes } GB in { $folder }, less than { $least } GB
+doctor-space-unknown = ⚠ free space: not measured in { $folder }
+doctor-writable = ✓ writing: allowed in { $folder }
+doctor-unwritable = ✗ writing: refused in { $folder } ({ $access ->
+        [refused] not allowed
+        [not-a-folder] not a folder
+        [missing] not found
+        [read-only] read-only
+        [disk-full] disk full
+       *[unavailable] unreachable
+    })
+doctor-todo-fallback = {"  "}what to do: nothing required, clips will be slower to write; restarting the Mac may bring VideoToolbox back
+doctor-todo-broken = {"  "}what to do: reinstall batdetect
+doctor-todo-space = {"  "}what to do: free some space, or choose another folder with -o
+doctor-todo-writing = {"  "}what to do: choose a folder where writing is allowed, with -o
+doctor-ready = Everything is ready.
+doctor-problems = { $count ->
+        [one] 1 point to fix.
+       *[other] { $count } points to fix.
+    }
+doctor-untried = ✗ encoder: not tried, the system's temporary folder refuses writing
+doctor-todo-untried = {"  "}what to do: free some space on the system disk, then run batdetect doctor again
+completion-commands-group = command
+completion-doctor = checks that everything is ready before an evening
+completion-completion = writes the Tab completion

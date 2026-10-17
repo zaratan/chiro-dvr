@@ -12,6 +12,8 @@ release échoue sans elle.
   est suivi d'une ligne « à faire », comme une vidéo en échec (#239, #82).
 - Une ligne annonce la soirée avant la première vidéo : nombre de vidéos, durée totale, et combien sont déjà faites (#62).
 - La page de résultats montre les entrées refusées au départ du dernier lancement, avant les vidéos, avec la raison et ce qu'il faut faire, comme le bilan (#267).
+- `batdetect doctor` vérifie, avant une soirée, l'encodeur, la place libre et le droit d'écrire dans le dossier courant, avec quoi faire pour chaque défaut (#58).
+- `batdetect completion zsh` écrit la complétion de la touche Tab : options, valeurs de `--zoom`, vidéos et dossiers, et les commandes `doctor` et `completion` au premier mot (#59).
 
 ### Modifié
 

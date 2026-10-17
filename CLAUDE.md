@@ -156,7 +156,7 @@ crates depuis #71, dépendances à sens unique :
   vidéo, seulement si elle est à nous, #71), `ledger` (échec d'une vidéo gardé dans
   `.batdetect/echecs/` pour la page, effacé à la réussite, #71), `refusals` (entrées refusées du lancement dans `.batdetect/refus.json` pour la page, #267),
   `options` (réglages de la commande), `process` (une vidéo de bout en bout ; `tracked` en
-  est le suivi, partagé avec les tests figés), `reuse` (vidéo déjà faite, sautée d'après son `params.json`, #70), `inventory` (inventaire au départ : reprise décidée, autres vidéos ouvertes et refusées si elles ne s'ouvrent pas, durée annoncée, #62), `consent` (question avant de traiter les vidéos
+  est le suivi, partagé avec les tests figés), `reuse` (vidéo déjà faite, sautée d'après son `params.json`, #70), `inventory` (inventaire au départ : reprise décidée, autres vidéos ouvertes et refusées si elles ne s'ouvrent pas, durée annoncée, #62), `checkup` (modèle de `doctor` : encodeur essayé, place libre, droit d'écrire, #58), `space` (place libre d'un dossier par `statvfs`, #58), `consent` (question avant de traiter les vidéos
   valides quand des entrées sont refusées, `--skip-refused`), `language`, `listing` (pistes de `params.json` : temps, couleur, extraits écrits, #66),
   `overview` (image résumé), `settings` (réglages de `params.json`),
   `outcome` (boucle des vidéos, seul `catch_unwind` du code livré, #113), `writable`
@@ -164,7 +164,7 @@ crates depuis #71, dépendances à sens unique :
   fermée des raisons d'un chemin refusé, sans texte, #55), `jobs` (vidéos et dossiers de
   sortie, toutes les entrées fautives refusées ensemble avant tout calcul, #55), `progress` (étapes
   d'une vidéo annoncées par `process`, #63), `failure` (cause d'un échec, sans texte, #64), `tally` (modèle du bilan de fin de soirée, #65), dans le binaire `status` (vidéo et étape en
-  cours sur la sortie d'erreur, redessinée sur un terminal, #63), `board` (mise en forme du bilan, #65), `clock` (durée en h, min et s, du bilan et de l'annonce, #62), `notify` (sous macOS dans un terminal, notification par
+  cours sur la sortie d'erreur, redessinée sur un terminal, #63), `board` (mise en forme du bilan, #65), `commands` (aiguillage de `doctor` et `completion` avant le parseur, #58, #59), `completion` (script zsh par `clap_complete`, #59), `doctor` (lignes de `batdetect doctor`, #58), `clock` (durée en h, min et s, du bilan et de l'annonce, #62), `notify` (sous macOS dans un terminal, notification par
   `osascript` et page de résultats ouverte par `open` après le bilan, seuls sous-processus du binaire, #69, #71), `sheet`
   (libellés de la page par Fluent, #71), `style` (couleurs et nom de l'option d'aide, #56) et `parsing` (lecture
   des valeurs d'options, erreur typée avec l'option et sa plage, #55) ; usages courants en tête de l'aide et sans argument (#56), version gravée par
