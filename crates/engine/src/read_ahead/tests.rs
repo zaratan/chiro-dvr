@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::mpsc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -25,6 +25,35 @@ fn wait_until(condition: impl Fn() -> bool) {
     let deadline = Instant::now() + GUARD;
     while !condition() && Instant::now() < deadline {
         thread::sleep(Duration::from_millis(1));
+    }
+}
+
+struct Tracked(Arc<AtomicUsize>);
+
+impl Drop for Tracked {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+struct Ending {
+    next: usize,
+    limit: usize,
+    gone: Arc<AtomicBool>,
+}
+
+impl Ending {
+    fn item(&mut self) -> Option<usize> {
+        (self.next < self.limit).then(|| {
+            self.next += 1;
+            self.next - 1
+        })
+    }
+}
+
+impl Drop for Ending {
+    fn drop(&mut self) {
+        self.gone.store(true, Ordering::SeqCst);
     }
 }
 
@@ -58,6 +87,42 @@ fn items_arrive_in_order_in_slots_made_once_and_reused() {
     });
     assert_eq!(received, (0..50).map(|item| (item, item)).collect::<Vec<_>>());
     assert_eq!(made, AHEAD.get() + 1);
+}
+
+#[test]
+fn every_slot_made_lives_until_the_consumer_is_done_even_once_the_reader_has_met_the_end() {
+    let (alive_at_the_last_item, alive_after) = finishes(|| {
+        let alive = Arc::new(AtomicUsize::new(0));
+        let gone = Arc::new(AtomicBool::new(false));
+        let mut source = Ending {
+            next: 0,
+            limit: 2,
+            gone: Arc::clone(&gone),
+        };
+        let counted = Arc::clone(&alive);
+        let new_slot = move || {
+            counted.fetch_add(1, Ordering::SeqCst);
+            Tracked(Arc::clone(&counted))
+        };
+        let mut seen = None;
+        let outcome = read_ahead(
+            AHEAD,
+            new_slot,
+            move |_: &mut Tracked| Ok::<_, SourceFailed>(source.item()),
+            |item, _: &Tracked| {
+                if item == 0 {
+                    wait_until(|| gone.load(Ordering::SeqCst));
+                } else {
+                    seen = Some(alive.load(Ordering::SeqCst));
+                }
+                Ok::<(), ConsumerFailed>(())
+            },
+        );
+        assert_eq!(outcome, Ok(()));
+        (seen, alive.load(Ordering::SeqCst))
+    });
+    assert_eq!(alive_at_the_last_item, Some(3));
+    assert_eq!(alive_after, 0);
 }
 
 #[test]
