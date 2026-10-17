@@ -116,6 +116,8 @@ Sur le Mac du développeur (M1 Max), il faut environ 20 s par vidéo de 5 min, s
 4 min par heure d'enregistrement. Sur un Mac plus modeste, c'est plus long ; ce temps n'y a pas
 encore été mesuré ([Questions ouvertes](06-questions-ouvertes.md)).
 
+Une fois la première vidéo calculée, la ligne qui se redessine donne aussi l'heure à laquelle toute la soirée devrait être traitée, par exemple « [3/12] video_094 — détection · fin vers 22:41 ». Cette heure se calcule sur le temps qu'ont pris les vidéos déjà calculées pendant ce lancement et se corrige à chaque étape : c'est une estimation, et une vidéo avec beaucoup de pistes, qui a plus d'extraits à écrire, prend plus longtemps que les autres.
+
 ## 6. Ouvrir les résultats
 
 À la fin du lot, une notification l'annonce et la page des résultats de chaque soirée s'ouvre

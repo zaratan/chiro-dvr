@@ -31,7 +31,7 @@ fn earlier(length_s: f64) -> Earlier {
 }
 
 #[test]
-fn a_readable_video_is_listed_with_the_length_its_announced_frames_give() {
+fn a_readable_video_is_listed_with_its_announced_frames_to_compute_and_the_length_they_give() {
     let folder = tempfile::tempdir().unwrap();
     let flight = job(folder.path(), "flight.mp4");
     write_flight(&flight.video);
@@ -43,6 +43,7 @@ fn a_readable_video_is_listed_with_the_length_its_announced_frames_give() {
             job: flight,
             earlier: None,
             length_s: 2.0,
+            frames_to_compute: 20,
         }]
     );
 }
@@ -64,7 +65,7 @@ fn a_file_named_like_a_video_that_cannot_be_opened_is_refused_with_the_cause_its
 }
 
 #[test]
-fn a_video_already_done_is_not_opened_and_counts_the_length_of_its_earlier_run() {
+fn a_video_already_done_is_not_opened_has_no_frame_to_compute_and_counts_the_length_of_its_earlier_run() {
     let folder = tempfile::tempdir().unwrap();
     let done = job(folder.path(), "faite.mp4");
     fs::write(&done.video, "not opened").unwrap();
@@ -76,12 +77,13 @@ fn a_video_already_done_is_not_opened_and_counts_the_length_of_its_earlier_run()
             job: done,
             earlier: Some(earlier(41.5)),
             length_s: 41.5,
+            frames_to_compute: 0,
         }]
     );
 }
 
 #[test]
-fn the_stock_keeps_the_order_given_and_counts_the_length_and_the_videos_already_done() {
+fn the_stock_keeps_the_order_given_and_counts_the_length_the_frames_to_compute_and_the_videos_already_done() {
     let folder = tempfile::tempdir().unwrap();
     let (first, done, fake, last) = (
         job(folder.path(), "a.mp4"),
@@ -98,6 +100,7 @@ fn the_stock_keeps_the_order_given_and_counts_the_length_and_the_videos_already_
     assert_eq!(stock.jobs(), [first.clone(), done.clone(), last]);
     assert!((stock.length_s() - 64.0).abs() < 1e-9, "{}", stock.length_s());
     assert_eq!(stock.already_done(), 1);
+    assert_eq!(stock.frames_to_compute(), [20, 0, 20]);
     assert_eq!(stock.earlier(&done), Some(earlier(60.0)));
     assert_eq!(stock.earlier(&first), None);
     assert_eq!(stock.refused.len(), 1);

@@ -16,7 +16,7 @@ use crate::sheet::{self, Spoken};
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 68;
+const VARIANTS: usize = 69;
 const FIXED: [Fixed; 79] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
@@ -169,6 +169,7 @@ fn rank(message: &Message) -> usize {
         Message::Announce { .. } => 65,
         Message::DiskShort { .. } => 66,
         Message::DisksShort { .. } => 67,
+        Message::Finish { .. } => 68,
     }
 }
 
@@ -478,6 +479,10 @@ fn command_line() -> Vec<Message> {
             free: text("4,1"),
         },
         Message::DisksShort { count: 2 },
+        Message::Finish {
+            line: text("[3/12] video_094 — détection"),
+            time: text("22:41"),
+        },
         Message::InputsSkipped { count: 2 },
         Message::SkipRefusedQuestion { count: 3 },
         Message::TallyRefusedCount { count: 2 },

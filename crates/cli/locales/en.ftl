@@ -24,6 +24,7 @@ announce = { $videos ->
         [0] {""}
        *[other] , { $done } of them already done
     }
+finish = { $line } · done around { $time }
 video-failed = [{ $position }/{ $total }] { $video } — { $too-many ->
         [yes] too many tracks
        *[no] failed

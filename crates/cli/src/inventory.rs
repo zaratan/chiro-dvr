@@ -21,6 +21,7 @@ pub struct Listed {
     pub job: Job,
     pub earlier: Option<Earlier>,
     pub length_s: f64,
+    pub frames_to_compute: usize,
 }
 
 #[derive(Debug, Default)]
@@ -36,6 +37,10 @@ impl Stock {
 
     pub fn length_s(&self) -> f64 {
         self.listed.iter().map(|listed| listed.length_s).sum()
+    }
+
+    pub fn frames_to_compute(&self) -> Vec<usize> {
+        self.listed.iter().map(|listed| listed.frames_to_compute).collect()
     }
 
     pub fn already_done(&self) -> usize {
@@ -87,6 +92,7 @@ pub fn take_stock(jobs: Vec<Job>, earlier: impl Fn(&Job) -> Option<Earlier>) -> 
         if let Some(earlier) = earlier(&job) {
             stock.listed.push(Listed {
                 length_s: earlier.extent.length_s,
+                frames_to_compute: 0,
                 earlier: Some(earlier),
                 job,
             });
@@ -95,13 +101,12 @@ pub fn take_stock(jobs: Vec<Job>, earlier: impl Fn(&Job) -> Option<Earlier>) -> 
         match Input::open(&job.video, ONE_THREAD) {
             Ok(input) => {
                 let video = input.video();
-                let length_s = video
-                    .frame_rate()
-                    .seconds(FrameIndex::new(video.announced_frames().get()));
+                let frames = video.announced_frames().get();
                 stock.listed.push(Listed {
                     job,
                     earlier: None,
-                    length_s,
+                    length_s: video.frame_rate().seconds(FrameIndex::new(frames)),
+                    frames_to_compute: frames,
                 });
             }
             Err(error) => stock.refused.push(Refused {

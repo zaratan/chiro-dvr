@@ -14,6 +14,7 @@ use batdetect::refusals::{self, VIDEOS_SEPARATOR};
 use batdetect::space::GIGABYTE;
 use batdetect::writable::Unwritable;
 use engine::settings;
+use jiff::{Unit, Zoned};
 use render::config;
 
 use crate::clock::clock;
@@ -27,6 +28,7 @@ const TENTHS: f64 = 10.0;
 const TENTHS_OF_GIGABYTE: f64 = GIGABYTE as f64 / TENTHS;
 const READ_ONLY: &str = "read-only";
 const OTHER_FOLDER: &str = "other-folder";
+const CLOCK_TIME: &str = "%H:%M";
 
 pub(crate) fn detection_refused(error: &settings::Error) -> Message {
     match *error {
@@ -236,6 +238,17 @@ pub(crate) fn announcement(stock: &Stock) -> Message {
         videos: stock.listed.len(),
         length: clock(length.as_secs()),
         done: stock.already_done(),
+    }
+}
+
+pub(crate) fn finish(line: String, at: &Zoned) -> Message {
+    Message::Finish {
+        line,
+        time: at
+            .round(Unit::Minute)
+            .unwrap_or_else(|_| at.clone())
+            .strftime(CLOCK_TIME)
+            .to_string(),
     }
 }
 

@@ -18,11 +18,13 @@ use engine::detection;
 use engine::input;
 use engine::lost::Losses;
 use files::params::Finish;
+use jiff::civil::date;
+use jiff::tz::TimeZone;
 use types::language::Language;
 
 use super::{
-    announcement, detection_refused, failure_lines, folders_refused, inputs_refused, inputs_skipped, option_refused,
-    redone, refused_lines, render_refused, tracking_refused, video_done, video_failed, video_step,
+    announcement, detection_refused, failure_lines, finish, folders_refused, inputs_refused, inputs_skipped,
+    option_refused, redone, refused_lines, render_refused, tracking_refused, video_done, video_failed, video_step,
 };
 use crate::texts::{Fixed, Message, Texts};
 
@@ -694,6 +696,7 @@ fn listed(name: &str, length_s: f64, done: bool) -> Listed {
             },
         }),
         length_s,
+        frames_to_compute: 0,
     }
 }
 
@@ -795,5 +798,25 @@ fn a_disk_too_small_gets_its_own_heading_after_the_refused_inputs_and_is_not_cou
     assert_eq!(
         headings(Language::English, &[disk("nuit/batdetect")]),
         ["the disk of the results looks too small:"]
+    );
+}
+
+#[test]
+fn the_finish_is_given_in_hours_and_minutes_of_the_local_clock_rounded_to_the_nearest_minute() {
+    let at = date(2026, 10, 17).at(22, 41, 37, 0).to_zoned(TimeZone::UTC).unwrap();
+    assert_eq!(
+        finish("[3/12] video_094 — détection".to_owned(), &at),
+        Message::Finish {
+            line: "[3/12] video_094 — détection".to_owned(),
+            time: "22:42".to_owned(),
+        }
+    );
+    assert_eq!(
+        Texts::new(Language::French).say(&finish("[3/12] video_094 — détection".to_owned(), &at)),
+        "[3/12] video_094 — détection · fin vers 22:42"
+    );
+    assert_eq!(
+        Texts::new(Language::English).say(&finish("[3/12] video_094 — detection".to_owned(), &at)),
+        "[3/12] video_094 — detection · done around 22:42"
     );
 }
