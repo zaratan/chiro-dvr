@@ -1074,10 +1074,6 @@ impl Texts {
         self.grouped(format!("{value:.places$}"))
     }
 
-    pub(crate) fn decimal(self, written: &str) -> String {
-        self.grouped(written)
-    }
-
     pub(crate) fn text(self, fixed: Fixed) -> String {
         self.say(&Message::Fixed(fixed))
     }

@@ -4,11 +4,12 @@ use batdetect::failure::TOO_MANY_TRACKS;
 use batdetect::jobs::{NO_VIDEO, NOT_A_VIDEO, SHARED_FOLDER, UNOPENED};
 use batdetect::process::Wording;
 use files::params::language_code;
+use files::time;
 use fluent_bundle::{FluentArgs, FluentValue};
 use page::labels::{Label, Labels, SceneText};
 use page::model::Date;
 use page::script::Script;
-use summary::header::{clock, duration};
+use summary::header::{self, duration};
 
 use crate::messages::{self, extensions};
 use crate::numbers::NO_BREAK_SPACE;
@@ -18,9 +19,6 @@ use crate::texts::Texts;
 pub(crate) mod tests;
 
 pub(crate) const DATE: &str = "page-date";
-const HUNDREDTHS_PER_SECOND: f64 = 100.0;
-const HUNDREDTHS_PER_SECOND_WHOLE: u64 = 100;
-const HUNDREDTHS_PER_MINUTE: u64 = 6000;
 const YES: &str = "yes";
 const NO: &str = "no";
 
@@ -46,7 +44,7 @@ impl Texts {
             Label::Day(date) => Spoken::Direct(self.date(date)),
             Label::Script(script) => scripted(script),
             Label::Length(seconds) => Spoken::Direct(unbroken(&duration(seconds))),
-            Label::Start(seconds) => Spoken::Direct(self.clock(seconds)),
+            Label::Start(seconds) => Spoken::Direct(time::clock(seconds)),
             Label::Seconds(seconds) => Spoken::Direct(unbroken(&format!("{} s", self.fixed(seconds, 1)))),
             Label::Todo { cause, folder } => Spoken::Direct(self.todo(cause, folder)),
             Label::TooManyTodo => Spoken::Direct(self.todo(TOO_MANY_TRACKS, "")),
@@ -119,12 +117,20 @@ impl Texts {
             Label::ColumnVerdict => message("page-column-verdict", []),
             Label::TableLink => message("page-table-link", []),
             Label::AnnotatedLink => message("page-annotated-link", []),
-            Label::Scene(scene) => self.scene(scene),
+            Label::Scene(scene) => Self::scene(scene),
         }
     }
 
-    fn scene(self, scene: SceneText<'_>) -> Spoken<'_> {
-        let span = |id, start, end| message(id, [("start", clock(start).into()), ("end", clock(end).into())]);
+    fn scene(scene: SceneText<'_>) -> Spoken<'_> {
+        let span = |id, start, end| {
+            message(
+                id,
+                [
+                    ("start", header::clock(start).into()),
+                    ("end", header::clock(end).into()),
+                ],
+            )
+        };
         match scene {
             SceneText::Alt { video, tracks } => {
                 message("page-scene-alt", [("video", video.into()), ("tracks", tracks.into())])
@@ -136,7 +142,7 @@ impl Texts {
                 first,
                 last,
             } => parted("page-scene-part-alt", Some(video), [part, parts, first, last]),
-            SceneText::Clock(seconds) => Spoken::Direct(clock(seconds)),
+            SceneText::Clock(seconds) => Spoken::Direct(header::clock(seconds)),
             SceneText::Window { start, end } => span("page-scene-window", start, end),
             SceneText::Span { start, end } => span("page-scene-span", start, end),
             SceneText::NothingNotAnalysed => message("page-scene-nothing-not-analysed", []),
@@ -151,20 +157,9 @@ impl Texts {
             SceneText::BandUnreadable => message("band-unreadable", []),
             SceneText::StartOf { track, start } => message(
                 "page-strip-start",
-                [("track", track.into()), ("start", self.clock(start).into())],
+                [("track", track.into()), ("start", time::clock(start).into())],
             ),
         }
-    }
-
-    fn clock(self, seconds: f64) -> String {
-        let hundredths = (seconds.max(0.0) * HUNDREDTHS_PER_SECOND).round() as u64;
-        let (minutes, rest) = (hundredths / HUNDREDTHS_PER_MINUTE, hundredths % HUNDREDTHS_PER_MINUTE);
-        let rest = format!(
-            "{:02}.{:02}",
-            rest / HUNDREDTHS_PER_SECOND_WHOLE,
-            rest % HUNDREDTHS_PER_SECOND_WHOLE
-        );
-        format!("{minutes}:{}", self.decimal(&rest))
     }
 
     fn todo(self, cause: &str, folder: &str) -> String {

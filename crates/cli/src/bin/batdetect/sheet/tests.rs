@@ -176,15 +176,16 @@ fn every_label_of_the_page_reads_in_both_languages_with_all_its_arguments() {
 }
 
 #[test]
-fn the_start_of_a_track_reads_to_the_hundredth_with_the_decimal_mark_of_the_language() {
+fn the_start_of_a_track_reads_like_the_start_column_of_the_tables_in_every_language() {
     let (french, english) = (Texts::new(Language::French), Texts::new(Language::English));
-    assert_eq!(french.label(&Label::Start(4.8)), "0:04,80");
-    assert_eq!(english.label(&Label::Start(209.594)), "3:29.59");
-    assert_eq!(french.label(&Label::Start(59.999)), "1:00,00");
+    assert_eq!(french.label(&Label::Start(4.8)), "0:00:04");
+    assert_eq!(english.label(&Label::Start(209.594)), "0:03:29");
+    assert_eq!(french.label(&Label::Start(59.999)), "0:00:59");
+    assert_eq!(english.label(&Label::Start(3725.0)), "1:02:05");
 }
 
 #[test]
-fn the_line_and_the_strip_of_the_redrawn_image_read_in_whole_seconds_and_a_start_to_the_hundredth() {
+fn the_line_and_the_strip_of_the_redrawn_image_read_in_whole_seconds() {
     let (french, english) = (Texts::new(Language::French), Texts::new(Language::English));
     let window = Label::Scene(SceneText::Window {
         start: 600.0,
@@ -196,7 +197,7 @@ fn the_line_and_the_strip_of_the_redrawn_image_read_in_whole_seconds_and_a_start
     assert_eq!(french.label(&Label::Scene(SceneText::More(1))), "+ 1 autre");
     assert_eq!(
         french.label(&Label::Scene(SceneText::StartOf { track: 3, start: 42.5 })),
-        "Piste 3 · 0:42,50"
+        "Piste 3 · 0:00:42"
     );
 }
 

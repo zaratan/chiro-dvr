@@ -8,12 +8,6 @@ const VerdictsOverlay = ({ section, tracks, store, say, current, shows, onChoose
   const drawn = new WeakMap();
   const lit = new WeakMap();
 
-  const word = (value) => {
-    if (value.verdict === "other") return value.other;
-    return value.verdict ? say(value.verdict) : say("to-see");
-  };
-
-
   const shapesOf = (svg) => {
     if (drawn.has(svg)) return drawn.get(svg);
     const shapes = new Map();
@@ -102,7 +96,7 @@ const VerdictsOverlay = ({ section, tracks, store, say, current, shows, onChoose
     const track = byId.get(dot.dataset.id);
     dot.setAttribute(
       "aria-label",
-      say("trace-button", { track: track.id, start: track.clock, verdict: word(store.get(track)) }),
+      say("trace-button", { track: track.id, start: track.clock, verdict: store.word(track) }),
     );
   };
 

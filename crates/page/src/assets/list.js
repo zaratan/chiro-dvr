@@ -3,12 +3,8 @@ const VerdictsList = ({ section, tracks, store, say, clock, shows, onChoose }) =
   const judged = section.querySelector(".judged");
   const orphans = section.querySelector(".orphans");
   const video = section.dataset.video;
+  const viewable = !section.classList.contains("no-viewer");
   const SEPARATOR = " · ";
-
-  const word = (value) => {
-    if (value.verdict === "other") return say("other", { value: value.other });
-    return value.verdict ? say(value.verdict) : say("to-see");
-  };
 
   const update = () => {
     for (const track of tracks) {
@@ -18,7 +14,7 @@ const VerdictsList = ({ section, tracks, store, say, clock, shows, onChoose }) =
       if (!cell) continue;
       const chip = document.createElement("span");
       chip.className = `chip ${value.verdict || "todo"}`;
-      chip.textContent = word(value);
+      chip.textContent = store.word(track);
       cell.replaceChildren(chip);
       if (value.species) {
         const species = document.createElement("span");
@@ -47,21 +43,23 @@ const VerdictsList = ({ section, tracks, store, say, clock, shows, onChoose }) =
     const heading = document.createElement("summary");
     heading.textContent = say("orphans", { count: lost.length });
     const why = document.createElement("p");
-    why.textContent = say("orphans-why");
+    why.textContent = say(viewable ? "orphans-why" : "orphans-why-no-viewer");
     const items = document.createElement("ul");
-    for (const { row, nearest } of lost) {
+    for (const { row, nearest, word } of lost) {
       const item = document.createElement("li");
       item.textContent = say("orphan", {
         start: row.start || clock(row.startSeconds),
         track: row.track || "?",
-        verdict: row.verdict || row.species,
+        verdict: word,
       });
-      if (nearest?.judgeable) {
+      if (viewable) {
         const button = document.createElement("button");
         button.type = "button";
         button.textContent = say("nearest", { track: nearest.id, start: nearest.clock });
         button.addEventListener("click", () => onChoose(nearest));
         item.append(" ", button);
+      } else {
+        item.append(" ", say("nearest-in-video", { track: nearest.id, start: nearest.clock }));
       }
       items.append(item);
     }

@@ -23,6 +23,7 @@ release échoue sans elle.
 
 ### Modifié
 
+- Dans la page de résultats, le début d'une piste s'écrit partout comme dans le tableau des pistes (« 0:00:51 ») : la liste et le survol de la frise ne l'écrivent plus au centième (#304).
 - Le tableau des pistes n'a plus de colonne `verdict` et appartient à l'outil : un recalcul le remplace quoi qu'il contienne. La mise de côté datée d'un tableau annoté (#83) est retirée, ainsi que la section « Tableau mis de côté » du bilan ; les tableaux déjà mis de côté restent où ils sont (#228).
 - Les extraits, les zooms et la vidéo annotée dessinent chaque piste de la couleur qu'elle a sur l'image résumé : boîte et numéro bordés d'un liseré noir, trace de la même couleur, au lieu de la boîte rouge et de la trace jaune orangé (#13).
 - Une vidéo arrêtée pour trop de pistes n'a plus ni image résumé ni fond, seulement son tableau : son « à faire » dit d'ouvrir le tableau et de regarder la vidéo à quelques-uns de ses temps (#221).
