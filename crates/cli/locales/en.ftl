@@ -396,6 +396,7 @@ page-js-nearest = See the nearest track (track { $track }, { $start })
 page-js-absent = Verdicts of videos absent from the page, kept in the file: { $count }
 page-js-track-of = Track { $track } of { $total } · { $start }
 page-js-judge-track = Judge track { $track }
+page-js-trace-button = Judge track { $track }, start { $start }, { $verdict }
 page-js-announce = Track { $track }: { $verdict }
 page-js-announce-species = Track { $track }: { $verdict }, { $species }
 page-js-species = species

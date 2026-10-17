@@ -424,6 +424,7 @@ page-js-nearest = Voir la piste la plus proche (piste { $track }, { $start })
 page-js-absent = Verdicts de vidéos absentes de la page, gardés dans le fichier : { $count }
 page-js-track-of = Piste { $track } sur { $total } · { $start }
 page-js-judge-track = Juger la piste { $track }
+page-js-trace-button = Juger la piste { $track }, début { $start }, { $verdict }
 page-js-announce = Piste { $track } : { $verdict }
 page-js-announce-species = Piste { $track } : { $verdict }, { $species }
 page-js-species = espèce
