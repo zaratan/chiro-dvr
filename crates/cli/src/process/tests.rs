@@ -108,6 +108,7 @@ fn above_the_track_limit_the_room_is_not_checked_since_nothing_is_rendered() {
     assert!(room.is_ok(), "{room:?}");
 }
 
+#[cfg(unix)]
 #[test]
 fn a_video_without_track_still_needs_room_for_its_annotated_video() {
     let folder = tempfile::tempdir().unwrap();
