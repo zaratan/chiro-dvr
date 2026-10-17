@@ -86,9 +86,9 @@ fn row(video: &Video, track: &Track, viewable: bool, labels: &dyn Labels) -> Str
     };
     let colour = track.color.map(colour).unwrap_or_default();
     let dot = if colour.is_empty() {
-        String::new()
+        String::from(r#" class="dot plain""#)
     } else {
-        format!(r#" style="--dot: {colour}""#)
+        format!(r#" class="dot" style="--dot: {colour}""#)
     };
     let id = track.id.to_string();
     let judge = text(&filled(labels, Script::JudgeTrack, &[("track", &id)]));
@@ -99,7 +99,7 @@ fn row(video: &Video, track: &Track, viewable: bool, labels: &dyn Labels) -> Str
             String::new()
         };
         (
-            format!(r#"<button type="button" class="dot"{dot} aria-label="{judge}">{id}</button>"#),
+            format!(r#"<button type="button"{dot} aria-label="{judge}">{id}</button>"#),
             format!(
                 r#"
               <td class="verdict"><span class="chip todo">{}</span></td>
@@ -108,7 +108,7 @@ fn row(video: &Video, track: &Track, viewable: bool, labels: &dyn Labels) -> Str
             ),
         )
     } else {
-        (format!(r#"<span class="dot"{dot}>{id}</span>"#), String::new())
+        (format!("<span{dot}>{id}</span>"), String::new())
     };
     format!(
         r#"            <tr data-id="{id}" data-start="{start_s:.2}"{point}{clip}{zoom_source}{part}>
