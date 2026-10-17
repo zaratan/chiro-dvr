@@ -22,6 +22,10 @@ Sur un Mac à puce Apple (M1 ou plus récent) en macOS 14 ou plus récent, avec
 brew install zaratan/bat-tools/batdetect
 ```
 
+Depuis la version 0.2.1, pour vérifier que tout est prêt avant une soirée, taper `batdetect doctor` dans le dossier où les résultats seront écrits. Chaque ligne commence par ✓ quand tout va bien ; sous une ligne ✗, la ligne « à faire » dit quoi faire ; une ligne ⚠ ne bloque rien.
+
+Depuis la version 0.2.1, pour que la touche Tab complète les noms de vidéos et les options, copier une fois dans le Terminal `echo 'autoload -Uz compinit && compinit' >> ~/.zshrc`, puis Entrée, puis ouvrir une nouvelle fenêtre du Terminal. Sans Homebrew, `batdetect completion zsh` affiche les étapes à suivre.
+
 Sous Linux et Windows, télécharger l'archive de son système sur la
 [page des versions](https://github.com/zaratan/chiro-dvr/releases/latest), puis la décompresser :
 
@@ -56,10 +60,10 @@ Le temps de calcul dépend de l'ordinateur ([mesures](docs/09-profilage.md)).
 
 Pour chaque vidéo, un dossier à son nom dans `batdetect/` : l'image résumé, qui montre toutes les
 pistes sur la scène (plusieurs images pour une longue vidéo) ; le tableau des pistes, à ouvrir
-dans un tableur, avec une colonne pour noter son verdict ; un extrait par piste, et un extrait ralenti et agrandi pour les pistes
+dans un tableur ; un extrait par piste, et un extrait ralenti et agrandi pour les pistes
 petites ou faibles. À la fin, le Terminal affiche le bilan de la soirée et la page des résultats,
 `batdetect/resultats.html`, s'ouvre dans le navigateur : toute la soirée, images et extraits
-compris, sur une seule page. Comment lire tout cela,
+compris, sur une seule page, où l'on note les verdicts piste par piste. Comment lire tout cela,
 juger un extrait et noter son verdict : [lire les résultats](docs/lire-les-resultats.md).
 
 ## Choisir un mode

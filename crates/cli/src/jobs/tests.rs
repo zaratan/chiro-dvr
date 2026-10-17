@@ -2,6 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::{Error, Reason, Refused, collect_videos, plan, plan_jobs};
+use crate::access::Access;
+use crate::failure::Cause;
 
 fn dests(videos: &[&str], out: Option<&Path>) -> Vec<PathBuf> {
     let videos: Vec<PathBuf> = videos.iter().map(PathBuf::from).collect();
@@ -353,4 +355,32 @@ fn a_link_to_a_video_given_with_the_video_itself_is_kept_once() {
     std::os::unix::fs::symlink(night.path().join("video.mp4"), night.path().join("lien.mp4")).unwrap();
     let videos = collect_videos(&[night.path().join("video.mp4"), night.path().join("lien.mp4")]).videos;
     assert_eq!(videos, [night.path().join("video.mp4")]);
+}
+
+#[test]
+fn each_refusal_reason_names_the_line_and_the_advice_shared_by_the_terminal_and_the_page() {
+    let unopened = Reason::Unopened {
+        cause: Cause::Damaged,
+        detail: String::new(),
+    };
+    let reasons = [
+        (Reason::Missing, "missing", "input-missing"),
+        (Reason::Unreadable(Access::Missing), "missing", "input-missing"),
+        (Reason::Unreadable(Access::NotAFolder), "not-a-folder", "input-missing"),
+        (Reason::Unreadable(Access::Refused), "refused", "read-refused"),
+        (Reason::Unreadable(Access::ReadOnly), "unavailable", "unreachable"),
+        (Reason::Unreadable(Access::DiskFull), "unavailable", "unreachable"),
+        (Reason::Unreadable(Access::Unavailable), "unavailable", "unreachable"),
+        (Reason::NotAVideo, "not-a-video", "not-a-video-name"),
+        (Reason::NoVideo, "no-video", "no-video"),
+        (
+            Reason::SharedFolder { videos: Vec::new() },
+            "shared-folder",
+            "shared-folder",
+        ),
+        (unopened, "unopened", "damaged"),
+    ];
+    for (reason, key, todo) in reasons {
+        assert_eq!((reason.key(), reason.todo()), (key, todo), "{reason:?}");
+    }
 }

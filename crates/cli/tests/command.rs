@@ -2,6 +2,9 @@
 mod clips;
 #[path = "support/flight.rs"]
 mod flight;
+#[cfg(unix)]
+#[path = "support/sparse.rs"]
+mod sparse;
 #[path = "support/tree.rs"]
 mod tree;
 
@@ -89,7 +92,7 @@ fn a_video_gives_its_tracks_table_and_params_in_a_folder_named_after_it() {
     assert!(output.status.success(), "{}", text(&output.stderr));
     let table = fs::read_to_string(out.join("flight").join("flight_pistes.csv")).unwrap();
     assert_eq!(table.lines().count(), 2, "{table}");
-    assert!(table.starts_with("\u{feff}piste;début;fin;durée (s);verdict;points;corde (px);"));
+    assert!(table.starts_with("\u{feff}piste;début;fin;durée (s);points;corde (px);"));
     assert!(out.join("flight").join("params.json").is_file());
     assert!(
         text(&output.stdout).starts_with("Bilan\u{a0}: 1 vidéo, 1 réussie\n"),
@@ -117,7 +120,7 @@ fn outside_a_french_locale_the_table_clips_and_summary_are_named_in_english_with
         read(french.join("flight").join("flight_pistes.csv")),
     );
     assert!(
-        english_table.starts_with("track,start,end,duration (s),verdict,points,"),
+        english_table.starts_with("track,start,end,duration (s),points,"),
         "{english_table}"
     );
     let rows = |table: &str| table.lines().skip(1).map(str::to_owned).collect::<Vec<_>>();
@@ -134,8 +137,16 @@ fn outside_a_french_locale_the_table_clips_and_summary_are_named_in_english_with
         assert!(object.remove("date").is_some_and(|date| date.is_string()));
         assert!(object.remove("elapsed_s").is_some_and(|elapsed| elapsed.is_f64()));
         let language = object.remove("language");
+        let background = object.remove("background");
+        let summary = params["summaries"][0].as_object_mut().unwrap().remove("file");
         let track = params["tracks"][0].as_object_mut().unwrap();
-        let named = [language, track.remove("clip"), track.remove("summary")];
+        let named = [
+            language,
+            track.remove("clip"),
+            track.remove("summary"),
+            background,
+            summary,
+        ];
         (params, named)
     };
     let (english, french) = (settings(&english), settings(&french));
@@ -143,8 +154,22 @@ fn outside_a_french_locale_the_table_clips_and_summary_are_named_in_english_with
     assert_eq!(
         [english.1, french.1],
         [
-            ["en", "clips/track_01_0m00s.mp4", "flight_summary.png"].map(|name| Some(Value::from(name))),
-            ["fr", "extraits/piste_01_0m00s.mp4", "flight_resume.png"].map(|name| Some(Value::from(name)))
+            [
+                "en",
+                "clips/track_01_0m00s.mp4",
+                "flight_summary.png",
+                "flight_background.png",
+                "flight_summary.png"
+            ]
+            .map(|name| Some(Value::from(name))),
+            [
+                "fr",
+                "extraits/piste_01_0m00s.mp4",
+                "flight_resume.png",
+                "flight_fond.png",
+                "flight_resume.png"
+            ]
+            .map(|name| Some(Value::from(name)))
         ]
     );
 }
@@ -314,6 +339,7 @@ fn without_an_output_folder_the_results_go_to_a_batdetect_folder_beside_the_vide
             "flight/",
             "flight/extraits/",
             "flight/extraits/piste_01_0m00s.mp4",
+            "flight/flight_fond.png",
             "flight/flight_pistes.csv",
             "flight/flight_resume.png",
             "flight/params.json",
@@ -342,6 +368,7 @@ fn a_video_without_tracks_leaves_no_clips_folder_even_with_its_annotated_video()
         tree::tree(&out.join("flight")),
         [
             "flight_annotee.mp4",
+            "flight_fond.png",
             "flight_pistes.csv",
             "flight_resume.png",
             "params.json"
@@ -392,6 +419,7 @@ fn two_videos_whose_names_differ_only_by_case_keep_their_own_clips_in_one_output
         tree::tree(&out),
         [
             "a_Vol_mp4/",
+            "a_Vol_mp4/Vol_background.png",
             "a_Vol_mp4/Vol_summary.png",
             "a_Vol_mp4/Vol_tracks.csv",
             "a_Vol_mp4/clips/",
@@ -401,6 +429,7 @@ fn two_videos_whose_names_differ_only_by_case_keep_their_own_clips_in_one_output
             "b_vol_mp4/clips/",
             "b_vol_mp4/clips/track_01_0m00s.mp4",
             "b_vol_mp4/params.json",
+            "b_vol_mp4/vol_background.png",
             "b_vol_mp4/vol_summary.png",
             "b_vol_mp4/vol_tracks.csv",
             "results.html",
@@ -776,6 +805,7 @@ fn a_run_in_french_then_in_english_then_in_french_in_the_same_folder_leaves_only
     let french = [
         "extraits/",
         "extraits/piste_01_0m00s.mp4",
+        "flight_fond.png",
         "flight_pistes.csv",
         "flight_resume.png",
         "params.json",
@@ -783,6 +813,7 @@ fn a_run_in_french_then_in_english_then_in_french_in_the_same_folder_leaves_only
     let english = [
         "clips/",
         "clips/track_01_0m00s.mp4",
+        "flight_background.png",
         "flight_summary.png",
         "flight_tracks.csv",
         "params.json",
@@ -796,97 +827,32 @@ fn a_run_in_french_then_in_english_then_in_french_in_the_same_folder_leaves_only
     }
 }
 
-#[cfg(test)]
-fn dated(folder: &Path, table: &str) -> Vec<String> {
-    let prefix = format!("{table}_20");
-    let mut names: Vec<String> = fs::read_dir(folder)
-        .unwrap()
-        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
-        .filter(|name| name.starts_with(&prefix))
-        .collect();
-    names.sort();
-    names
-}
-
 #[test]
-fn a_table_annotated_by_hand_is_set_aside_and_named_in_the_summary_in_the_language_of_the_messages() {
+fn a_table_written_by_hand_is_replaced_at_the_next_run_without_a_word_in_the_summary() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
     let out = root.path().join("out");
     let folder = out.join("flight");
     fs::create_dir_all(&folder).unwrap();
-    let annotated = "id;start;verdict\r\n1;0:00.00;oui\r\n";
-    fs::write(folder.join("flight_pistes.csv"), annotated).unwrap();
+    fs::write(
+        folder.join("flight_pistes.csv"),
+        "id;start;verdict\r\n1;0:00.00;oui\r\n",
+    )
+    .unwrap();
     let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
     assert!(output.status.success(), "{}", text(&output.stderr));
-    let [french] = dated(&folder, "flight_pistes").try_into().unwrap();
-    let summary = text(&output.stdout);
-    let lines: Vec<&str> = summary.lines().collect();
-    let heading = lines
-        .iter()
-        .position(|line| *line == "Tableau mis de côté\u{a0}:")
-        .unwrap_or_else(|| panic!("{summary}"));
-    assert_eq!(
-        lines[heading + 1],
-        format!("  flight\u{a0}: flight_pistes.csv porte des verdicts, mis de côté sous {french}")
-    );
-    assert!(!summary.contains("laissé"), "{summary}");
-    assert!(
-        !text(&output.stderr).contains("flight_pistes"),
-        "{}",
-        text(&output.stderr)
-    );
-    assert_eq!(fs::read_to_string(folder.join(&french)).unwrap(), annotated);
     assert!(
         fs::read_to_string(folder.join("flight_pistes.csv"))
             .unwrap()
             .starts_with("\u{feff}piste;")
     );
-    let unknown = "id,start,end,start_s,duration_s,hits,chord_px,path_px,speed_px_s,max_area_px,peak_amplitude,filled_frames,notes\r\n";
-    fs::write(folder.join("flight_tracks.csv"), unknown).unwrap();
-    let output = run(&[&videos, Path::new("-o"), &out], "C");
-    assert!(output.status.success(), "{}", text(&output.stderr));
-    let [english] = dated(&folder, "flight_tracks").try_into().unwrap();
     let summary = text(&output.stdout);
-    assert!(
-        summary.lines().any(|line| line
-            == format!("  flight: flight_tracks.csv does not have the form of a tracks table, set aside as {english}")),
-        "{summary}"
-    );
-    assert_eq!(fs::read_to_string(folder.join(&english)).unwrap(), unknown);
-    assert_eq!(fs::read_to_string(folder.join(&french)).unwrap(), annotated);
-    assert!(!folder.join("flight_pistes.csv").exists());
-}
-
-#[test]
-fn a_verdict_written_in_the_table_of_an_earlier_run_is_set_aside_once_and_a_blank_table_written_beside_it() {
-    let (root, videos) = videos_with_a_flight(&["flight.mp4"]);
-    let out = root.path().join("out");
-    let folder = out.join("flight");
-    let table = folder.join("flight_pistes.csv");
-    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
-    assert!(output.status.success(), "{}", text(&output.stderr));
-    let blank = fs::read(&table).unwrap();
-    let annotated = String::from_utf8(blank.clone()).unwrap().replacen(";;", ";oui;", 1);
-    fs::write(&table, &annotated).unwrap();
-    let output = run(&[&videos, Path::new("-o"), &out, Path::new("--force")], "fr_FR.UTF-8");
-    assert!(output.status.success(), "{}", text(&output.stderr));
-    assert!(
-        text(&output.stdout).contains("Tableau mis de côté\u{a0}:"),
-        "{}",
-        text(&output.stdout)
-    );
-    let [aside] = dated(&folder, "flight_pistes").try_into().unwrap();
-    assert_eq!(fs::read(folder.join(&aside)).unwrap(), annotated.as_bytes());
-    assert_eq!(fs::read(&table).unwrap(), blank);
-    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
-    assert!(output.status.success(), "{}", text(&output.stderr));
-    assert!(
-        !text(&output.stdout).contains("Tableau mis de côté"),
-        "{}",
-        text(&output.stdout)
-    );
-    assert_eq!(dated(&folder, "flight_pistes"), [aside]);
-    assert_eq!(fs::read(&table).unwrap(), blank);
+    assert!(!summary.contains("Tableau"), "{summary}");
+    let names: Vec<String> = fs::read_dir(&folder)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| Path::new(name).extension().is_some_and(|extension| extension == "csv"))
+        .collect();
+    assert_eq!(names, ["flight_pistes.csv"]);
 }
 
 #[cfg(unix)]
@@ -936,6 +902,25 @@ fn video_lines(errors: &str, total: usize) -> Vec<&str> {
         .collect()
 }
 
+fn clock_masked(line: &str) -> String {
+    match line.split_once(" · fin vers ") {
+        Some((head, time))
+            if time.len() == 5
+                && time
+                    .chars()
+                    .enumerate()
+                    .all(|(index, char)| (index == 2) == (char == ':')) =>
+        {
+            format!("{head} · fin vers hh:mm")
+        }
+        _ => line.to_owned(),
+    }
+}
+
+fn masked_video_lines(errors: &str, total: usize) -> Vec<String> {
+    video_lines(errors, total).into_iter().map(clock_masked).collect()
+}
+
 #[test]
 fn redirected_each_video_shows_its_steps_in_order_then_its_track_count_or_its_failure() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4", "zz_broken.mp4"]);
@@ -945,13 +930,13 @@ fn redirected_each_video_shows_its_steps_in_order_then_its_track_count_or_its_fa
     assert_eq!(output.status.code(), Some(1));
     let errors = text(&output.stderr);
     assert_eq!(
-        video_lines(&errors, 2),
+        masked_video_lines(&errors, 2),
         [
             "[1/2] flight — détection",
             "[1/2] flight — suivi",
             "[1/2] flight — image résumé",
             "[1/2] flight — extraits",
-            "[1/2] flight — 1 piste",
+            "[1/2] flight — 1 piste · fin vers hh:mm",
             "[2/2] zz_broken — détection",
             "[2/2] zz_broken — suivi",
             "[2/2] zz_broken — échec",
@@ -967,6 +952,25 @@ fn redirected_each_video_shows_its_steps_in_order_then_its_track_count_or_its_fa
         .position(|line| *line == "[2/2] zz_broken — échec")
         .unwrap();
     assert!(cause < failed, "{errors}");
+}
+
+#[test]
+fn redirected_the_finish_time_follows_the_last_line_of_each_video_from_the_first_computed_while_videos_are_left() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4", "b.mp4", "c.mp4"]);
+    let out = root.path().join("out");
+    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    assert_eq!(output.status.code(), Some(0));
+    let lines = masked_video_lines(&text(&output.stderr), 3);
+    let last_lines: Vec<&String> = lines.iter().filter(|line| line.contains(" piste")).collect();
+    assert_eq!(
+        last_lines,
+        [
+            "[1/3] a — 1 piste · fin vers hh:mm",
+            "[2/3] b — 1 piste · fin vers hh:mm",
+            "[3/3] c — 1 piste",
+        ]
+    );
+    assert_eq!(lines.iter().filter(|line| line.contains(" · ")).count(), 2, "{lines:?}");
 }
 
 #[test]
@@ -994,7 +998,12 @@ fn the_summary_alone_goes_to_the_standard_output_with_a_row_per_video_and_the_fa
     assert!(!summary.contains("détail\u{a0}:"), "{summary}");
     assert!(!summary.contains("[1/2]"), "{summary}");
     let errors = text(&output.stderr);
-    assert!(errors.lines().any(|line| line == "[1/2] flight — 1 piste"), "{errors}");
+    assert!(
+        errors
+            .lines()
+            .any(|line| clock_masked(line) == "[1/2] flight — 1 piste · fin vers hh:mm"),
+        "{errors}"
+    );
     assert!(
         errors.lines().any(|line| line.starts_with("  détail\u{a0}: ")),
         "{errors}"
@@ -1267,4 +1276,147 @@ fn a_lot_stopped_before_its_second_video_was_marked_finished_resumes_with_that_v
     assert!(text(&again.stdout).starts_with(title), "{}", text(&again.stdout));
     assert_eq!(modified(&out.join("a")) == first, reuses_earlier_results());
     assert!(out.join("b").join("params.json").is_file());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_lot_too_big_for_the_disk_of_its_results_is_refused_before_any_work_naming_that_disk() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4"]);
+    sparse::stretched_beyond_any_disk(&videos.join("a.mp4"));
+    let out = root.path().join("out");
+    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    assert_eq!(output.status.code(), Some(2));
+    let errors = text(&output.stderr);
+    let lines: Vec<&str> = errors.lines().collect();
+    assert_eq!(lines.len(), 3, "{errors}");
+    assert_eq!(lines[0], "erreur\u{a0}: aucune vidéo n'est traitée\u{a0}:", "{errors}");
+    assert!(
+        lines[1].starts_with(&format!("  le disque qui contient {}\u{a0}: ", out.display()))
+            && lines[1].ends_with(" Go libres"),
+        "{errors}"
+    );
+    assert_eq!(
+        lines[2],
+        "    à faire\u{a0}: libérer de la place, ou écrire les résultats sur un autre disque avec -o\u{a0}; \
+         --ignore-disk lance quand même le calcul",
+        "{errors}"
+    );
+    assert!(!out.exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn ignore_disk_starts_the_lot_and_a_video_whose_clips_cannot_fit_fails_as_a_full_disk_without_them() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4"]);
+    sparse::stretched_beyond_any_disk(&videos.join("a.mp4"));
+    let out = root.path().join("out");
+    let output = run(&[&videos, Path::new("-o"), &out, Path::new("--ignore-disk")], "C");
+    assert_eq!(output.status.code(), Some(1));
+    let errors = text(&output.stderr);
+    assert!(
+        errors.lines().any(|line| line.ends_with("a.mp4: the disk is full")),
+        "{errors}"
+    );
+    assert_eq!(
+        text(&output.stdout).lines().next(),
+        Some("Summary: 1 video, 1 failed"),
+        "{}",
+        text(&output.stdout)
+    );
+    assert!(!out.join("a").join("clips").exists());
+    assert!(!out.join("a").join("params.json").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn skip_refused_starts_the_lot_despite_the_disk_and_does_not_count_the_disk_among_the_refused_inputs() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4"]);
+    sparse::stretched_beyond_any_disk(&videos.join("a.mp4"));
+    let out = root.path().join("out");
+    let output = run(&[&videos, Path::new("-o"), &out, Path::new("--skip-refused")], "C");
+    assert_eq!(output.status.code(), Some(1));
+    let errors = text(&output.stderr);
+    assert!(
+        errors.lines().any(|line| line.starts_with("  the disk holding ")),
+        "{errors}"
+    );
+    assert_eq!(
+        text(&output.stdout).lines().next(),
+        Some("Summary: 1 video, 1 failed"),
+        "{}",
+        text(&output.stdout)
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn skip_refused_with_a_missing_input_and_a_disk_too_small_lists_both_but_records_only_the_input_as_refused() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4"]);
+    sparse::stretched_beyond_any_disk(&videos.join("a.mp4"));
+    let (missing, out) = (videos.join("absente.mp4"), root.path().join("out"));
+    let output = run(
+        &[
+            &missing,
+            &videos.join("a.mp4"),
+            Path::new("-o"),
+            &out,
+            Path::new("--skip-refused"),
+        ],
+        "C",
+    );
+    assert_eq!(output.status.code(), Some(1));
+    let errors = text(&output.stderr);
+    assert!(errors.starts_with("error: one input is refused:\n"), "{errors}");
+    assert!(
+        errors
+            .lines()
+            .any(|line| line == "error: the disk of the results looks too small:"),
+        "{errors}"
+    );
+    assert!(
+        errors.lines().any(|line| line.ends_with("absente.mp4: not found")),
+        "{errors}"
+    );
+    assert!(
+        errors.lines().any(|line| line.starts_with("  the disk holding ")),
+        "{errors}"
+    );
+    let summary = text(&output.stdout);
+    assert_eq!(
+        summary.lines().next(),
+        Some("Summary: 1 video, 1 failed, 1 input refused"),
+        "{summary}"
+    );
+    assert!(!summary.contains("the disk holding"), "{summary}");
+    let recorded: Value =
+        serde_json::from_str(&fs::read_to_string(files::refusals::refusals_path(&out)).unwrap()).unwrap();
+    let paths: Vec<&Value> = recorded["inputs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|input| &input["path"])
+        .collect();
+    assert_eq!(paths, [&Value::from(missing.display().to_string())], "{recorded}");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_results_folder_where_nothing_can_be_written_is_refused_for_writing_only_even_on_a_disk_too_small() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let (root, videos) = videos_with_a_flight(&["a.mp4"]);
+    sparse::stretched_beyond_any_disk(&videos.join("a.mp4"));
+    let locked = root.path().join("ro");
+    fs::create_dir(&locked).unwrap();
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o555)).unwrap();
+    let out = locked.join("sortie");
+    let output = run(&[&videos, Path::new("-o"), &out], "C");
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o755)).unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    let errors = text(&output.stderr);
+    assert!(
+        errors.starts_with("error: no video is processed, the results cannot be written in this folder:\n"),
+        "{errors}"
+    );
+    assert!(!errors.contains("the disk holding"), "{errors}");
 }

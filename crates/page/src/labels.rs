@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use crate::model::Date;
+use crate::script::Script;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Label<'a> {
@@ -36,6 +37,16 @@ pub enum Label<'a> {
         folder: &'a str,
     },
     Detail(&'a str),
+    RefusedCount(usize),
+    RefusedHeading(usize),
+    RefusedWhen(Date),
+    RefusedConsequence(usize),
+    RefusedInput {
+        path: &'a str,
+        reason: &'a str,
+        cause: Option<&'a str>,
+        videos: &'a str,
+    },
     PreviousResults,
     UnfinishedText,
     OlderText,
@@ -69,33 +80,63 @@ pub enum Label<'a> {
     ColumnStart,
     ColumnLength,
     ColumnVerdict,
-    ColumnWatch,
     TableCaption(&'a str),
-    NoVerdict,
-    Clip,
-    Zoom,
-    PlayClip(usize),
-    PlayZoom(usize),
-    ShowTrack(usize),
-    Playing {
-        track: usize,
-        total: usize,
-        start: &'a str,
-        zoom: bool,
-    },
-    Unreadable,
-    Back,
-    Previous,
-    Next,
-    PreviousClip,
-    NextClip,
     Player(&'a str),
     TableLink,
     AnnotatedLink,
     Start(f64),
     Seconds(f64),
+    Scene(SceneText<'a>),
+    Script(Script),
+    Day(Date),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SceneText<'a> {
+    Alt {
+        video: &'a str,
+        tracks: usize,
+    },
+    PartAlt {
+        video: &'a str,
+        part: usize,
+        parts: usize,
+        first: usize,
+        last: usize,
+    },
+    Clock(f64),
+    Window {
+        start: f64,
+        end: f64,
+    },
+    Span {
+        start: f64,
+        end: f64,
+    },
+    NothingNotAnalysed,
+    NothingUnreadable,
+    NotAnalysed(&'a str),
+    Unreadable(&'a str),
+    More(usize),
+    Complete,
+    NewTab,
+    CompleteNewTab,
+    BandNotAnalysed,
+    BandUnreadable,
+    StartOf {
+        track: usize,
+        start: f64,
+    },
 }
 
 pub trait Labels: Debug {
     fn label(&self, label: &Label<'_>) -> String;
+}
+
+pub(crate) fn filled(labels: &dyn Labels, script: Script, values: &[(&str, &str)]) -> String {
+    values
+        .iter()
+        .fold(labels.label(&Label::Script(script)), |text, (name, value)| {
+            text.replace(&format!("{{{name}}}"), value)
+        })
 }

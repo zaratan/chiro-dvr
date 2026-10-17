@@ -12,11 +12,11 @@ const SLOW_TRACK_OF_3_29_S: f64 = 4.80;
 const FAST_TRACK_OF_3_48_S: f64 = 23.48;
 const SLOW_TRACK_CLIP: Frozen = Frozen {
     frames: 380,
-    fingerprint: 14_215_469_119_573_889_630,
+    fingerprint: 18_137_511_074_968_367_599,
 };
 const FAST_TRACK_CLIP: Frozen = Frozen {
     frames: 108,
-    fingerprint: 13_616_732_261_638_923_982,
+    fingerprint: 3_750_025_716_088_547_530,
 };
 
 #[cfg(test)]

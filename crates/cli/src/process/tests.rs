@@ -9,7 +9,8 @@ use engine::detection::detect;
 use engine::settings::DetectSettings;
 use files::names::{Names, names_the_video, params_json};
 use files::params::Finish;
-use files::previous::{Kept, Reason};
+use files::picture::png_size;
+use files::previous::Kept;
 use files::table::{Column, Headings};
 use media::decode::{Decoder, Threads};
 use media::encode::fallback::{self, Fallback};
@@ -29,7 +30,8 @@ use types::timeline::Timeline;
 use types::track::Track;
 
 use super::{
-    Clips, Error, Extent, Versions, Wording, Written, extent, finish, process, process_detected, render_clips, tracked,
+    Clips, Error, Extent, Versions, Wording, Written, extent, finish, process, process_detected, render_clips,
+    room_for_clips, tracked,
 };
 use crate::flight;
 use crate::jobs::Job;
@@ -63,6 +65,12 @@ fn rendered_into_a_fresh_folder(
     max_tracks: usize,
     trial: Result<Vec<Codec>, Error>,
 ) -> (Result<Rendered, Error>, PathBuf) {
+    in_a_fresh_folder(folder, max_tracks, |clips| {
+        render_clips(clips, &[still(1), still(2)], trial).map(|written| written.rendered)
+    })
+}
+
+fn in_a_fresh_folder<T>(folder: &Path, max_tracks: usize, run: impl FnOnce(&Clips<'_>) -> T) -> (T, PathBuf) {
     let video = folder.join("flight.mp4");
     flight::write_flight(&video);
     let detected = detect(&video, Threads::Automatic, &DetectConfig::default()).unwrap();
@@ -78,6 +86,7 @@ fn rendered_into_a_fresh_folder(
         job: &job,
         names,
         detected: &detected,
+        colors: &[],
         timeline: &timeline,
         options: &Options {
             render: RenderConfig::new(12, 1.0, 1.5, max_tracks).unwrap(),
@@ -85,13 +94,29 @@ fn rendered_into_a_fresh_folder(
             ..Options::default()
         },
         extent: MEASURED,
-        kept: &[Kept::Left {
+        kept: &[Kept {
             path: PathBuf::from("out/flight_tracks.csv"),
             ours: true,
         }],
     };
-    let rendered = render_clips(&clips, &[still(1), still(2)], trial).map(|written| written.rendered);
-    (rendered, names.clips_dir(&job.dest))
+    (run(&clips), names.clips_dir(&job.dest))
+}
+
+#[test]
+fn above_the_track_limit_the_room_is_not_checked_since_nothing_is_rendered() {
+    let folder = tempfile::tempdir().unwrap();
+    let (room, _) = in_a_fresh_folder(folder.path(), 1, |clips| {
+        room_for_clips(clips, &[still(1), still(2)], u64::MAX)
+    });
+    assert!(room.is_ok(), "{room:?}");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_video_without_track_still_needs_room_for_its_annotated_video() {
+    let folder = tempfile::tempdir().unwrap();
+    let (room, _) = in_a_fresh_folder(folder.path(), 300, |clips| room_for_clips(clips, &[], u64::MAX));
+    assert!(matches!(room, Err(Error::DiskSpace { .. })), "{room:?}");
 }
 
 #[test]
@@ -160,8 +185,8 @@ const EDGE_SEARCH: i32 = 40;
 const INSIDE: i32 = 8;
 const NEUTRAL: u8 = 12;
 const BRIGHT: u8 = 85;
-const RED: u8 = 160;
-const DARK: u8 = 120;
+const COLORED: u8 = 16;
+const SAME_HUE: f64 = 0.9;
 
 fn clip_frames(path: &Path) -> Vec<YuvFrame> {
     let mut decoder = Decoder::open(path, Threads::Automatic).unwrap();
@@ -182,8 +207,9 @@ fn chroma(frame: &YuvFrame, x: i32, y: i32) -> (u8, u8) {
     (frame.u()[index], frame.v()[index])
 }
 
-fn red(frame: &YuvFrame, x: i32, y: i32) -> bool {
-    chroma(frame, x, y).1 > RED && luma(frame, x, y) < DARK
+fn colored(frame: &YuvFrame, x: i32, y: i32) -> bool {
+    let (u, v) = chroma(frame, x, y);
+    u.abs_diff(128).max(v.abs_diff(128)) > COLORED
 }
 
 fn bright_center(frame: &YuvFrame, around: (i32, i32)) -> (f64, f64) {
@@ -204,16 +230,25 @@ fn bright_center(frame: &YuvFrame, around: (i32, i32)) -> (f64, f64) {
     (x / count, y / count)
 }
 
-fn first_red(frame: &YuvFrame, from: (i32, i32), (step_x, step_y): (i32, i32)) -> f64 {
-    let found = (0..EDGE_SEARCH)
+fn first_colored(frame: &YuvFrame, from: (i32, i32), (step_x, step_y): (i32, i32)) -> (i32, i32) {
+    (0..EDGE_SEARCH)
         .map(|distance| (from.0 + distance * step_x, from.1 + distance * step_y))
-        .find(|&(x, y)| red(frame, x, y));
-    let (x, y) = found.unwrap_or_else(|| panic!("no red edge within {EDGE_SEARCH} px of {from:?}"));
-    f64::from(if step_x == 0 { y } else { x })
+        .find(|&(x, y)| colored(frame, x, y))
+        .unwrap_or_else(|| panic!("no coloured edge within {EDGE_SEARCH} px of {from:?}"))
+}
+
+fn has_the_hue_of(frame: &YuvFrame, (x, y): (i32, i32), color: [f64; 3]) -> bool {
+    let [red, green, blue] = color;
+    let luma = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+    let wanted = ((blue - luma) / 1.8556, (red - luma) / 1.5748);
+    let (u, v) = chroma(frame, x, y);
+    let found = (f64::from(u) - 128.0, f64::from(v) - 128.0);
+    let cosine = (found.0 * wanted.0 + found.1 * wanted.1) / (found.0.hypot(found.1) * wanted.0.hypot(wanted.1));
+    cosine > SAME_HUE
 }
 
 #[test]
-fn a_box_follows_its_target_on_every_detected_frame_after_frames_lost_in_the_middle() {
+fn a_box_in_the_colour_of_its_track_follows_its_target_on_every_detected_frame_after_frames_lost_in_the_middle() {
     let folder = tempfile::tempdir().unwrap();
     let video = folder.path().join("flight.mp4");
     flight::write_flight_of(&video, LONG_FLIGHT, NonZeroU32::new(KEY_INTERVAL));
@@ -230,6 +265,7 @@ fn a_box_follows_its_target_on_every_detected_frame_after_frames_lost_in_the_mid
     let pad = f64::from(config.box_pad());
     let windows = clip_windows(&processed.tracks, kept, config, rate);
     let clips_dir = Names::new(Language::English).clips_dir(&job.dest);
+    let params = params_of(&job);
     let mut clips: Vec<PathBuf> = fs::read_dir(&clips_dir)
         .unwrap()
         .map(|entry| entry.unwrap().path())
@@ -237,14 +273,32 @@ fn a_box_follows_its_target_on_every_detected_frame_after_frames_lost_in_the_mid
     clips.sort();
     for (track, (window, clip)) in processed.tracks.iter().zip(windows.iter().zip(&clips)) {
         let frames = clip_frames(clip);
+        let entry = params["tracks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| entry["id"] == track.id())
+            .unwrap();
+        let color: [f64; 3] = serde_json::from_value(entry["color"].clone()).unwrap();
         for point in track.points() {
             let frame = &frames[point.frame.get() - window.span.first().get()];
             let (x, y) = (point.x as i32, point.y as i32);
+            let edges = [
+                first_colored(frame, (x, y + INSIDE), (-1, 0)),
+                first_colored(frame, (x + INSIDE, y - INSIDE), (0, -1)),
+                first_colored(frame, (x, y + INSIDE), (1, 0)),
+                first_colored(frame, (x, y + INSIDE), (0, 1)),
+            ];
+            assert!(
+                edges.iter().all(|&edge| has_the_hue_of(frame, edge, color)),
+                "{:?}: box not in {color:?}",
+                point.frame
+            );
             let read = [
-                first_red(frame, (x, y + INSIDE), (-1, 0)),
-                first_red(frame, (x + INSIDE, y - INSIDE), (0, -1)),
-                first_red(frame, (x, y + INSIDE), (1, 0)),
-                first_red(frame, (x, y + INSIDE), (0, 1)),
+                f64::from(edges[0].0),
+                f64::from(edges[1].1),
+                f64::from(edges[2].0),
+                f64::from(edges[3].1),
             ];
             let expected = [
                 point.left - pad,
@@ -357,6 +411,7 @@ fn the_outputs_of_an_earlier_run_in_any_language_are_replaced_by_those_of_this_r
         "flight.tracks.csv",
         "flight_resume_2_sur_3.png",
         "flight_summary_000m-010m.png",
+        "flight_fond.png",
         "flight_annotee.mp4",
         ".flight_annotated.mp4.partial",
         "flight_boxes.mp4",
@@ -368,57 +423,43 @@ fn the_outputs_of_an_earlier_run_in_any_language_are_replaced_by_those_of_this_r
     let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
     assert_eq!(
         left_in(&job.dest),
-        ["clips", "flight_summary.png", "flight_tracks.csv", "params.json"]
+        [
+            "clips",
+            "flight_background.png",
+            "flight_summary.png",
+            "flight_tracks.csv",
+            "params.json"
+        ]
     );
     assert_eq!(processed.csv, Some(job.dest.join("flight_tracks.csv")));
     assert_eq!(processed.kept, []);
 }
 
-fn dated_copy_of(kept: &[Kept], table: &Path) -> PathBuf {
-    let [Kept::SetAside { path, dated, reason }] = kept else {
-        panic!("{kept:?}");
-    };
-    assert_eq!((path.as_path(), *reason), (table, Reason::UnknownForm));
-    assert_eq!(fs::read_to_string(dated).unwrap(), ANNOTATED_HEADER);
-    dated.clone()
-}
-
 #[test]
-fn a_table_of_an_unknown_form_in_the_language_of_the_run_is_set_aside_under_a_dated_name_and_the_new_one_written() {
-    let folder = tempfile::tempdir().unwrap();
-    let job = flight_job(folder.path());
-    let table = job.dest.join("flight_tracks.csv");
-    fs::create_dir_all(&job.dest).unwrap();
-    fs::write(&table, ANNOTATED_HEADER).unwrap();
-    let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
-    let dated = dated_copy_of(&processed.kept, &table);
-    let name = dated.file_name().unwrap().to_string_lossy().into_owned();
-    assert!(name.starts_with("flight_tracks_20"), "{name}");
-    assert!(dated.extension().is_some_and(|extension| extension == "csv"), "{name}");
-    assert_ne!(fs::read_to_string(&table).unwrap(), ANNOTATED_HEADER);
-    assert_eq!(processed.csv, Some(table));
-    assert!(job.dest.join("flight_summary.png").is_file());
-}
-
-#[test]
-fn a_table_of_an_unknown_form_in_the_other_language_is_set_aside_beside_the_new_table() {
-    let folder = tempfile::tempdir().unwrap();
-    let job = flight_job(folder.path());
-    let table = job.dest.join("flight_pistes.csv");
-    fs::create_dir_all(&job.dest).unwrap();
-    fs::write(&table, ANNOTATED_HEADER).unwrap();
-    let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
-    let dated = dated_copy_of(&processed.kept, &table);
-    assert!(
-        dated
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .starts_with("flight_pistes_20")
-    );
-    assert!(!table.exists());
-    assert_eq!(processed.csv, Some(job.dest.join("flight_tracks.csv")));
-    assert!(job.dest.join("flight_tracks.csv").is_file());
+fn a_table_written_by_hand_in_either_language_is_replaced_by_the_new_one() {
+    for name in ["flight_tracks.csv", "flight_pistes.csv"] {
+        let folder = tempfile::tempdir().unwrap();
+        let job = flight_job(folder.path());
+        let table = job.dest.join(name);
+        fs::create_dir_all(&job.dest).unwrap();
+        fs::write(&table, ANNOTATED_HEADER).unwrap();
+        let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
+        assert_eq!(processed.kept, [], "{name}");
+        let written = job.dest.join("flight_tracks.csv");
+        assert_ne!(fs::read_to_string(&written).unwrap(), ANNOTATED_HEADER, "{name}");
+        assert_eq!(processed.csv, Some(written), "{name}");
+        assert_eq!(
+            left_in(&job.dest),
+            [
+                "clips",
+                "flight_background.png",
+                "flight_summary.png",
+                "flight_tracks.csv",
+                "params.json"
+            ],
+            "{name}"
+        );
+    }
 }
 
 #[test]
@@ -601,12 +642,32 @@ fn two_tracks_above_a_limit_of_one(folder: &Path) -> (Job, Options) {
     (job, options)
 }
 
+#[test]
+fn the_background_is_written_at_the_size_of_the_video_and_params_json_names_it_with_the_layout_of_each_summary() {
+    let folder = tempfile::tempdir().unwrap();
+    let job = flight_job(folder.path());
+    let processed = process(&job, &Plain, &Silent, Threads::Automatic, VERSIONS, &Options::default()).unwrap();
+    let params = params_of(&job);
+    assert_eq!(params["background"], "flight_background.png");
+    assert_eq!(png_size(&job.dest.join("flight_background.png")), Some((1440, 1080)));
+    let summaries = params["summaries"].as_array().unwrap();
+    assert_eq!(summaries.len(), processed.summaries.len());
+    assert_eq!(summaries[0]["file"], "flight_summary.png");
+    assert_eq!(summaries[0]["window_s"][0], 0.0);
+    assert!(summaries[0]["radius"].as_f64().unwrap() > 0.0);
+    for track in params["tracks"].as_array().unwrap() {
+        let trace = &track["trace"];
+        assert!(trace["points"].as_str().unwrap().contains(','), "{track}");
+        assert_eq!(trace["dot"].as_array().unwrap().len(), 2);
+    }
+}
+
 fn params_of(job: &Job) -> serde_json::Value {
     serde_json::from_str(&fs::read_to_string(params_json(&job.dest)).unwrap()).unwrap()
 }
 
 #[test]
-fn a_video_with_too_many_tracks_brings_back_its_measures_and_sets_aside_the_earlier_table_before_writing_its_own() {
+fn a_video_with_too_many_tracks_brings_back_its_measures_and_replaces_the_earlier_table_with_its_own() {
     let folder = tempfile::tempdir().unwrap();
     let (job, options) = two_tracks_above_a_limit_of_one(folder.path());
     fs::create_dir_all(&job.dest).unwrap();
@@ -620,7 +681,9 @@ fn a_video_with_too_many_tracks_brings_back_its_measures_and_sets_aside_the_earl
     };
     assert_eq!(count, 2);
     assert!(extent.length_s > 0.0 && extent.not_analysed_s > 0.0, "{extent:?}");
-    dated_copy_of(&kept, &job.dest.join("flight_tracks.csv"));
+    assert_eq!(kept, []);
+    let table = fs::read_to_string(job.dest.join("flight_tracks.csv")).unwrap();
+    assert_ne!(table, ANNOTATED_HEADER);
 }
 
 #[test]

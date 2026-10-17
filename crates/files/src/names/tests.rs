@@ -34,6 +34,7 @@ fn every_name(language: Language) -> Vec<PathBuf> {
         clips.join(names.zoomed_clip(&track(1), 0.0, 1)),
         names.tracks_csv(dest, stem),
         names.summary_png(dest, stem, None, None),
+        names.background_png(dest, stem),
         names.annotated_video(dest, stem),
     ]
 }
@@ -47,6 +48,7 @@ fn english_names_for_an_english_reader() {
             "out/v/clips/track_01_0m00s_zoom.mp4",
             "out/v/v_tracks.csv",
             "out/v/v_summary.png",
+            "out/v/v_background.png",
             "out/v/v_annotated.mp4",
         ]
         .map(PathBuf::from)
@@ -63,6 +65,7 @@ fn french_names_without_any_accent_that_apfs_would_decompose() {
             "out/v/extraits/piste_01_0m00s_zoom.mp4",
             "out/v/v_pistes.csv",
             "out/v/v_resume.png",
+            "out/v/v_fond.png",
             "out/v/v_annotee.mp4",
         ]
         .map(PathBuf::from)
@@ -164,6 +167,7 @@ fn every_name_we_write_is_recognised_as_a_previous_output_and_so_is_its_partial_
         let names = Names::new(language);
         let rendered = [
             names.annotated_video(dest, stem),
+            names.background_png(dest, stem),
             names.summary_png(dest, stem, None, None),
             names.summary_png(dest, stem, Some(0..10), None),
             names.summary_png(dest, stem, None, Some(Part { number: 3, count: 8 })),
@@ -234,6 +238,9 @@ fn names_that_only_look_like_outputs_are_not_recognised() {
         ".extraits.partial",
         "v_annotee.mp4.partial",
         "piste_01_0m00s.mp4",
+        "v.png",
+        "v_fond.jpg",
+        "v_fond_1_sur_2.png",
     ] {
         assert_eq!(recognised(name), None, "{name}");
     }

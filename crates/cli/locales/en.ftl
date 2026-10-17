@@ -24,6 +24,7 @@ announce = { $videos ->
         [0] {""}
        *[other] , { $done } of them already done
     }
+finish = { $line } · done around { $time }
 video-failed = [{ $position }/{ $total }] { $video } — { $too-many ->
         [yes] too many tracks
        *[no] failed
@@ -63,6 +64,8 @@ failure-todo = {"  "}what to do: { $cause ->
         [shared-folder] rename one of these videos, or process them in two runs with a different -o
         [read-only] copy the videos to the Mac, or choose another folder with -o
         [other-folder] choose another folder with -o
+        [disk-short] free some space, or write the results to another disk with -o; --ignore-disk starts the run anyway
+        [disk-short-annotated] free some space, drop --annotated, or write the results to another disk with -o; --ignore-disk starts the run anyway
        *[unexpected] report it with the detail below
     }
 failure-detail = {"  "}detail: { $detail }
@@ -148,6 +151,11 @@ no-video = no video ({ $listed } or { $last }) found in { $count ->
         [one] this folder
        *[other] these folders
     }:
+disk-short = the disk holding { $path }: { $needed } GB needed, { $free } GB free
+disks-short = { $count ->
+        [one] the disk of the results looks too small
+       *[other] the disks of the results look too small
+    }:
 folders-refused = no video is processed, the results cannot be written in { $count ->
         [one] this folder
        *[other] these folders
@@ -193,14 +201,6 @@ tally-unwritten-heading = { $count ->
         [one] File not written, the results page may be incomplete:
        *[other] Files not written, the results page may be incomplete:
     }
-tally-set-aside-heading = { $count ->
-        [one] Table set aside:
-       *[other] Tables set aside:
-    }
-tally-set-aside = { $video }: { $table } { $reason ->
-        [verdicts] holds verdicts
-       *[unknown] does not have the form of a tracks table
-    }, set aside as { $dated }
 tally-unwritten = { $taken ->
         [yes] { $path } already exists and is not a batdetect page: rename or move it to get the page
        *[no] { $path }: { $detail }
@@ -248,8 +248,9 @@ skip-refused-question = Process { $count ->
        *[other] the { $count } valid videos
     } anyway? (Y/n)
 skip-refused-declined = no video is processed
-skip-refused-help = Processes the valid videos without asking when some inputs are refused
+skip-refused-help = Processes the valid videos without asking when some inputs are refused or the disk of the results looks too small
 no-notify-help = Neither notifies the end of the batch nor opens the results page (macOS)
+ignore-disk-help = Starts the run even when the disk of the results looks too small; each video still checks the room before its clips
 force-help = Redoes every video, even those already done with the same settings
 tally-refused-count = { $count ->
         [one] { $count } input refused
@@ -267,7 +268,6 @@ table-track = track
 table-start = start
 table-end = end
 table-duration = duration (s)
-table-verdict = verdict
 table-hits = points
 table-chord = chord (px)
 table-path = path (px)
@@ -303,6 +303,15 @@ page-date = { $day } { $month ->
     } { $year }, { $hour }:{ $minute }
 page-computed = computed on { $date }
 page-tried = tried on { $date }
+page-refused-heading = { $count ->
+        [one] Refused input, not processed
+       *[other] Refused inputs, not processed
+    }
+page-refused-when = launch of { $date }
+page-refused-consequence = { $count ->
+        [one] Nothing was done for it. Fix it as shown below, then run batdetect again: videos already done will not be redone.
+       *[other] Nothing was done for them. Fix each one as shown below, then run batdetect again: videos already done will not be redone.
+    }
 page-not-analysed = { $duration } not analysed
 page-unfinished-badge = unfinished
 page-too-many-badge = too many tracks
@@ -317,6 +326,22 @@ page-summary-alt = Summary image of { $video }: { $tracks ->
        *[other] { $tracks } tracks
     }, each path numbered and coloured as in the table. Open at full size (new tab)
 page-part-alt = Summary image of { $video }, part { $part } of { $parts }: tracks { $first } to { $last }, each path numbered and coloured as in the table. Open at full size (new tab)
+page-scene-alt = Summary image of { $video }: { $tracks ->
+        [one] { $tracks } track
+       *[other] { $tracks } tracks
+    }, each path numbered and coloured as in the table
+page-scene-part-alt = Summary image of { $video }, part { $part } of { $parts }: tracks { $first } to { $last }, each path numbered and coloured as in the table
+page-scene-window = From { $start } to { $end }
+page-scene-span = { $start } – { $end }
+page-scene-nothing-not-analysed = nothing left out of the analysis
+page-scene-nothing-unreadable = nothing unreadable
+page-scene-not-analysed = not analysed { $periods }
+page-scene-unreadable = unreadable { $periods }
+page-scene-more = + { $count } more
+page-scene-complete = Open the complete image
+page-scene-new-tab = (new tab)
+page-scene-complete-new-tab = Open the complete image (new tab)
+page-strip-start = Track { $track } · { $start }
 page-part = Part
 page-parts = Parts of the summary image of { $video }
 page-part-tab = Part { $part } of { $parts }, tracks { $first } to { $last }
@@ -324,24 +349,117 @@ page-column-track = Track
 page-column-start = Start
 page-column-length = Length
 page-column-verdict = Verdict
-page-column-watch = Watch
 page-table-caption = Tracks of { $video }
-page-no-verdict = to note
-page-clip = Clip
-page-zoom = Zoom
-page-play-clip = Play the clip of track { $track }
-page-play-zoom = Play the slowed zoom of track { $track }
-page-show-track = Show track { $track } on the summary image
-page-playing = Track { $track } of { $total } · start { $start } · { $zoom ->
-        [yes] slowed zoom
-       *[no] clip
-    }
-page-unreadable = unreadable clip
-page-back = Back to the summary image
-page-previous = Previous
-page-next = Next
-page-previous-clip = Clip of the previous track
-page-next-clip = Clip of the next track
 page-player = Clip player for { $video }
 page-table-link = Tracks table, for a spreadsheet
 page-annotated-link = Whole video with the tracks drawn
+page-js-bar = Verdicts of the evening
+page-js-yes = Yes
+page-js-no = No
+page-js-doubt = Doubt
+page-js-key-yes = Y
+page-js-key-no = N
+page-js-key-doubt = D
+page-js-value-yes = yes
+page-js-value-no = no
+page-js-value-doubt = ?
+page-js-to-see = to see
+page-js-other = other: { $value }
+page-js-counts = Verdicts: { $yes } yes · { $no } no · { $doubt } doubt · { $todo } to see
+page-js-judged = judged: { $done } of { $total }
+page-js-pending = ● Changes not downloaded: { $count }
+page-js-downloaded = Downloaded at { $time }: to drag beside this page
+page-js-current = Verdicts up to date
+page-js-download = Download the verdicts
+page-js-reload = Reload a verdicts file…
+page-js-read-from = Verdicts read from { $name }, of { $date }; verdicts files in the folder: { $count }
+page-js-read-file = Verdicts read from { $name }, of { $date }
+page-js-steps-heading = Last step: put the file beside the page
+page-js-step-one = The file verdicts.csv is in Downloads; the browser may have named it verdicts (1).csv or verdicts-2.csv. If the browser asks where to save it, choose the folder { $folder }.
+page-js-step-two = Drag it into the folder { $folder }, beside this page. If there are several, the page reads the most recent.
+page-js-understood = Got it
+page-js-replace-unsaved = Some changes are not downloaded. Replace them with this file?
+page-js-not-verdicts = { $name } is not a verdicts file.
+page-js-draft-same = Verdicts not downloaded since { $time }, taken back into the page.
+page-js-draft-other = Verdicts were not downloaded (since { $time }), on another verdicts file than the one the page just read.
+page-js-draft-keep = Take them back
+page-js-draft-drop = Drop them
+page-js-orphans = Verdicts without a track: { $count }
+page-js-orphans-why = These verdicts no longer match any track since the last computation. They stay in the verdicts file; check the nearest track on its clip.
+page-js-orphan = { $start }, former track { $track }: { $verdict }
+page-js-nearest = See the nearest track (track { $track }, { $start })
+page-js-absent = Verdicts of videos absent from the page, kept in the file: { $count }
+page-js-track-of = Track { $track } of { $total } · { $start }
+page-js-judge-track = Judge track { $track }
+page-js-announce = Track { $track }: { $verdict }
+page-js-announce-species = Track { $track }: { $verdict }, { $species }
+page-js-species = species
+page-js-species-then-enter = species, then Enter
+page-js-species-of = Species of track { $track }
+page-js-verdict-of = Verdict of track { $track }
+page-js-view = View
+page-js-clip = Clip
+page-js-zoom = Zoom
+page-js-no-zoom = no zoom
+page-js-no-clip = No clip for this track.
+page-js-picture = Summary image
+page-js-chain = Keep going
+page-js-previous-track = Previous track
+page-js-next-track = Next track
+page-js-next-to-see = To see »
+page-js-blocked = The browser blocked the playback: click ▶
+page-js-unreadable = Unreadable clip.
+page-js-changed = changed
+page-js-column-video = video
+page-js-column-track = track
+page-js-column-start = start
+page-js-column-start-seconds = start (s)
+page-js-column-verdict = verdict
+page-js-column-species = species
+page-js-column-start-x = start x (px)
+page-js-column-start-y = start y (px)
+page-js-separator = ,
+page-js-decimal-mark = .
+page-js-key-species = E
+page-js-draft-drop-confirm = Drop these verdicts that were not downloaded? They will be lost.
+page-js-download-now = Download now
+page-js-cleared = Track { $track }: verdict cleared
+page-js-value-yes-other = oui
+page-js-value-no-other = non
+other-commands = Other commands: "batdetect doctor" checks that everything is ready before an evening, "batdetect completion zsh" writes the Tab completion. A folder named doctor or completion is given as ./doctor or ./completion.
+completion-zsh-only = only zsh is supported: batdetect completion zsh
+completion-with-homebrew = With Homebrew, the script is already installed: add to ~/.zshrc the line
+completion-without-homebrew = Without Homebrew: save the script with
+completion-then-profile = then add to ~/.zshrc these two lines, in this order:
+doctor-no-argument = doctor takes no argument: run it in the folder to check
+doctor-version = batdetect { $version } — FFmpeg { $ffmpeg } included
+doctor-hardware = ✓ encoder: VideoToolbox (hardware)
+doctor-software = ✓ encoder: openh264 (software)
+doctor-fallback = ⚠ encoder: openh264 only, VideoToolbox does not respond
+doctor-broken = ✗ encoder: none works
+doctor-space = ✓ free space: { $gigabytes } GB in { $folder }
+doctor-space-short = ✗ free space: { $gigabytes } GB in { $folder }, less than { $least } GB
+doctor-space-unknown = ⚠ free space: not measured in { $folder }
+doctor-writable = ✓ writing: allowed in { $folder }
+doctor-unwritable = ✗ writing: refused in { $folder } ({ $access ->
+        [refused] not allowed
+        [not-a-folder] not a folder
+        [missing] not found
+        [read-only] read-only
+        [disk-full] disk full
+       *[unavailable] unreachable
+    })
+doctor-todo-fallback = {"  "}what to do: nothing required, clips will be slower to write; restarting the Mac may bring VideoToolbox back
+doctor-todo-broken = {"  "}what to do: reinstall batdetect
+doctor-todo-space = {"  "}what to do: free some space, or choose another folder with -o
+doctor-todo-writing = {"  "}what to do: choose a folder where writing is allowed, with -o
+doctor-ready = Everything is ready.
+doctor-problems = { $count ->
+        [one] 1 point to fix.
+       *[other] { $count } points to fix.
+    }
+doctor-untried = ✗ encoder: not tried, the system's temporary folder refuses writing
+doctor-todo-untried = {"  "}what to do: free some space on the system disk, then run batdetect doctor again
+completion-commands-group = command
+completion-doctor = checks that everything is ready before an evening
+completion-completion = writes the Tab completion

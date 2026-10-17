@@ -172,6 +172,22 @@ fn a_video_whose_stream_no_decoder_of_this_ffmpeg_reads_is_not_handled() {
     assert_eq!(processed(video, dest, &Options::default()), Cause::Unsupported);
 }
 
+#[cfg(unix)]
+#[test]
+fn a_video_whose_clips_cannot_fit_on_the_disk_fails_as_a_full_disk_before_writing_them() {
+    let folder = tempfile::tempdir().unwrap();
+    let (video, dest) = in_a_folder(folder.path(), "flight.mp4");
+    flight::write_flight(&video);
+    crate::sparse::stretched_beyond_any_disk(&video);
+    assert_eq!(processed(video, dest.clone(), &Options::default()), Cause::DiskFull);
+    let folders: Vec<_> = fs::read_dir(&dest)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.is_dir())
+        .collect();
+    assert_eq!(folders, Vec::<PathBuf>::new());
+}
+
 #[test]
 fn a_frame_count_that_does_not_add_up_is_a_damaged_video() {
     let error = Error::Detection(detection::Error::Input(input::Error::FrameCount {
@@ -233,15 +249,6 @@ fn a_read_only_destination_is_a_write_refusal_but_a_broken_progress_line_is_unex
     assert_eq!(cause(&error, &Options::default()), Cause::Forbidden);
     let progress = Error::Progress(io::Error::from(io::ErrorKind::StorageFull));
     assert_eq!(cause(&progress, &Options::default()), Cause::Unexpected);
-}
-
-#[test]
-fn a_table_that_cannot_be_set_aside_in_a_read_only_folder_is_a_write_refusal() {
-    let error = Error::Previous(files::error::Error::SetAside {
-        path: PathBuf::from("out/v/v_pistes.csv"),
-        source: io::Error::from(io::ErrorKind::PermissionDenied),
-    });
-    assert_eq!(cause(&error, &Options::default()), Cause::Forbidden);
 }
 
 #[test]

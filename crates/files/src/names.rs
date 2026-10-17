@@ -13,6 +13,7 @@ use unicode_normalization::UnicodeNormalization;
 mod tests;
 
 const PARAMS: &str = "params.json";
+const HIDDEN_FOLDER: &str = ".batdetect";
 const FRENCH_PAGE: &str = "resultats.html";
 const ENGLISH_PAGE: &str = "results.html";
 pub const RESULTS_FOLDER: &str = "batdetect";
@@ -43,6 +44,7 @@ pub struct Names {
     summary: &'static str,
     part_of: &'static str,
     annotated: &'static str,
+    background: &'static str,
 }
 
 const FRENCH: Names = Names {
@@ -52,6 +54,7 @@ const FRENCH: Names = Names {
     summary: "_resume",
     part_of: "sur",
     annotated: "_annotee",
+    background: "_fond",
 };
 
 const ENGLISH: Names = Names {
@@ -61,6 +64,7 @@ const ENGLISH: Names = Names {
     summary: "_summary",
     part_of: "of",
     annotated: "_annotated",
+    background: "_background",
 };
 
 const LEGACY: Names = Names {
@@ -70,6 +74,7 @@ const LEGACY: Names = Names {
     summary: ".tracks",
     part_of: "",
     annotated: "_boxes",
+    background: "",
 };
 
 const EVERY: [Names; 3] = [FRENCH, ENGLISH, LEGACY];
@@ -140,6 +145,10 @@ impl Names {
         format!("_{number:0width$}_{}_{count}", self.part_of)
     }
 
+    pub fn background_png(self, dest: &Path, stem: &OsStr) -> PathBuf {
+        dest.join(suffixed(stem, &format!("{}{IMAGE_EXTENSION}", self.background)))
+    }
+
     pub fn annotated_video(self, dest: &Path, stem: &OsStr) -> PathBuf {
         dest.join(suffixed(stem, &format!("{}{VIDEO_EXTENSION}", self.annotated)))
     }
@@ -160,11 +169,16 @@ impl Names {
             Some(Output::TracksTable)
         } else if rest.strip_prefix(self.annotated.as_bytes()) == Some(VIDEO_EXTENSION.as_bytes())
             || self.is_summary(rest)
+            || self.is_background(rest)
         {
             Some(Output::Rendered)
         } else {
             None
         }
+    }
+
+    fn is_background(self, rest: &[u8]) -> bool {
+        !self.background.is_empty() && rest.strip_prefix(self.background.as_bytes()) == Some(IMAGE_EXTENSION.as_bytes())
     }
 
     fn is_summary(self, rest: &[u8]) -> bool {
@@ -270,6 +284,10 @@ pub const fn results_page(language: Language) -> &'static str {
 
 pub fn params_json(dest: &Path) -> PathBuf {
     dest.join(PARAMS)
+}
+
+pub(crate) fn hidden_dir(root: &Path) -> PathBuf {
+    root.join(HIDDEN_FOLDER)
 }
 
 fn suffixed(stem: &OsStr, suffix: &str) -> OsString {

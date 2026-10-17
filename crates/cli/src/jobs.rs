@@ -14,6 +14,15 @@ use crate::failure::Cause;
 mod tests;
 
 const CURRENT_FOLDER: &str = ".";
+const INPUT_MISSING: &str = "input-missing";
+pub const UNREACHABLE: &str = "unreachable";
+const NOT_A_VIDEO_NAME: &str = "not-a-video-name";
+pub const NO_VIDEO: &str = "no-video";
+pub const SHARED_FOLDER: &str = "shared-folder";
+pub const NOT_A_VIDEO: &str = "not-a-video";
+pub const UNOPENED: &str = "unopened";
+const DISK_SHORT: &str = "disk-short";
+const DISK_SHORT_ANNOTATED: &str = "disk-short-annotated";
 const VIDEO_EXTENSIONS: [&str; 5] = ["mp4", "mov", "avi", "mkv", "m4v"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +39,37 @@ pub enum Reason {
     Unreadable(Access),
     SharedFolder { videos: Vec<PathBuf> },
     Unopened { cause: Cause, detail: String },
+    DiskShort { needed: u64, free: u64, annotated: bool },
+}
+
+impl Reason {
+    pub const fn key(&self) -> &'static str {
+        match self {
+            Self::Missing | Self::Unreadable(Access::Missing) => "missing",
+            Self::Unreadable(Access::Refused) => "refused",
+            Self::Unreadable(Access::NotAFolder) => "not-a-folder",
+            Self::Unreadable(Access::ReadOnly | Access::DiskFull | Access::Unavailable) => "unavailable",
+            Self::NotAVideo => NOT_A_VIDEO,
+            Self::NoVideo => NO_VIDEO,
+            Self::SharedFolder { .. } => SHARED_FOLDER,
+            Self::Unopened { .. } => UNOPENED,
+            Self::DiskShort { .. } => DISK_SHORT,
+        }
+    }
+
+    pub const fn todo(&self) -> &'static str {
+        match self {
+            Self::Missing | Self::Unreadable(Access::Missing | Access::NotAFolder) => INPUT_MISSING,
+            Self::Unreadable(Access::Refused) => Cause::ReadRefused.key(),
+            Self::Unreadable(Access::ReadOnly | Access::DiskFull | Access::Unavailable) => UNREACHABLE,
+            Self::NotAVideo => NOT_A_VIDEO_NAME,
+            Self::NoVideo => NO_VIDEO,
+            Self::SharedFolder { .. } => SHARED_FOLDER,
+            Self::Unopened { cause, .. } => cause.key(),
+            Self::DiskShort { annotated: false, .. } => DISK_SHORT,
+            Self::DiskShort { annotated: true, .. } => DISK_SHORT_ANNOTATED,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

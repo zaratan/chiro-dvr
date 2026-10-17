@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use files::error::Error;
 use files::failures::{FailureRecord, record_failure};
+use files::refusals::{RefusalRecord, RefusedInput, record_refusals};
 use files::table::{Column, Headings};
 use page::labels::{Label, Labels};
 use types::language::Language;
@@ -28,7 +29,6 @@ impl Headings for Named {
 
 const FRENCH: Wording<'static> = Wording {
     labels: &Named,
-    headings: &Named,
     language: Language::French,
 };
 
@@ -76,10 +76,10 @@ fn the_page_lists_the_finished_videos_and_opens_only_those_of_this_run() {
     finished(root.path(), "video_093", "done", 1);
     write_page(root.path(), &[job(root.path(), "video_093")], 1, FRENCH).unwrap();
     let html = page(root.path());
-    assert!(html.contains(r#"<details class="video" id="v1">"#));
-    assert!(html.contains(r#"<details class="video" id="v2" open>"#));
+    assert!(html.contains(r#"<details class="video" id="v1" data-video="video_092">"#));
+    assert!(html.contains(r#"<details class="video" id="v2" data-video="video_093" open>"#));
     assert!(html.contains("Tracks(3)"));
-    assert!(html.contains(r#"data-src="video_092/extraits/piste_01_0m01s.mp4""#));
+    assert!(html.contains(r#"data-clip="video_092/extraits/piste_01_0m01s.mp4""#));
 }
 
 #[test]
@@ -253,5 +253,56 @@ fn a_folder_named_by_a_decomposed_accent_is_the_same_video_as_its_composed_job()
     write_page(root.path(), &[job(root.path(), "nuit_\u{e9}t\u{e9}")], 1, FRENCH).unwrap();
     let html = page(root.path());
     assert_eq!(html.matches("<details class=\"video\"").count(), 1);
-    assert!(html.contains(r#"<details class="video" id="v1" open>"#));
+    let accent = '\u{301}';
+    assert!(html.contains(&format!(r#"id="v1" data-video="nuit_e{accent}te{accent}" open>"#)));
+}
+
+fn refused_input(path: &str, cause: &str) -> RefusedInput {
+    RefusedInput {
+        path: path.to_owned(),
+        reason: "unopened".to_owned(),
+        cause: Some(cause.to_owned()),
+        todo: cause.to_owned(),
+        videos: vec!["/nuit/a.mp4".to_owned(), "/nuit/A.mp4".to_owned()],
+        detail: Some(format!("chain of {path}")),
+    }
+}
+
+#[test]
+fn the_refusals_of_the_launch_show_on_the_page_of_their_folder() {
+    let root = tempfile::tempdir().unwrap();
+    finished(root.path(), "video_092", "done", 1);
+    let record = RefusalRecord {
+        date: "2026-10-16T19:02:00Z".to_owned(),
+        inputs: vec![refused_input("/nuit/video_093.mp4", "damaged")],
+    };
+    record_refusals(root.path(), &record).unwrap();
+    write_page(root.path(), &[job(root.path(), "video_092")], 1, FRENCH).unwrap();
+    let html = page(root.path());
+    assert!(
+        html.contains("RefusedInput { path: &quot;/<wbr>nuit/<wbr>video_093.mp4&quot;, reason: &quot;unopened&quot;")
+    );
+    assert!(html.contains("videos: &quot;/<wbr>nuit/<wbr>a.mp4, /<wbr>nuit/<wbr>A.mp4&quot;"));
+    assert!(html.contains("RefusedWhen(Date { year: 2026"));
+    assert!(html.contains("RefusedCount(1)"));
+}
+
+#[test]
+fn the_recorded_detail_of_a_refused_video_shows_on_the_page() {
+    let root = tempfile::tempdir().unwrap();
+    let record = RefusalRecord {
+        date: "2026-10-16T19:02:00Z".to_owned(),
+        inputs: vec![refused_input("/nuit/video_094.mp4", "unsupported")],
+    };
+    record_refusals(root.path(), &record).unwrap();
+    write_page(root.path(), &[], 0, FRENCH).unwrap();
+    assert!(page(root.path()).contains("chain of /nuit/video_094.mp4"));
+}
+
+#[test]
+fn a_folder_without_refusals_shows_no_refused_card() {
+    let root = tempfile::tempdir().unwrap();
+    finished(root.path(), "video_092", "done", 1);
+    write_page(root.path(), &[job(root.path(), "video_092")], 1, FRENCH).unwrap();
+    assert!(!page(root.path()).contains("RefusedCount"));
 }

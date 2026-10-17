@@ -8,13 +8,12 @@ use types::rational::Rational;
 use types::timeline::Timeline;
 use types::track::Track;
 
-use super::{COLUMNS, Column, Headings, is_tracks_table, row, write_tracks_csv};
+use super::{COLUMNS, Column, Headings, row, write_tracks_csv};
 use crate::dialect::Dialect;
 use crate::error::Error;
 
-const FRENCH_HEADER: &str = "\u{feff}piste;début;fin;durée (s);verdict;points;corde (px);chemin (px);vitesse (px/s);surface max (px);amplitude (niveaux de gris);images comblées;début (s)\r\n";
-const ENGLISH_HEADER: &str = "track,start,end,duration (s),verdict,points,chord (px),path (px),speed (px/s),max area (px),amplitude (grey levels),filled frames,start (s)\r\n";
-const LEGACY_TABLE: &str = "id,start,end,start_s,duration_s,hits,chord_px,path_px,speed_px_s,max_area_px,peak_amplitude,filled_frames\r\n1,0:00.00,0:00.50,0.0,0.5,3,10.0,10.0,20.0,9,80.0,0\r\n";
+const FRENCH_HEADER: &str = "\u{feff}piste;début;fin;durée (s);points;corde (px);chemin (px);vitesse (px/s);surface max (px);amplitude (niveaux de gris);images comblées;début (s)\r\n";
+const ENGLISH_HEADER: &str = "track,start,end,duration (s),points,chord (px),path (px),speed (px/s),max area (px),amplitude (grey levels),filled frames,start (s)\r\n";
 
 #[derive(Debug)]
 struct Spelled;
@@ -26,7 +25,6 @@ impl Headings for Spelled {
             Column::Start => ["début", "start"],
             Column::End => ["fin", "end"],
             Column::Duration => ["durée (s)", "duration (s)"],
-            Column::Verdict => ["verdict", "verdict"],
             Column::Hits => ["points", "points"],
             Column::Chord => ["corde (px)", "chord (px)"],
             Column::Path => ["chemin (px)", "path (px)"],
@@ -88,10 +86,10 @@ fn written(language: Language, tracks: &[Track]) -> (tempfile::TempDir, std::pat
 }
 
 #[test]
-fn a_track_row_reports_times_an_empty_verdict_hits_distances_filled_frames_and_the_start_in_seconds() {
+fn a_track_row_reports_times_hits_distances_filled_frames_and_the_start_in_seconds() {
     assert_eq!(
         row(&three_points(), &thirty_per_second(), english()),
-        "3,0:00:01,0:00:01,0.1,,3,100.0,100.0,1000.0,50,80.0,1,1.0"
+        "3,0:00:01,0:00:01,0.1,3,100.0,100.0,1000.0,50,80.0,1,1.0"
     );
 }
 
@@ -99,7 +97,7 @@ fn a_track_row_reports_times_an_empty_verdict_hits_distances_filled_frames_and_t
 fn a_french_row_takes_semicolons_and_decimal_commas() {
     assert_eq!(
         row(&three_points(), &thirty_per_second(), Dialect::of(Language::French)),
-        "3;0:00:01;0:00:01;0,1;;3;100,0;100,0;1000,0;50;80,0;1;1,0"
+        "3;0:00:01;0:00:01;0,1;3;100,0;100,0;1000,0;50;80,0;1;1,0"
     );
 }
 
@@ -108,7 +106,7 @@ fn a_single_frame_track_lasts_one_frame() {
     let single = Track::new(1, vec![point(60, 5.0, 5.0, 9.0)]).unwrap();
     assert_eq!(
         row(&single, &thirty_per_second(), english()),
-        "1,0:00:02,0:00:02,0.03,,1,0.0,0.0,0.0,9,80.0,0,2.0"
+        "1,0:00:02,0:00:02,0.03,1,0.0,0.0,0.0,9,80.0,0,2.0"
     );
 }
 
@@ -117,7 +115,7 @@ fn the_french_table_starts_with_a_byte_order_mark_and_its_headings_and_ends_its_
     let (_directory, path) = written(Language::French, &[three_points()]);
     assert_eq!(
         fs::read_to_string(&path).unwrap(),
-        format!("{FRENCH_HEADER}3;0:00:01;0:00:01;0,1;;3;100,0;100,0;1000,0;50;80,0;1;1,0\r\n")
+        format!("{FRENCH_HEADER}3;0:00:01;0:00:01;0,1;3;100,0;100,0;1000,0;50;80,0;1;1,0\r\n")
     );
 }
 
@@ -127,7 +125,7 @@ fn the_english_table_has_no_byte_order_mark_and_keeps_commas_and_points() {
     let text = fs::read_to_string(&path).unwrap();
     assert_eq!(
         text,
-        format!("{ENGLISH_HEADER}3,0:00:01,0:00:01,0.1,,3,100.0,100.0,1000.0,50,80.0,1,1.0\r\n")
+        format!("{ENGLISH_HEADER}3,0:00:01,0:00:01,0.1,3,100.0,100.0,1000.0,50,80.0,1,1.0\r\n")
     );
     assert!(!text.contains('"'));
 }
@@ -136,49 +134,6 @@ fn the_english_table_has_no_byte_order_mark_and_keeps_commas_and_points() {
 fn a_table_without_tracks_is_its_header_alone() {
     let (_directory, path) = written(Language::English, &[]);
     assert_eq!(fs::read_to_string(&path).unwrap(), ENGLISH_HEADER);
-}
-
-#[test]
-fn a_table_we_write_in_either_language_with_or_without_tracks_is_recognised_as_ours() {
-    for language in [Language::French, Language::English] {
-        for tracks in [vec![], vec![three_points()]] {
-            let (_directory, path) = written(language, &tracks);
-            assert!(is_tracks_table(&fs::read(&path).unwrap(), &Spelled), "{language:?}");
-        }
-    }
-}
-
-#[test]
-fn a_table_written_by_v0_1_1_is_still_recognised_as_ours_so_the_cleanup_removes_it() {
-    let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("v.tracks.csv");
-    fs::write(&path, LEGACY_TABLE).unwrap();
-    assert!(is_tracks_table(&fs::read(&path).unwrap(), &Spelled));
-}
-
-#[test]
-fn a_verdict_written_in_the_table_even_as_a_space_makes_it_no_longer_ours_so_the_cleanup_keeps_it() {
-    let (_directory, path) = written(Language::French, &[three_points(), three_points()]);
-    let table = fs::read_to_string(&path).unwrap();
-    for verdict in ["oui", " "] {
-        fs::write(&path, table.replacen(";;", &format!(";{verdict};"), 1)).unwrap();
-        assert!(!is_tracks_table(&fs::read(&path).unwrap(), &Spelled), "{verdict:?}");
-    }
-}
-
-#[test]
-fn a_table_resaved_without_its_byte_order_mark_with_one_it_never_had_or_with_the_other_separator_is_not_ours() {
-    let (_directory, path) = written(Language::French, &[three_points()]);
-    let french = fs::read_to_string(&path).unwrap();
-    let english = format!("{ENGLISH_HEADER}3,0:00:01,0:00:01,0.1,,3,100.0,100.0,1000.0,50,80.0,1,1.0\r\n");
-    for content in [
-        french.replacen('\u{feff}', "", 1),
-        format!("\u{feff}{english}"),
-        english.replace(',', ";"),
-    ] {
-        fs::write(&path, &content).unwrap();
-        assert!(!is_tracks_table(&fs::read(&path).unwrap(), &Spelled), "{content}");
-    }
 }
 
 #[test]
@@ -206,7 +161,7 @@ fn a_table_is_named_only_once_whole_and_leaves_no_partial_file() {
         .map(|entry| entry.unwrap().file_name())
         .collect();
     assert_eq!(names, ["v_pistes.csv"]);
-    assert!(is_tracks_table(&fs::read(&path).unwrap(), &Spelled));
+    assert!(fs::read_to_string(&path).unwrap().starts_with('\u{feff}'));
 }
 
 #[test]

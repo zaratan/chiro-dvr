@@ -1,5 +1,5 @@
 use super::{GENERATOR, is_ours, render};
-use crate::model::{Entry, Failed, Page, TooMany};
+use crate::model::{Entry, Failed, Page, Refusals, RefusedInput, TooMany};
 use crate::testing::{Named, video};
 
 fn evening() -> Page {
@@ -7,6 +7,8 @@ fn evening() -> Page {
     crowded.too_many = Some(TooMany { count: 301, limit: 300 });
     Page {
         title: "nuit-12-oct".to_owned(),
+        refused: None,
+        verdicts: None,
         entries: vec![
             Entry::Video(video("video_092")),
             Entry::Video(crowded),
@@ -91,6 +93,8 @@ fn a_video_done_by_an_older_version_says_so_rather_than_unfinished() {
 fn a_page_with_nothing_to_fold_has_no_button_to_unfold_everything() {
     let page = Page {
         title: "nuit".to_owned(),
+        refused: None,
+        verdicts: None,
         entries: vec![Entry::Waiting {
             name: "video_095".to_owned(),
         }],
@@ -113,8 +117,50 @@ fn nothing_is_loaded_from_the_network_and_videos_wait_for_a_click() {
 fn the_title_of_the_folder_is_escaped() {
     let page = Page {
         title: "<nuit>".to_owned(),
+        refused: None,
+        verdicts: None,
         entries: Vec::new(),
     };
     let html = render(&page, &Named);
     assert!(html.contains("<title>Heading — &lt;nuit&gt;</title>"));
+}
+
+fn refused_evening() -> Page {
+    Page {
+        refused: Some(Refusals {
+            date: None,
+            inputs: vec![RefusedInput {
+                path: "/nuit/video_093.mp4".to_owned(),
+                reason: "refused".to_owned(),
+                cause: None,
+                todo: "read-refused".to_owned(),
+                videos: String::new(),
+                detail: None,
+            }],
+        }),
+        ..evening()
+    }
+}
+
+#[test]
+fn the_refused_inputs_come_before_the_videos() {
+    let html = render(&refused_evening(), &Named);
+    let card = html
+        .find(r#"<section class="video failed refused" id="refused""#)
+        .unwrap();
+    let first_video = html.find(r#"id="v1""#).unwrap();
+    assert!(card < first_video);
+}
+
+#[test]
+fn the_total_links_to_the_refused_inputs() {
+    let html = render(&refused_evening(), &Named);
+    assert!(html.contains(r##"<a class="count bad" href="#refused">RefusedCount(1)</a>"##));
+}
+
+#[test]
+fn a_launch_without_refusal_shows_neither_the_card_nor_its_count() {
+    let html = render(&evening(), &Named);
+    assert!(!html.contains(r#"id="refused""#));
+    assert!(!html.contains("RefusedCount"));
 }

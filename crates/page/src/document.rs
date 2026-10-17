@@ -1,3 +1,4 @@
+use crate::bar;
 use crate::cards;
 use crate::escape::text;
 use crate::labels::{Label, Labels};
@@ -9,7 +10,14 @@ mod tests;
 
 pub const GENERATOR: &str = r#"<meta name="generator" content="batdetect">"#;
 const STYLE: &str = include_str!("assets/page.css");
-const SCRIPT: &str = include_str!("assets/page.js");
+const SCRIPTS: [&str; 6] = [
+    include_str!("assets/csv.js"),
+    include_str!("assets/store.js"),
+    include_str!("assets/bar.js"),
+    include_str!("assets/list.js"),
+    include_str!("assets/judge.js"),
+    include_str!("assets/page.js"),
+];
 const MARKER_WINDOW: usize = 1024;
 
 pub fn is_ours(head: &[u8]) -> bool {
@@ -19,6 +27,11 @@ pub fn is_ours(head: &[u8]) -> bool {
 
 pub fn render(page: &Page, labels: &dyn Labels) -> String {
     let say = |label: Label<'_>| text(&labels.label(&label));
+    let refused = page
+        .refused
+        .as_ref()
+        .map(|refusals| format!("{}\n", cards::refused(refusals, labels)))
+        .unwrap_or_default();
     let entries: Vec<String> = page
         .entries
         .iter()
@@ -38,7 +51,13 @@ pub fn render(page: &Page, labels: &dyn Labels) -> String {
             }
         })
         .collect();
-    let toggle = if page.entries.iter().any(has_section) {
+    let judged = page.entries.iter().any(has_section);
+    let (savebar, data) = if judged {
+        (format!("{}\n", bar::render(page, labels)), bar::data(page, labels))
+    } else {
+        (String::new(), String::new())
+    };
+    let toggle = if judged {
         format!(
             r#"<p class="all"><button type="button" class="toggle-all" data-expand="{expand}" data-collapse="{collapse}">{expand}</button></p>"#,
             expand = say(Label::ExpandAll),
@@ -60,7 +79,7 @@ pub fn render(page: &Page, labels: &dyn Labels) -> String {
 {STYLE}</style>
 </head>
 <body>
-<header class="top">
+{savebar}<header class="top">
   <h1>{heading}</h1>
   <p class="folder">{folder}</p>
   <p class="tally">{tally}</p>
@@ -68,10 +87,10 @@ pub fn render(page: &Page, labels: &dyn Labels) -> String {
   {toggle}
 </header>
 <main>
-{entries}
+{refused}{entries}
 </main>
-<script>
-{SCRIPT}</script>
+{data}<script>
+{script}</script>
 </body>
 </html>
 "#,
@@ -82,6 +101,7 @@ pub fn render(page: &Page, labels: &dyn Labels) -> String {
         tally = tally(page, labels),
         reminder = say(Label::Reminder),
         entries = entries.join("\n"),
+        script = SCRIPTS.concat(),
     )
 }
 
@@ -108,10 +128,19 @@ fn tally(page: &Page, labels: &dyn Labels) -> String {
         parts.push(span("count", &labels.label(&Label::Done(done))));
     }
     if let Some(first) = first_too_many {
-        parts.push(link(first, &labels.label(&Label::TooManyCount(too_many))));
+        parts.push(link(
+            &format!("v{first}"),
+            &labels.label(&Label::TooManyCount(too_many)),
+        ));
     }
     if let Some(first) = first_failed {
-        parts.push(link(first, &labels.label(&Label::FailedCount(failed))));
+        parts.push(link(&format!("v{first}"), &labels.label(&Label::FailedCount(failed))));
+    }
+    if let Some(refusals) = &page.refused {
+        parts.push(link(
+            cards::REFUSED_ANCHOR,
+            &labels.label(&Label::RefusedCount(refusals.inputs.len())),
+        ));
     }
     if unfinished > 0 {
         parts.push(span("count", &labels.label(&Label::UnfinishedCount(unfinished))));
@@ -123,8 +152,8 @@ fn tally(page: &Page, labels: &dyn Labels) -> String {
     parts.join("\n    ")
 }
 
-fn link(entry: usize, content: &str) -> String {
-    format!(r##"<a class="count bad" href="#v{entry}">{}</a>"##, text(content))
+fn link(anchor: &str, content: &str) -> String {
+    format!(r##"<a class="count bad" href="#{anchor}">{}</a>"##, text(content))
 }
 
 fn span(class: &str, content: &str) -> String {

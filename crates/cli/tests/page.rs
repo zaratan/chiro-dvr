@@ -95,28 +95,29 @@ fn a_second_identical_run_keeps_the_page_complete_whether_it_skips_the_video_or_
     let first = fs::read_to_string(&page).unwrap();
     assert!(run(&[&night], "fr_FR.UTF-8").status.success());
     let second = fs::read_to_string(&page).unwrap();
-    assert!(second.contains(r#"<details class="video" id="v1" open>"#));
+    assert!(second.contains(r#"<details class="video" id="v1" data-video="vol" open>"#));
     assert_eq!(
-        first.matches(r#"class="play""#).count(),
-        second.matches(r#"class="play""#).count()
+        first.matches(" data-clip=").count(),
+        second.matches(" data-clip=").count()
     );
+    assert!(second.matches(" data-clip=").count() > 0);
 }
 
 #[test]
-fn a_verdict_noted_in_the_table_shows_in_the_page_once_it_is_written_again() {
+fn a_verdicts_file_beside_the_page_is_carried_into_it_and_never_touched_by_a_new_run() {
     let (_root, night) = evening("nuit", &["vol.mp4", "autre.mp4"]);
     assert!(run(&[&night.join("vol.mp4")], "fr_FR.UTF-8").status.success());
-    let table = night.join("batdetect/vol/vol_pistes.csv");
-    let written = fs::read_to_string(&table).unwrap();
-    let mut lines: Vec<String> = written.split("\r\n").map(str::to_owned).collect();
-    let verdict = lines[0].split(';').position(|cell| cell == "verdict").unwrap();
-    let mut cells: Vec<&str> = lines[1].split(';').collect();
-    cells[verdict] = "chauve-souris";
-    lines[1] = cells.join(";");
-    fs::write(&table, lines.join("\r\n")).unwrap();
+    let verdicts = night.join("batdetect/verdicts.csv");
+    let written = b"vid\xe9o;d\xe9but (s);verdict\r\nvol;0,00;oui\r\n";
+    fs::write(&verdicts, written).unwrap();
     assert!(run(&[&night.join("autre.mp4")], "fr_FR.UTF-8").status.success());
     let page = fs::read_to_string(night.join("batdetect/resultats.html")).unwrap();
-    assert!(page.contains(r#"<td class="verdict">chauve-souris</td>"#), "{page}");
+    assert!(
+        page.contains(r#"<template id="verdicts-file" data-name="verdicts.csv""#),
+        "{page}"
+    );
+    assert!(page.contains(r#"data-candidates="1""#));
+    assert_eq!(fs::read(&verdicts).unwrap(), written);
 }
 
 #[test]
@@ -135,4 +136,22 @@ fn a_page_of_someone_else_in_the_way_of_two_videos_is_named_once_at_the_end() {
     assert_eq!(summary.matches("resultats.html existe déjà").count(), 1, "{summary}");
     assert_eq!(fs::read_to_string(&page).unwrap(), "<html>mes notes</html>");
     assert!(results.join("vol").is_dir() && results.join("autre").is_dir());
+}
+
+#[test]
+fn an_input_refused_at_the_start_shows_on_the_page_until_a_launch_without_refusal() {
+    let (_root, night) = evening("nuit", &["vol.mp4"]);
+    let video = night.join("vol.mp4");
+    let missing = night.join("absente.mp4");
+    let page = night.join("batdetect/resultats.html");
+    run(&[&video, &missing, Path::new("--skip-refused")], "fr_FR.UTF-8");
+    let html = fs::read_to_string(&page).unwrap();
+    assert!(html.contains(r#"<section class="video failed refused" id="refused""#));
+    let shown = missing.display().to_string().replace('/', "/<wbr>");
+    assert!(html.contains(&format!("{shown}\u{a0}: introuvable")));
+    assert!(html.contains("à faire\u{a0}: vérifier le chemin"));
+    assert!(html.contains(r##"<a class="count bad" href="#refused">1 entrée refusée</a>"##));
+    assert!(run(&[&video], "fr_FR.UTF-8").status.success());
+    let html = fs::read_to_string(&page).unwrap();
+    assert!(!html.contains(r#"id="refused""#));
 }

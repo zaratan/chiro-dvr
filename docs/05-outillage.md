@@ -38,6 +38,8 @@ matrice, les six tâches `rust*` font huit exécutions, et `package` six de plus
 | `package` | macOS 26, Ubuntu 22.04, Windows 2025 | `package.yml` : les trois archives `release`, `check.sh`, les sources LGPL, `SHA256SUMS` |
 | `verdict` | Linux | rouge si une tâche a échoué ou a été annulée, vert sinon |
 
+- **Images.** « Linux » est `ubuntu-26.04`, nommée explicitement dans `ci.yml`, `package.yml` et `release.yml` plutôt que `ubuntu-latest`, qui bascule vers Ubuntu 26.04 entre le 19 octobre et le 19 novembre 2026 (#272) ; seules les archives de `package` restent sur `ubuntu-22.04`, pour la glibc. Changer d'image reconstruit au premier passage FFmpeg, `target/` (clés en [11](11-migration-rust.md), « Cache de `target/` ») et les outils de mise, dont les clés portent l'image ; puis une seconde fois sur `main` après le merge, qui ne lit pas les caches d'une PR. Le 15 octobre 2026, un changement d'empreinte a eu le même effet sur les quatre tâches Linux : FFmpeg en 1,5 à 2,5 min, tâche la plus longue en 8,6 min, sous un délai de 30.
+- **zsh sous Linux.** La tâche `rust` installe zsh (`apt-get`) pour le test `zsh -n` du script de complétion (`crates/cli/tests/completion.rs`, #59) ; macOS l'a d'origine, et le test ne se compile pas sous Windows.
 - **PR de docs seules.** Une PR dont chaque fichier finit en `.md` ou est sous `docs/images/`
   (`git diff --name-only --no-renames` contre la branche de base, sur le commit de fusion que
   prépare GitHub ; un renommage compte ses deux chemins) saute les sept tâches du Rust,
@@ -58,6 +60,7 @@ matrice, les six tâches `rust*` font huit exécutions, et `package` six de plus
   16 octobre 2026, il ne signale que les 16 appels locaux `uses: ./…` (`self-repository`,
   niveau le plus bas). Ils restent : la forme `$/…` qu'il propose est refusée par
   actionlint 1.7.12.
+- actionlint 1.7.12 ne connaît pas le label `ubuntu-26.04` : `.github/actionlint.yaml` le déclare (`self-hosted-runner`), à retirer quand une version le connaîtra.
 - **Trois workflows pour la publication**, parce qu'un workflow appelé ne peut pas
   recevoir plus de droits que celui qui l'appelle (`ci.yml` n'a que `contents: read`) :
   - `package.yml` (`workflow_call` et `workflow_dispatch`, lecture seule) :
@@ -108,6 +111,7 @@ et les noms des fichiers produits sont en français quand la locale l'est, en an
   - Elle n'a plus de `depends_on "ffmpeg"` : FFmpeg est lié en statique. Sa licence est
     `all_of: ["MIT", "LGPL-2.1-or-later"]`.
   - Ses planchers : Apple Silicon (`arch: :arm64`) et macOS 14 (`macos: :sonoma`).
+- **Complétion zsh (#59, #60)** : la formule de la 0.2.1 installera le script par `generate_completions_from_executable(bin/"batdetect", "completion", shells: [:zsh])` (Homebrew ajoute `zsh` en dernier argument), qui écrit `_batdetect` dans `share/zsh/site-functions` ; il ne reste à l'utilisateur que la ligne `compinit` de `~/.zshrc`. Le script est dans la langue du système au moment de l'installation : à vérifier au Mac sous Homebrew.
 - **La 0.1.1**, binaire Python sous GPL v3, est décrite par le `packaging/NOTICE` du tag
   `v0.1.1`, et son mode d'emploi par le README de ce tag.
 - **Le binaire Rust se publie par un tag** (#223), sous MIT et LGPL 2.1 ou ultérieure :

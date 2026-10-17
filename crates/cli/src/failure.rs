@@ -80,6 +80,7 @@ pub fn cause(error: &Error, options: &Options) -> Cause {
     match error {
         Error::Detection(detection) => detecting(detection, options.tunes_the_frames()),
         Error::Folder { .. } | Error::Files(_) | Error::Overview(_) => writing(error).unwrap_or(Cause::Unexpected),
+        Error::DiskSpace { .. } => Cause::DiskFull,
         Error::Video { source, .. } => match source.kind() {
             io::ErrorKind::NotFound => Cause::Missing,
             io::ErrorKind::PermissionDenied => Cause::ReadRefused,
@@ -171,8 +172,6 @@ fn in_use(error: &files::error::Error) -> Option<Cause> {
     const LOCK_VIOLATION: i32 = 33;
     match error {
         files::error::Error::Remove { path, source }
-        | files::error::Error::Read { path, source }
-        | files::error::Error::SetAside { path, source }
             if matches!(source.raw_os_error(), Some(SHARING_VIOLATION | LOCK_VIOLATION)) =>
         {
             Some(Cause::InUse { file: path.clone() })

@@ -1,5 +1,5 @@
 use draw::canvas::Canvas;
-use draw::color::INK;
+use draw::color::{INK, PALETTE, TRAIL};
 use media::frame::{ColorRange, YuvFrame};
 use types::detection::Detection;
 use types::frame::FrameIndex;
@@ -155,7 +155,7 @@ fn trail() -> ZoomTrail {
         width: 360,
         height: 270,
     };
-    ZoomTrail::new(&along_x(0..=10, 100.0, 10.0, 100.0), frame, (720, 540), 5)
+    ZoomTrail::new(&along_x(0..=10, 100.0, 10.0, 100.0), TRAIL, frame, (720, 540), 5)
 }
 
 #[test]
@@ -181,10 +181,33 @@ fn a_still_point_draws_nothing_and_a_vertical_move_is_cut_like_any_other() {
         width: 360,
         height: 270,
     };
-    let zoom = ZoomTrail::new(&track(1, &points), frame, (360, 270), 5);
+    let zoom = ZoomTrail::new(&track(1, &points), TRAIL, frame, (360, 270), 5);
     let pieces = zoom.pieces(FrameIndex::new(3));
     let ends: Vec<(f64, f64)> = pieces.iter().map(|piece| (piece.from.y, piece.to.y)).collect();
     assert_eq!(ends, [(40.5, 60.5), (60.5, 79.5)]);
+}
+
+#[test]
+fn the_zoom_trail_is_drawn_in_the_colour_of_its_track() {
+    let frame = Crop {
+        left: 0,
+        top: 0,
+        width: 360,
+        height: 270,
+    };
+    let cyan = PALETTE[1];
+    let zoom = ZoomTrail::new(&along_x(0..=10, 100.0, 10.0, 100.0), cyan, frame, (720, 540), 5);
+    let mut canvas = Canvas::new(720, 540, INK).unwrap();
+    zoom.draw(&mut canvas, FrameIndex::new(10));
+    let drawn: Vec<&[u8; 4]> = canvas
+        .rgba()
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .filter(|pixel| pixel[..3] != [INK.red, INK.green, INK.blue])
+        .collect();
+    assert_ne!(drawn.len(), 0);
+    assert!(drawn.iter().all(|pixel| pixel[2] > pixel[0]));
 }
 
 #[test]
@@ -217,7 +240,7 @@ fn a_segment_that_crosses_the_target_is_cut_in_two_around_it() {
         width: 360,
         height: 270,
     };
-    let zoom = ZoomTrail::new(&track(1, &points), frame, (360, 270), 5);
+    let zoom = ZoomTrail::new(&track(1, &points), TRAIL, frame, (360, 270), 5);
     let ends: Vec<(f64, f64)> = zoom
         .pieces(FrameIndex::new(2))
         .iter()

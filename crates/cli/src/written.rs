@@ -8,16 +8,21 @@ use files::error::Error;
 use files::failures::FailureRecord;
 use files::names::{RESULTS_FOLDER, name_key, partial_file, results_page};
 use files::params::Finish;
+use files::refusals::{RefusalRecord, read_refusals};
 use files::results::{Finished, Found, read_results};
-use files::table::Headings;
+use files::verdicts::read_verdicts_file;
 use jiff::Timestamp;
 use jiff::tz::TimeZone;
 use page::labels::Labels;
-use page::model::{Date, Entry, Failed, Page, Summary, TooMany, Track, Video};
+use page::model::{
+    Background, Date, Entry, Failed, Layout, Page, Refusals, RefusedInput, Summary, TooMany, Trace, Track,
+    VerdictsFile, Video,
+};
 use types::language::Language;
 
 use crate::failure::REFERS_TO_DETAIL;
 use crate::jobs::Job;
+use crate::refusals::VIDEOS_SEPARATOR;
 
 #[cfg(test)]
 mod tests;
@@ -28,7 +33,6 @@ const MARKER_WINDOW: usize = 1024;
 #[derive(Debug, Clone, Copy)]
 pub struct Wording<'a> {
     pub labels: &'a dyn Labels,
-    pub headings: &'a dyn Headings,
     pub language: Language,
 }
 
@@ -50,7 +54,7 @@ pub fn write_page(root: &Path, jobs: &[Job], finished: usize, wording: Wording<'
     if !root.is_dir() {
         return Ok(());
     }
-    let page = page_of(root, jobs, finished, wording.headings);
+    let page = page_of(root, jobs, finished);
     let html = page::render(&page, wording.labels);
     let target = root.join(results_page(wording.language));
     replace(&target, &html)?;
@@ -92,7 +96,7 @@ fn ours(path: &Path) -> bool {
         .is_ok_and(|_| page::is_ours(&head))
 }
 
-fn page_of(root: &Path, jobs: &[Job], finished: usize, headings: &dyn Headings) -> Page {
+fn page_of(root: &Path, jobs: &[Job], finished: usize) -> Page {
     let in_batch: Vec<(usize, &Job)> = jobs
         .iter()
         .enumerate()
@@ -103,7 +107,7 @@ fn page_of(root: &Path, jobs: &[Job], finished: usize, headings: &dyn Headings) 
         .map(|(_, job)| name_key(job.dest.file_name().unwrap_or_default()))
         .collect();
     let mut entries: BTreeMap<Vec<u8>, Entry> = BTreeMap::new();
-    for folder in read_results(root, headings) {
+    for folder in read_results(root) {
         let open = in_batch_names.contains(&name_key(&folder.name));
         let entry = match (folder.found, folder.failure) {
             (found, Some(record)) => Entry::Failed(failed(root, &folder.name, record, found)),
@@ -130,6 +134,31 @@ fn page_of(root: &Path, jobs: &[Job], finished: usize, headings: &dyn Headings) 
     Page {
         title: title(root),
         entries: entries.into_values().collect(),
+        refused: read_refusals(root).map(refusals),
+        verdicts: read_verdicts_file(root).map(|file| VerdictsFile {
+            modified: file.modified.as_deref().and_then(date),
+            name: file.name,
+            candidates: file.candidates,
+            bytes: file.bytes,
+        }),
+    }
+}
+
+fn refusals(record: RefusalRecord) -> Refusals {
+    Refusals {
+        date: date(&record.date),
+        inputs: record
+            .inputs
+            .into_iter()
+            .map(|input| RefusedInput {
+                path: input.path,
+                reason: input.reason,
+                cause: input.cause,
+                todo: input.todo,
+                videos: input.videos.join(VIDEOS_SEPARATOR),
+                detail: input.detail,
+            })
+            .collect(),
     }
 }
 
@@ -155,8 +184,7 @@ fn video(folder: &OsStr, done: &Finished, open: bool) -> Video {
     let tracks = written
         .tracks
         .iter()
-        .zip(&done.verdicts)
-        .map(|(entry, verdict)| Track {
+        .map(|entry| Track {
             id: entry.id,
             start_s: entry.start_s,
             duration_s: entry.duration_s,
@@ -164,7 +192,13 @@ fn video(folder: &OsStr, done: &Finished, open: bool) -> Video {
             summary: entry.summary.clone(),
             clip: entry.clip.clone(),
             zoom: entry.zoom.clone(),
-            verdict: verdict.clone(),
+            start_xy: entry.start_xy,
+            trace: entry.trace.as_ref().map(|trace| Trace {
+                points: trace.points.clone(),
+                head: trace.head.clone(),
+                dot: trace.dot,
+                anchor: trace.anchor,
+            }),
         })
         .collect();
     Video {
@@ -178,6 +212,11 @@ fn video(folder: &OsStr, done: &Finished, open: bool) -> Video {
             count: written.tracks.len(),
             limit: written.render.max_tracks,
         }),
+        background: done.background.as_ref().map(|image| Background {
+            file: image.file.clone(),
+            width: image.width,
+            height: image.height,
+        }),
         summaries: done
             .summaries
             .iter()
@@ -185,6 +224,17 @@ fn video(folder: &OsStr, done: &Finished, open: bool) -> Video {
                 file: image.file.clone(),
                 width: image.width,
                 height: image.height,
+                layout: written
+                    .summaries
+                    .iter()
+                    .find(|entry| entry.file == image.file)
+                    .map(|entry| Layout {
+                        window_s: entry.window_s,
+                        ignored_s: entry.ignored_s.clone(),
+                        damaged_s: entry.damaged_s.clone(),
+                        other_starts_s: entry.other_starts_s.clone(),
+                        radius: entry.radius,
+                    }),
             })
             .collect(),
         tracks,

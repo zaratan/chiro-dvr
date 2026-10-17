@@ -1,7 +1,15 @@
-use page::labels::{Label, Labels};
+use std::path::PathBuf;
+
+use batdetect::access::Access;
+use batdetect::failure::Cause;
+use batdetect::jobs::{Reason, Refused};
+use files::refusals::RefusedInput;
+use page::labels::{Label, Labels, SceneText};
 use page::model::Date;
+use page::script::Script;
 use types::language::Language;
 
+use crate::messages::refused_lines;
 use crate::texts::Texts;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
@@ -14,7 +22,7 @@ const DATE: Date = Date {
 };
 
 pub(crate) fn samples() -> Vec<Label<'static>> {
-    vec![
+    let mut samples = vec![
         Label::Language,
         Label::Heading,
         Label::Folder("nuit-12-oct"),
@@ -80,31 +88,67 @@ pub(crate) fn samples() -> Vec<Label<'static>> {
         Label::ColumnStart,
         Label::ColumnLength,
         Label::ColumnVerdict,
-        Label::ColumnWatch,
         Label::TableCaption("video_092"),
-        Label::NoVerdict,
-        Label::Clip,
-        Label::Zoom,
-        Label::PlayClip(3),
-        Label::PlayZoom(3),
-        Label::ShowTrack(3),
-        Label::Playing {
-            track: 3,
-            total: 14,
-            start: "0:51,62",
-            zoom: true,
-        },
-        Label::Unreadable,
-        Label::Back,
-        Label::Previous,
-        Label::Next,
-        Label::PreviousClip,
-        Label::NextClip,
         Label::Player("video_092"),
         Label::TableLink,
         Label::AnnotatedLink,
         Label::Start(4.8),
         Label::Seconds(9.62),
+    ];
+    samples.extend(refusal_samples());
+    samples.extend(scene_samples());
+    samples.extend(Script::ALL.iter().map(|&script| Label::Script(script)));
+    samples.push(Label::Day(DATE));
+    samples
+}
+
+fn scene_samples() -> Vec<Label<'static>> {
+    [
+        SceneText::Alt {
+            video: "vol",
+            tracks: 14,
+        },
+        SceneText::PartAlt {
+            video: "vol",
+            part: 2,
+            parts: 3,
+            first: 21,
+            last: 40,
+        },
+        SceneText::Clock(600.0),
+        SceneText::Window {
+            start: 0.0,
+            end: 300.07,
+        },
+        SceneText::Span { start: 12.0, end: 31.0 },
+        SceneText::NothingNotAnalysed,
+        SceneText::NothingUnreadable,
+        SceneText::NotAnalysed("0:12 – 0:31"),
+        SceneText::Unreadable("1:02 – 1:05"),
+        SceneText::More(4),
+        SceneText::Complete,
+        SceneText::NewTab,
+        SceneText::CompleteNewTab,
+        SceneText::BandNotAnalysed,
+        SceneText::BandUnreadable,
+        SceneText::StartOf { track: 3, start: 42.5 },
+    ]
+    .map(Label::Scene)
+    .to_vec()
+}
+
+fn refusal_samples() -> Vec<Label<'static>> {
+    vec![
+        Label::RefusedCount(2),
+        Label::RefusedHeading(2),
+        Label::RefusedWhen(DATE),
+        Label::RefusedConsequence(2),
+        Label::RefusedInput {
+            path: "/nuit/video_093.mp4",
+            reason: "missing",
+            cause: None,
+            videos: "",
+        },
     ]
 }
 
@@ -113,7 +157,13 @@ fn every_label_of_the_page_reads_in_both_languages_with_all_its_arguments() {
     for language in LANGUAGES {
         let texts = Texts::new(language);
         for label in samples() {
-            let said = texts.label(&label);
+            let holes = match label {
+                Label::Script(script) => script.placeholders(),
+                _ => &[],
+            };
+            let said = holes.iter().fold(texts.label(&label), |said, name| {
+                said.replace(&format!("{{{name}}}"), "")
+            });
             assert!(!said.is_empty(), "{language:?} {label:?}");
             assert!(!said.contains('{'), "{language:?} {label:?}: {said}");
             assert!(!said.starts_with("page-"), "{language:?} {label:?}: {said}");
@@ -127,6 +177,23 @@ fn the_start_of_a_track_reads_to_the_hundredth_with_the_decimal_mark_of_the_lang
     assert_eq!(french.label(&Label::Start(4.8)), "0:04,80");
     assert_eq!(english.label(&Label::Start(209.594)), "3:29.59");
     assert_eq!(french.label(&Label::Start(59.999)), "1:00,00");
+}
+
+#[test]
+fn the_line_and_the_strip_of_the_redrawn_image_read_in_whole_seconds_and_a_start_to_the_hundredth() {
+    let (french, english) = (Texts::new(Language::French), Texts::new(Language::English));
+    let window = Label::Scene(SceneText::Window {
+        start: 600.0,
+        end: 900.07,
+    });
+    assert_eq!(french.label(&window), "De 10:00 à 15:00");
+    assert_eq!(english.label(&window), "From 10:00 to 15:00");
+    assert_eq!(french.label(&Label::Scene(SceneText::Clock(59.99))), "0:59");
+    assert_eq!(french.label(&Label::Scene(SceneText::More(1))), "+ 1 autre");
+    assert_eq!(
+        french.label(&Label::Scene(SceneText::StartOf { track: 3, start: 42.5 })),
+        "Piste 3 · 0:42,50"
+    );
 }
 
 #[test]
@@ -165,4 +232,93 @@ fn a_failure_reads_as_the_reason_and_advice_of_the_summary_without_its_indent() 
         folder: "",
     });
     assert!(todo.starts_with("à faire\u{a0}: s'il vient des jumelles"), "{todo}");
+}
+
+fn every_refusal() -> Vec<Refused> {
+    let accesses = [
+        Access::Refused,
+        Access::NotAFolder,
+        Access::Missing,
+        Access::ReadOnly,
+        Access::DiskFull,
+        Access::Unavailable,
+    ];
+    let causes = [
+        Cause::Missing,
+        Cause::ReadRefused,
+        Cause::NotAVideo,
+        Cause::UnusableName,
+        Cause::Damaged,
+        Cause::Unsupported,
+        Cause::Unexpected,
+    ];
+    let mut reasons = vec![
+        Reason::Missing,
+        Reason::NotAVideo,
+        Reason::NoVideo,
+        Reason::SharedFolder {
+            videos: vec![PathBuf::from("/nuit/v.mp4"), PathBuf::from("/nuit/V.mp4")],
+        },
+    ];
+    reasons.extend(accesses.map(Reason::Unreadable));
+    reasons.extend(causes.map(|cause| Reason::Unopened {
+        cause,
+        detail: "moov atom not found".to_owned(),
+    }));
+    reasons
+        .into_iter()
+        .map(|reason| Refused {
+            path: PathBuf::from("/nuit/video_093.mp4"),
+            reason,
+        })
+        .collect()
+}
+
+fn page_lines(texts: Texts, input: &RefusedInput) -> Vec<String> {
+    let videos = input.videos.join(", ");
+    let mut lines = vec![
+        texts.label(&Label::RefusedInput {
+            path: &input.path,
+            reason: &input.reason,
+            cause: input.cause.as_deref(),
+            videos: &videos,
+        }),
+        texts.label(&Label::Todo {
+            cause: &input.todo,
+            folder: &input.path,
+        }),
+    ];
+    lines.extend(
+        input
+            .detail
+            .as_deref()
+            .map(|detail| texts.label(&Label::Detail(detail))),
+    );
+    lines
+}
+
+#[test]
+fn a_refused_input_reads_on_the_page_as_in_the_terminal_in_both_languages() {
+    for language in LANGUAGES {
+        let texts = Texts::new(language);
+        for refusal in every_refusal() {
+            let terminal = refused_lines(texts, std::slice::from_ref(&refusal));
+            let input = batdetect::refusals::input(&refusal);
+            let terminal: Vec<&str> = terminal.iter().map(|line| line.trim_start()).collect();
+            assert_eq!(page_lines(texts, &input), terminal, "{language:?} {refusal:?}");
+        }
+    }
+}
+
+#[test]
+fn every_text_of_the_page_script_keeps_the_holes_the_script_fills_in_both_languages() {
+    for language in LANGUAGES {
+        let texts = Texts::new(language);
+        for &script in Script::ALL {
+            let text = texts.label(&Label::Script(script));
+            for name in script.placeholders() {
+                assert!(text.contains(&format!("{{{name}}}")), "{language:?} {script:?} {text}");
+            }
+        }
+    }
 }

@@ -1,21 +1,15 @@
+use crate::colour::colour;
 use crate::escape::{href, text};
-use crate::labels::{Label, Labels};
+use crate::labels::{Label, Labels, filled};
 use crate::model::{Track, Video};
+use crate::script::Script;
 
 #[cfg(test)]
 mod tests;
 
 pub(crate) fn render(video: &Video, labels: &dyn Labels) -> String {
     let say = |label: Label<'_>| text(&labels.label(&label));
-    let watchable = video
-        .tracks
-        .iter()
-        .any(|track| track.clip.is_some() || track.zoom.is_some());
-    let rows: Vec<String> = video
-        .tracks
-        .iter()
-        .map(|track| row(video, track, watchable, labels))
-        .collect();
+    let rows: Vec<String> = video.tracks.iter().map(|track| row(video, track, labels)).collect();
     let mut links = Vec::new();
     if let Some(table) = &video.table {
         links.push(format!(
@@ -41,11 +35,11 @@ pub(crate) fn render(video: &Video, labels: &dyn Labels) -> String {
         r#"        <table>
           <caption class="sr">{caption}</caption>
           <thead><tr>
-            <th scope="col">{track}</th>
-            <th scope="col" class="num">{start}</th>
-            <th scope="col" class="num">{length}</th>
+            <th scope="col" class="c-dot">{track}</th>
+            <th scope="col" class="num c-start">{start}</th>
+            <th scope="col" class="num c-length">{length}</th>
             <th scope="col">{verdict}</th>
-            {watch}
+            <th scope="col" class="c-zoom"><span class="sr">{zoom}</span></th>
           </tr></thead>
           <tbody>
 {rows}
@@ -57,83 +51,55 @@ pub(crate) fn render(video: &Video, labels: &dyn Labels) -> String {
         start = say(Label::ColumnStart),
         length = say(Label::ColumnLength),
         verdict = say(Label::ColumnVerdict),
-        watch = if watchable {
-            format!(r#"<th scope="col">{}</th>"#, say(Label::ColumnWatch))
-        } else {
-            String::new()
-        },
+        zoom = say(Label::Script(Script::Zoom)),
         rows = rows.join("\n"),
     )
 }
 
-fn row(video: &Video, track: &Track, watchable: bool, labels: &dyn Labels) -> String {
+fn row(video: &Video, track: &Track, labels: &dyn Labels) -> String {
     let say = |label: Label<'_>| text(&labels.label(&label));
-    let start = labels.label(&Label::Start(track.start_s));
-    let total = video.tracks.len();
     let part = track
         .summary
         .as_ref()
         .and_then(|file| video.summaries.iter().position(|summary| &summary.file == file))
         .map(|index| format!(r#" data-part="{}""#, index + 1))
         .unwrap_or_default();
-    let play = |file: &Option<String>, zoom: bool| {
-        file.as_ref().map(|file| {
-            let (label, shown) = if zoom {
-                (Label::PlayZoom(track.id), Label::Zoom)
-            } else {
-                (Label::PlayClip(track.id), Label::Clip)
-            };
-            format!(
-                r#"<button type="button" class="play" data-src="{src}" data-now="{now}" aria-label="{label}">{shown}</button>"#,
-                src = href(&video.folder, file),
-                now = say(Label::Playing {
-                    track: track.id,
-                    total,
-                    start: &start,
-                    zoom
-                }),
-                label = say(label),
-                shown = say(shown),
-            )
-        })
-    };
-    let buttons: String = [play(&track.clip, false), play(&track.zoom, true)]
-        .into_iter()
-        .flatten()
-        .collect();
-    let dot = track
-        .color
-        .map(|[red, green, blue]| format!(r#" style="--dot: rgb({red} {green} {blue})""#))
+    let point = track
+        .start_xy
+        .map(|[x, y]| format!(r#" data-x="{x}" data-y="{y}""#))
         .unwrap_or_default();
-    let verdict = track
-        .verdict
-        .as_deref()
-        .filter(|verdict| !verdict.trim().is_empty())
-        .map_or_else(
-            || {
-                format!(
-                    r#"<td class="verdict empty">—<span class="sr"> {}</span></td>"#,
-                    say(Label::NoVerdict)
-                )
-            },
-            |verdict| format!(r#"<td class="verdict">{}</td>"#, text(verdict)),
-        );
+    let source = |attribute: &str, file: &Option<String>| {
+        file.as_ref()
+            .map(|file| format!(r#" {attribute}="{}""#, href(&video.folder, file)))
+            .unwrap_or_default()
+    };
+    let colour = track.color.map(colour).unwrap_or_default();
+    let dot = if colour.is_empty() {
+        String::new()
+    } else {
+        format!(r#" style="--dot: {colour}""#)
+    };
+    let zoom = if track.zoom.is_some() {
+        format!(r#"<span class="zoom-tag">{}</span>"#, say(Label::Script(Script::Zoom)))
+    } else {
+        String::new()
+    };
+    let id = track.id.to_string();
     format!(
-        r#"            <tr{part}>
-              <th scope="row"><button type="button" class="dot"{dot} aria-label="{show}">{id}</button></th>
+        r#"            <tr data-id="{id}" data-start="{start_s:.2}"{point}{clip}{zoom_source}{part}>
+              <th scope="row"><button type="button" class="dot"{dot} aria-label="{judge}">{id}</button></th>
               <td class="num">{start}</td>
               <td class="num">{duration}</td>
-              {verdict}{watch}
+              <td class="verdict"><span class="chip todo">{to_see}</span></td>
+              <td class="zoom">{zoom}</td>
             </tr>"#,
-        watch = if watchable {
-            format!("\n              <td class=\"watch\">{buttons}</td>")
-        } else {
-            String::new()
-        },
-        show = say(Label::ShowTrack(track.id)),
-        id = track.id,
-        start = text(&start),
+        start_s = track.start_s,
+        clip = source("data-clip", &track.clip),
+        zoom_source = source("data-zoom", &track.zoom),
+        judge = text(&filled(labels, Script::JudgeTrack, &[("track", &id)])),
+        start = text(&labels.label(&Label::Start(track.start_s))),
         duration = say(Label::Seconds(track.duration_s)),
+        to_see = say(Label::Script(Script::ToSee)),
     )
 }
 

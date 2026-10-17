@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use batdetect::options::Options;
 use clap::builder::{PossibleValuesParser, StyledStr, TypedValueParser};
-use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
+use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 use engine::config::{DetectConfig, MIN_WORK_WIDTH};
 use engine::settings::{Bound, DetectSettings, Region, Setting};
 use render::config::{RenderConfig, Zoom, ZoomConfig};
@@ -26,6 +26,7 @@ pub(crate) const OSD_REGION: &str = "osd-region";
 const SKIP_REFUSED: &str = "skip-refused";
 const NO_NOTIFY: &str = "no-notify";
 const FORCE: &str = "force";
+const IGNORE_DISK: &str = "ignore-disk";
 
 #[cfg(test)]
 mod tests;
@@ -35,9 +36,15 @@ pub(crate) struct Request {
     pub(crate) inputs: Vec<PathBuf>,
     pub(crate) out_dir: Option<PathBuf>,
     pub(crate) options: Options,
-    pub(crate) skip_refused: bool,
+    pub(crate) admission: Admission,
     pub(crate) no_notify: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct Admission {
     pub(crate) force: bool,
+    pub(crate) skip_refused: bool,
+    pub(crate) ignore_disk: bool,
 }
 
 fn number(id: &'static str, value: &impl ToString, name: Fixed, help: Fixed, texts: Texts) -> Arg {
@@ -80,6 +87,7 @@ fn essential_arguments(texts: Texts) -> Vec<Arg> {
             .required(true)
             .action(ArgAction::Append)
             .value_parser(value_parser!(PathBuf))
+            .value_hint(ValueHint::AnyPath)
             .help_heading(texts.text(Fixed::ArgumentsHeading))
             .help(texts.text(Fixed::InputsHelp)),
         Arg::new("out-dir")
@@ -87,6 +95,7 @@ fn essential_arguments(texts: Texts) -> Vec<Arg> {
             .long("out-dir")
             .value_name(texts.text(Fixed::ValueFolder))
             .value_parser(value_parser!(PathBuf))
+            .value_hint(ValueHint::DirPath)
             .help(with_default(
                 &texts.text(Fixed::OutDirHelp),
                 &texts.text(Fixed::BesideTheVideos),
@@ -156,6 +165,10 @@ fn useful_arguments(level: Level, texts: Texts) -> Vec<Arg> {
             .long(FORCE)
             .action(ArgAction::SetTrue)
             .help(texts.text(Fixed::ForceHelp)),
+        Arg::new(IGNORE_DISK)
+            .long(IGNORE_DISK)
+            .action(ArgAction::SetTrue)
+            .help(texts.text(Fixed::IgnoreDiskHelp)),
     ]
     .into_iter()
     .map(|argument| argument.hide(level == Level::Essential))
@@ -236,11 +249,16 @@ pub(crate) fn print_common_uses(texts: Texts) -> io::Result<()> {
         .print_help()
 }
 
+pub(crate) fn full_command(texts: Texts) -> Command {
+    command(Level::Full, texts)
+}
+
 fn command(level: Level, texts: Texts) -> Command {
     let after = match level {
         Level::Essential => texts.all_options(PROGRAM),
         Level::Full => texts.files_produced(),
     };
+    let after = format!("{}\n\n{after}", texts.text(Fixed::OtherCommands));
     Command::new(PROGRAM)
         .version(messages::long_version(
             &media::library::version(),
@@ -287,9 +305,12 @@ pub(crate) fn parse(
         inputs,
         out_dir,
         options,
-        skip_refused: matches.get_flag(SKIP_REFUSED),
+        admission: Admission {
+            force: matches.get_flag(FORCE),
+            skip_refused: matches.get_flag(SKIP_REFUSED),
+            ignore_disk: matches.get_flag(IGNORE_DISK),
+        },
         no_notify: matches.get_flag(NO_NOTIFY),
-        force: matches.get_flag(FORCE),
     })
 }
 
