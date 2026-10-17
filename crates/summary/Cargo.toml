@@ -6,6 +6,9 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+testing = []
+
 [dependencies]
 draw.workspace = true
 files.workspace = true
@@ -17,6 +20,7 @@ types.workspace = true
 reference.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+summary = { workspace = true, features = ["testing"] }
 tempfile.workspace = true
 
 [lints]

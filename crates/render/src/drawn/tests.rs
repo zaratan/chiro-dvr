@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use draw::color::{PALETTE, Rgb};
 use tempfile::TempDir;
 use types::track::Track;
 
@@ -61,7 +62,7 @@ fn every_clip_and_zoom_gets_one_fingerprint_per_frame_of_its_window_sorted_by_pa
         annotated: None,
     };
 
-    let found = drawn(&source, &tracks, &outputs, tenth_of_a_second()).unwrap();
+    let found = drawn(&source, &tracks, &[], &outputs, tenth_of_a_second()).unwrap();
 
     let window = clip_windows(&tracks, source.frame_count(), tenth_of_a_second(), source.rate())[0];
     let paths: Vec<PathBuf> = found.iter().map(|drawn| drawn.path.clone()).collect();
@@ -78,9 +79,9 @@ fn moving_the_track_changes_the_drawn_frames_exactly_over_its_points() {
     let source = source(folder.path());
     let outputs = clip_only(folder.path());
 
-    let high = drawn(&source, &[crossing(60.0)], &outputs, tenth_of_a_second()).unwrap();
-    let again = drawn(&source, &[crossing(60.0)], &outputs, tenth_of_a_second()).unwrap();
-    let low = drawn(&source, &[crossing(160.0)], &outputs, tenth_of_a_second()).unwrap();
+    let high = drawn(&source, &[crossing(60.0)], &[], &outputs, tenth_of_a_second()).unwrap();
+    let again = drawn(&source, &[crossing(60.0)], &[], &outputs, tenth_of_a_second()).unwrap();
+    let low = drawn(&source, &[crossing(160.0)], &[], &outputs, tenth_of_a_second()).unwrap();
 
     let window = clip_windows(
         &[crossing(60.0)],
@@ -97,6 +98,53 @@ fn moving_the_track_changes_the_drawn_frames_exactly_over_its_points() {
 }
 
 #[test]
+fn the_colour_of_a_track_changes_its_clip_its_zoom_and_the_annotated_video() {
+    let folder = TempDir::new().unwrap();
+    let source = source(folder.path());
+    let outputs = Outputs {
+        clips: vec![clip(folder.path(), "clip.mp4")],
+        zooms: vec![clip(folder.path(), "zoom.mp4")],
+        annotated: Some(folder.path().join("annotated.mp4")),
+    };
+    let tracks = [crossing(60.0)];
+
+    let red = drawn(&source, &tracks, &[None], &outputs, tenth_of_a_second()).unwrap();
+    let cyan = drawn(&source, &tracks, &[Some(PALETTE[1])], &outputs, tenth_of_a_second()).unwrap();
+
+    assert_eq!((red.len(), cyan.len()), (3, 3));
+    for (red, cyan) in red.iter().zip(&cyan) {
+        assert_ne!(red.fingerprints, cyan.fingerprints, "{}", red.path.display());
+    }
+}
+
+#[test]
+fn the_zoom_of_a_track_takes_the_colour_of_that_track_whatever_the_order_of_the_windows() {
+    let folder = TempDir::new().unwrap();
+    let source = source(folder.path());
+    let second: Vec<(usize, f64, f64)> = (20..=30)
+        .map(|frame| (frame, 20.0 + 4.0 * frame as f64, 160.0))
+        .collect();
+    let tracks = [crossing(60.0), track(2, &second)];
+    let outputs = Outputs {
+        clips: Vec::new(),
+        zooms: vec![Clip {
+            track: 1,
+            path: folder.path().join("zoom.mp4"),
+        }],
+        annotated: None,
+    };
+    let zoom = |colors: &[Option<Rgb>]| {
+        drawn(&source, &tracks, colors, &outputs, tenth_of_a_second()).unwrap()[0]
+            .fingerprints
+            .clone()
+    };
+    let (yellow, cyan, orange) = (Some(PALETTE[0]), Some(PALETTE[1]), Some(PALETTE[2]));
+
+    assert_eq!(zoom(&[yellow, cyan]), zoom(&[orange, cyan]));
+    assert_ne!(zoom(&[yellow, cyan]), zoom(&[yellow, orange]));
+}
+
+#[test]
 fn the_annotated_video_gets_one_fingerprint_per_frame_of_the_source() {
     let folder = TempDir::new().unwrap();
     let source = source(folder.path());
@@ -107,7 +155,7 @@ fn the_annotated_video_gets_one_fingerprint_per_frame_of_the_source() {
         annotated: Some(annotated.clone()),
     };
 
-    let found = drawn(&source, &[crossing(60.0)], &outputs, tenth_of_a_second()).unwrap();
+    let found = drawn(&source, &[crossing(60.0)], &[], &outputs, tenth_of_a_second()).unwrap();
 
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].path, annotated);
@@ -131,7 +179,7 @@ fn two_clips_of_one_group_each_get_the_shared_drawn_frames_from_their_own_first_
         annotated: None,
     };
 
-    let found = drawn(&source, &tracks, &outputs, tenth_of_a_second()).unwrap();
+    let found = drawn(&source, &tracks, &[], &outputs, tenth_of_a_second()).unwrap();
 
     let windows = clip_windows(&tracks, source.frame_count(), tenth_of_a_second(), source.rate());
     let (first, second) = (windows[0].span, windows[1].span);

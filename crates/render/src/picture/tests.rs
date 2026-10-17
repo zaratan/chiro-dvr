@@ -28,6 +28,7 @@ fn overlay() -> Overlay {
     let tracks = [track(1, &[(0, 100.0, 150.0), (2, 120.0, 150.0)])];
     Overlay::new(
         &tracks,
+        &[],
         5,
         RenderConfig::default(),
         thirty(),

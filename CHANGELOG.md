@@ -18,6 +18,7 @@ release échoue sans elle.
 
 ### Modifié
 
+- Les extraits, les zooms et la vidéo annotée dessinent chaque piste de la couleur qu'elle a sur l'image résumé : boîte et numéro bordés d'un liseré noir, trace de la même couleur, au lieu de la boîte rouge et de la trace jaune orangé (#13).
 - Chaque vidéo est ouverte avant tout calcul : une vidéo illisible ou mal copiée est refusée au départ avec les autres entrées fautives, au lieu d'échouer à son tour. Hors d'un terminal, depuis un script par exemple, une seule vidéo mal copiée arrête donc tout le lot avant le calcul, en code 2, sauf avec `--skip-refused` ; avant, les autres vidéos étaient faites et le code valait 1 (#62).
 
 ### Corrigé

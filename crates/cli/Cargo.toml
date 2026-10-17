@@ -40,6 +40,7 @@ media = { workspace = true, features = ["testing"] }
 png.workspace = true
 reference.workspace = true
 render = { workspace = true, features = ["testing"] }
+summary = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true

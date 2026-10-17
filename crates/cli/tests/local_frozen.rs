@@ -24,27 +24,27 @@ const SHORT_TRACK_OF_1_54_S: f64 = 114.62;
 const INTERPOLATED_BOX_OF_1_48_S: f64 = 108.52;
 const FAST_PASS_CLIP: Frozen = Frozen {
     frames: 108,
-    fingerprint: 6_948_995_402_753_081_738,
+    fingerprint: 17_728_931_892_283_817_342,
 };
 const SLOW_TRACK_CLIP: Frozen = Frozen {
     frames: 380,
-    fingerprint: 17_752_201_990_393_648_299,
+    fingerprint: 8_055_564_025_640_409_189,
 };
 const ALONG_THE_EDGE_ZOOM: Frozen = Frozen {
     frames: 128,
-    fingerprint: 5_563_077_079_603_171_823,
+    fingerprint: 17_836_762_381_287_940_579,
 };
 const ZOOMED_FOUR_TIMES_ZOOM: Frozen = Frozen {
     frames: 110,
-    fingerprint: 3_845_814_481_870_312_422,
+    fingerprint: 17_777_991_179_345_001_169,
 };
 const SHORT_TRACK_CLIP: Frozen = Frozen {
     frames: 96,
-    fingerprint: 333_325_996_126_868_511,
+    fingerprint: 912_426_859_394_260_697,
 };
 const INTERPOLATED_BOX_CLIP: Frozen = Frozen {
     frames: 270,
-    fingerprint: 18_221_440_928_837_921_005,
+    fingerprint: 6_458_377_840_674_619_821,
 };
 const CROWDED_097: [(&str, u64); 8] = [
     ("video_097_resume_1_sur_8.png", 3_016_591_617_919_252_239),

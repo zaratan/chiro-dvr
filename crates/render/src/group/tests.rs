@@ -62,6 +62,7 @@ impl Setting {
         let typeface = Typeface::roboto().unwrap();
         Overlay::new(
             &self.tracks,
+            &[],
             self.source.frame_count(),
             self.config,
             self.source.rate(),
@@ -102,6 +103,7 @@ fn a_videotoolbox_failure_hands_the_whole_group_back_to_be_written_again_and_set
             zooms: &[],
         },
         tracks: &setting.tracks,
+        inks: &[],
         trail_frames: 3,
     };
     let written = rendering
@@ -131,6 +133,7 @@ fn a_stop_raised_before_the_first_frame_ends_the_group_without_any_file() {
             zooms: &[],
         },
         tracks: &setting.tracks,
+        inks: &[],
         trail_frames: 3,
     };
     let stopped = rendering.render(&Work::Clips(group), &mut Scratch::default(), &Stopped);
@@ -160,6 +163,7 @@ fn the_clips_of_a_group_come_from_one_encoder_session_that_opens_each_on_its_fir
             zooms: &[],
         },
         tracks: &setting.tracks,
+        inks: &[],
         trail_frames: 3,
     };
     let written = rendering
@@ -201,6 +205,7 @@ fn a_zoom_is_written_by_openh264_at_a_quarter_of_the_rate_over_the_window_of_its
             zooms: &zooms,
         },
         tracks: &setting.tracks,
+        inks: &[],
         trail_frames: 3,
     };
     let written = rendering
