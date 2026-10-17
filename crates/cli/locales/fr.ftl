@@ -6,6 +6,7 @@ clips-redone = { $video } : { $names } { $count ->
         [one] réécrit
        *[other] réécrits
     } avec openh264 après une erreur de VideoToolbox : { $causes }
+hardware-silent = VideoToolbox n'a pas répondu en { $seconds } s : les extraits s'écrivent avec openh264 jusqu'à la fin du lancement
 video-step = [{ $position }/{ $total }] { $video } — { $step ->
         [detection] détection
         [tracking] suivi

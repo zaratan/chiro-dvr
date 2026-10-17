@@ -306,3 +306,99 @@ fn redirected_the_finish_joins_the_last_line_of_a_video_while_videos_are_left_an
     assert!(is_clock_time(finish_of(&said[1].1)), "{:?}", said[1].1);
     assert_eq!(said[2].1, "[3/3] c — 0 piste\n");
 }
+
+const fn silenced() -> bool {
+    true
+}
+
+fn processed() -> Processed {
+    Processed {
+        tracks: Vec::new(),
+        extent: Extent {
+            length_s: 2.0,
+            not_analysed_s: 0.0,
+        },
+        csv: None,
+        kept: Vec::new(),
+        summaries: Vec::new(),
+        rendered: Rendered::default(),
+    }
+}
+
+fn evening_told(status: &Status, results: &[Result<Ran, Failure>]) -> String {
+    let mut err = Vec::new();
+    for (index, result) in results.iter().enumerate() {
+        let job = Job {
+            video: PathBuf::from(format!("nuit/v{index}.mp4")),
+            dest: PathBuf::from(format!("out/v{index}")),
+        };
+        let video = Video {
+            status,
+            rank: Rank {
+                position: index + 1,
+                total: 3,
+            },
+            job: &job,
+        };
+        video.tell(&mut err, result, &Options::default()).unwrap();
+    }
+    String::from_utf8(err).unwrap()
+}
+
+#[test]
+fn a_silent_videotoolbox_is_told_once_for_the_run_above_the_last_line_of_the_video_that_noticed_it() {
+    let status = Status::new(TEXTS, false, 3).hearing(silenced);
+    let panic = Panic {
+        message: "boom".to_owned(),
+        location: None,
+    };
+    let said = evening_told(
+        &status,
+        &[
+            Ok(Ran::Processed(processed())),
+            Err(Failure::Panic(panic)),
+            Ok(Ran::Processed(processed())),
+        ],
+    );
+    let silence = "VideoToolbox n'a pas répondu en 10 s\u{a0}: les extraits s'écrivent avec openh264 jusqu'à la fin du lancement\n";
+    assert_eq!(said.matches(silence).count(), 1, "{said}");
+    assert!(said.starts_with(&format!("{silence}[1/3] v0 — 0 piste\n")), "{said}");
+}
+
+#[test]
+fn a_silence_noticed_during_a_failed_video_is_told_above_its_failure_line() {
+    let status = Status::new(TEXTS, false, 3).hearing(silenced);
+    let panic = |message: &str| Panic {
+        message: message.to_owned(),
+        location: None,
+    };
+    let said = evening_told(
+        &status,
+        &[
+            Err(Failure::Panic(panic("one"))),
+            Err(Failure::Panic(panic("two"))),
+            Ok(Ran::Processed(processed())),
+        ],
+    );
+    let silence = "VideoToolbox n'a pas répondu en 10 s";
+    assert_eq!(said.matches(silence).count(), 1, "{said}");
+    let (before, _) = said.split_once(silence).unwrap();
+    assert!(
+        !before.contains("[1/3]") && said.contains("détail\u{a0}: one\nVideoToolbox"),
+        "{said}"
+    );
+}
+
+#[test]
+fn an_answering_videotoolbox_is_never_mentioned() {
+    let status = Status::new(TEXTS, false, 3);
+    let said = evening_told(
+        &status,
+        &[
+            Ok(Ran::Processed(processed())),
+            Ok(Ran::Processed(processed())),
+            Ok(Ran::Processed(processed())),
+        ],
+    );
+    assert!(!said.contains("VideoToolbox"), "{said}");
+}

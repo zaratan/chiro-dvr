@@ -35,6 +35,7 @@ release échoue sans elle.
 
 ### Corrigé
 
+- Sous macOS, un VideoToolbox qui ne répond pas ne bloque plus le calcul sans fin : après 10 s d'attente, les extraits s'écrivent avec openh264 jusqu'à la fin du lancement, et une ligne le dit une fois (#313).
 - Les fichiers cachés d'un dossier, comme les `._x.mp4` que macOS dépose sur une clé exFAT, ne
   sont plus pris pour des vidéos (#204).
 - Sous macOS, le premier calcul n'échoue plus quand le dossier de résultats est sur une clé exFAT (#236).
