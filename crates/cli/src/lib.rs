@@ -2,6 +2,7 @@ pub mod access;
 pub mod checkup;
 pub mod consent;
 pub mod disk;
+pub mod eta;
 pub mod failure;
 #[cfg(test)]
 #[path = "../tests/support/flight.rs"]

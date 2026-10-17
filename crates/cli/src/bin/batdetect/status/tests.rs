@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 
+use batdetect::eta::Evening;
 use batdetect::jobs::Job;
 use batdetect::options::Options;
 use batdetect::outcome::{Failure, Panic, Ran, Rank};
 use batdetect::process::{Extent, Processed};
+use batdetect::progress::Step;
 use batdetect::reuse::Earlier;
 use files::params::Finish;
 use files::previous::Kept;
@@ -198,4 +200,109 @@ fn an_interruption_under_force_says_that_the_same_command_redoes_the_whole_lot()
         status.interrupted(&mut err).unwrap();
         assert_eq!(String::from_utf8(err).unwrap(), said);
     }
+}
+
+#[test]
+fn on_a_terminal_a_line_wider_than_the_terminal_is_cut_one_column_short_and_erased_as_cut() {
+    let status = Status::new(TEXTS, true, 1).fitted_to(|| Some(10));
+    let mut out = Vec::new();
+    status.show(&mut out, "[1/2] vidéo — détection").unwrap();
+    status.clear(&mut out).unwrap();
+    assert_eq!(String::from_utf8(out).unwrap(), "[1/2] vid\r         \r");
+}
+
+#[test]
+fn redirected_a_line_is_never_cut_whatever_the_width() {
+    let status = Status::new(TEXTS, false, 1).fitted_to(|| Some(10));
+    let mut out = Vec::new();
+    status.show(&mut out, "[1/2] vidéo — détection").unwrap();
+    assert_eq!(String::from_utf8(out).unwrap(), "[1/2] vidéo — détection\n");
+}
+
+fn evening_said(terminal: bool) -> Vec<(String, String)> {
+    let status = Status::new(TEXTS, terminal, 3).timed(Evening::new(vec![20, 20, 20]));
+    let mut said = Vec::new();
+    for (index, name) in ["a", "b", "c"].into_iter().enumerate() {
+        let job = Job {
+            video: PathBuf::from(format!("nuit/{name}.mp4")),
+            dest: PathBuf::from(format!("out/{name}")),
+        };
+        let rank = Rank {
+            position: index + 1,
+            total: 3,
+        };
+        status.enter(rank);
+        let video = Video {
+            status: &status,
+            rank,
+            job: &job,
+        };
+        let mut step = Vec::new();
+        video.step_on(&mut step, Step::Detection).unwrap();
+        status.computed(rank);
+        let processed = Processed {
+            tracks: Vec::new(),
+            extent: Extent {
+                length_s: 2.0,
+                not_analysed_s: 0.0,
+            },
+            csv: None,
+            kept: Vec::new(),
+            summaries: Vec::new(),
+            rendered: Rendered::default(),
+        };
+        let mut last = Vec::new();
+        video
+            .tell(&mut last, &Ok(Ran::Processed(processed)), &Options::default())
+            .unwrap();
+        said.push((String::from_utf8(step).unwrap(), String::from_utf8(last).unwrap()));
+    }
+    said
+}
+
+fn finish_of(line: &str) -> Option<&str> {
+    let (_, time) = line.trim_end().split_once(" · fin vers ")?;
+    Some(time)
+}
+
+fn is_clock_time(time: Option<&str>) -> bool {
+    time.is_some_and(|time| {
+        time.len() == 5
+            && time
+                .chars()
+                .enumerate()
+                .all(|(index, char)| (index == 2) == (char == ':'))
+    })
+}
+
+#[test]
+fn on_a_terminal_the_finish_joins_the_step_once_a_first_video_is_computed_and_never_the_last_line() {
+    let said = evening_said(true);
+    assert_eq!(said[0].0, "[1/3] a — détection");
+    assert!(is_clock_time(finish_of(&said[1].0)), "{:?}", said[1].0);
+    assert!(
+        said[1].0.starts_with("[2/3] b — détection · fin vers "),
+        "{:?}",
+        said[1].0
+    );
+    assert!(is_clock_time(finish_of(&said[2].0)), "{:?}", said[2].0);
+    for (_, last) in &said {
+        assert_eq!(finish_of(last), None, "{last:?}");
+    }
+}
+
+#[test]
+fn redirected_the_finish_joins_the_last_line_of_a_video_while_videos_are_left_and_never_a_step() {
+    let said = evening_said(false);
+    for (step, _) in &said {
+        assert_eq!(finish_of(step), None, "{step:?}");
+    }
+    assert!(is_clock_time(finish_of(&said[0].1)), "{:?}", said[0].1);
+    assert!(
+        said[0].1.starts_with("[1/3] a — 0 piste · fin vers "),
+        "{:?}",
+        said[0].1
+    );
+    assert!(is_clock_time(finish_of(&said[1].1)), "{:?}", said[1].1);
+    assert_eq!(said[2].1, "[3/3] c — 0 piste\n");
 }

@@ -15,6 +15,7 @@ release échoue sans elle.
 - La page de résultats montre les entrées refusées au départ du dernier lancement, avant les vidéos, avec la raison et ce qu'il faut faire, comme le bilan (#267).
 - `batdetect doctor` vérifie, avant une soirée, l'encodeur, la place libre et le droit d'écrire dans le dossier courant, avec quoi faire pour chaque défaut (#58).
 - `batdetect completion zsh` écrit la complétion de la touche Tab : options, valeurs de `--zoom`, vidéos et dossiers, et les commandes `doctor` et `completion` au premier mot (#59).
+- Pendant le calcul, une fois la première vidéo calculée, la ligne d'étape donne l'heure de fin estimée de la soirée (« fin vers 22:41 »), d'après le temps moyen par image des vidéos déjà calculées, et la corrige à chaque étape ; hors d'un terminal, l'heure suit la ligne de fin de chaque vidéo. Sur un terminal sous macOS et Linux, la ligne d'étape est coupée à la largeur de la fenêtre (#68).
 
 ### Modifié
 

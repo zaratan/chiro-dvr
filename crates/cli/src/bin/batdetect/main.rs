@@ -13,6 +13,7 @@ mod parsing;
 mod sheet;
 mod status;
 mod style;
+mod terminal;
 mod texts;
 
 use std::env;
@@ -21,6 +22,7 @@ use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
 use std::sync::Arc;
 
+use batdetect::eta::Evening;
 use batdetect::inventory::Stock;
 use batdetect::jobs::{Job, Refused};
 use batdetect::language::system_language;
@@ -63,8 +65,12 @@ fn main() -> ExitCode {
         Err(code) => return code,
     };
     let jobs = stock.jobs();
-    let status =
-        Arc::new(Status::new(texts, io::stderr().is_terminal(), jobs.len()).redoing_all(request.admission.force));
+    let status = Arc::new(
+        Status::new(texts, io::stderr().is_terminal(), jobs.len())
+            .redoing_all(request.admission.force)
+            .fitted_to(terminal::stderr_columns)
+            .timed(Evening::new(stock.frames_to_compute())),
+    );
     let watched = Arc::clone(&status);
     let stopped = jobs.clone();
     let launched = Timestamp::now();
@@ -121,6 +127,9 @@ fn run(stock: Stock, jobs: &[Job], status: &Status, request: &Request, launched:
             unwritten.extend(ledger.note(job, result.as_ref().err(), options, Timestamp::now()));
             unwritten.extend(refusals.note());
             unwritten.extend(written::write_page(&written::root_of(job), jobs, rank.position, wording).err());
+            if matches!(result, Ok(Ran::Processed(_))) {
+                status.computed(rank);
+            }
             let video = Video { status, rank, job };
             video.tell(&mut io::stderr().lock(), result, options)
         },

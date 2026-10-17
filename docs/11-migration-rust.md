@@ -2113,7 +2113,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       `step` avant la détection (lecture comprise), le suivi (ménage, CSV, essai des
       encodeurs et `params.json` compris), l'image résumé et les extraits (zooms et vidéo
       annotée compris). `progress::Silent` sert aux tests. Pas d'avancement image par
-      image : c'est #68.
+      image : l'heure de fin (#68) se compte d'une vidéo à l'autre.
     - Une écriture ratée de l'étape fait échouer la vidéo avant sa détection
       (`Error::Progress`). Le rapport de cette vidéo échoue ensuite sur la même sortie
       d'erreur, et le lot s'arrête là, en code 1. Avant #63, le lot ne s'arrêtait qu'à
@@ -2124,6 +2124,11 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       compte dans le lot.
     - La ligne d'une vidéo finie reste : « [3/12] video_092 — 14 pistes », « — trop de
       pistes » (le mot du bilan, #196) ou « — échec ».
+    - Heure de fin estimée de la soirée (#68) : « [3/12] video_094 — détection · fin vers 22:41 » sur un terminal, à chaque étape ; hors terminal, à la fin de la ligne d'une vidéo finie, jamais sur une étape. Rien tant qu'aucune vidéo n'a été calculée, ni quand il ne reste rien à calculer (dernière ligne d'une vidéo finie hors terminal).
+      - `eta::Evening`, pur : les secondes passées sur les vidéos calculées depuis le début du lot, divisées par leurs images, s'appliquent aux images restantes. Les images sont celles qu'annonce l'inventaire (#62, `Listed::frames_to_compute`) ; une vidéo que la reprise saute en a 0. Pendant une vidéo, le temps qu'elle a déjà pris se retire de sa part, sans descendre sous 0.
+      - Seule une vidéo calculée jusqu'au bout donne du temps (`Status::computed`, après l'écriture de la page) : une vidéo en échec, souvent arrêtée tôt, tirerait l'estimation vers le bas. Le temps se mesure de l'entrée dans la vidéo (`Status::enter`) à ce moment, par `Instant`.
+      - L'heure est locale (`jiff::Zoned::now`), arrondie à la minute la plus proche, sans jour : au-delà de 24 h de calcul restant, elle ne dit pas le jour.
+      - La coupe à la largeur du terminal prend la fin de la ligne : sur une fenêtre trop étroite pour la ligne entière, l'heure de fin disparaît la première.
     - Ctrl-C (#196) : un gestionnaire `ctrlc`, posé par `main` une fois le lot admis,
       efface la ligne d'étape sur un terminal, écrit « lot interrompu à la vidéo 3/12 ;
       relancer la même commande reprend là où le lot s'est arrêté » (« refait le lot »
@@ -2139,8 +2144,7 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
       - Redirigée : une ligne par étape, rien n'est effacé.
       - Sur un terminal : la ligne d'étape est redessinée sur place, par `\r`, des espaces
         jusqu'à la longueur précédente, puis `\r`, sans séquence d'échappement (console
-        Windows ancienne). La longueur compte des caractères. Une ligne plus large que le
-        terminal (nom long, fenêtre étroite) ne s'efface qu'à partir de sa dernière rangée.
+        Windows ancienne). La longueur compte des caractères. Sous Unix, la ligne est coupée à la largeur du terminal moins une colonne, lue à chaque étape par `tcgetwinsize` (`terminal.rs`) : une ligne qui passerait à la rangée suivante ne s'effacerait qu'à partir de sa dernière rangée. Sous Windows, la largeur n'est pas lue et une ligne plus large que le terminal garde ce défaut.
     - Le rang vient de `outcome::run_all`, qui passe `Rank { position, total }` au travail
       et au rapport de chaque vidéo.
   - Chaîne : `engine::detection::detect` (fils automatiques), puis la `Timeline` des

@@ -939,6 +939,25 @@ fn video_lines(errors: &str, total: usize) -> Vec<&str> {
         .collect()
 }
 
+fn clock_masked(line: &str) -> String {
+    match line.split_once(" · fin vers ") {
+        Some((head, time))
+            if time.len() == 5
+                && time
+                    .chars()
+                    .enumerate()
+                    .all(|(index, char)| (index == 2) == (char == ':')) =>
+        {
+            format!("{head} · fin vers hh:mm")
+        }
+        _ => line.to_owned(),
+    }
+}
+
+fn masked_video_lines(errors: &str, total: usize) -> Vec<String> {
+    video_lines(errors, total).into_iter().map(clock_masked).collect()
+}
+
 #[test]
 fn redirected_each_video_shows_its_steps_in_order_then_its_track_count_or_its_failure() {
     let (root, videos) = videos_with_a_flight(&["flight.mp4", "zz_broken.mp4"]);
@@ -948,13 +967,13 @@ fn redirected_each_video_shows_its_steps_in_order_then_its_track_count_or_its_fa
     assert_eq!(output.status.code(), Some(1));
     let errors = text(&output.stderr);
     assert_eq!(
-        video_lines(&errors, 2),
+        masked_video_lines(&errors, 2),
         [
             "[1/2] flight — détection",
             "[1/2] flight — suivi",
             "[1/2] flight — image résumé",
             "[1/2] flight — extraits",
-            "[1/2] flight — 1 piste",
+            "[1/2] flight — 1 piste · fin vers hh:mm",
             "[2/2] zz_broken — détection",
             "[2/2] zz_broken — suivi",
             "[2/2] zz_broken — échec",
@@ -970,6 +989,25 @@ fn redirected_each_video_shows_its_steps_in_order_then_its_track_count_or_its_fa
         .position(|line| *line == "[2/2] zz_broken — échec")
         .unwrap();
     assert!(cause < failed, "{errors}");
+}
+
+#[test]
+fn redirected_the_finish_time_follows_the_last_line_of_each_video_from_the_first_computed_while_videos_are_left() {
+    let (root, videos) = videos_with_a_flight(&["a.mp4", "b.mp4", "c.mp4"]);
+    let out = root.path().join("out");
+    let output = run(&[&videos, Path::new("-o"), &out], "fr_FR.UTF-8");
+    assert_eq!(output.status.code(), Some(0));
+    let lines = masked_video_lines(&text(&output.stderr), 3);
+    let last_lines: Vec<&String> = lines.iter().filter(|line| line.contains(" piste")).collect();
+    assert_eq!(
+        last_lines,
+        [
+            "[1/3] a — 1 piste · fin vers hh:mm",
+            "[2/3] b — 1 piste · fin vers hh:mm",
+            "[3/3] c — 1 piste",
+        ]
+    );
+    assert_eq!(lines.iter().filter(|line| line.contains(" · ")).count(), 2, "{lines:?}");
 }
 
 #[test]
@@ -997,7 +1035,12 @@ fn the_summary_alone_goes_to_the_standard_output_with_a_row_per_video_and_the_fa
     assert!(!summary.contains("détail\u{a0}:"), "{summary}");
     assert!(!summary.contains("[1/2]"), "{summary}");
     let errors = text(&output.stderr);
-    assert!(errors.lines().any(|line| line == "[1/2] flight — 1 piste"), "{errors}");
+    assert!(
+        errors
+            .lines()
+            .any(|line| clock_masked(line) == "[1/2] flight — 1 piste · fin vers hh:mm"),
+        "{errors}"
+    );
     assert!(
         errors.lines().any(|line| line.starts_with("  détail\u{a0}: ")),
         "{errors}"

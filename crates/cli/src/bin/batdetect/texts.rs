@@ -533,6 +533,10 @@ pub(crate) enum Message {
     DoctorProblems {
         count: usize,
     },
+    Finish {
+        line: String,
+        time: String,
+    },
 }
 
 impl Message {
@@ -613,6 +617,7 @@ impl Message {
             Self::DoctorWritable { .. } => "doctor-writable",
             Self::DoctorUnwritable { .. } => "doctor-unwritable",
             Self::DoctorProblems { .. } => "doctor-problems",
+            Self::Finish { .. } => "finish",
         }
     }
 
@@ -658,6 +663,10 @@ impl Message {
                 arguments.set("videos", *videos);
                 arguments.set("length", length.as_str());
                 arguments.set("done", *done);
+            }
+            Self::Finish { line, time } => {
+                arguments.set("line", line.as_str());
+                arguments.set("time", time.as_str());
             }
             Self::VideoFailed { rank, video, too_many } => {
                 ranked(&mut arguments, *rank, video);
@@ -899,6 +908,7 @@ impl Message {
             | Self::VideoFailed { .. }
             | Self::Interrupted { .. }
             | Self::Announce { .. }
+            | Self::Finish { .. }
             | Self::Failure { .. }
             | Self::FailureTodo { .. }
             | Self::FailureDetail { .. }

@@ -28,6 +28,7 @@ announce = { $videos ->
         [one] , dont { $done } déjà faite
        *[other] , dont { $done } déjà faites
     }
+finish = { $line } · fin vers { $time }
 video-failed = [{ $position }/{ $total }] { $video } — { $too-many ->
         [yes] trop de pistes
        *[no] échec
