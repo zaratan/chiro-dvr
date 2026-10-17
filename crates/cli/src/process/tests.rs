@@ -761,6 +761,8 @@ fn the_reference_recorder_tracks_a_detection_exactly_as_the_command_does() {
     let shipped = tracked(&detected, &Options::default()).unwrap();
     let recorded = compare::decoded::followed(&detected).unwrap();
 
+    assert_ne!(recorded.tracks, []);
+
     assert_eq!(
         (shipped.exclusion, shipped.tracks),
         (recorded.exclusion, recorded.tracks)
