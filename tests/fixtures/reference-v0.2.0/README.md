@@ -15,7 +15,7 @@ Préfixe `reference-v0.2.0/` du seau `chiro-dvr-videos`, à côté de ceux de la
 BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… BATDETECT_REFERENCE_V020_DIR=… mise run rust:data
 ```
 
-Sans `BATDETECT_REFERENCE_V020_DIR`, la tâche ne récupère que la v0.1.1, comme avant. Avec elle, le dossier passe par les mêmes contrôles que les deux autres : chemin absolu, aucun recouvrement avec `in/`, `~/dossier sans titre/img_0000` ou les deux autres dossiers, aucun fichier absent de `SHA256SUMS`.
+Sans `BATDETECT_REFERENCE_V020_DIR`, la tâche ne récupère que la v0.1.1, comme avant. Avec elle, le dossier passe par les mêmes contrôles que les deux autres : chemin absolu, aucun recouvrement avec `in/`, `~/dossier sans titre/img_0000` ou les deux autres dossiers, aucun fichier absent de `SHA256SUMS`, hormis un `README.md` à sa racine.
 
 ## Format
 
