@@ -26,6 +26,7 @@ pub(crate) const OSD_REGION: &str = "osd-region";
 const SKIP_REFUSED: &str = "skip-refused";
 const NO_NOTIFY: &str = "no-notify";
 const FORCE: &str = "force";
+const IGNORE_DISK: &str = "ignore-disk";
 
 #[cfg(test)]
 mod tests;
@@ -35,9 +36,15 @@ pub(crate) struct Request {
     pub(crate) inputs: Vec<PathBuf>,
     pub(crate) out_dir: Option<PathBuf>,
     pub(crate) options: Options,
-    pub(crate) skip_refused: bool,
+    pub(crate) admission: Admission,
     pub(crate) no_notify: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct Admission {
     pub(crate) force: bool,
+    pub(crate) skip_refused: bool,
+    pub(crate) ignore_disk: bool,
 }
 
 fn number(id: &'static str, value: &impl ToString, name: Fixed, help: Fixed, texts: Texts) -> Arg {
@@ -156,6 +163,10 @@ fn useful_arguments(level: Level, texts: Texts) -> Vec<Arg> {
             .long(FORCE)
             .action(ArgAction::SetTrue)
             .help(texts.text(Fixed::ForceHelp)),
+        Arg::new(IGNORE_DISK)
+            .long(IGNORE_DISK)
+            .action(ArgAction::SetTrue)
+            .help(texts.text(Fixed::IgnoreDiskHelp)),
     ]
     .into_iter()
     .map(|argument| argument.hide(level == Level::Essential))
@@ -287,9 +298,12 @@ pub(crate) fn parse(
         inputs,
         out_dir,
         options,
-        skip_refused: matches.get_flag(SKIP_REFUSED),
+        admission: Admission {
+            force: matches.get_flag(FORCE),
+            skip_refused: matches.get_flag(SKIP_REFUSED),
+            ignore_disk: matches.get_flag(IGNORE_DISK),
+        },
         no_notify: matches.get_flag(NO_NOTIFY),
-        force: matches.get_flag(FORCE),
     })
 }
 

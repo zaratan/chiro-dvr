@@ -76,6 +76,7 @@ pub(crate) enum Fixed {
     SkipRefusedDeclined,
     NoNotifyHelp,
     ForceHelp,
+    IgnoreDiskHelp,
     InputsRefused,
     TallyVideo,
     TallyLength,
@@ -156,6 +157,7 @@ impl Fixed {
             Self::ArgumentsRefused => "arguments-refused",
             Self::SettingsRefused => "settings-refused",
             Self::SkipRefusedHelp => "skip-refused-help",
+            Self::IgnoreDiskHelp => "ignore-disk-help",
             Self::SkipRefusedDeclined => "skip-refused-declined",
             Self::NoNotifyHelp => "no-notify-help",
             Self::ForceHelp => "force-help",
@@ -429,6 +431,14 @@ pub(crate) enum Message {
         path: String,
         access: &'static str,
     },
+    DiskShort {
+        path: String,
+        needed: String,
+        free: String,
+    },
+    DisksShort {
+        count: usize,
+    },
     InputsSkipped {
         count: usize,
     },
@@ -515,6 +525,8 @@ impl Message {
             Self::NoVideo { .. } => "no-video",
             Self::FoldersRefused { .. } => "folders-refused",
             Self::FolderRefused { .. } => "folder-refused",
+            Self::DiskShort { .. } => "disk-short",
+            Self::DisksShort { .. } => "disks-short",
             Self::InputsSkipped { .. } => "inputs-skipped",
             Self::SkipRefusedQuestion { .. } => "skip-refused-question",
             Self::TallyRefusedCount { .. } => "tally-refused-count",
@@ -723,12 +735,18 @@ impl Message {
             }
             Self::FoldersRefused { count }
             | Self::InputsSkipped { count }
+            | Self::DisksShort { count }
             | Self::SkipRefusedQuestion { count }
             | Self::TallyRefusedCount { count }
             | Self::TallyRefusedHeading { count } => arguments.set("count", *count),
             Self::FolderRefused { path, access } => {
                 arguments.set("path", path.as_str());
                 arguments.set("access", *access);
+            }
+            Self::DiskShort { path, needed, free } => {
+                arguments.set("path", path.as_str());
+                arguments.set("needed", needed.as_str());
+                arguments.set("free", free.as_str());
             }
             Self::Fixed(_)
             | Self::DefaultValue { .. }

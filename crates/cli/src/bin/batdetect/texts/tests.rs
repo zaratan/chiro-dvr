@@ -16,8 +16,8 @@ use crate::sheet::{self, Spoken};
 use files::names::RESULTS_FOLDER;
 
 const LANGUAGES: [Language; 2] = [Language::French, Language::English];
-const VARIANTS: usize = 66;
-const FIXED: [Fixed; 78] = [
+const VARIANTS: usize = 68;
+const FIXED: [Fixed; 79] = [
     Fixed::BandNotAnalysed,
     Fixed::BandUnreadable,
     Fixed::About,
@@ -57,6 +57,7 @@ const FIXED: [Fixed; 78] = [
     Fixed::SkipRefusedDeclined,
     Fixed::NoNotifyHelp,
     Fixed::ForceHelp,
+    Fixed::IgnoreDiskHelp,
     Fixed::InputsRefused,
     Fixed::TallyVideo,
     Fixed::TallyLength,
@@ -166,6 +167,8 @@ fn rank(message: &Message) -> usize {
         Message::FilesPage { .. } => 63,
         Message::TallyUnwritten { .. } => 64,
         Message::Announce { .. } => 65,
+        Message::DiskShort { .. } => 66,
+        Message::DisksShort { .. } => 67,
     }
 }
 
@@ -249,6 +252,7 @@ fn fixed_rank(fixed: Fixed) -> usize {
         Fixed::TableFilledFrames => 75,
         Fixed::TableStartSeconds => 76,
         Fixed::ForceHelp => 77,
+        Fixed::IgnoreDiskHelp => 78,
     }
 }
 
@@ -468,6 +472,12 @@ fn command_line() -> Vec<Message> {
             path: text("nuit/batdetect"),
             access: "read-only",
         },
+        Message::DiskShort {
+            path: text("/Volumes/BATS/nuit-12-oct/batdetect"),
+            needed: text("12,3"),
+            free: text("4,1"),
+        },
+        Message::DisksShort { count: 2 },
         Message::InputsSkipped { count: 2 },
         Message::SkipRefusedQuestion { count: 3 },
         Message::TallyRefusedCount { count: 2 },

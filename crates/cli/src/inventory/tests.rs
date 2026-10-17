@@ -3,12 +3,13 @@ use std::path::Path;
 
 use files::params::Finish;
 
-use super::{Listed, take_stock};
+use super::{Listed, Stock, take_stock};
 use crate::failure::Cause;
 use crate::flight::write_flight;
-use crate::jobs::{Job, Reason};
+use crate::jobs::{Job, Reason, Refused};
 use crate::process::Extent;
 use crate::reuse::Earlier;
+use crate::space::{GIGABYTE, Need, Volume, launch_estimate};
 
 fn job(folder: &Path, name: &str) -> Job {
     Job {
@@ -100,4 +101,81 @@ fn the_stock_keeps_the_order_given_and_counts_the_length_and_the_videos_already_
     assert_eq!(stock.earlier(&done), Some(earlier(60.0)));
     assert_eq!(stock.earlier(&first), None);
     assert_eq!(stock.refused.len(), 1);
+}
+
+#[test]
+fn the_needs_leave_out_the_videos_already_done_and_count_the_others_in_their_results_folder() {
+    let folder = tempfile::tempdir().unwrap();
+    let (todo, done) = (job(folder.path(), "a.mp4"), job(folder.path(), "b.mp4"));
+    write_flight(&todo.video);
+    fs::write(&done.video, "not opened").unwrap();
+    let stock = take_stock(vec![todo.clone(), done.clone()], |job| {
+        (job.video == done.video).then(|| earlier(60.0))
+    });
+    let size = fs::metadata(&todo.video).unwrap().len();
+    assert_eq!(
+        stock.needs(true),
+        [Need {
+            folder: folder.path().join("out"),
+            bytes: launch_estimate(size, true),
+        }]
+    );
+}
+
+fn readable(folder: &Path, names: &[&str]) -> Stock {
+    let jobs: Vec<Job> = names.iter().map(|name| job(folder, name)).collect();
+    for listed in &jobs {
+        write_flight(&listed.video);
+    }
+    take_stock(jobs, |_| None)
+}
+
+fn missing() -> Refused {
+    Refused {
+        path: "absente.mp4".into(),
+        reason: Reason::Missing,
+    }
+}
+
+#[test]
+fn a_disk_too_small_for_the_results_is_refused_after_the_inputs_naming_its_results_folder() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut stock = readable(folder.path(), &["a.mp4"]);
+    stock.refused.push(missing());
+    stock.refuse_short_disks(true, |_| Some(Volume { device: 1, free: 0 }));
+    assert_eq!(stock.refused.len(), 2);
+    assert_eq!(stock.refused[0], missing());
+    assert_eq!(stock.refused[1].path, folder.path().join("out"));
+    assert!(matches!(
+        stock.refused[1].reason,
+        Reason::DiskShort {
+            free: 0,
+            annotated: true,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn a_disk_with_room_or_whose_room_cannot_be_read_refuses_nothing() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut stock = readable(folder.path(), &["a.mp4"]);
+    stock.refuse_short_disks(false, |_| {
+        Some(Volume {
+            device: 1,
+            free: 2 * GIGABYTE,
+        })
+    });
+    stock.refuse_short_disks(false, |_| None);
+    assert_eq!(stock.refused, []);
+}
+
+#[test]
+fn going_ahead_despite_the_disks_drops_their_refusals_but_keeps_those_of_the_inputs() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut stock = readable(folder.path(), &["a.mp4"]);
+    stock.refused.push(missing());
+    stock.refuse_short_disks(false, |_| Some(Volume { device: 1, free: 0 }));
+    stock.go_ahead_despite_the_disks();
+    assert_eq!(stock.refused, [missing()]);
 }

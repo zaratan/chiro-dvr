@@ -11,6 +11,7 @@ release échoue sans elle.
 - Chaque entrée refusée au départ, et chaque dossier de résultats où l'on ne peut pas écrire,
   est suivi d'une ligne « à faire », comme une vidéo en échec (#239, #82).
 - Une ligne annonce la soirée avant la première vidéo : nombre de vidéos, durée totale, et combien sont déjà faites (#62).
+- La place libre du disque des résultats est contrôlée au lancement, sur une estimation de 1 fois la taille des vidéos (2,8 fois de plus avec `--annotated`) et une marge ; un disque trop petit est refusé avant le calcul, avec la même question que les entrées refusées, et `--ignore-disk` passe outre. Chaque vidéo vérifie encore la place avant ses extraits et échoue en « disque plein » plutôt que de remplir le disque. Sous Windows, la place n'est pas contrôlée (#61).
 - La page de résultats montre les entrées refusées au départ du dernier lancement, avant les vidéos, avec la raison et ce qu'il faut faire, comme le bilan (#267).
 
 ### Modifié
