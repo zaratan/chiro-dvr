@@ -15,7 +15,17 @@ fn the_start_cell_is_marked_so_the_script_reads_the_start_instead_of_writing_it_
     let mut night = video("v");
     night.tracks[0].start_s = 72.394;
     let table = render(&night, true, &Named);
-    assert!(table.contains(r#"<td class="num clock">Start(72.394)</td>"#));
+    assert!(table.contains(r#"<span class="clock" aria-hidden="true">Start(72.394)</span>"#));
+}
+
+#[test]
+fn the_start_cell_is_read_aloud_in_words_while_it_still_shows_the_clock() {
+    let mut night = video("v");
+    night.tracks[0].start_s = 72.394;
+    let table = render(&night, true, &Named);
+    assert!(table.contains(
+        r#"<td class="num"><span class="clock" aria-hidden="true">Start(72.394)</span><span class="sr">Aloud(72.394)</span></td>"#
+    ));
 }
 
 #[test]

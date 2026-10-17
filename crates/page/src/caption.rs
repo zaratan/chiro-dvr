@@ -9,28 +9,61 @@ const MAX_PERIODS: usize = 3;
 const PART_SEPARATOR: &str = " · ";
 const PERIOD_SEPARATOR: &str = ", ";
 
+#[derive(Debug, Clone, Copy)]
+enum Voice {
+    Shown,
+    Aloud,
+}
+
+impl Voice {
+    fn time(self, seconds: f64, labels: &dyn Labels) -> String {
+        match self {
+            Self::Shown => labels.label(&Label::Scene(SceneText::Clock(seconds))),
+            Self::Aloud => labels.label(&Label::Aloud(seconds)),
+        }
+    }
+
+    fn span(self, [start, end]: [u64; 2], labels: &dyn Labels) -> String {
+        let (start, end) = (self.time(start as f64, labels), self.time(end as f64, labels));
+        let (start, end) = (start.as_str(), end.as_str());
+        labels.label(&Label::Scene(match self {
+            Self::Shown => SceneText::Span { start, end },
+            Self::Aloud => SceneText::SpanAloud { start, end },
+        }))
+    }
+}
+
 pub(crate) fn render(layout: &Layout, tracks: usize, labels: &dyn Labels) -> String {
-    let say = |scene: SceneText<'_>| labels.label(&Label::Scene(scene));
-    let [start, end] = layout.window_s;
-    let not_analysed = match shown(&layout.ignored_s, labels) {
-        None => say(SceneText::NothingNotAnalysed),
-        Some((spans, hidden)) => more(say(SceneText::NotAnalysed(&spans)), hidden, labels),
-    };
-    let unreadable = match shown(&layout.damaged_s, labels) {
-        None => say(SceneText::NothingUnreadable),
-        Some((spans, hidden)) => more(say(SceneText::Unreadable(&spans)), hidden, labels),
-    };
-    text(
-        &[
-            say(SceneText::Window { start, end }),
-            labels.label(&Label::Tracks(tracks)),
-            [not_analysed, unreadable].join(PERIOD_SEPARATOR),
-        ]
-        .join(PART_SEPARATOR),
+    format!(
+        r#"<span aria-hidden="true">{}</span><span class="sr">{}</span>"#,
+        text(&line(layout, tracks, labels, Voice::Shown)),
+        text(&line(layout, tracks, labels, Voice::Aloud)),
     )
 }
 
-fn shown(ranges: &[[f64; 2]], labels: &dyn Labels) -> Option<(String, usize)> {
+fn line(layout: &Layout, tracks: usize, labels: &dyn Labels, voice: Voice) -> String {
+    let say = |scene: SceneText<'_>| labels.label(&Label::Scene(scene));
+    let [start, end] = layout.window_s;
+    let not_analysed = match periods(&layout.ignored_s, labels, voice) {
+        None => say(SceneText::NothingNotAnalysed),
+        Some((spans, hidden)) => more(say(SceneText::NotAnalysed(&spans)), hidden, labels),
+    };
+    let unreadable = match periods(&layout.damaged_s, labels, voice) {
+        None => say(SceneText::NothingUnreadable),
+        Some((spans, hidden)) => more(say(SceneText::Unreadable(&spans)), hidden, labels),
+    };
+    [
+        say(SceneText::Window {
+            start: &voice.time(start, labels),
+            end: &voice.time(end, labels),
+        }),
+        labels.label(&Label::Tracks(tracks)),
+        [not_analysed, unreadable].join(PERIOD_SEPARATOR),
+    ]
+    .join(PART_SEPARATOR)
+}
+
+fn periods(ranges: &[[f64; 2]], labels: &dyn Labels, voice: Voice) -> Option<(String, usize)> {
     let merged = whole_seconds(ranges);
     if merged.is_empty() {
         return None;
@@ -38,12 +71,7 @@ fn shown(ranges: &[[f64; 2]], labels: &dyn Labels) -> Option<(String, usize)> {
     let spans: Vec<String> = merged
         .iter()
         .take(MAX_PERIODS)
-        .map(|&[start, end]| {
-            labels.label(&Label::Scene(SceneText::Span {
-                start: start as f64,
-                end: end as f64,
-            }))
-        })
+        .map(|&range| voice.span(range, labels))
         .collect();
     Some((spans.join(PERIOD_SEPARATOR), merged.len().saturating_sub(MAX_PERIODS)))
 }

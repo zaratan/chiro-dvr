@@ -97,6 +97,7 @@ pub(crate) fn samples() -> Vec<Label<'static>> {
         Label::TableLink,
         Label::AnnotatedLink,
         Label::Start(4.8),
+        Label::Aloud(4.8),
         Label::Seconds(9.62),
     ];
     samples.extend(refusal_samples());
@@ -121,10 +122,17 @@ fn scene_samples() -> Vec<Label<'static>> {
         },
         SceneText::Clock(600.0),
         SceneText::Window {
-            start: 0.0,
-            end: 300.07,
+            start: "0:00",
+            end: "5:00",
         },
-        SceneText::Span { start: 12.0, end: 31.0 },
+        SceneText::Span {
+            start: "0:12",
+            end: "0:31",
+        },
+        SceneText::SpanAloud {
+            start: "12 s",
+            end: "31 s",
+        },
         SceneText::NothingNotAnalysed,
         SceneText::NothingUnreadable,
         SceneText::NotAnalysed("0:12 – 0:31"),
@@ -185,14 +193,82 @@ fn the_start_of_a_track_reads_like_the_start_column_of_the_tables_in_every_langu
 }
 
 #[test]
+fn a_start_said_aloud_reads_in_words_as_the_evening_summary_so_a_screen_reader_does_not_spell_the_colons() {
+    for language in LANGUAGES {
+        let texts = Texts::new(language);
+        assert_eq!(texts.label(&Label::Aloud(207.27)), "3 min 27 s");
+        assert_eq!(texts.label(&Label::Aloud(59.999)), "59 s");
+        assert_eq!(texts.label(&Label::Aloud(3725.0)), "1 h 2 min 5 s");
+        assert_eq!(texts.label(&Label::Aloud(-0.5)), "0 s");
+    }
+}
+
+#[test]
+fn a_period_read_aloud_says_from_and_to_since_a_screen_reader_often_drops_the_dash() {
+    let aloud = Label::Scene(SceneText::SpanAloud {
+        start: "12 s",
+        end: "31 s",
+    });
+    assert_eq!(Texts::new(Language::French).label(&aloud), "de 12 s à 31 s");
+    assert_eq!(Texts::new(Language::English).label(&aloud), "from 12 s to 31 s");
+}
+
+#[test]
+fn a_length_beyond_an_hour_counts_its_hours_as_a_start_said_aloud_does() {
+    let french = Texts::new(Language::French);
+    assert_eq!(
+        french.label(&Label::Length(3725)),
+        "1\u{a0}h\u{a0}2\u{a0}min\u{a0}5\u{a0}s"
+    );
+    assert_eq!(french.label(&Label::Aloud(3725.0)), "1 h 2 min 5 s");
+    assert_eq!(
+        french.label(&Label::NotAnalysed(3725)),
+        "1\u{a0}h\u{a0}2\u{a0}min\u{a0}5\u{a0}s non analysées"
+    );
+}
+
+#[test]
+fn a_trace_of_the_image_says_its_verdict_in_plain_words_rather_than_a_bare_yes_or_no() {
+    let said = |language, script| Texts::new(language).label(&Label::Script(script));
+    let traces = [
+        Script::TraceYes,
+        Script::TraceNo,
+        Script::TraceDoubt,
+        Script::TraceOther,
+        Script::TraceToSee,
+    ];
+    assert_eq!(
+        traces.map(|script| said(Language::French, script)),
+        [
+            "Piste {track}, jugée chauve-souris, début {start}",
+            "Piste {track}, jugée pas une chauve-souris, début {start}",
+            "Piste {track}, doute, début {start}",
+            "Piste {track}, notée {value}, début {start}",
+            "Piste {track}, à voir, début {start}",
+        ]
+    );
+    assert_eq!(
+        traces.map(|script| said(Language::English, script)),
+        [
+            "Track {track}, judged a bat, start {start}",
+            "Track {track}, judged not a bat, start {start}",
+            "Track {track}, doubt, start {start}",
+            "Track {track}, marked {value}, start {start}",
+            "Track {track}, to see, start {start}",
+        ]
+    );
+}
+
+#[test]
 fn the_line_and_the_strip_of_the_redrawn_image_read_in_whole_seconds() {
     let (french, english) = (Texts::new(Language::French), Texts::new(Language::English));
     let window = Label::Scene(SceneText::Window {
-        start: 600.0,
-        end: 900.07,
+        start: "10:00",
+        end: "15:00",
     });
     assert_eq!(french.label(&window), "De 10:00 à 15:00");
     assert_eq!(english.label(&window), "From 10:00 to 15:00");
+    assert_eq!(french.label(&Label::Scene(SceneText::Clock(900.07))), "15:00");
     assert_eq!(french.label(&Label::Scene(SceneText::Clock(59.99))), "0:59");
     assert_eq!(french.label(&Label::Scene(SceneText::More(1))), "+ 1 autre");
     assert_eq!(

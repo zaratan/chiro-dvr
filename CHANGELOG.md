@@ -46,6 +46,9 @@ release échoue sans elle.
 - Après un Ctrl-C, les vidéos du lot pas encore commencées restent sur la page de résultats, marquées « pas encore traitée » avec ce qu'il faut faire, et la vidéo en cours y figure, « inachevée » quand rien d'un calcul précédent n'y est gardé ; avant, elles n'y apparaissaient pas. Un Ctrl-C pendant la première vidéo laisse aussi sa page, en créant le dossier de résultats de cette vidéo (#247).
 - Dans la page de résultats, une vidéo sans extrait ni image résumé n'ouvre plus de lecteur vide : ses pistes sont listées avec leur numéro, leur début et leur durée seulement, et ne comptent pas dans « à voir » ni dans « jugées » (#247).
 - Sous Linux, une vidéo dont le nom n'est pas en UTF-8 est traitée, et une relance la reconnaît comme déjà faite. Dans la page de résultats, son tableau et ses verdicts s'affichent, mais ni son image résumé ni sa vidéo annotée, et les liens vers son tableau, ses extraits et son dossier sont cassés (#227).
+- Dans la page de résultats, une trajectoire de la vignette du lecteur ressort au survol, comme sur la grande image : les autres pâlissent (#336).
+- Dans la page de résultats, un lecteur d'écran lit le verdict d'une pastille de l'image en clair (« jugée chauve-souris », « jugée pas une chauve-souris », « doute », « notée … », « à voir ») au lieu de « Oui » ou « Non » seul (#337).
+- Dans la page de résultats, un lecteur d'écran lit les temps en mots (« 3 min 27 s ») au lieu de « 0:03:27 », et une période « de 12 s à 31 s » : pastilles de l'image, colonne « début », ligne au-dessus de l'image, lecteur et verdicts sans piste ; l'affichage ne change pas, et copier une ligne ne colle que ce qui est affiché. Au-delà d'une heure, une durée s'écrit « 1 h 2 min 5 s », sur la page comme sur l'image résumé, et non plus « 62 min 5 s » (#338).
 
 ## [0.2.0] - 2026-10-16
 

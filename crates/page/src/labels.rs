@@ -89,6 +89,7 @@ pub enum Label<'a> {
     TableLink,
     AnnotatedLink,
     Start(f64),
+    Aloud(f64),
     Seconds(f64),
     Scene(SceneText<'a>),
     Script(Script),
@@ -110,12 +111,16 @@ pub enum SceneText<'a> {
     },
     Clock(f64),
     Window {
-        start: f64,
-        end: f64,
+        start: &'a str,
+        end: &'a str,
     },
     Span {
-        start: f64,
-        end: f64,
+        start: &'a str,
+        end: &'a str,
+    },
+    SpanAloud {
+        start: &'a str,
+        end: &'a str,
     },
     NothingNotAnalysed,
     NothingUnreadable,
