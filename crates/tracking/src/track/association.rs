@@ -1,7 +1,10 @@
 use types::detection::{Detection, Strength};
 use types::frame::FrameIndex;
+use types::size::SourceSize;
 
+use crate::track::edge::at_edge;
 use crate::track::growing::Growing;
+use crate::track::reach::Reach;
 
 #[cfg(test)]
 mod tests;
@@ -10,6 +13,29 @@ mod tests;
 enum Age {
     Established,
     Newborn,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Gate {
+    pub(crate) max_jump: f64,
+    pub(crate) reach: Option<Reach>,
+    pub(crate) size: SourceSize,
+}
+
+impl Gate {
+    fn reach_of(self, track: &Growing, frame: FrameIndex) -> Option<f64> {
+        let reach = self.reach?;
+        let way = track.predicted_travel(frame)?;
+        let from_edge = at_edge(track.last(), self.size)
+            || track
+                .speed_measured_from()
+                .is_some_and(|start| at_edge(start, self.size));
+        (!from_edge).then(|| reach.farthest(way))
+    }
+
+    fn takes(self, reach: Option<f64>, detection: &Detection, miss: f64) -> bool {
+        miss <= self.max_jump && (reach.is_none_or(|farthest| miss <= farthest) || at_edge(detection, self.size))
+    }
 }
 
 #[derive(Debug, Default)]
@@ -25,14 +51,14 @@ impl Association {
         active: &mut [Growing],
         detections: &'a [Detection],
         frame: FrameIndex,
-        max_jump: f64,
+        gate: Gate,
     ) -> impl Iterator<Item = Detection> + 'a {
         self.track_taken.clear();
         self.track_taken.resize(active.len(), false);
         self.detection_taken.clear();
         self.detection_taken.resize(detections.len(), false);
         for strength in [Strength::Strong, Strength::Weak] {
-            self.pair(active, detections, strength, frame, max_jump);
+            self.pair(active, detections, strength, frame, gate);
         }
         detections
             .iter()
@@ -47,7 +73,7 @@ impl Association {
         detections: &[Detection],
         strength: Strength,
         frame: FrameIndex,
-        max_jump: f64,
+        gate: Gate,
     ) {
         self.candidates.clear();
         for (track_index, track) in active.iter().enumerate() {
@@ -55,6 +81,7 @@ impl Association {
                 continue;
             }
             let (x, y) = track.predicted(frame);
+            let reach = gate.reach_of(track, frame);
             let age = if track.has_velocity() {
                 Age::Established
             } else {
@@ -62,7 +89,7 @@ impl Association {
             };
             for (detection_index, detection) in detections.iter().enumerate() {
                 let distance = (detection.x - x).hypot(detection.y - y);
-                if detection.strength == strength && distance <= max_jump {
+                if detection.strength == strength && gate.takes(reach, detection, distance) {
                     self.candidates.push((age, distance, track_index, detection_index));
                 }
             }

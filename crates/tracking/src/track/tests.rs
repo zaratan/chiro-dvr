@@ -227,6 +227,88 @@ fn an_established_track_keeps_its_detection_over_a_closer_newborn_track() {
     assert_eq!(tracks[0].points().len(), 10);
 }
 
+fn slow_flight_with_another_animal_beyond_its_reach() -> Vec<Detection> {
+    let mut flight: Vec<Detection> = line(0, 21, (300.0, 500.0), (8.0, 0.0))
+        .into_iter()
+        .filter(|point| !(10..13).contains(&point.frame.get()))
+        .collect();
+    flight.push(detection(12, 396.0, 400.0));
+    flight
+}
+
+#[test]
+fn a_slow_track_does_not_take_another_animal_beyond_its_reach() {
+    let tracks = tracked(
+        &slow_flight_with_another_animal_beyond_its_reach(),
+        TrackConfig::default(),
+    );
+    assert_eq!(tracks.len(), 1);
+    assert!(tracks[0].points().iter().all(|point| (point.y - 500.0).abs() < 1e-9));
+}
+
+#[test]
+fn without_the_reach_a_slow_track_jumps_onto_another_animal_and_loses_its_own() {
+    let tracks = tracked(
+        &slow_flight_with_another_animal_beyond_its_reach(),
+        TrackConfig::default().with_reach(None),
+    );
+    assert_eq!(tracks.len(), 2);
+    assert_eq!((tracks[0].last().x, tracks[0].last().y), (396.0, 400.0));
+}
+
+#[test]
+fn a_fast_track_takes_a_turn_its_own_flight_could_reach() {
+    let mut flight: Vec<Detection> = line(0, 5, (100.0, 500.0), (30.0, 0.0));
+    flight.extend(line(7, 8, (310.0, 600.0), (30.0, 0.0)));
+    let tracks = tracked(&flight, TrackConfig::default());
+    assert_eq!(tracks.len(), 1);
+    assert_eq!(tracks[0].points().len(), 13);
+}
+
+#[test]
+fn a_track_entering_from_the_edge_is_not_held_back_by_the_slow_start_of_its_cut_spot() {
+    let mut flight = vec![
+        detection(0, 1436.0, 500.0),
+        detection(1, 1433.0, 500.0),
+        detection(2, 1430.0, 500.0),
+    ];
+    flight.extend(line(3, 8, (1360.0, 500.0), (-25.0, 0.0)));
+    let tracks = tracked(&flight, TrackConfig::default());
+    assert_eq!(tracks.len(), 1);
+    assert_eq!(tracks[0].first().frame.get(), 0);
+}
+
+#[test]
+fn a_track_whose_speed_is_measured_from_a_cut_spot_at_the_edge_is_not_held_back() {
+    let mut flight = vec![detection(0, 1425.0, 500.0), detection(1, 1405.0, 500.0)];
+    flight.extend(line(2, 7, (1300.0, 500.0), (-50.0, 0.0)));
+    let tracks = tracked(&flight, TrackConfig::default());
+    assert_eq!(tracks.len(), 1);
+    assert_eq!(tracks[0].first().frame.get(), 0);
+}
+
+#[test]
+fn a_track_stalled_on_a_split_spot_still_takes_its_animal_further_on() {
+    let mut flight = vec![
+        detection(0, 300.0, 500.0),
+        detection(1, 284.0, 500.0),
+        detection(2, 283.4, 500.0),
+    ];
+    flight.extend(line(5, 6, (220.0, 500.0), (-16.0, 0.0)));
+    let tracks = tracked(&flight, TrackConfig::default().without_rejoin());
+    assert_eq!(tracks.len(), 1);
+    assert_eq!(tracks[0].first().frame.get(), 0);
+}
+
+#[test]
+fn a_slow_track_leaving_by_the_edge_takes_its_cut_spot_beyond_its_reach() {
+    let mut flight = line(0, 10, (1300.0, 500.0), (8.0, 0.0));
+    flight.push(detection(13, 1420.0, 410.0));
+    let tracks = tracked(&flight, TrackConfig::default());
+    assert_eq!(tracks.len(), 1);
+    assert_eq!((tracks[0].last().x, tracks[0].last().y), (1420.0, 410.0));
+}
+
 #[test]
 fn fragments_of_one_animal_are_merged_into_one_track() {
     let mut both = scaled(0, 10, (10.0, 50.0), (6.0, 0.0));

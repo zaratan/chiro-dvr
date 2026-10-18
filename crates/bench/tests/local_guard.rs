@@ -63,7 +63,7 @@ fn the_two_benches_of_the_v011_replayed_on_the_092_fall_below_no_lower_wilson_bo
             Threads::Automatic,
             &DetectConfig::default(),
             Judging {
-                track: TrackConfig::default().without_rejoin(),
+                track: TrackConfig::default().without_rejoin().with_reach(None),
                 ..Judging::default()
             },
             &recorded_bench(name).unwrap(),

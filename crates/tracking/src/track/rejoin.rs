@@ -7,6 +7,7 @@ use types::track::{Stretch, Track};
 
 use crate::error::Error;
 use crate::setting::Setting;
+use crate::track::edge::at_edge;
 use crate::track::positive;
 
 mod pace;
@@ -17,7 +18,6 @@ mod tests;
 pub use crate::track::rejoin::pace::RejoinPace;
 
 const VELOCITY_POINTS: usize = 5;
-const EDGE_MARGIN: f64 = 30.0;
 const DEFAULT_MAX_HIDDEN: NonZeroUsize = match NonZeroUsize::new(19) {
     Some(frames) => frames,
     None => NonZeroUsize::MIN,
@@ -111,8 +111,8 @@ impl Hiding<'_> {
         let hidden = start.frame.get().checked_sub(end.frame.get())?.checked_sub(1)?;
         if hidden <= self.longer_than
             || hidden > config.max_hidden.get()
-            || self.at_edge(end)
-            || self.at_edge(start)
+            || at_edge(end, self.size)
+            || at_edge(start, self.size)
             || self
                 .ignored
                 .iter()
@@ -126,12 +126,6 @@ impl Hiding<'_> {
         let meeting_y = end.y + f64::midpoint(tail_y, head_y) * frames;
         let miss = (start.x - meeting_x).hypot(start.y - meeting_y);
         (miss <= config.max_distance).then_some(miss)
-    }
-
-    fn at_edge(self, point: &Detection) -> bool {
-        let width = f64::from(self.size.width().get());
-        let height = f64::from(self.size.height().get());
-        point.x.min(width - point.x).min(point.y).min(height - point.y) < EDGE_MARGIN
     }
 }
 

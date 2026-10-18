@@ -203,6 +203,7 @@ Chaque image, les détections sont attribuées aux pistes ouvertes.
   ont déjà une vitesse passent avant celles d'un seul point. Sans cette priorité, une
   piste naissante (un fragment) volait le point de la vraie piste : le passage de 3:58
   sortait coupé en deux.
+- **Portée** : une piste qui a une vitesse ne prend une tache qu'à moins de `reach_margin` = 50 px plus `reach_travel` = 1 fois le chemin prévu (sa vitesse fois les images depuis son dernier point) de l'endroit prévu ; `reach_margin` à 0 coupe la portée. Sur les 26 vidéos, avant recollage, 40 px change 74 pistes, 50 px 56, et 60 px, comme 2 fois le chemin, laisse une piste de la 090 sauter sur une autre chauve-souris (109 px pour 110 permis). Ne sont pas des réglages : la marge de 30 px au bord, celle du recollage, où la portée ne joue pas ; et la vitesse effondrée, sous 0,4 fois la vitesse des 5 derniers points, remplacée par celle-ci (même résultat de 0,25 à 0,6 sur les cas jugés). Logique, mesures et cas jugés : [10 § 7](10-logique-de-detection.md#7-relier-les-taches-dans-le-temps--le-suivi).
 - **Trous** : une piste survit à `max_gap` = 6 images consécutives sans détection
   (0,2 s), le temps qu'une chauve-souris peu contrastée réapparaisse ; elle est close à
   la septième. Les tests de borne vérifient exactement ces deux cas.

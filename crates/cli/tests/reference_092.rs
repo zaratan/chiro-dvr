@@ -243,12 +243,11 @@ fn the_whole_092_keeps_its_fourteen_tracks_of_the_v020_and_only_adds_twenty_weak
 
 #[test]
 #[ignore = "reference"]
-fn the_whole_092_worked_at_1440_pixels_adds_one_track_a_second_piece_of_the_pass_at_1_49_completed_by_a_weak_detection()
-{
+fn the_whole_092_worked_at_1440_pixels_keeps_its_fourteen_tracks_of_the_v020_and_only_adds_nine_weak_detections() {
     let comparison = shared().at_1440.as_ref().unwrap();
 
     write_report(slice::from_ref(comparison), &mut io::stdout().lock()).unwrap();
-    assert_eq!(comparison.gaps(), Gaps::added_only(9, 9, [14, 14, 0, 1]));
+    assert_eq!(comparison.gaps(), Gaps::added_only(9, 9, [14, 14, 0, 0]));
 }
 
 #[test]

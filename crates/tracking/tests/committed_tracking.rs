@@ -13,7 +13,7 @@ struct Identical(usize);
 const FROZEN: [(&str, Tracks, Identical); 19] = [
     ("video_092_original_3m24-4m05", Tracks::same(4), Identical(4)),
     ("video_092_original", Tracks::same(14), Identical(14)),
-    ("video_092_original_width_1440", Tracks::same(14), Identical(14)),
+    ("video_092_original_width_1440", Tracks::same(14), Identical(12)),
     ("max_area_400", Tracks::same(4), Identical(4)),
     ("merge_radius_0", Tracks::same(4), Identical(4)),
     ("min_area_9", Tracks::same(5), Identical(5)),
@@ -24,13 +24,13 @@ const FROZEN: [(&str, Tracks, Identical); 19] = [
         "sigma_0",
         Tracks {
             reference: 30,
-            tracked: 30,
-            paired: 29,
-            agreeing: 29,
-            lost: 1,
-            added: 1,
+            tracked: 17,
+            paired: 13,
+            agreeing: 13,
+            lost: 17,
+            added: 4,
         },
-        Identical(27),
+        Identical(1),
     ),
     ("sigma_3", Tracks::same(4), Identical(4)),
     ("size_720x540", Tracks::same(4), Identical(4)),
@@ -39,7 +39,18 @@ const FROZEN: [(&str, Tracks, Identical); 19] = [
     ("width_1440", Tracks::same(4), Identical(4)),
     ("width_1440_osd", Tracks::same(4), Identical(4)),
     ("width_480", Tracks::same(4), Identical(4)),
-    ("width_720", Tracks::same(5), Identical(5)),
+    (
+        "width_720",
+        Tracks {
+            reference: 5,
+            tracked: 5,
+            paired: 5,
+            agreeing: 3,
+            lost: 0,
+            added: 0,
+        },
+        Identical(3),
+    ),
     ("window_2s", Tracks::same(4), Identical(4)),
 ];
 

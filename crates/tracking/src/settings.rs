@@ -3,7 +3,7 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use serde::{Deserialize, Serialize};
 
 use crate::stability::StabilityConfig;
-use crate::track::{RejoinConfig, TrackConfig};
+use crate::track::{Reach, RejoinConfig, TrackConfig};
 
 #[cfg(test)]
 mod tests;
@@ -27,6 +27,10 @@ pub struct TrackSettings {
     pub rejoin_junction_pace: f64,
     #[serde(default)]
     pub rejoin_piece_pace: f64,
+    #[serde(default)]
+    pub reach_margin: f64,
+    #[serde(default)]
+    pub reach_travel: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
@@ -53,6 +57,8 @@ impl From<TrackConfig> for TrackSettings {
                 .map_or(0, NonZeroUsize::get),
             rejoin_junction_pace: track.rejoin().map_or(0.0, |rejoin| rejoin.pace().junction()),
             rejoin_piece_pace: track.rejoin().map_or(0.0, |rejoin| rejoin.pace().piece()),
+            reach_margin: track.reach().map_or(0.0, Reach::margin),
+            reach_travel: track.reach().map_or(0.0, Reach::travel),
         }
     }
 }

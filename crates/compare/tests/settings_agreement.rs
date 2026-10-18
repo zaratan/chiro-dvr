@@ -52,7 +52,7 @@ fn every_setting_keeps_the_gaps_frozen_against_the_v020_case_by_case_where_only_
             ("noise_factor_0", weak(9, 10, [4, 4, 0, 0])),
             ("osd", weak(5, 5, [4, 4, 0, 0])),
             ("quick", weak(4, 6, [4, 4, 0, 0])),
-            ("sigma_0", weak(264, 664, [24, 22, 6, 16])),
+            ("sigma_0", weak(264, 664, [15, 11, 15, 9])),
             ("sigma_3", weak(5, 5, [3, 3, 1, 1])),
             ("size_720x540", weak(3, 3, [4, 4, 0, 0])),
             ("step_1", weak(6, 6, [5, 5, 0, 0])),
@@ -60,7 +60,7 @@ fn every_setting_keeps_the_gaps_frozen_against_the_v020_case_by_case_where_only_
             ("width_1440", weak(1, 1, [4, 4, 0, 0])),
             ("width_1440_osd", weak(1, 1, [4, 4, 0, 0])),
             ("width_480", weak(8, 8, [4, 4, 0, 0])),
-            ("width_720", weak(13, 16, [5, 4, 0, 2])),
+            ("width_720", weak(13, 16, [5, 2, 0, 2])),
             ("window_2s", weak(6, 6, [4, 4, 0, 0])),
         ]
     );
