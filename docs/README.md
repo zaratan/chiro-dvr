@@ -2,11 +2,10 @@
 
 ## Pour utiliser l'outil
 
-Ces documents s'adressent à la naturaliste et ne contiennent rien de technique : ce qui sert à
-les refaire est rangé côté développeur, plus bas.
+Ces documents s'adressent à la naturaliste et ne contiennent rien de technique : ce qui sert à les refaire est rangé côté développeur, plus bas.
 
-Première fois : commencez par la [première soirée](premiere-soiree.md). Vous relisez les
-résultats d'une soirée : passez à [lire les résultats](lire-les-resultats.md).
+Première fois : commencez par la [première soirée](premiere-soiree.md).
+Vous relisez les résultats d'une soirée : passez à [lire les résultats](lire-les-resultats.md).
 
 | Document | Contenu |
 | --- | --- |
@@ -15,8 +14,7 @@ résultats d'une soirée : passez à [lire les résultats](lire-les-resultats.md
 
 ## Pour comprendre ou modifier l'outil
 
-Ce dossier garde ce qu'on a appris en construisant `batdetect` : ce que le code ne dit
-pas, et pourquoi les choses sont comme elles sont.
+Ce dossier garde ce qu'on a appris en construisant `batdetect` : ce que le code ne dit pas, et pourquoi les choses sont comme elles sont.
 
 | Document | Pour qui | Contenu |
 | --- | --- | --- |
@@ -36,9 +34,9 @@ pas, et pourquoi les choses sont comme elles sont.
 
 ## Qui tient quoi
 
-Chaque vérité nouvelle s'écrit à un seul endroit ; les autres documents y renvoient. Les mesures
-datées que 02 et 10 partageaient avant cette règle y restent. Toute modification
-de comportement du code met à jour ce document-là, dans la même série de changements.
+Chaque vérité nouvelle s'écrit à un seul endroit ; les autres documents y renvoient.
+Les mesures datées que 02 et 10 partageaient avant cette règle y restent.
+Toute modification de comportement du code met à jour ce document-là, dans la même série de changements.
 
 | Vérité | Document | Ailleurs |
 | --- | --- | --- |
