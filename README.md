@@ -21,6 +21,9 @@ You will copy the videos of an evening from the binoculars to your computer.
 For each track, it will cut a short clip and draw the track on a summary image of the scene.
 You will watch the clips and decide which tracks are bats: if you filmed bats they probably are but I already had a small insect walking on top of my sensor (that was a very slow bat).
 
+There's no LLM (nor any other kind of AI) looking at your images: it's just maths, a few clever tricks and hours of juggling with parameters.
+Everything runs on your computer, even without internet, and your videos never leave it.
+
 ## Installation
 
 On a Mac with Apple silicon (M1 or newer) and macOS 14 or newer, with [Homebrew](https://brew.sh), type in the Terminal:
