@@ -139,12 +139,12 @@ fn too_many_tracks_says_to_look_at_the_video_at_the_times_of_the_table_without_j
         lines(Language::French, &too_many),
         [
             "nuit/video_092.mp4\u{a0}: 301 pistes, au-delà de 300\u{a0}: ni extraits ni image résumé",
-            "  à faire\u{a0}: ouvrir le tableau des pistes et regarder la vidéo à quelques-uns de ses temps\u{a0}; si ce sont de vrais passages, relancer avec un --max-tracks plus grand",
+            "  à faire\u{a0}: ouvrir le tableau des pistes et regarder la vidéo à quelques-uns des débuts qu'il donne\u{a0}; si ce sont de vrais passages, relancer avec un --max-tracks plus grand",
         ]
     );
     assert_eq!(
         lines(Language::English, &too_many)[1],
-        "  what to do: open the tracks table and watch the video at a few of its times; if these are real passes, run again with a larger --max-tracks"
+        "  what to do: open the tracks table and watch the video at a few of the start times it lists; if these are real passes, run again with a larger --max-tracks"
     );
 }
 
@@ -404,7 +404,7 @@ fn every_reason_to_refuse_an_input_has_its_own_words_on_the_last_name_of_its_pat
             "vide: no video (mp4, mov, avi, mkv or m4v) in this folder",
             "  what to do: check that soirees/vide is the right folder: only the videos directly inside it are processed, not those of its subfolders",
             "fermee: reading refused",
-            "  what to do: check the rights of soirees/fermee; on a Mac, allow the Terminal in System Settings, Privacy & Security, \
+            "  what to do: check the permissions of soirees/fermee; on a Mac, allow the Terminal in System Settings, Privacy & Security, \
              Files and Folders",
             "nuit: part of the path is not a folder",
             "  what to do: check the path x.mp4/nuit; the folder or the video may have been moved or renamed",
@@ -551,7 +551,7 @@ fn every_folder_where_nothing_can_be_written_has_its_own_line_reason_and_what_to
         [
             "no video is processed, the results cannot be written in these folders:",
             "a: writing refused",
-            "  what to do: check the rights of this folder, or choose another one with -o",
+            "  what to do: check the permissions of this folder, or choose another one with -o",
             "b: not a folder",
             "  what to do: choose another folder with -o",
             "c: not found",

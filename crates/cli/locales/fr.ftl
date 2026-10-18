@@ -61,7 +61,7 @@ failure-todo = {"  "}à faire : { $cause ->
         [forbidden] vérifier les droits de ce dossier, ou en choisir un autre avec -o
         [in-use] le fermer, puis relancer
         [encoding] relancer ; si cela recommence, le signaler avec le détail ci-dessous
-        [too-many-tracks] ouvrir le tableau des pistes et regarder la vidéo à quelques-uns de ses temps ; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
+        [too-many-tracks] ouvrir le tableau des pistes et regarder la vidéo à quelques-uns des débuts qu'il donne ; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
         [input-missing] vérifier le chemin { $folder } ; le dossier ou la vidéo a peut-être été déplacé ou renommé
         [input-read-refused] vérifier les droits de { $folder } ; sur Mac, autoriser le Terminal dans Réglages Système, Confidentialité et sécurité, Fichiers et dossiers
         [unreachable] vérifier que le disque est toujours branché, puis relancer ; si cela recommence, le signaler
@@ -416,7 +416,7 @@ page-js-understood = Compris
 page-js-replace-unsaved = Des changements ne sont pas téléchargés. Les remplacer par ce fichier ?
 page-js-not-verdicts = { $name } n'est pas un fichier de verdicts.
 page-js-draft-same = Verdicts non téléchargés depuis { $time }, repris dans la page.
-page-js-draft-other = Des verdicts n'ont pas été téléchargés (depuis { $time }), sur un autre fichier de verdicts que celui que la page vient de lire.
+page-js-draft-other = Des verdicts non téléchargés (depuis { $time }) portent sur un autre fichier de verdicts que celui que la page vient de lire.
 page-js-draft-keep = Les reprendre
 page-js-draft-drop = Les abandonner
 page-js-orphans = Verdicts sans piste : { $count }
