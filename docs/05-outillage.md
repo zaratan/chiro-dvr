@@ -80,13 +80,13 @@ L'aide, les erreurs d'arguments, les lignes d'étape, le bilan, le bandeau de l'
 
 ## Distribution
 
-- **Homebrew installe la 0.2.0** (`brew install zaratan/bat-tools/batdetect`), par la formule `Formula/batdetect.rb` du tap `zaratan/homebrew-bat-tools` (#225).
+- **Homebrew installe la 0.3.0** (`brew install zaratan/bat-tools/batdetect`), par la formule `Formula/batdetect.rb` du tap `zaratan/homebrew-bat-tools` (#225).
   - La formule télécharge `batdetect-darwin-arm64.tar.gz` de la release et vérifie son `sha256`.
   - Elle installe le binaire et `licenses/`, auquel `NOTICE` renvoie.
     Homebrew copie d'office `LICENSE` et `NOTICE` dans le keg, mais pas un dossier.
   - Elle n'a plus de `depends_on "ffmpeg"` : FFmpeg est lié en statique. Sa licence est `all_of: ["MIT", "LGPL-2.1-or-later"]`.
   - Ses planchers : Apple Silicon (`arch: :arm64`) et macOS 14 (`macos: :sonoma`).
-- **Complétion zsh (#59, #60)** : la formule de la 0.2.1 installera le script par `generate_completions_from_executable(bin/"batdetect", "completion", shells: [:zsh])` (Homebrew ajoute `zsh` en dernier argument), qui écrit `_batdetect` dans `share/zsh/site-functions` ; il ne reste à l'utilisateur que la ligne `compinit` de `~/.zshrc`.
+- **Complétion zsh (#59, #60)** : depuis la 0.3.0, la formule installe le script par `generate_completions_from_executable(bin/"batdetect", "completion", shells: [:zsh])` (Homebrew ajoute `zsh` en dernier argument), qui écrit `_batdetect` dans `share/zsh/site-functions`, et son `test` vérifie que ce fichier existe ; il ne reste à l'utilisateur que la ligne `compinit` de `~/.zshrc`, que rappelle le `caveats` de la formule.
   Le script est dans la langue du système au moment de l'installation : à vérifier au Mac sous Homebrew.
 - **La 0.1.1**, binaire Python sous GPL v3, est décrite par le `packaging/NOTICE` du tag `v0.1.1`, et son mode d'emploi par le README de ce tag.
 - **Le binaire Rust se publie par un tag** (#223), sous MIT et LGPL 2.1 ou ultérieure : `packaging/NOTICE` et `packaging/licenses/` le décrivent ([11](11-migration-rust.md#licences), #224).

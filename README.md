@@ -17,10 +17,10 @@ Sur un Mac à puce Apple (M1 ou plus récent) en macOS 14 ou plus récent, avec 
 brew install zaratan/bat-tools/batdetect
 ```
 
-Depuis la version 0.2.1, pour vérifier que tout est prêt avant une soirée, taper `batdetect doctor` dans le dossier où les résultats seront écrits.
+Depuis la version 0.3.0, pour vérifier que tout est prêt avant une soirée, taper `batdetect doctor` dans le dossier où les résultats seront écrits.
 Chaque ligne commence par ✓ quand tout va bien ; sous une ligne ✗, la ligne « à faire » dit quoi faire ; une ligne ⚠ ne bloque rien.
 
-Depuis la version 0.2.1, pour que la touche Tab complète les noms de vidéos et les options, copier une fois dans le Terminal `echo 'autoload -Uz compinit && compinit' >> ~/.zshrc`, puis Entrée, puis ouvrir une nouvelle fenêtre du Terminal.
+Depuis la version 0.3.0, pour que la touche Tab complète les noms de vidéos et les options, copier une fois dans le Terminal `echo 'autoload -Uz compinit && compinit' >> ~/.zshrc`, puis Entrée, puis ouvrir une nouvelle fenêtre du Terminal.
 Sans Homebrew, `batdetect completion zsh` affiche les étapes à suivre.
 
 Sous Linux et Windows, télécharger l'archive de son système sur la [page des versions](https://github.com/zaratan/chiro-dvr/releases/latest), puis la décompresser :
