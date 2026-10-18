@@ -204,6 +204,41 @@ Détection de la 092 entière, paires avant / après alternées :
 - Sur l'extrait, lumiel gagne 3,9 % en médiane (2,94 à 2,99 s avant, 2,84 à 2,96 s après, 3 paires), puis 2,8 % sur une paire.
 - Les pistes ne changent pas : CSV identique à l'octet sur la 092 du M1 Max, empreinte de l'extrait identique (`slow_extract`), aucun écart de `compare local` sur les 26 vidéos de lumiel.
 
+### Médiane du fond à 28 comparateurs (#213, 17 octobre 2026)
+
+#213 remplace, pour les 11 échantillons de la fenêtre par défaut, les 32 comparateurs du réseau élagué par une sélection de la médiane à 28, sans changer une détection (docs/11). Mesures sur lumiel : Ryzen 5 3600X (6 cœurs, 12 fils), Rocky Linux 10, Rust 1.99.0, cible `x86-64-v2`. Avant : 396344e ; après : le même commit plus le réseau à 28. Binaires `release`, sous `verrou chrono`.
+
+Part du fond et du seuil, par une sonde temporaire hors du dépôt (compteurs `rdtsc` autour du réseau et du seuil relevé) : détection seule de la 092 entière sur un fil (`RAYON_NUM_THREADS=1`), 3 passages au code d'avant, puis un au réseau à 28. Les détections des 4 passages ont la même empreinte.
+
+| Passage | Réseau | Détection | `Threshold::light` | dont réseau | dont seuil relevé (MAD) |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 32 | 66,9 s | 32,8 s | 18,3 s (69,50 milliards de cycles) | 0,06 s |
+| 2 | 32 | 62,2 s | 30,5 s | 17,3 s (65,90 milliards de cycles) | 0,05 s |
+| 3 | 32 | 64,1 s | 31,6 s | 17,7 s (67,13 milliards de cycles) | 0,05 s |
+| 4 | 28 | 59,8 s | 28,2 s | 15,2 s (57,68 milliards de cycles) | 0,05 s |
+
+- `Threshold::light` fait la moitié de la détection sur un fil, et le réseau 56 % de `light` : environ 700 cycles pour chacun des 97 318 800 blocs de 64 pixels. Le reste de `light` est la copie des échantillons et la boucle par pixel.
+- Le seuil relevé ne compte pas : 300 444 appels sur 9 011 images, 0,2 % de `light`. Le plancher l'évite presque partout.
+- À 28 comparateurs, le réseau passe de 65,90 à 57,68 milliards de cycles (−12,5 %, comme 28 sur 32) et la détection sur un fil de 62,2 à 59,8 s (−3,9 %), contre le passage 2, le plus rapide des trois d'avant et lancé juste avant le passage 4.
+- Garder les 11 lignes dans les registres, par paquets de 8 voies, était plus lent : 109,13 et 102,96 milliards de cycles pour le réseau à 32 et 28 comparateurs, un passage chacun.
+
+Détection de la 092 entière par la commande, `LANG=fr_FR.UTF-8`, un dossier de sortie neuf à chaque passage, sous `/usr/bin/time -v`, 5 paires avant / après alternées. La détection est l'écart entre les lignes « détection » et « suivi » de la sortie d'erreur, horodatées.
+
+| Paire | Avant | Après | Gain | CPU avant → après |
+| ---: | ---: | ---: | ---: | --- |
+| 1 | 20,81 s | 19,36 s | 7,0 % | 243,8 → 242,6 s |
+| 2 | 19,98 s | 19,78 s | 1,0 % | 244,7 → 243,9 s |
+| 3 | 28,60 s | 19,73 s | écartée | 252,1 → 242,8 s |
+| 4 | 19,50 s | 19,77 s | −1,4 % | 245,2 → 243,9 s |
+| 5 | 20,03 s | 19,58 s | 2,2 % | 244,7 → 242,7 s |
+
+- La paire 3 est écartée : 8 s au-dessus des autres passages d'avant, une charge de la machine dont le CPU n'a pas été relevé.
+- Sur les 4 autres, la détection passe de 20,08 à 19,62 s en moyenne : 2,3 % en moyenne, 1,6 % en médiane. Le CPU baisse de 244,6 à 243,3 s en moyenne (0,5 %). Le pic reste de 1,30 à 1,35 Go des deux côtés.
+- Le gain reste petit parce que le réseau ne pèse qu'environ 7 % du CPU de la commande (17,7 s sur un fil, contre 244 s en tout).
+- Les pistes ne changent pas : le CSV est identique à l'octet sur les 5 paires, `compare local` donne les mêmes détections sur les 26 vidéos hors des plages abîmées (`--same-as`), et `rust:reference` trouve les 14 pistes de la 092.
+
+Sur le M1 Max (macOS 27), même commande sous `/usr/bin/time -l`, 3 paires alternées : avant 46980bf, après 5da2a01. La détection passe de 11,37 à 11,13 s en moyenne, 1,7 % en médiane (3,2, 1,6 et 1,7 %, les trois du même signe) ; le CPU baisse de 1,5 % en médiane, de 121,8 à 119,7 s en moyenne ; le pic reste autour de 1 Go des deux côtés ; le CSV des pistes est identique à l'octet dans les 3 paires. Le gain est du même ordre que sur lumiel.
+
 ## v0.1.1 (Python)
 
 Historique des optimisations du Python jusqu'à la v0.1.1, mesuré du 4 au 6 octobre 2026

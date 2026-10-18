@@ -1662,12 +1662,13 @@ Douze crates depuis #100 (neuf au lot 6, `render` à #110, `bench` à #100), tre
         0,59 ms par image contre 0,77 à 960, 1,76 contre 2,50 à 1440. Sur la 092 :
         109,5 s de CPU contre 111,1 (−1,4 %, trois paires A/B).
     - `network` : médiane par le réseau de Batcher coupé à n entrées et élagué aux
-      comparaisons qui atteignent le milieu (32 pour 11 échantillons), sur des blocs de
+      comparaisons qui atteignent le milieu, sur des blocs de
       64 pixels ; test 0-1 exhaustif de 1 à 20 (64 motifs par appel) et proptest contre
       un tri de 1 à 128. Si n est pair, la médiane est la demi-somme des deux du milieu.
       Un réseau par compte de 1 au maximum (#151), paires en `Box<[_]>` : 2,3 Ko à 11
       échantillons, 177 Ko à 61, 8,7 Mo à 301, 566 Mo à 1 801 (60 s au pas de 1), soit
       23 à 30 % de la fenêtre de 1 801 images, mesuré par la relecture de #151.
+      - Onze échantillons (#213), la fenêtre par défaut : une table de 28 comparateurs (`MEDIAN_OF_ELEVEN`) au lieu des 32 de l'élagage. Elle a été trouvée hors du dépôt en retirant un à un des comparateurs du réseau élagué tant que la médiane restait exacte sur les 2 048 entrées 0/1. Une construction aléatoire suivie du même élagage n'est pas descendue sous 28, sans preuve que ce soit le minimum. Le test 0-1 exhaustif la couvre comme les autres comptes. Le réseau prend 12,5 % de cycles en moins, la détection de la 092 2,3 % de temps en moins sur lumiel ; garder les 11 lignes dans les registres était plus lent (docs/09).
     - `threshold` : résidu `f32` = image − fond − (niveau − niveau moyen), le gain en
       entiers jusqu'à une seule division. Candidats au-dessus du plancher (12
       niveaux) ; avec au moins 7 échantillons et k > 0, seuil relevé à max(12, 8 × 1,4826
