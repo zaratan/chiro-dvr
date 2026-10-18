@@ -2,7 +2,7 @@
 
 Les versions suivent [SemVer](https://semver.org/lang/fr/). Chaque version publiée a sa section ici ; la release GitHub en reprend le texte (`packaging/release-notes.sh`), et le workflow de release échoue sans elle.
 
-## [Non publiée]
+## [0.3.0] - 2026-10-18
 
 ### Ajouté
 
@@ -133,7 +133,7 @@ Première version publiée : binaire macOS arm64 (macOS 14 ou plus récent) inst
 - `--max-tracks` (300 par défaut) arrête le rendu d'une vidéo qui sort trop de pistes (#3).
 - Images abîmées au décodage repérées et sorties du calcul (#1), réglages invalides refusés (#4).
 
-[Non publiée]: https://github.com/zaratan/chiro-dvr/compare/v0.2.0...HEAD
+[0.3.0]: https://github.com/zaratan/chiro-dvr/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/zaratan/chiro-dvr/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/zaratan/chiro-dvr/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/zaratan/chiro-dvr/releases/tag/v0.1.0
