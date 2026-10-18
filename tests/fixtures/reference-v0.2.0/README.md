@@ -1,25 +1,32 @@
 # Référence v0.2.0
 
-Ce que la chaîne de détection et de suivi en Rust de la v0.2.0 (tag `v0.2.0`, ea4d789) détecte et suit, enregistré une fois par le binaire `record` de la crate `compare` (#250), depuis un clone propre du commit 1e4cf6b, sur lumiel (Linux x86_64). Elle sert de référence aux gardes de détection et de suivi ; la [référence v0.1.1](../reference/README.md) reste le témoin indépendant (entrées vues par ffprobe, aval du Python).
+Ce que la chaîne de détection et de suivi en Rust de la v0.2.0 (tag `v0.2.0`, ea4d789) détecte et suit, enregistré une fois par le binaire `record` de la crate `compare` (#250), depuis un clone propre du commit 1e4cf6b, sur lumiel (Linux x86_64).
+Elle sert de référence aux gardes de détection et de suivi ; la [référence v0.1.1](../reference/README.md) reste le témoin indépendant (entrées vues par ffprobe, aval du Python).
 
 ## Emplacements
 
-- **Dans le dépôt**, `tests/fixtures/reference-v0.2.0/` : l'extrait (`video_092_original_3m24-4m05/`), la 092 entière (`video_092_original/`), la 092 à 1440 pixels de travail (`video_092_original_width_1440/`), les 16 cas de réglages (`settings/<cas>/`), mêmes dossiers et mêmes réglages que la v0.1.1, et les deux bancs de la 092 (`bench/transit/`, `bench/hunt/`, 2,7 Mo). 5,5 Mo en tout. `SHA256SUMS` : voir [Récupération](#récupération-sur-une-autre-machine).
-- **Hors dépôt**, dans le dossier nommé par la variable facultative `BATDETECT_REFERENCE_V020_DIR` (sur lumiel : `~/Projects/dvr-wt/reference-v0.2.0`) : `data/<vidéo>/`, les données des 26 vidéos de la v0.1.1, 31 Mo. Les vidéos restent celles de `BATDETECT_VIDEOS_DIR`.
+- **Dans le dépôt**, `tests/fixtures/reference-v0.2.0/` : l'extrait (`video_092_original_3m24-4m05/`), la 092 entière (`video_092_original/`), la 092 à 1440 pixels de travail (`video_092_original_width_1440/`), les 16 cas de réglages (`settings/<cas>/`), mêmes dossiers et mêmes réglages que la v0.1.1, et les deux bancs de la 092 (`bench/transit/`, `bench/hunt/`, 2,7 Mo).
+  5,5 Mo en tout. `SHA256SUMS` : voir [Récupération](#récupération-sur-une-autre-machine).
+- **Hors dépôt**, dans le dossier nommé par la variable facultative `BATDETECT_REFERENCE_V020_DIR` (sur lumiel : `~/Projects/dvr-wt/reference-v0.2.0`) : `data/<vidéo>/`, les données des 26 vidéos de la v0.1.1, 31 Mo.
+  Les vidéos restent celles de `BATDETECT_VIDEOS_DIR`.
 
 ### Récupération sur une autre machine
 
-Préfixe `reference-v0.2.0/` du seau `chiro-dvr-videos`, à côté de ceux de la v0.1.1 : `data/` seulement. `SHA256SUMS`, à côté de ce fichier, donne la somme des 78 fichiers de ce préfixe.
+Préfixe `reference-v0.2.0/` du seau `chiro-dvr-videos`, à côté de ceux de la v0.1.1 : `data/` seulement.
+`SHA256SUMS`, à côté de ce fichier, donne la somme des 78 fichiers de ce préfixe.
 
 ```bash
 BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… BATDETECT_REFERENCE_V020_DIR=… mise run rust:data
 ```
 
-Sans `BATDETECT_REFERENCE_V020_DIR`, la tâche ne récupère que la v0.1.1, comme avant. Avec elle, le dossier passe par les mêmes contrôles que les deux autres : chemin absolu, aucun recouvrement avec `in/`, `~/dossier sans titre/img_0000` ou les deux autres dossiers, aucun fichier absent de `SHA256SUMS`, hormis un `README.md` à sa racine.
+Sans `BATDETECT_REFERENCE_V020_DIR`, la tâche ne récupère que la v0.1.1, comme avant.
+Avec elle, le dossier passe par les mêmes contrôles que les deux autres : chemin absolu, aucun recouvrement avec `in/`, `~/dossier sans titre/img_0000` ou les deux autres dossiers, aucun fichier absent de `SHA256SUMS`, hormis un `README.md` à sa racine.
 
 ## Format
 
-Le format de la v0.1.1, en version 2 : mêmes dossiers, mêmes `frames.jsonl` et `tracks.jsonl`, mêmes conventions (numéros d'image, plages bornes comprises, coordonnées en pixels de la vidéo d'origine, gzip sans nom ni date). Pas de `tracks.csv` : le CSV du Rust s'écrit par `batdetect`, et celui de l'extrait est `tests/fixtures/rust/video_092_original_3m24-4m05/tracks.csv`. Les flottants sont écrits par `serde_json` : la plus courte écriture qui redonne le même `f64`, `12.0` pour un réglage entier.
+Le format de la v0.1.1, en version 2 : mêmes dossiers, mêmes `frames.jsonl` et `tracks.jsonl`, mêmes conventions (numéros d'image, plages bornes comprises, coordonnées en pixels de la vidéo d'origine, gzip sans nom ni date).
+Pas de `tracks.csv` : le CSV du Rust s'écrit par `batdetect`, et celui de l'extrait est `tests/fixtures/rust/video_092_original_3m24-4m05/tracks.csv`.
+Les flottants sont écrits par `serde_json` : la plus courte écriture qui redonne le même `f64`, `12.0` pour un réglage entier.
 
 ### `video.json`
 
@@ -37,32 +44,43 @@ Le format de la v0.1.1, en version 2 : mêmes dossiers, mêmes `frames.jsonl` et
 | `versions` | `batdetect` (`git describe`), `commit`, `rustc`, `ffmpeg`, `system` |
 | `files` | `frames` (`frames.jsonl`, ou `frames.jsonl.gz` comme dans la v0.1.1) et `tracks` |
 
-`frames.jsonl` : une ligne par image, images vides comprises ; `pts`, `key_frame` et `decode_error` vus par le décodeur de `media` ; détections brutes dans l'ordre du moteur. `tracks.jsonl` : toutes les pistes du suivi par défaut (`exclude` avec les plages abîmées, puis `track_detections`, comme `batdetect`), avec tous leurs points.
+`frames.jsonl` : une ligne par image, images vides comprises ; `pts`, `key_frame` et `decode_error` vus par le décodeur de `media` ; détections brutes dans l'ordre du moteur.
+`tracks.jsonl` : toutes les pistes du suivi par défaut (`exclude` avec les plages abîmées, puis `track_detections`, comme `batdetect`), avec tous leurs points.
 
 ## Bancs
 
-`bench/<nom>/video_092_original/` : un run de `batdetect-bench tests/fixtures/video_092_original.mp4 --targets <v0.1.1>/bench/<nom>/bats.jsonl.gz` depuis le clone de l'enregistrement, avec les cibles des deux bancs de la v0.1.1 (`transit` : 270 cibles, `hunt` : 720), réglages par défaut. `run.json` (vidéo, cadence, plages, réglages, chemin des cibles rejouées sur lumiel), `reference.jsonl.gz` et `injected.jsonl.gz` (détections des deux runs), `bats.jsonl.gz` (cibles avec le contraste mesuré par le Rust), `bench.json` (réglages et évaluation, `code` : `1e4cf6b`). `reference::location::committed_bench(nom)` donne `bench/<nom>/`.
+`bench/<nom>/video_092_original/` : un run de `batdetect-bench tests/fixtures/video_092_original.mp4 --targets <v0.1.1>/bench/<nom>/bats.jsonl.gz` depuis le clone de l'enregistrement, avec les cibles des deux bancs de la v0.1.1 (`transit` : 270 cibles, `hunt` : 720), réglages par défaut.
+`run.json` (vidéo, cadence, plages, réglages, chemin des cibles rejouées sur lumiel), `reference.jsonl.gz` et `injected.jsonl.gz` (détections des deux runs), `bats.jsonl.gz` (cibles avec le contraste mesuré par le Rust), `bench.json` (réglages et évaluation, `code` : `1e4cf6b`).
+`reference::location::committed_bench(nom)` donne `bench/<nom>/`.
 
 ## Provenance
 
-- Le binaire `record` refuse de tourner s'il est `-dirty`, fichiers non suivis compris, ou construit hors de git (docs/11, crate `compare`). L'enregistrement s'est fait depuis `git clone --branch rust/250-record` au commit 1e4cf6b, `git status` vide, `git describe` à `v0.2.0-28-g1e4cf6b`.
-- Chaîne de détection depuis `v0.2.0` (`git diff --stat v0.2.0 1e4cf6b -- crates/{engine,media,tracking,types} Cargo.lock rust-toolchain.toml packaging/ffmpeg-* .cargo`) : #172 (`FrameDetections` rempli par `push` dans les tests seuls), #245 (noms uniques des fichiers `.partial`, côté encodage), #227 (ouverture par `avformat_open_input` puis `avformat_find_stream_info`, comme le faisait `ffmpeg::format::input`, pour les chemins non UTF-8), #274 et #250 (tests et dépendance de test). Aucun ne change ce que le décodeur rend ni ce que le moteur détecte, ce que la preuve ci-dessous mesure.
-- `cargo tree -p engine -p media -p tracking -p types -e normal` est le même qu'à `v0.2.0`, aux chemins près. `Cargo.lock` ne gagne que `serde` et `serde_json` dans les dépendances de `compare`, et `serde_json` dans celles d'`engine`, comme dépendance de test (#274) : elle n'entre pas dans le binaire.
+- Le binaire `record` refuse de tourner s'il est `-dirty`, fichiers non suivis compris, ou construit hors de git (docs/11, crate `compare`).
+  L'enregistrement s'est fait depuis `git clone --branch rust/250-record` au commit 1e4cf6b, `git status` vide, `git describe` à `v0.2.0-28-g1e4cf6b`.
+- Chaîne de détection depuis `v0.2.0` (`git diff --stat v0.2.0 1e4cf6b -- crates/{engine,media,tracking,types} Cargo.lock rust-toolchain.toml packaging/ffmpeg-* .cargo`) : #172 (`FrameDetections` rempli par `push` dans les tests seuls), #245 (noms uniques des fichiers `.partial`, côté encodage), #227 (ouverture par `avformat_open_input` puis `avformat_find_stream_info`, comme le faisait `ffmpeg::format::input`, pour les chemins non UTF-8), #274 et #250 (tests et dépendance de test).
+  Aucun ne change ce que le décodeur rend ni ce que le moteur détecte, ce que la preuve ci-dessous mesure.
+- `cargo tree -p engine -p media -p tracking -p types -e normal` est le même qu'à `v0.2.0`, aux chemins près.
+  `Cargo.lock` ne gagne que `serde` et `serde_json` dans les dépendances de `compare`, et `serde_json` dans celles d'`engine`, comme dépendance de test (#274) : elle n'entre pas dans le binaire.
 
 ## Preuve par le binaire de v0.2.0
 
 `v0.2.0` construit à part (`git archive v0.2.0`, vidéos LFS copiées, `~/Projects/dvr-wt/v0.2.0`), puis `compare <cible> --frames` sur l'extrait, la 092, la 1440, les 16 réglages et les 26 vidéos.
 
 - Détections, 19 cas du dépôt : chaque `frames.jsonl` décompressé est identique à l'octet à celui de `v0.2.0`. Aucun n'a de plage abîmée.
-- Détections, 26 vidéos : `record local --same-as` donne « identical » pour les 26, entrées comprises (nombre d'images, `pts`, images-clés, erreurs de décodage) ; hors des plages abîmées, les détections sont égales. Dans les plages, 15 vidéos et 1 754 images diffèrent : les pixels que FFmpeg y dissimule varient d'une lecture à l'autre (#159, #176).
+- Détections, 26 vidéos : `record local --same-as` donne « identical » pour les 26, entrées comprises (nombre d'images, `pts`, images-clés, erreurs de décodage) ; hors des plages abîmées, les détections sont égales.
+  Dans les plages, 15 vidéos et 1 754 images diffèrent : les pixels que FFmpeg y dissimule varient d'une lecture à l'autre (#159, #176).
 - Pistes : `tracks.jsonl` de l'extrait et de la 092 contre le CSV de `batdetect` de `v0.2.0` : mêmes numéros, nombres de points, débuts (temps des `pts`), cordes, chemins, surfaces et amplitudes, 4 et 14 pistes, 0 écart.
 - Bancs : les deux runs de `batdetect-bench` de `v0.2.0` donnent les mêmes `.gz` décompressés, le même `run.json` et le même `bench.json` par valeurs, hors `code` (`unknown` depuis une extraction sans git) et durées.
 
 ## Reproduction
 
-Le tag `reference-v0.2.0` se pose sur le commit qui ajoute ces fichiers. Réenregistrer depuis ce tag donne les mêmes détections **hors des plages abîmées**, pas les mêmes fichiers à l'octet pour les 26 vidéos : dans les plages, les détections changent d'une lecture à l'autre. `SHA256SUMS` change donc. Les 19 cas du dépôt n'ont pas de plage abîmée : leurs `frames.jsonl` et `tracks.jsonl` se refont à l'octet, mais leur `video.json` change par `versions.batdetect` et `versions.commit`, puisque le commit du tag n'est pas 1e4cf6b.
+Le tag `reference-v0.2.0` se pose sur le commit qui ajoute ces fichiers.
+Réenregistrer depuis ce tag donne les mêmes détections **hors des plages abîmées**, pas les mêmes fichiers à l'octet pour les 26 vidéos : dans les plages, les détections changent d'une lecture à l'autre.
+`SHA256SUMS` change donc.
+Les 19 cas du dépôt n'ont pas de plage abîmée : leurs `frames.jsonl` et `tracks.jsonl` se refont à l'octet, mais leur `video.json` change par `versions.batdetect` et `versions.commit`, puisque le commit du tag n'est pas 1e4cf6b.
 
-Le décodeur de lumiel signale 14 images en erreur de plus que celui du Mac, sur 8 vidéos (docs/11, `local_damage`) : les plages de ces vidéos sont celles de lumiel. Un enregistrement sur le Mac ne les signalerait pas.
+Le décodeur de lumiel signale 14 images en erreur de plus que celui du Mac, sur 8 vidéos (docs/11, `local_damage`) : les plages de ces vidéos sont celles de lumiel.
+Un enregistrement sur le Mac ne les signalerait pas.
 
 ```bash
 git clone --branch reference-v0.2.0 file://$(git rev-parse --path-format=absolute --git-common-dir) ../record   # LFS récupéré, git status vide
@@ -78,7 +96,8 @@ done
 
 ## Enregistrement du 17 octobre 2026
 
-Clone du commit 1e4cf6b sur lumiel (Linux x86_64, 12 cœurs) : rustc 1.99.0, FFmpeg 7.1.1 statique (`7.1.1-e864b95369435048`), décodeur en fils automatiques (`frame`, 13). Les temps ne sont pas publiés : le passage n'était pas sous `verrou chrono`, et les durées que portent les `bench.json` (`seconds`) ne sont pas des mesures.
+Clone du commit 1e4cf6b sur lumiel (Linux x86_64, 12 cœurs) : rustc 1.99.0, FFmpeg 7.1.1 statique (`7.1.1-e864b95369435048`), décodeur en fils automatiques (`frame`, 13).
+Les temps ne sont pas publiés : le passage n'était pas sous `verrou chrono`, et les durées que portent les `bench.json` (`seconds`) ne sont pas des mesures.
 
 | Vidéo | Images | Détections brutes | Gardées | Pistes (v0.1.1) | Points | Abîmées (plages / images) | Instables (plages / images) | Fils du décodeur |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |

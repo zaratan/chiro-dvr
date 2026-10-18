@@ -1,10 +1,18 @@
 # Résultats sur video_092
 
-La référence est l'original copié en USB (`video_092_original.mp4`). Depuis le 6 octobre 2026, les réglages par défaut sont 960 px, filtre de 1,5 px, seuil 12 et seuil par pixel (facteur 8). La section [Détections faibles encadrées](#détections-faibles-encadrées-17-octobre-2026--14-pistes) donne les 14 pistes de l'outil d'aujourd'hui ; [Commande Rust](#commande-rust-12-octobre-2026--14-pistes), celles de la v0.2.0 ; la section du 6 octobre, celles de la v0.1.1 aux mêmes réglages. Les sections plus bas sont l'historique : export de Stream Vision 2, puis original avec l'ancien réglage (480 px, seuil fixe 25).
+La référence est l'original copié en USB (`video_092_original.mp4`).
+Depuis le 6 octobre 2026, les réglages par défaut sont 960 px, filtre de 1,5 px, seuil 12 et seuil par pixel (facteur 8).
+La section [Détections faibles encadrées](#détections-faibles-encadrées-17-octobre-2026--14-pistes) donne les 14 pistes de l'outil d'aujourd'hui ; [Commande Rust](#commande-rust-12-octobre-2026--14-pistes), celles de la v0.2.0 ; la section du 6 octobre, celles de la v0.1.1 aux mêmes réglages.
+Les sections plus bas sont l'historique : export de Stream Vision 2, puis original avec l'ancien réglage (480 px, seuil fixe 25).
 
 ## Détections faibles encadrées (17 octobre 2026) : 14 pistes
 
-La commande avec les détections faibles encadrées et le suivi « fortes d'abord » (#21, [10](10-logique-de-detection.md#5-ter-garder-les-taches-faibles-qui-comblent-un-vol)), réglages par défaut, sur l'original. Mêmes 14 pistes que la v0.2.0, avec le même début et la même fin, toutes appariées et concordantes. Quatre pistes gagnent des détections : 0:07.39 en gagne 3 ; 0:53.75, 1:12.59 et 2:02.81 en gagnent une chacune. Ce sont 6 positions estimées remplacées par une vraie tache : 26 → 20 sur les pistes rapides. La 092 garde 20 détections faibles, et ses pistes y gagnent ces 6 points. La cible de 3:42.10 reste manquée ([cibles connues](#cibles-connues-pour-les-issues-suivantes)).
+La commande avec les détections faibles encadrées et le suivi « fortes d'abord » (#21, [10](10-logique-de-detection.md#5-ter-garder-les-taches-faibles-qui-comblent-un-vol)), réglages par défaut, sur l'original.
+Mêmes 14 pistes que la v0.2.0, avec le même début et la même fin, toutes appariées et concordantes.
+Quatre pistes gagnent des détections : 0:07.39 en gagne 3 ; 0:53.75, 1:12.59 et 2:02.81 en gagnent une chacune.
+Ce sont 6 positions estimées remplacées par une vraie tache : 26 → 20 sur les pistes rapides.
+La 092 garde 20 détections faibles, et ses pistes y gagnent ces 6 points.
+La cible de 3:42.10 reste manquée ([cibles connues](#cibles-connues-pour-les-issues-suivantes)).
 
 | # | Début → fin | Détections | v0.2.0 |
 | --- | --- | --- | --- |
@@ -27,9 +35,8 @@ Temps de `compare 092` (détection et suivi, sans rendu) sur lumiel, au calme so
 
 ## Réglages par défaut du 6 octobre 2026 : 14 pistes
 
-Mêmes 14 pistes que l'ancien réglage ; réglages choisis sur sept vidéos
-([08](08-banc-de-mesure.md#sur-six-autres-vidéos)). Commande complète : 135 à 151 s
-(30 à 34 s avec l'ancien réglage).
+Mêmes 14 pistes que l'ancien réglage ; réglages choisis sur sept vidéos ([08](08-banc-de-mesure.md#sur-six-autres-vidéos)).
+Commande complète : 135 à 151 s (30 à 34 s avec l'ancien réglage).
 
 | # | Début → fin | Détections | Ancien réglage |
 | --- | --- | --- | --- |
@@ -48,20 +55,16 @@ Mêmes 14 pistes que l'ancien réglage ; réglages choisis sur sept vidéos
 | 13 | 3:50.89 → 3:51.69 | 24 | 3:51.02, 21 |
 | 14 | 3:57.18 → 3:58.05 | 27 | 3:57.32, 18 |
 
-Les deux passages confirmés par Manon restent suivis (3:36 dans la piste 11, 3:58 dans
-la piste 14). Cinq pistes commencent plus tôt, de 1 à 9 images (1:49 : 9 images ; 3:57 :
-4 images, la chauve-souris sortant de la végétation), et presque toutes gagnent des
-détections ; 0:51, jugée ignorable, en perd 2. Verdict de l'utilisateur à l'œil sur
-cette configuration : propre.
+Les deux passages confirmés par Manon restent suivis (3:36 dans la piste 11, 3:58 dans la piste 14).
+Cinq pistes commencent plus tôt, de 1 à 9 images (1:49 : 9 images ; 3:57 : 4 images, la chauve-souris sortant de la végétation), et presque toutes gagnent des détections ; 0:51, jugée ignorable, en perd 2.
+Verdict de l'utilisateur à l'œil sur cette configuration : propre.
 
 ## Commande Rust (12 octobre 2026) : 14 pistes
 
-La commande Rust (#123), réglages par défaut, sur l'original. Mêmes 14 pistes que la
-v0.1.1, avec le même nombre de détections chacune. Elles s'apparient toutes à la
-référence (début à ±5 images, points à ±3).
+La commande Rust (#123), réglages par défaut, sur l'original. Mêmes 14 pistes que la v0.1.1, avec le même nombre de détections chacune.
+Elles s'apparient toutes à la référence (début à ±5 images, points à ±3).
 
-Les temps viennent des `pts` : de 0 à 2 centièmes plus tôt que dans la v0.1.1, qui
-divisait par la cadence moyenne ([11](11-migration-rust.md), crate `files`).
+Les temps viennent des `pts` : de 0 à 2 centièmes plus tôt que dans la v0.1.1, qui divisait par la cadence moyenne ([11](11-migration-rust.md), crate `files`).
 
 | # | Début → fin | Détections |
 | --- | --- | --- |
@@ -80,43 +83,32 @@ divisait par la cadence moyenne ([11](11-migration-rust.md), crate `files`).
 | 13 | 3:50.87 → 3:51.67 | 24 |
 | 14 | 3:57.16 → 3:58.03 | 27 |
 
-Temps : 11,7 et 12,0 s réels, 103,7 s de CPU, 434 Mo de mémoire résidente (M1 Max,
-`release`, sous le verrou, machine au calme). Pour comparaison : 11,8 s réels pour la
-détection Rust seule (#118) ; pour la v0.1.1, 118,7 s de détection et 134 s pour la commande complète, rendu compris. La
-commande Rust n'écrivait alors que le CSV et `params.json`. Avec l'image résumé, les extraits
-et le zoom : 19,81 s réels le 16 octobre 2026 ([09](09-profilage.md)).
+Temps : 11,7 et 12,0 s réels, 103,7 s de CPU, 434 Mo de mémoire résidente (M1 Max, `release`, sous le verrou, machine au calme).
+Pour comparaison : 11,8 s réels pour la détection Rust seule (#118) ; pour la v0.1.1, 118,7 s de détection et 134 s pour la commande complète, rendu compris.
+La commande Rust n'écrivait alors que le CSV et `params.json`.
+Avec l'image résumé, les extraits et le zoom : 19,81 s réels le 16 octobre 2026 ([09](09-profilage.md)).
 
 ## Verdict de Manon (9 octobre 2026)
 
-Sur les 14 pistes de ce réglage, **13 sont des chauves-souris**, y compris 0:51 (qui passe
-surtout en bordure droite de l'écran ; elle n'est pas lente) et 2:37. La seule qui n'en est
-pas est la **piste 3:29 → 3:39, la chose lente** : le passage « 3:36 » confirmé en
-septembre était cette chose, il n'est plus compté comme un passage. La vérité terrain de la
-092 est donc : 13 chauves-souris, 1 objet lent à 3:29, et le 3:58 reste le passage
-historique. Règle donnée le même jour : mieux vaut un faux positif facile à écarter à
-l'extrait, comme cette piste lente, qu'un passage manqué ([02](02-methode.md)). Le 3:42.10
-ci-dessous reste à lui montrer.
+Sur les 14 pistes de ce réglage, **13 sont des chauves-souris**, y compris 0:51 (qui passe surtout en bordure droite de l'écran ; elle n'est pas lente) et 2:37.
+La seule qui n'en est pas est la **piste 3:29 → 3:39, la chose lente** : le passage « 3:36 » confirmé en septembre était cette chose, il n'est plus compté comme un passage.
+La vérité terrain de la 092 est donc : 13 chauves-souris, 1 objet lent à 3:29, et le 3:58 reste le passage historique.
+Règle donnée le même jour : mieux vaut un faux positif facile à écarter à l'extrait, comme cette piste lente, qu'un passage manqué ([02](02-methode.md)).
+Le 3:42.10 ci-dessous reste à lui montrer.
 
 ## Cibles connues, pour les issues suivantes
 
-- **092, 3:42.10 → 3:42.30** : objet réel confirmé par l'utilisateur (zoom, vitesse
-  ×0,5), rapide (1 430 px/s), faible (amplitude 19 à 22 sur l'image filtrée), qui entre
-  par le haut de l'image. **Manqué par le réglage par défaut** : sur 2 de ses 6 images,
-  il passe sur des pixels agités où le seuil par pixel monte à 22 à 36 ; il ne reste que
-  4 détections pour un minimum de 6. Trouvé avec 1440 px sans seuil par pixel, réglage
-  qui explose sur d'autres vidéos ([08](08-banc-de-mesure.md#sur-six-autres-vidéos)). À
-  faire confirmer comme chauve-souris par Manon (#6).
-- **125, pistes 8 et 9 du réglage par défaut** (0:28.41 → 0:29.64, 37 détections ;
-  0:28.94 → 0:29.74, 25 détections) : validées comme réelles par l'utilisateur. L'ancien
-  réglage n'en sortait qu'une (0:29.04 → 0:29.34, 8 détections).
-- **Six pistes de l'ancien réglage que le nouveau ne sort plus**, toutes jugées fausses
-  par l'utilisateur : 089 à 1:34.91, 1:46.27, 3:13.33 ; 091 à 0:00.23 ; 125 à 2:03.35 et
-  4:04.18.
+- **092, 3:42.10 → 3:42.30** : objet réel confirmé par l'utilisateur (zoom, vitesse ×0,5), rapide (1 430 px/s), faible (amplitude 19 à 22 sur l'image filtrée), qui entre par le haut de l'image.
+  **Manqué par le réglage par défaut** : sur 2 de ses 6 images, il passe sur des pixels agités où le seuil par pixel monte à 22 à 36 ; il ne reste que 4 détections pour un minimum de 6.
+  Trouvé avec 1440 px sans seuil par pixel, réglage qui explose sur d'autres vidéos ([08](08-banc-de-mesure.md#sur-six-autres-vidéos)).
+  À faire confirmer comme chauve-souris par Manon (#6).
+- **125, pistes 8 et 9 du réglage par défaut** (0:28.41 → 0:29.64, 37 détections ; 0:28.94 → 0:29.74, 25 détections) : validées comme réelles par l'utilisateur.
+  L'ancien réglage n'en sortait qu'une (0:29.04 → 0:29.34, 8 détections).
+- **Six pistes de l'ancien réglage que le nouveau ne sort plus**, toutes jugées fausses par l'utilisateur : 089 à 1:34.91, 1:46.27, 3:13.33 ; 091 à 0:00.23 ; 125 à 2:03.35 et 4:04.18.
 
 ## Export de Stream Vision 2 (historique, 12 pistes)
 
-Vidéo du 2 septembre 2026, 20:37, falaise, jumelles posées, 5 min. Réglages par
-défaut, 12 pistes.
+Vidéo du 2 septembre 2026, 20:37, falaise, jumelles posées, 5 min. Réglages par défaut, 12 pistes.
 
 | # | Début → fin | Durée | Vitesse (px/s) | Statut |
 | --- | --- | --- | --- | --- |
@@ -133,13 +125,12 @@ défaut, 12 pistes.
 | 11 | 3:51.10 → 3:51.53 | 0,43 s | 1609 | à revoir (fragmentée) |
 | 12 | 3:57.40 → 3:58.00 | 0,60 s | 1350 | **confirmée par Manon (3:58)** |
 
-Les passages rapides traversent le champ en diagonale, du haut à droite vers le bas à
-gauche pour la plupart, en 0,3 à 1,3 s.
+Les passages rapides traversent le champ en diagonale, du haut à droite vers le bas à gauche pour la plupart, en 0,3 à 1,3 s.
 
 ## Original contre export
 
-Même vidéo, mêmes réglages par défaut, original copié en USB (12,1 Mb/s) contre export
-de Stream Vision 2 (1,04 Mb/s). Les temps concordent à 0,1 s près.
+Même vidéo, mêmes réglages par défaut, original copié en USB (12,1 Mb/s) contre export de Stream Vision 2 (1,04 Mb/s).
+Les temps concordent à 0,1 s près.
 
 | Passage | Export : points / images (complétude) | Original | Remarque |
 | --- | --- | --- | --- |
@@ -158,9 +149,8 @@ de Stream Vision 2 (1,04 Mb/s). Les temps concordent à 0,1 s près.
 | 3:51 | 13 / 14 | 16 / 16 (100 %) | |
 | 3:57 | 14 / 19 (74 %) | 18 / 22 (82 %) | commence 2 images plus tôt, mais toujours 4 images après l'arrivée vue à l'œil |
 
-Sur les 11 passages rapides communs, on passe de 170 à 222 points détectés (+31 %),
-et 2 passages nouveaux apparaissent. Le calcul prend 4 min 29 au lieu de 2 min 40, à
-cause du décodage d'un fichier 12 fois plus lourd.
+Sur les 11 passages rapides communs, on passe de 170 à 222 points détectés (+31 %), et 2 passages nouveaux apparaissent.
+Le calcul prend 4 min 29 au lieu de 2 min 40, à cause du décodage d'un fichier 12 fois plus lourd.
 
 ## Original avec `min_area` = 4 (réglage par défaut du 4 au 6 octobre 2026)
 
@@ -183,28 +173,24 @@ Mêmes 14 passages, presque tous plus complets ; plusieurs commencent plus tôt.
 | 3:51 | 16 | 17 |
 | 3:57 | 18 | 18 |
 
-Statuts donnés par l'utilisateur le 4 octobre : 2:37 est un vrai passage, 0:51 peut
-être ignoré. 2:37 n'a que 7 détections : `min_hits` ne doit pas dépasser 7.
+Statuts donnés par l'utilisateur le 4 octobre : 2:37 est un vrai passage, 0:51 peut être ignoré.
+2:37 n'a que 7 détections : `min_hits` ne doit pas dépasser 7.
 
 Calcul : 3 min 46 avec la détection parallèle sur 10 processus (rendu des vidéos compris).
 
 ## Après les gains rapides (4 octobre 2026)
 
-`min_area` 4, sans masque, vitesse sur 3 images : toujours 14 passages. Les 5 pistes qui
-s'arrêtaient contre l'ancienne bande du bas vont plus loin (0:07 jusqu'à 8,09 s, 0:34
-jusqu'à 35,27 s, 0:53 jusqu'à 54,88 s, 2:44 jusqu'à 45,38 s, 3:51 jusqu'à 51,69 s), et 3:48
-gagne 2 images (fin à 48,86 s). Entre 0 et 7 images interpolées par piste à l'affichage.
-Calcul : 3 min 35.
+`min_area` 4, sans masque, vitesse sur 3 images : toujours 14 passages.
+Les 5 pistes qui s'arrêtaient contre l'ancienne bande du bas vont plus loin (0:07 jusqu'à 8,09 s, 0:34 jusqu'à 35,27 s, 0:53 jusqu'à 54,88 s, 2:44 jusqu'à 45,38 s, 3:51 jusqu'à 51,69 s), et 3:48 gagne 2 images (fin à 48,86 s).
+Entre 0 et 7 images interpolées par piste à l'affichage. Calcul : 3 min 35.
 
 ## La piste 9
 
-Une tache sombre qui avance lentement et sans à-coups pendant 9,4 s, de la gauche vers
-le centre, puis remonte la paroi : 95 px/s contre 600 à 1900 pour les autres. Ce n'est
-pas un vol. Rien d'autre ne bouge à 3:36. Hypothèses non tranchées : chauve-souris qui
-rampe sur la roche, autre animal, ou passage vu par Manon que le détecteur ne capte pas.
-**Tranché le 9 octobre 2026** : ce n'est pas une chauve-souris, et le « 3:36 » de septembre
-était cette chose (voir « Verdict de Manon » plus haut). La piste reste produite : un faux
-positif facile à écarter vaut mieux qu'un passage manqué.
+Une tache sombre qui avance lentement et sans à-coups pendant 9,4 s, de la gauche vers le centre, puis remonte la paroi : 95 px/s contre 600 à 1900 pour les autres.
+Ce n'est pas un vol. Rien d'autre ne bouge à 3:36.
+Hypothèses non tranchées : chauve-souris qui rampe sur la roche, autre animal, ou passage vu par Manon que le détecteur ne capte pas.
+**Tranché le 9 octobre 2026** : ce n'est pas une chauve-souris, et le « 3:36 » de septembre était cette chose (voir « Verdict de Manon » plus haut).
+La piste reste produite : un faux positif facile à écarter vaut mieux qu'un passage manqué.
 
 ## Historique des réglages sur cette vidéo
 
@@ -219,27 +205,24 @@ positif facile à écarter vaut mieux qu'un passage manqué.
 
 ## Médiane par tri par comparaisons (4 octobre 2026)
 
-Les 14 pistes sont identiques au bit près à celles de `np.median` (égalité des pistes
-complètes). Détection seule, selon le nombre de processus (`--workers`) :
+Les 14 pistes sont identiques au bit près à celles de `np.median` (égalité des pistes complètes).
+Détection seule, selon le nombre de processus (`--workers`) :
 
 | Processus | 1 | 2 | 3 | 4 | 6 | 10 (ancien défaut) |
 | --- | --- | --- | --- | --- | --- | --- |
 | Temps | 31,0 s | 23,7 s | 24,7 s | 27,3 s | 31,6 s | 47,3 s |
 | CPU | 114 s | 150 s | 184 s | 216 s | 282 s | 415 s |
 
-Avant ce changement, avec 10 processus : 66,6 s et 534 s de CPU. Le décodage domine
-désormais : chaque tranche relit la vidéo depuis le début ([09](09-profilage.md)).
+Avant ce changement, avec 10 processus : 66,6 s et 534 s de CPU.
+Le décodage domine désormais : chaque tranche relit la vidéo depuis le début ([09](09-profilage.md)).
 
-Avec la fenêtre en uint8 et le fil lecteur, pistes toujours identiques : 15,1 s avec
-1 processus, 42,3 s avec 10 ([09](09-profilage.md)).
+Avec la fenêtre en uint8 et le fil lecteur, pistes toujours identiques : 15,1 s avec 1 processus, 42,3 s avec 10 ([09](09-profilage.md)).
 
 ## Images saturées ignorées (4 octobre 2026)
 
-Aucune image de la 092 n'atteint la limite (au plus 4 taches par image) : rien n'est
-ignoré, les 14 pistes et le banc sont identiques ([02](02-methode.md#4-bis-images-saturées-de-taches)).
+Aucune image de la 092 n'atteint la limite (au plus 4 taches par image) : rien n'est ignoré, les 14 pistes et le banc sont identiques ([02](02-methode.md#4-bis-images-saturées-de-taches)).
 
 ## `min_hits` 6 et filtre de virage (4 octobre 2026)
 
-Mêmes 14 pistes, mêmes débuts et mêmes nombres de détections. La plus courte, 2:37
-(7 détections), est valide ; la plus sinueuse a un virage médian de 0,35 rad pour un
-seuil de 0,8 ([02](02-methode.md#7-filtres-finaux)).
+Mêmes 14 pistes, mêmes débuts et mêmes nombres de détections.
+La plus courte, 2:37 (7 détections), est valide ; la plus sinueuse a un virage médian de 0,35 rad pour un seuil de 0,8 ([02](02-methode.md#7-filtres-finaux)).
