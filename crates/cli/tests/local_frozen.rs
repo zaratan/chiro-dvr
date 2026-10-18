@@ -46,21 +46,33 @@ const INTERPOLATED_BOX_CLIP: Frozen = Frozen {
     frames: 270,
     fingerprint: 980_471_138_442_225_676,
 };
+#[cfg(target_os = "macos")]
 const CROWDED_097: [(&str, u64); 8] = [
-    ("video_097_resume_1_sur_8.png", 3_016_591_617_919_252_239),
-    ("video_097_resume_2_sur_8.png", 12_816_361_956_728_239_556),
-    ("video_097_resume_3_sur_8.png", 11_276_992_867_599_041_228),
-    ("video_097_resume_4_sur_8.png", 6_923_572_826_997_853_438),
-    ("video_097_resume_5_sur_8.png", 15_749_111_215_172_610_700),
-    ("video_097_resume_6_sur_8.png", 4_962_891_853_068_014_737),
-    ("video_097_resume_7_sur_8.png", 1_996_271_331_930_406_870),
-    ("video_097_resume_8_sur_8.png", 13_978_686_305_726_527_557),
+    ("video_097_fond.png", 7_607_173_609_144_357_337),
+    ("video_097_resume_1_sur_7.png", 462_149_865_514_905_361),
+    ("video_097_resume_2_sur_7.png", 12_613_663_208_208_113_015),
+    ("video_097_resume_3_sur_7.png", 13_425_642_566_402_484_125),
+    ("video_097_resume_4_sur_7.png", 16_340_912_422_006_060_430),
+    ("video_097_resume_5_sur_7.png", 6_921_260_044_773_803_513),
+    ("video_097_resume_6_sur_7.png", 4_295_698_304_659_551_939),
+    ("video_097_resume_7_sur_7.png", 14_250_212_382_463_536_574),
+];
+#[cfg(not(target_os = "macos"))]
+const CROWDED_097: [(&str, u64); 8] = [
+    ("video_097_fond.png", 7_607_173_609_144_357_337),
+    ("video_097_resume_1_sur_7.png", 3_963_425_664_264_590_082),
+    ("video_097_resume_2_sur_7.png", 10_295_237_712_944_874_899),
+    ("video_097_resume_3_sur_7.png", 802_382_416_731_424_545),
+    ("video_097_resume_4_sur_7.png", 14_907_730_300_370_863_861),
+    ("video_097_resume_5_sur_7.png", 3_818_855_017_924_622_932),
+    ("video_097_resume_6_sur_7.png", 13_449_037_203_532_756_582),
+    ("video_097_resume_7_sur_7.png", 4_331_620_396_646_241_260),
 ];
 const UNANALYSED_PERIODS_089_091: [(&str, u64); 4] = [
-    ("video_089-091_resume_000m-010m_1_sur_2.png", 13_343_444_481_319_136_414),
-    ("video_089-091_resume_000m-010m_2_sur_2.png", 17_283_076_105_502_241_980),
-    ("video_089-091_resume_010m-016m_1_sur_2.png", 18_072_565_057_517_773_411),
-    ("video_089-091_resume_010m-016m_2_sur_2.png", 10_750_407_845_215_895_006),
+    ("video_089-091_fond.png", 570_421_013_680_947_995),
+    ("video_089-091_resume_000m-010m.png", 11_207_551_150_198_025_844),
+    ("video_089-091_resume_010m-016m_1_sur_2.png", 13_880_417_764_358_657_798),
+    ("video_089-091_resume_010m-016m_2_sur_2.png", 16_031_982_771_724_615_143),
 ];
 
 fn zoom(wanted: Vec<Clip>) -> Outputs {

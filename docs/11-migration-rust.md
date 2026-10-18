@@ -2333,6 +2333,10 @@ Les cas validés deviennent des empreintes, jamais celle d'un mp4 (VideoToolbox 
     `main` sans #21 échouait déjà sur ces deux empreintes, que #24 n'avait pas refigées.
 - **Images résumé** : les pixels de chaque PNG écrit par `batdetect` en français (`of_pixels`), la 097 et la 089-091, dans `cli/tests/local_frozen.rs`.
   Ce test ne peut pas vivre dans `summary` : le fond est la médiane calculée par la détection, et `summary` n'a ni FFmpeg ni moteur.
+  Refigées le 18 octobre 2026, après #21, #311 et #326 : la 097 passe de huit images à sept, la tranche 0-10 min de la 089-091 tient sur une image au lieu de deux.
+  Le fond de chaque vidéo (`_fond.png`, écrit depuis #259) y entre aussi.
+  Les images de la 097 ont une empreinte par système : vers 182 s, Linux voit une image abîmée de plus que macOS, et la plage non analysée finit à 182,15 s au lieu de 181,68 s ; ses pistes et son fond sont identiques.
+  La 089-091 est dans le seau depuis ce jour (README de la référence).
 - Un changement voulu du dessin, de la détection ou du suivi casse ces empreintes : on les refige en le disant, après un nouveau jugement à l'œil si le dessin a changé.
 
 ## Référence v0.1.1
