@@ -27,38 +27,31 @@ Want to learn more: [how the detection works](docs/10-logique-de-detection.md) (
 
 ## Installation
 
-On a Mac with Apple silicon (M1 or newer) and macOS 14 or newer, with [Homebrew](https://brew.sh), type in the Terminal:
+On a Mac with Apple silicon and macOS 14 or newer, with [Homebrew](https://brew.sh):
 
 ```bash
 brew install zaratan/bat-tools/batdetect
 ```
 
-Before your first evening, type `batdetect doctor` in the folder where the results will be written.
-Every line starts with ✓ when all is good.
-Under a ✗ line, the "what to do" line tells you what to do; a ⚠ line doesn't block anything.
+On Linux (glibc 2.35 or newer) and Windows 10 or newer, on an x86-64-v2 processor or newer, grab `batdetect-linux-x86_64.tar.gz` or `batdetect-windows-x86_64.zip` from the [releases page](https://github.com/zaratan/chiro-dvr/releases/latest).
+The first time, Windows SmartScreen may block it: "More info", then "Run anyway".
 
-For Tab to complete the names of videos and options, `batdetect completion zsh` will tell you the steps.
+On a Mac without Homebrew, `batdetect-darwin-arm64.tar.gz` works too, once you've run `xattr -d com.apple.quarantine batdetect` on the unpacked program.
 
-On Linux and Windows, download the archive for your system from the [releases page](https://github.com/zaratan/chiro-dvr/releases/latest) and unpack it:
-
-- Linux: `batdetect-linux-x86_64.tar.gz`, for glibc 2.35 or newer (Ubuntu 22.04 and after);
-- Windows 10 or newer: `batdetect-windows-x86_64.zip`.
-  The first time, SmartScreen may block it: click "More info", then "Run anyway".
-
-On Linux and Windows, the processor must be x86-64-v2 or newer.
-
-On a Mac without Homebrew, use `batdetect-darwin-arm64.tar.gz`.
-macOS will block the downloaded program: after unpacking it, type `xattr -d com.apple.quarantine` followed by a space, drag the `batdetect` program into the Terminal, then press Enter.
+`batdetect doctor` will check, in the current folder, that everything is ready: the video encoder, the free space and the right to write.
+`batdetect completion zsh` will tell you how to get Tab completion.
 
 ## Usage
 
-1. Copy the videos from the binoculars to a folder on your computer, through the USB cable.
-2. Open the Terminal.
-3. Type `batdetect` followed by a space, then drag the folder into the Terminal window.
-4. Press Enter and wait for the summary of the evening.
-5. Open the results page, `batdetect/results.html`, created next to the videos; on a Mac, it opens by itself.
+Copy the videos of the evening from the binoculars through the USB cable, then:
 
-With an archive instead of Homebrew, drag the `batdetect` program (`batdetect.exe` on Windows) into the Terminal first, instead of typing its name.
+```bash
+batdetect path/to/the/evening
+```
+
+Everything goes in `path/to/the/evening/batdetect/`, or wherever you point `-o`.
+On a Mac, the results page opens by itself at the end.
+`batdetect --help` lists the options and the few settings that change the detection.
 
 `batdetect` speaks French and English, following the language of your system.
 
