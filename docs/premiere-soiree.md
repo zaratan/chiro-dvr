@@ -16,7 +16,7 @@ L'installeur demande le mot de passe du Mac (rien ne s'affiche pendant la frappe
 Il finit par « Next steps » : copier et lancer, une par une, les commandes qu'il affiche là, sans quoi le Terminal ne trouve pas `brew`.
 
 **Installer l'outil** : taper `brew install zaratan/bat-tools/batdetect`, puis Entrée.
-Pour vérifier, taper `batdetect --version` : la première ligne affichée doit dire « batdetect 0.2.0 ». Tout cela ne se fait qu'une fois.
+Pour vérifier, taper `batdetect --version` : la première ligne affichée doit dire « batdetect 0.3.0 ». Tout cela ne se fait qu'une fois.
 
 **Vérifier que tout est prêt** (depuis la version 0.3.0) : taper `batdetect doctor`, puis Entrée.
 Chaque ligne commence par ✓ quand tout va bien ; sous une ligne ✗, la ligne « à faire » dit quoi faire ; une ligne ⚠ ne bloque rien.
