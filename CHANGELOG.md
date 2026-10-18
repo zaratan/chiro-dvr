@@ -62,7 +62,7 @@ Les versions suivent [SemVer](https://semver.org/lang/fr/). Chaque version publi
 - Deux lancements sur le même dossier, ou un Ctrl-C pendant l'écriture de la page de résultats, ne mélangent plus deux versions d'un même fichier (#245).
 - Dans le total de la page de résultats, les vidéos calculées par une version plus ancienne de l'outil sont nommées à part (« 4 vidéos · 3 réussies · 1 d'une ancienne version ») au lieu d'être seulement comptées (#247).
 - Après un Ctrl-C, les vidéos du lot pas encore commencées restent sur la page de résultats, marquées « pas encore traitée » avec ce qu'il faut faire, et la vidéo en cours y figure, « inachevée » quand rien d'un calcul précédent n'y est gardé ; avant, elles n'y apparaissaient pas.
-  Un Ctrl-C pendant la première vidéo laisse aussi sa page, en créant le dossier de résultats de cette vidéo (#247).
+  Un Ctrl-C pendant la première vidéo laisse aussi la page de résultats, qui montre cette vidéo « inachevée » (#247).
 - Dans la page de résultats, une vidéo sans extrait ni image résumé n'ouvre plus de lecteur vide : ses pistes sont listées avec leur numéro, leur début et leur durée seulement, et ne comptent pas dans « à voir » ni dans « jugées » (#247).
 - Sous Linux, une vidéo dont le nom n'est pas en UTF-8 est traitée, et une relance la reconnaît comme déjà faite.
   Dans la page de résultats, son tableau et ses verdicts s'affichent, mais ni son image résumé ni sa vidéo annotée, et les liens vers son tableau, ses extraits et son dossier sont cassés (#227).
