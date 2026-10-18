@@ -2,7 +2,7 @@
 
 ## Pour utiliser l'outil
 
-Ces documents s'adressent à la naturaliste et ne contiennent rien de technique : ce qui sert à les refaire est rangé côté développeur, plus bas.
+Ces documents sont écrits pour la naturaliste, sans rien de technique.
 
 Première fois : commencez par la [première soirée](premiere-soiree.md).
 Vous relisez les résultats d'une soirée : passez à [lire les résultats](lire-les-resultats.md).
@@ -14,7 +14,7 @@ Vous relisez les résultats d'une soirée : passez à [lire les résultats](lire
 
 ## Pour comprendre ou modifier l'outil
 
-Ce dossier garde ce qu'on a appris en construisant `batdetect` : ce que le code ne dit pas, et pourquoi les choses sont comme elles sont.
+Ces documents disent ce que le code ne dit pas : pourquoi chaque réglage a sa valeur, ce qu'on a mesuré, ce qui reste à trancher.
 
 | Document | Pour qui | Contenu |
 | --- | --- | --- |
@@ -26,17 +26,16 @@ Ce dossier garde ce qu'on a appris en construisant `batdetect` : ce que le code 
 | [06-questions-ouvertes.md](06-questions-ouvertes.md) | Naturaliste et développeur | Ce qui reste à trancher ou à valider |
 | [07-ameliorer-la-detection.md](07-ameliorer-la-detection.md) | Développeur | Diagnostic mesuré des pistes manquées et catalogue des améliorations (3 octobre 2026) |
 | [08-banc-de-mesure.md](08-banc-de-mesure.md) | Développeur | Le banc de cibles synthétiques : commande, méthode, métriques, limites, puis les mesures de la v0.1.1 |
-| [09-profilage.md](09-profilage.md) | Développeur | Où part le temps de calcul du Rust : étapes, points chauds, fils ; puis le profil de la v0.1.1 en Python |
+| [09-profilage.md](09-profilage.md) | Développeur | Où part le temps de calcul : étapes, points chauds, fils |
 | [10-logique-de-detection.md](10-logique-de-detection.md) | Naturaliste et développeur | La logique expliquée : outil mathématique de chaque étape, choix et limites |
-| [11-migration-rust.md](11-migration-rust.md) | Développeur | La réécriture en Rust : bilan, chaîne de construction, licences, charte, tests, encodage, et l'histoire de la migration |
+| [11-migration-rust.md](11-migration-rust.md) | Développeur | Le Rust : chaîne de construction, licences, lints, charte, dépendances, tests, encodage, crates, réglages, références v0.1.1 et v0.2.0 |
 | [images/README.md](images/README.md) | Développeur | D'où vient chaque image des docs pour la naturaliste, et comment les refaire |
 | [tools/docs-images.sh](../tools/docs-images.sh) | Développeur | Le script qui refait toutes les images de `docs/images/` depuis l'extrait de test |
 
 ## Qui tient quoi
 
-Chaque vérité nouvelle s'écrit à un seul endroit ; les autres documents y renvoient.
-Les mesures datées que 02 et 10 partageaient avant cette règle y restent.
-Toute modification de comportement du code met à jour ce document-là, dans la même série de changements.
+Chaque vérité s'écrit à un seul endroit, et les autres documents y renvoient.
+Un changement de comportement du code met à jour ce document-là, dans la même série de changements.
 
 | Vérité | Document | Ailleurs |
 | --- | --- | --- |
@@ -54,4 +53,4 @@ Toute modification de comportement du code met à jour ce document-là, dans la 
 | Parcours d'une soirée, des jumelles aux résultats, pour qui n'a jamais lancé l'outil | [premiere-soiree](premiere-soiree.md) | le README y renvoie |
 | Lecture de l'image résumé : bandeau, trait, flèche, pastille, zone masquée, frise du temps, couleurs | [lire-les-resultats](lire-les-resultats.md#lire-limage-résumé) | le README y renvoie |
 | Lecture d'un extrait, façon de désigner une piste et de noter son verdict, faux positifs observés | [lire-les-resultats](lire-les-resultats.md#juger-un-extrait) | le dessin des extraits et ses réglages sont dans [02](02-methode.md#extrait-zoomé-et-ralenti) |
-| Histoire et mesures datées | 11 et les sections datées de 03, 07, 08, 09 | — |
+| Histoire du dépôt | git et le [CHANGELOG](../CHANGELOG.md) ; les mesures datées qui justifient un réglage restent dans 07, 08 et 09 | — |

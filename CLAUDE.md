@@ -60,7 +60,7 @@ Une question sur ce qui est ou n'est pas une chauve-souris lui remonte ; elle ne
 ## Rust
 
 Le Python est retiré depuis #199 (dernier état au tag `python-final`).
-La chaîne de construction, la charte, les tests et l'histoire de la réécriture sont dans [docs/11](docs/11-migration-rust.md).
+La chaîne de construction, la charte et les tests sont dans [docs/11](docs/11-migration-rust.md) ; l'histoire de la réécriture est dans git.
 
 ```bash
 /Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:ffmpeg  # FFmpeg 7.1.1 + openh264, une fois par poste
