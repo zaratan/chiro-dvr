@@ -1,66 +1,95 @@
 # batdetect
 
-## Ce que fait l'outil, et ce qu'il ne fait pas
+A tool to find the bats flying through the videos of your thermal binoculars.
 
-`batdetect` cherche ce qui bouge dans les vidéos des jumelles thermiques et suit chaque trajectoire : c'est une piste.
-Pour chaque vidéo, il donne une image qui montre toutes les pistes, un tableau qui les décrit et un court extrait vidéo par piste, sur lequel on juge, à l'œil, si c'est une chauve-souris.
+![The results page of an evening, with the summary image of a video and the list of its tracks](docs/images/results-page.jpg)
 
-Il ne reconnaît pas une chauve-souris, et ne compte pas les passages, les vols de chauve-souris confirmés à l'œil : une piste peut être un autre animal ou du bruit d'image, un passage peut être manqué ou coupé en deux pistes.
-Il ne regarde pas les moments où les jumelles bougent.
-Ce qu'il voit mal, et quoi faire, est dit dans [ce que l'outil ne voit pas](docs/lire-les-resultats.md#ce-que-loutil-ne-voit-pas).
+## Why
 
-## Installer
+I saw my girlfriend, a naturalist, use dvr-scan to look for bats in the videos of her thermal binoculars.
+It was super slow and it didn't work well (not its fault: it's made for security cameras, not for bats).
+Then she had to watch every clip it cut out and try to see what was moving.
 
-Sur un Mac à puce Apple (M1 ou plus récent) en macOS 14 ou plus récent, avec [Homebrew](https://brew.sh), taper dans le Terminal :
+`batdetect` was made to do the watching for her <3 I hope you'll also find the tool usefull.
+
+On my Mac (M1 Max), a 5-minute video takes about 20 seconds.
+
+## How does it work
+
+You will copy the videos of an evening from the binoculars to your computer.
+`batdetect` will follow everything that moves in them, and each trajectory becomes a track.
+For each track, it will cut a short clip and draw the track on a summary image of the scene.
+You will watch the clips and decide which tracks are bats: if you filmed bats they probably are but I already had a small insect walking on top of my sensor (that was a very slow bat).
+
+## Installation
+
+On a Mac with Apple silicon (M1 or newer) and macOS 14 or newer, with [Homebrew](https://brew.sh), type in the Terminal:
 
 ```bash
 brew install zaratan/bat-tools/batdetect
 ```
 
-Depuis la version 0.3.0, pour vérifier que tout est prêt avant une soirée, taper `batdetect doctor` dans le dossier où les résultats seront écrits.
-Chaque ligne commence par ✓ quand tout va bien ; sous une ligne ✗, la ligne « à faire » dit quoi faire ; une ligne ⚠ ne bloque rien.
+Before your first evening, type `batdetect doctor` in the folder where the results will be written.
+Every line starts with ✓ when all is good.
+Under a ✗ line, the "what to do" line tells you what to do; a ⚠ line doesn't block anything.
 
-Depuis la version 0.3.0, pour que la touche Tab complète les noms de vidéos et les options, copier une fois dans le Terminal `echo 'autoload -Uz compinit && compinit' >> ~/.zshrc`, puis Entrée, puis ouvrir une nouvelle fenêtre du Terminal.
-Sans Homebrew, `batdetect completion zsh` affiche les étapes à suivre.
+For Tab to complete the names of videos and options, `batdetect completion zsh` will tell you the steps.
 
-Sous Linux et Windows, télécharger l'archive de son système sur la [page des versions](https://github.com/zaratan/chiro-dvr/releases/latest), puis la décompresser :
+On Linux and Windows, download the archive for your system from the [releases page](https://github.com/zaratan/chiro-dvr/releases/latest) and unpack it:
 
-- Linux : `batdetect-linux-x86_64.tar.gz`, pour une glibc 2.35 ou plus récente (Ubuntu 22.04 et après) ;
-- Windows 10 ou plus récent : `batdetect-windows-x86_64.zip`.
-  Au premier lancement, SmartScreen peut bloquer le programme : « Informations complémentaires », puis « Exécuter quand même ».
+- Linux: `batdetect-linux-x86_64.tar.gz`, for glibc 2.35 or newer (Ubuntu 22.04 and after);
+- Windows 10 or newer: `batdetect-windows-x86_64.zip`.
+  The first time, SmartScreen may block it: click "More info", then "Run anyway".
 
-Sous Linux et Windows, le processeur doit être de niveau x86-64-v2.
+On Linux and Windows, the processor must be x86-64-v2 or newer.
 
-Sur Mac, l'archive `batdetect-darwin-arm64.tar.gz` remplace Homebrew si besoin. macOS bloque alors le programme téléchargé : après l'avoir décompressé, taper `xattr -d com.apple.quarantine` suivi d'une espace, glisser le programme `batdetect` dans le Terminal, puis Entrée.
+On a Mac without Homebrew, use `batdetect-darwin-arm64.tar.gz`.
+macOS will block the downloaded program: after unpacking it, type `xattr -d com.apple.quarantine` followed by a space, drag the `batdetect` program into the Terminal, then press Enter.
 
-## Lancer une soirée
+## Usage
 
-1. Copier les vidéos des jumelles dans un dossier de l'ordinateur, par le câble USB, jamais par l'export de Stream Vision 2.
-2. Ouvrir le Terminal.
-3. Taper `batdetect` suivi d'une espace, puis glisser le dossier dans la fenêtre du Terminal.
-4. Appuyer sur Entrée et attendre le bilan de la soirée.
-5. Ouvrir le dossier `batdetect/` créé à côté des vidéos ; sur Mac, il s'ouvre tout seul.
+1. Copy the videos from the binoculars to a folder on your computer, through the USB cable.
+2. Open the Terminal.
+3. Type `batdetect` followed by a space, then drag the folder into the Terminal window.
+4. Press Enter and wait for the summary of the evening.
+5. Open the results page, `batdetect/results.html`, created next to the videos; on a Mac, it opens by itself.
 
-Avec une archive plutôt qu'Homebrew, glisser d'abord le programme `batdetect` (`batdetect.exe` sous Windows) dans le Terminal, à la place de taper son nom.
+With an archive instead of Homebrew, drag the `batdetect` program (`batdetect.exe` on Windows) into the Terminal first, instead of typing its name.
 
-Chaque étape en détail, avec ce qu'on doit voir : [première soirée](docs/premiere-soiree.md).
-Le temps de calcul dépend de l'ordinateur ([mesures](docs/09-profilage.md)).
+`batdetect` speaks French and English, following the language of your system.
 
-## Ce qu'on obtient
+Every step in detail, with what you should see: [first evening](docs/premiere-soiree.md) (in French).
 
-Pour chaque vidéo, un dossier à son nom dans `batdetect/` : l'image résumé, qui montre toutes les pistes sur la scène (plusieurs images pour une longue vidéo) ; le tableau des pistes, à ouvrir dans un tableur ; un extrait par piste, et un extrait ralenti et agrandi pour les pistes petites ou faibles.
-À la fin, le Terminal affiche le bilan de la soirée et la page des résultats, `batdetect/resultats.html`, s'ouvre dans le navigateur : toute la soirée, images et extraits compris, sur une seule page, où l'on note les verdicts piste par piste.
-Comment lire tout cela, juger un extrait et noter son verdict : [lire les résultats](docs/lire-les-resultats.md).
+## What you get
 
-## Choisir un mode
+At the end, the Terminal prints the summary of the evening.
+On a Mac, the results page, `batdetect/results.html` (`resultats.html` in French), opens in your browser; on Linux and Windows, open it yourself.
+The whole evening is on that one page, with the summary images and the clips, and you note your verdict track by track.
 
-Il n'y a pas de mode à choisir : l'outil est réglé pour préférer une piste de trop à un passage manqué, et ses réglages par défaut servent pour toutes les soirées.
-Les quelques réglages qui changent la détection sont listés, avec leur valeur par défaut, par `batdetect --help`, sous « Réglages qui changent la détection » (« Settings that change the detection » en anglais).
+Next to it, each video gets a folder with its name:
 
-## Pour aller plus loin
+- the summary image, with every track drawn over the scene (several images for a long video);
+- the table of the tracks, to open in a spreadsheet;
+- a clip per track, and a slowed-down, zoomed clip for small or faint tracks.
 
-Construire l'outil depuis les sources, le vérifier ou publier une version : [CONTRIBUTING.md](CONTRIBUTING.md).
-Ce qu'on a appris en le construisant, et pourquoi il est réglé ainsi : [la base de connaissances](docs/README.md).
+How to read all of this, judge a clip and note your verdict: [reading the results](docs/lire-les-resultats.md) (in French).
 
-Le code est sous licence MIT ([LICENSE](LICENSE)).
-Le programme publié contient FFmpeg, sous LGPL 2.1 ou ultérieure, openh264 (BSD-2), la police Roboto (OFL-1.1) et des bibliothèques Rust : [packaging/NOTICE](packaging/NOTICE) les décrit, et leurs textes de licence sont dans [packaging/licenses/](packaging/licenses/).
+## Limits
+
+`batdetect` doesn't recognise a bat and doesn't count passes.
+A track can be another animal or image noise; a pass can be missed, or cut into two tracks.
+It is set to prefer one track too many over a missed pass, and its default settings work for all of our evenings so far.
+It skips the moments where the binoculars move.
+
+What it sees badly, and what to do about it: [what the tool doesn't see](docs/lire-les-resultats.md#ce-que-loutil-ne-voit-pas) (in French).
+
+## Development
+
+Building, checking and releasing: [CONTRIBUTING.md](CONTRIBUTING.md).
+What we learned building it, and why it is set the way it is: [the knowledge base](docs/README.md) (in French).
+
+## License
+
+The code is under the MIT license ([LICENSE](LICENSE)).
+It was made using AI to code (they type way faster than I do (and don't sleep)) but there's no AI in the final product.
+The published program contains FFmpeg (LGPL 2.1 or later), openh264 (BSD-2), the Roboto font (OFL-1.1) and Rust libraries: [packaging/NOTICE](packaging/NOTICE) describes them, and their license texts are in [packaging/licenses/](packaging/licenses/).

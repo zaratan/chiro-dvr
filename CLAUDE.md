@@ -44,7 +44,7 @@ Une question sur ce qui est ou n'est pas une chauve-souris lui remonte ; elle ne
 
 **Un module, une responsabilité, ses tests.** Mieux vaut beaucoup de petits fichiers clairs qu'un gros fichier à plusieurs rôles.
 
-- Code et identifiants en anglais, docs en français. Une valeur magique devient une constante nommée.
+- Code, identifiants et README en anglais, docs en français. Une valeur magique devient une constante nommée.
 - Les docs pour la naturaliste (`docs/premiere-soiree.md`, `docs/lire-les-resultats.md`, le README) ne contiennent rien de technique : ni commande de reproduction, ni `<details>`, ni script, ni nom de crate ou de fichier source ; les captures se refont par `tools/docs-images.sh` ([docs/images/README.md](docs/images/README.md)).
 - Tests sans commentaire, le nom du test porte le pourquoi.
   Pas de mock de FFmpeg, ni de couture qui remplace un processus dans le code : images fabriquées ou vraie vidéo.
