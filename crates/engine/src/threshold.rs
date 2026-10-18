@@ -11,6 +11,7 @@ pub(crate) const LANES: usize = 64;
 pub(crate) const MIN_NOISE_SAMPLES: usize = 7;
 pub(crate) const STACKED_SAMPLES: usize = 64;
 const MAD_TO_SIGMA: f32 = 1.4826;
+pub(crate) const WEAK_RATIO: f32 = 0.75;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Lit {
@@ -29,6 +30,7 @@ pub(crate) struct Scratch {
     lanes: Vec<[u16; LANES]>,
     deviations: Vec<f32>,
     pub(crate) lit: Vec<Lit>,
+    pub(crate) weak: Vec<Lit>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -56,23 +58,36 @@ impl Threshold {
 
     pub(crate) fn lit(self, frame: Frame<'_>, scratch: &mut Scratch) {
         let count = frame.samples.len();
-        let Scratch { lanes, deviations, lit } = scratch;
+        let Scratch {
+            lanes,
+            deviations,
+            lit,
+            weak,
+        } = scratch;
         lit.clear();
+        weak.clear();
         if deviations.len() < count {
             deviations.resize(count, 0.0);
         }
         if count <= STACKED_SAMPLES {
             let mut stacked = [[0_u16; LANES]; STACKED_SAMPLES];
-            self.light(&mut stacked[..count], frame, deviations, lit);
+            self.light(&mut stacked[..count], frame, deviations, lit, weak);
         } else {
             if lanes.len() < count {
                 lanes.resize(count, [0; LANES]);
             }
-            self.light(&mut lanes[..count], frame, deviations, lit);
+            self.light(&mut lanes[..count], frame, deviations, lit, weak);
         }
     }
 
-    fn light(self, lanes: &mut [[u16; LANES]], frame: Frame<'_>, deviations: &mut [f32], lit: &mut Vec<Lit>) {
+    fn light(
+        self,
+        lanes: &mut [[u16; LANES]],
+        frame: Frame<'_>,
+        deviations: &mut [f32],
+        lit: &mut Vec<Lit>,
+        weak: &mut Vec<Lit>,
+    ) {
         let Frame {
             samples,
             current,
@@ -93,15 +108,21 @@ impl Threshold {
             for (offset, ((&value, &low), &high)) in block.iter().zip(low).zip(high).enumerate() {
                 let background = f32::midpoint(f32::from(low), f32::from(high));
                 let magnitude = (f32::from(value) - background - gains.current).abs();
-                if magnitude > self.floor
-                    && !mask.covers(start + offset)
-                    && (!noisy
-                        || magnitude > self.raised(samples, start + offset, background, gains.samples, deviations))
-                {
-                    lit.push(Lit {
+                if magnitude > self.floor * WEAK_RATIO && !mask.covers(start + offset) {
+                    let bar = if noisy {
+                        self.raised(samples, start + offset, background, gains.samples, deviations)
+                    } else {
+                        self.floor
+                    };
+                    let found = Lit {
                         pixel: numbered(start + offset),
                         magnitude,
-                    });
+                    };
+                    if magnitude > bar {
+                        lit.push(found);
+                    } else if magnitude > bar * WEAK_RATIO {
+                        weak.push(found);
+                    }
                 }
             }
         }

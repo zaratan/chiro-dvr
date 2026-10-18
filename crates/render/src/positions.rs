@@ -1,4 +1,4 @@
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::frame::FrameIndex;
 
 #[cfg(test)]
@@ -61,5 +61,6 @@ fn between(before: &Detection, after: &Detection, step: usize, steps: usize) -> 
         height: lerp(before.height, after.height),
         area: lerp(before.area, after.area),
         amplitude: 0.0,
+        strength: Strength::Strong,
     }
 }

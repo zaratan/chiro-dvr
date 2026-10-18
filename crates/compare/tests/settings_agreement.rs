@@ -34,33 +34,34 @@ fn every_setting_of_the_bench_is_compared_and_none_fails() {
 
 #[test]
 #[ignore = "settings"]
-fn every_setting_keeps_the_gaps_frozen_against_the_v020_case_by_case() {
+fn every_setting_keeps_the_gaps_frozen_against_the_v020_case_by_case_where_only_weak_detections_are_added() {
     let found: Vec<(&str, Gaps)> = outcome()
         .compared
         .iter()
         .map(|comparison| (comparison.detections.name(), comparison.gaps()))
         .collect();
+    let weak = Gaps::added_only;
     let agreeing = Gaps::agreeing;
 
     assert_eq!(
         found,
         [
-            ("max_area_400", agreeing(4)),
-            ("merge_radius_0", agreeing(4)),
-            ("min_area_9", agreeing(5)),
-            ("noise_factor_0", agreeing(4)),
-            ("osd", agreeing(4)),
-            ("quick", agreeing(4)),
-            ("sigma_0", agreeing(30)),
-            ("sigma_3", agreeing(4)),
-            ("size_720x540", agreeing(4)),
-            ("step_1", agreeing(5)),
+            ("max_area_400", weak(6, 6, [4, 4, 0, 1])),
+            ("merge_radius_0", weak(12, 16, [4, 4, 0, 0])),
+            ("min_area_9", weak(2, 2, [5, 4, 0, 0])),
+            ("noise_factor_0", weak(9, 10, [4, 4, 0, 0])),
+            ("osd", weak(5, 5, [4, 4, 0, 0])),
+            ("quick", weak(4, 6, [4, 4, 0, 0])),
+            ("sigma_0", weak(264, 664, [24, 22, 6, 16])),
+            ("sigma_3", weak(5, 5, [3, 3, 1, 1])),
+            ("size_720x540", weak(3, 3, [4, 4, 0, 0])),
+            ("step_1", weak(6, 6, [5, 5, 0, 0])),
             ("threshold_25", agreeing(4)),
-            ("width_1440", agreeing(4)),
-            ("width_1440_osd", agreeing(4)),
-            ("width_480", agreeing(4)),
-            ("width_720", agreeing(5)),
-            ("window_2s", agreeing(4)),
+            ("width_1440", weak(1, 1, [4, 4, 0, 0])),
+            ("width_1440_osd", weak(1, 1, [4, 4, 0, 0])),
+            ("width_480", weak(8, 8, [4, 4, 0, 0])),
+            ("width_720", weak(13, 16, [5, 4, 0, 2])),
+            ("window_2s", weak(6, 6, [4, 4, 0, 0])),
         ]
     );
 }

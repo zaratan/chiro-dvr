@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use media::encode::fanout::Fanout;
 use media::encode::{self, Codec, Encoder, Settings, Stamps};
 use media::frame::{ColorRange, YuvFrame};
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
@@ -66,6 +66,7 @@ pub(crate) fn track(id: usize, points: &[(usize, f64, f64)]) -> Track {
             height: 10.0,
             area: 100.0,
             amplitude: 40.0,
+            strength: Strength::Strong,
         })
         .collect();
     Track::new(id, detections).unwrap()

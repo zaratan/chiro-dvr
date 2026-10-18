@@ -1,6 +1,6 @@
 use proptest::prelude::*;
 
-use super::{Reduction, Rounding};
+use super::{Area, Narrow, Reduction, Rounding};
 use crate::gray::GRAY;
 
 fn reduced(luma: &[u8], source: (usize, usize), work: (usize, usize)) -> Vec<u8> {
@@ -247,5 +247,66 @@ proptest! {
         let reciprocal = matches!(rounding, Rounding::Reciprocal { .. });
         prop_assert!(reciprocal);
         prop_assert_eq!(u64::from(rounding.rounded(total)), (total + divisor / 2) / divisor);
+    }
+}
+
+const BLOCK_SHAPES: [(usize, usize); 4] = [(2, 1), (3, 1), (3, 2), (4, 3)];
+
+#[test]
+fn the_narrow_rounding_divides_every_reachable_total_exactly_for_every_divisor_it_accepts() {
+    for divisor in 1..=128_u32 {
+        let narrow = Narrow::new(u64::from(divisor)).unwrap();
+        for total in 0..=255 * divisor {
+            assert_eq!(
+                u32::from(narrow.rounded(total)),
+                (total + divisor / 2) / divisor,
+                "{divisor} {total}"
+            );
+        }
+    }
+}
+
+#[test]
+fn the_narrow_rounding_accepts_no_divisor_above_128() {
+    assert!(Narrow::new(128).is_some());
+    assert_eq!(Narrow::new(129), None);
+}
+
+#[test]
+fn every_block_shape_is_chosen_at_construction_and_any_other_ratio_keeps_the_general_path() {
+    for (span, unit) in BLOCK_SHAPES {
+        assert!(
+            Area::between((4 * span, 3), (4 * unit, 1)).blocks.is_some(),
+            "{span} {unit}"
+        );
+    }
+    assert!(Area::between((5 * 4, 5), (2 * 4, 2)).blocks.is_none());
+}
+
+#[test]
+fn the_largest_area_of_the_narrow_rounding_reduces_in_blocks_and_the_next_one_by_the_general_path() {
+    for (rows, blocks) in [(32, true), (33, false)] {
+        let (source, work) = ((4 * 5, rows * 2), (3 * 5, 2));
+        let luma: Vec<u8> = (0..source.0 * source.1).map(|pixel| (pixel * 37 % 256) as u8).collect();
+        let white = vec![u8::MAX; source.0 * source.1];
+
+        assert_eq!(Area::between(source, work).blocks.is_some(), blocks, "{rows}");
+        assert_eq!(reduced(&luma, source, work), by_area(&luma, source, work), "{rows}");
+        assert_eq!(reduced(&white, source, work), vec![u8::MAX; work.0 * work.1], "{rows}");
+    }
+}
+
+proptest! {
+    #[test]
+    fn every_block_shape_reduces_like_the_area_weights_on_row_ratios_up_to_five(
+        (source, work, luma) in (0..BLOCK_SHAPES.len(), 1_usize..8, 1_usize..6, 1_usize..5)
+            .prop_flat_map(|(shape, wide, span, high)| (Just(shape), Just(wide), Just(span), 1..=span, Just(high)))
+            .prop_flat_map(|(shape, wide, rows_span, rows_unit, high)| {
+                let (span, unit) = BLOCK_SHAPES[shape];
+                let source = (span * wide, rows_span * high);
+                (Just(source), Just((unit * wide, rows_unit * high)), prop::collection::vec(any::<u8>(), source.0 * source.1))
+            }),
+    ) {
+        prop_assert_eq!(reduced(&luma, source, work), by_area(&luma, source, work));
     }
 }

@@ -1,6 +1,6 @@
 use std::fs;
 
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::frame::{FrameIndex, Pts};
 use types::language::Language;
 use types::rate::FrameRate;
@@ -59,6 +59,7 @@ fn point(frame: usize, x: f64, y: f64, area: f64) -> Detection {
         height: 3.0,
         area,
         amplitude: 80.0,
+        strength: Strength::Strong,
     }
 }
 

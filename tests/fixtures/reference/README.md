@@ -44,7 +44,7 @@ Le seau Scaleway `chiro-dvr-videos` (projet `chiro-dvr`), lu par rclone sous le 
 
 `SHA256SUMS`, à côté de ce fichier, donne la somme (`shasum -a 256`) de chacun des 199
 fichiers de la référence et des 26 vidéos, sous ces deux préfixes ; le `README.md` du seau n'y
-est pas, et n'est pas récupéré.
+est pas, et n'est pas récupéré ; un dossier copié en entier du seau peut le garder (#339).
 
 Contrôles du seau après envoi, depuis le Mac de l'enregistrement, par `rclone check` du dossier
 local contre le préfixe :
@@ -59,10 +59,10 @@ BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… mise run rust:data
 ```
 
 Les deux variables sont obligatoires et leurs chemins absolus, comme les lisent les tests.
-Avant tout téléchargement, la tâche refuse un dossier qui recouvre `in/` ou
+Avant tout téléchargement, la tâche (`tools/reference-data.sh`) refuse un dossier qui recouvre `in/` ou
 `~/dossier sans titre/img_0000` (comparés comme fichiers, quelle que soit la casse écrite), les
 deux variables sur le même dossier, un dossier de référence qui contient un fichier absent de
-`SHA256SUMS` et un dossier de vidéos qui contient un mp4 absent de `SHA256SUMS` (`.DS_Store` et
+`SHA256SUMS`, hormis le `README.md` du seau à sa racine, et un dossier de vidéos qui contient un mp4 absent de `SHA256SUMS` (`.DS_Store` et
 `._*` ignorés), ou un mp4 au nom d'une des 26 vidéos mais à la somme différente : ce peut être
 une vidéo d'une autre soirée, les jumelles reprenant leur numérotation, et la tâche n'écrit
 jamais par-dessus. Un `.partial` laissé par rclone n'est pas concerné. Elle copie ensuite par

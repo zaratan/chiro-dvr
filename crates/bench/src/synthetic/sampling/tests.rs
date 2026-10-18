@@ -1,7 +1,7 @@
 use std::num::{NonZeroU32, NonZeroUsize};
 
 use proptest::prelude::*;
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
@@ -47,6 +47,7 @@ fn crossing_track() -> Track {
             height: 1.0,
             area: 1.0,
             amplitude: -20.0,
+            strength: Strength::Strong,
         })
         .collect();
     Track::new(0, points).unwrap()

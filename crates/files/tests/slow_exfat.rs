@@ -1,5 +1,8 @@
 #![cfg(target_os = "macos")]
 
+#[path = "support/listing.rs"]
+mod listing;
+
 use std::ffi::OsStr;
 use std::fs;
 use std::io;
@@ -11,6 +14,7 @@ use files::error::Error;
 use files::names::Names;
 use files::previous::remove_previous_outputs;
 use files::table::{Column, Headings, write_tracks_csv};
+use listing::left_in;
 use tempfile::{TempDir, TempPath};
 use types::frame::Pts;
 use types::language::Language;
@@ -105,16 +109,6 @@ fn one_second() -> Timeline {
 #[cfg(test)]
 fn write_table(path: &Path) {
     write_tracks_csv(path, &[], &one_second(), Language::English, &Debugged).unwrap();
-}
-
-#[cfg(test)]
-fn left_in(dest: &Path) -> Vec<String> {
-    let mut names: Vec<String> = fs::read_dir(dest)
-        .unwrap()
-        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
-        .collect();
-    names.sort();
-    names
 }
 
 #[test]

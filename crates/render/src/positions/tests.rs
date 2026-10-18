@@ -1,4 +1,4 @@
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::frame::FrameIndex;
 
 use super::{bounded, filled};
@@ -14,6 +14,7 @@ fn point(frame: usize, width: f64, height: f64) -> Detection {
         height,
         area: width * height,
         amplitude: 50.0,
+        strength: Strength::Strong,
     }
 }
 

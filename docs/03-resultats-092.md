@@ -1,11 +1,29 @@
 # Résultats sur video_092
 
-La référence est l'original copié en USB (`video_092_original.mp4`). Depuis le 6 octobre
-2026, les réglages par défaut sont 960 px, filtre de 1,5 px, seuil 12 et seuil par pixel
-(facteur 8). La section [Commande Rust](#commande-rust-12-octobre-2026--14-pistes) donne les
-14 pistes de l'outil d'aujourd'hui ; la section suivante, celles de la v0.1.1 aux mêmes
-réglages. Les sections plus bas sont l'historique : export de Stream Vision 2, puis
-original avec l'ancien réglage (480 px, seuil fixe 25).
+La référence est l'original copié en USB (`video_092_original.mp4`). Depuis le 6 octobre 2026, les réglages par défaut sont 960 px, filtre de 1,5 px, seuil 12 et seuil par pixel (facteur 8). La section [Détections faibles encadrées](#détections-faibles-encadrées-17-octobre-2026--14-pistes) donne les 14 pistes de l'outil d'aujourd'hui ; [Commande Rust](#commande-rust-12-octobre-2026--14-pistes), celles de la v0.2.0 ; la section du 6 octobre, celles de la v0.1.1 aux mêmes réglages. Les sections plus bas sont l'historique : export de Stream Vision 2, puis original avec l'ancien réglage (480 px, seuil fixe 25).
+
+## Détections faibles encadrées (17 octobre 2026) : 14 pistes
+
+La commande avec les détections faibles encadrées et le suivi « fortes d'abord » (#21, [10](10-logique-de-detection.md#5-ter-garder-les-taches-faibles-qui-comblent-un-vol)), réglages par défaut, sur l'original. Mêmes 14 pistes que la v0.2.0, avec le même début et la même fin, toutes appariées et concordantes. Quatre pistes gagnent des détections : 0:07.39 en gagne 3 ; 0:53.75, 1:12.59 et 2:02.81 en gagnent une chacune. Ce sont 6 positions estimées remplacées par une vraie tache : 26 → 20 sur les pistes rapides. La 092 garde 20 détections faibles, et ses pistes y gagnent ces 6 points. La cible de 3:42.10 reste manquée ([cibles connues](#cibles-connues-pour-les-issues-suivantes)).
+
+| # | Début → fin | Détections | v0.2.0 |
+| --- | --- | --- | --- |
+| 1 | 0:07.39 → 0:08.13 | 23 | 20 |
+| 2 | 0:33.93 → 0:35.26 | 40 | 40 |
+| 3 | 0:51.62 → 0:51.88 | 7 | 7 |
+| 4 | 0:53.75 → 0:54.88 | 35 | 34 |
+| 5 | 1:12.59 → 1:13.86 | 36 | 35 |
+| 6 | 1:48.92 → 1:49.99 | 32 | 32 |
+| 7 | 2:02.81 → 2:03.48 | 18 | 17 |
+| 8 | 2:24.62 → 2:25.12 | 13 | 13 |
+| 9 | 2:36.98 → 2:37.44 | 10 | 10 |
+| 10 | 2:43.94 → 2:45.37 | 44 | 44 |
+| 11 | 3:29.59 → 3:39.21 | 290 | 290 |
+| 12 | 3:48.27 → 3:48.84 | 17 | 17 |
+| 13 | 3:50.87 → 3:51.67 | 24 | 24 |
+| 14 | 3:57.16 → 3:58.03 | 27 | 27 |
+
+Temps de `compare 092` (détection et suivi, sans rendu) sur lumiel, au calme sous le verrou : 29,4 et 29,8 s réels en deux passages contre 29,2 et 29,4 s pour `main` sans #21 (mêmes détections que la v0.2.0), et 450 Mo de mémoire résidente contre 441 à 442 (mesuré après la fusion de #24).
 
 ## Réglages par défaut du 6 octobre 2026 : 14 pistes
 

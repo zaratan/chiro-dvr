@@ -1,6 +1,6 @@
 use std::fs;
 
-use types::detection::Detection;
+use types::detection::{Detection, Strength};
 use types::frame::FrameIndex;
 use types::track::Track;
 
@@ -18,6 +18,7 @@ fn point(frame: usize, x: f64) -> Detection {
         height: 6.0,
         area: 24.75,
         amplitude: 21.334_605_477_072_97,
+        strength: Strength::Strong,
     }
 }
 

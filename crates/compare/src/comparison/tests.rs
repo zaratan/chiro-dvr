@@ -158,6 +158,22 @@ fn the_gaps_of_a_comparison_gather_its_differing_frames_its_detections_and_its_t
 }
 
 #[test]
+fn gaps_made_only_of_added_weak_detections_lose_no_detection() {
+    assert_eq!(
+        Gaps::added_only(6, 7, [4, 3, 1, 2]),
+        Gaps {
+            differing_frames: 6,
+            lost_detections: 0,
+            added_detections: 7,
+            paired_tracks: 4,
+            agreeing_tracks: 3,
+            lost_tracks: 1,
+            added_tracks: 2,
+        }
+    );
+}
+
+#[test]
 fn the_detections_are_compared_at_the_frame_rate_of_the_reference() {
     let mut recording = extract();
     recording.summary.stream.avg_frame_rate = types::rational::Rational::new(0, 1).unwrap();

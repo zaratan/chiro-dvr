@@ -92,13 +92,7 @@ const VerdictsOverlay = ({ section, tracks, store, say, current, shows, onChoose
 
   const reachable = (svg) => dotsOf(svg).filter((dot) => shows(byId.get(dot.dataset.id)));
 
-  const label = (dot) => {
-    const track = byId.get(dot.dataset.id);
-    dot.setAttribute(
-      "aria-label",
-      say("trace-button", { track: track.id, start: track.clock, verdict: store.word(track) }),
-    );
-  };
+  const label = (dot) => dot.setAttribute("aria-label", VerdictsOverlay.named(store, say, byId.get(dot.dataset.id)));
 
   const settle = (dots, dot) => dots.forEach((one) => one.setAttribute("tabindex", one === dot ? "0" : "-1"));
 
@@ -210,6 +204,15 @@ const VerdictsOverlay = ({ section, tracks, store, say, current, shows, onChoose
   update();
 
   return { update, restore };
+};
+
+VerdictsOverlay.named = (store, say, track) => {
+  const kind = store.kindOf(track);
+  return say(kind === "todo" ? "trace-to-see" : `trace-${kind}`, {
+    track: track.id,
+    start: track.aloud,
+    value: store.get(track).other,
+  });
 };
 
 VerdictsOverlay.bare = (svg) => {

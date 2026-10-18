@@ -51,6 +51,7 @@ pub(crate) fn combine(a: Detection, b: Detection) -> Detection {
         height: bottom - top,
         area,
         amplitude: a.amplitude.max(b.amplitude),
+        strength: a.strength.stronger(b.strength),
     }
 }
 

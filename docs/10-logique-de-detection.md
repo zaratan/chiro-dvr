@@ -15,7 +15,7 @@ tache, régularité.
 
 ## Les techniques en simple
 
-Huit techniques font le travail, dans l'ordre où elles s'appliquent. Chacune se lit en trois
+Neuf techniques font le travail, dans l'ordre où elles s'appliquent. Chacune se lit en trois
 temps : ce qu'elle fait, une image de la vie courante, ce qu'elle rate.
 
 **Le filtre à la taille de la cible.** Chaque image est d'abord adoucie à la mesure d'une
@@ -45,6 +45,14 @@ touchent, ou presque, forment une tache ; une tache de taille plausible sur une 
 un point. C'est entourer d'un seul trait les gouttes d'une même éclaboussure. Elles ratent
 une cible qui n'allume presque aucun pixel sur une image : elle n'y laisse pas de point.
 
+**Les taches faibles encadrées** ([§ 5 ter](#5-ter-garder-les-taches-faibles-qui-comblent-un-vol)).
+Une tache un peu trop faible pour le seuil, au-dessus des trois quarts, est gardée si une
+vraie tache la précède et une autre la suit de près, et si elle tombe sur le chemin entre
+les deux. C'est le pointillé qu'on devine entre deux traits nets d'une même route. Elle ne
+sert qu'à boucher les trous d'un vol déjà vu : elle n'ouvre jamais de piste, et une piste ne
+la prend que si aucune vraie tache n'est à sa portée. Elle rate une cible qui reste faible
+plusieurs images de suite, sans vraie tache de part et d'autre.
+
 **Les périodes ignorées** ([§ 6](#6-écarter-les-images-où-les-jumelles-bougent)). Quand
 l'image se remplit soudain de taches, le plus souvent parce que les jumelles ont bougé, ou
 quand le fichier vidéo est abîmé, l'outil ne cherche rien sur ce moment et ses abords, et
@@ -55,8 +63,9 @@ l'œil.
 
 **Le suivi image par image** ([§ 7](#7-relier-les-taches-dans-le-temps--le-suivi)).
 L'outil prolonge le trajet de chaque piste pour prédire où elle sera à l'image suivante, et
-lui donne le point le plus proche de cette prédiction, s'il n'est pas trop loin ; un point
-resté seul ouvre une nouvelle piste. C'est suivre des yeux un ballon lancé en devinant sa
+lui donne le point le plus proche de cette prédiction, s'il n'est pas trop loin, une vraie
+tache passant toujours avant une tache faible ; une vraie tache restée seule ouvre une
+nouvelle piste. C'est suivre des yeux un ballon lancé en devinant sa
 course. Un vol qui disparaît plus de 6 images en sort en deux pistes, que le recollage réunit ensuite quand il le peut. Une piste ne
 commence qu'une fois que la cible se détache assez du fond, après l'arrivée réelle de
 l'animal.
@@ -79,6 +88,8 @@ lent, qui paraît hésitant, ou une boucle qui revient à son point de départ.
 ```
 vidéo ─► image grise réduite et filtrée ─► fond (médiane) ─► résidu ─► seuil par pixel ─► taches
   │                                                                     │
+  │                                                        taches faibles encadrées gardées
+  │                                                                     │
   │ pistes ◄─ recollage ◄─ filtres ◄─ fusion des jumelles ◄─ suivi ◄─ images instables retirées
   │                                                                     ▲
   └─► signalements du décodeur et horodatages (même lecture) ──► images illisibles retirées
@@ -91,10 +102,11 @@ vidéo ─► image grise réduite et filtrée ─► fond (médiane) ─► ré
 | Fond | `engine/src/window.rs`, `network.rs` | médiane temporelle, réseau de tri | À quoi ressemble la scène sans animal ? |
 | Gain | `engine/src/detector.rs` | différence de moyennes | L'image entière a-t-elle changé de luminosité ? |
 | Seuil | `engine/src/threshold.rs` | valeur absolue, plancher et bruit du pixel (MAD) | Ce pixel s'écarte-t-il assez du fond, compte tenu de son propre bruit ? |
-| Taches | `engine/src/closing.rs`, `components.rs` | fermeture morphologique, composantes connexes | Quels pixels forment un même objet ? |
+| Taches | `engine/src/closing.rs`, `components.rs`, `detector.rs` | fermeture morphologique, composantes connexes, en deux passages (fortes, puis faibles) | Quels pixels forment un même objet ? |
+| Faibles | `engine/src/bracketing.rs` | interpolation entre deux taches fortes | Cette tache faible comble-t-elle le trou d'un vol ? |
 | Illisible | `media/src/decode_errors.rs`, `engine/src/lost.rs`, `damage.rs` | signalements du décodeur, horodatages, images-clés | Le décodeur a-t-il dû réparer l'image ? |
 | Stabilité | `tracking/src/stability.rs`, `exclusion.rs` | comptage, médiane | Les jumelles ont-elles bougé ? |
-| Suivi | `tracking/src/track.rs` et `track/` | prédiction linéaire, plus proche voisin | Cette tache prolonge-t-elle une piste ? |
+| Suivi | `tracking/src/track.rs` et `track/` | prédiction linéaire, plus proche voisin, fortes d'abord | Cette tache prolonge-t-elle une piste ? |
 | Jumelles | `tracking/src/track/twins.rs` | union-find | Deux pistes sont-elles un seul animal ? |
 | Filtres | `tracking/src/track.rs`, `types/src/track.rs` | comptage, distance, angle médian | Cette piste ressemble-t-elle à un vol ? |
 | Recollage | `tracking/src/track/rejoin.rs` | prolongement des deux bouts, paires du plus proche au plus lointain | Deux pistes sont-elles un même vol caché un moment ? |
@@ -210,8 +222,8 @@ plancher est `--threshold`, 12 par défaut).
 **MAD** (médiane des écarts absolus à la médiane, multipliée par 1,4826 pour valoir un
 écart-type sur un bruit gaussien) ; les écarts sont corrigés du gain de chaque image. Le seuil
 devient max(plancher, k × bruit). Il n'est calculé que si la fenêtre a au moins 7 échantillons, et
-seulement pour les pixels dont le résidu dépasse déjà le plancher et qui ne sont pas masqués :
-les autres ne peuvent pas être retenus. *Choix* : la MAD plutôt que l'écart-type, parce qu'un
+seulement pour les pixels dont le résidu dépasse déjà les trois quarts du plancher et qui ne
+sont pas masqués : les autres ne peuvent pas être retenus. *Choix* : la MAD plutôt que l'écart-type, parce qu'un
 passage d'animal sur une ou deux images de la fenêtre ne la fait presque pas monter ; la
 fenêtre plutôt qu'une moyenne qui s'accumule depuis le début, pour que chaque image ne
 dépende que de ses voisines ; le plancher, parce que la MAD sur 11 images est souvent très
@@ -224,6 +236,17 @@ images sous un seuil relevé à 22 à 36, et n'a plus assez de détections pour 
 Un saut de gain de 30 niveaux, qu'absorbait l'ancien seuil de 25, allume désormais toute
 l'image : le filtre des images saturées (§ 6) ignore quelques secondes autour du saut, sans
 créer de piste.
+
+**Le seuil bas** (`WEAK_RATIO`, 0,75, constante de `engine/src/threshold.rs`). Un pixel dont
+le résidu dépasse les trois quarts de son seuil (plancher 9 et 6 fois le bruit, par défaut)
+est retenu comme **faible** ; au-dessus du seuil entier, il est **fort**, exactement comme
+avant. Les pixels faibles ne servent qu'aux taches faibles encadrées
+([§ 5 ter](#5-ter-garder-les-taches-faibles-qui-comblent-un-vol)) : aucune détection forte ne
+change à la sortie de la détection. *Pourquoi 0,75* : c'est la seule fraction mesurée qui gagne sans abîmer la 092. À 0,6
+et à 0,5, les détections faibles détournent le suivi, qui coupe des pistes en deux : la 092
+passe de 26 à 36 et 24 positions estimées, avec 4 et 3 pistes nouvelles (mesuré le 17 octobre
+2026, #21). Le seuil haut reste celui d'aujourd'hui : le relever ferait perdre des détections
+fortes, donc des passages.
 
 ## 5. Regrouper les pixels en taches
 
@@ -243,6 +266,14 @@ gardée entre `min_area` 4 et `max_area` 2 700 px² d'origine, bornes comprises.
 une source de 1440, un pixel réduit vaut 2,25 px² : il faut donc deux pixels au-dessus du
 seuil, et une tache d'un seul pixel est rejetée (à 480 px, un seul suffisait). Plus haut,
 9 ou 18 px² perdent les petites cibles faibles sans retirer de bruit (mesuré avec la v0.1.1).
+
+**Deux passages** (`engine/src/detector.rs`). Le premier ne prend que les pixels forts :
+fermeture et composantes donnent les détections fortes, identiques à l'octet à celles d'un
+seuil sans partie faible. Le second, seulement s'il reste des pixels faibles, reprend tous
+les pixels et ne garde que les taches sans aucun pixel fort : ce sont les détections
+faibles. *Pourquoi deux passages* : relier les pixels faibles aux taches fortes, en un seul
+passage, grossit et déplace les détections fortes. Sur la 092, à 0,75, ce premier essai
+perdait 114 détections et ajoutait 8 pistes (#21).
 
 ## 5 bis. Écarter les images que le décodeur a réparées
 
@@ -312,6 +343,53 @@ marge, il reste environ 98 s analysées sur les 300 de la vidéo.
   du décodeur : une raison de plus pour écarter la plage entière.
 - Le fond de l'image résumé écarte aussi les images abîmées.
 
+## 5 ter. Garder les taches faibles qui comblent un vol
+
+**Outil.** Une **interpolation linéaire** entre deux détections fortes
+(`engine/src/bracketing.rs`), sur toutes les détections de la vidéo, après la détection et
+avant tout le reste. Une détection faible est gardée si :
+
+- une détection forte la précède et une autre la suit, chacune à 3 images au plus
+  (`SUPPORT_FRAMES`) et à 60 px d'origine par image d'écart au plus (`SUPPORT_STEP`) ;
+- ces deux appuis sont à 20 px l'un de l'autre au moins (`SUPPORT_MOVE`) : une source
+  immobile n'est pas un vol ;
+- elle tombe à 10 px au plus (`BRACKET_TOLERANCE`) de la position interpolée entre les deux,
+  au prorata des images de chaque côté ;
+- aucune détection forte de sa propre image n'est à 12 px ou moins (`BESIDE_STRONG`, entre
+  centres) : ce serait un morceau de cette tache, pas un trou.
+
+Les autres détections faibles sont jetées. Les détections fortes passent toutes, inchangées.
+
+**Pourquoi encadrée.** Le but est de remplacer les positions que le suivi invente pendant un
+trou par la vraie tache, quand elle n'a manqué le seuil que de peu. Sur les 26 vidéos, les
+pistes rapides (150 px/s et plus) de la v0.2.0 ont 4 236 positions estimées pour 25 079
+points (16,9 %) ; sur la 092, 26 pour 320. Mesures du 17 octobre 2026 (#21) :
+
+- *Encadrée, 10 px* : 4 236 → 3 358 positions estimées sur les 26 vidéos (−20,7 %), et sur la
+  092, 26 → 20 avec ses 14 pistes inchangées. Chaque piste rapide de la v0.2.0 se compare à la piste d'aujourd'hui qui partage le plus de détections avec elle. Un premier calcul la comparait à celle qui partageait le plus d'images, parfois la piste d'un autre animal au même moment, et annonçait 2 932 (corrigé à la fusion de #24).
+- *Appuyée d'un seul côté* : sur la 092, 26 → 39 positions estimées et 4 pistes nouvelles ;
+  les détections faibles au bout d'une piste l'entraînent ailleurs.
+- *Encadrée, 20 px* : la 092 passe à 21, mais le passage de 3:50.87 se coupe en deux pistes.
+- *Prolongée au-delà des appuis* (deux détections fortes du même côté) : seule variante qui
+  retrouve la cible connue de 3:42.10, mais à 0,6 et 40 px, avec 9 pistes nouvelles sur la
+  092.
+- *20 px de mouvement exigé* : ne change presque rien ; le bruit ajouté ne vient donc pas de
+  sources immobiles.
+
+**Les détections faibles comptent** dans le filtre des images saturées (§ 6), comme toutes
+les détections. Sur les 26 vidéos, les images écartées changent sur 7 d'entre elles : 32 de
+plus et 26 de moins (098), sur 45 716 ; aucune piste perdue n'y tombe.
+
+**Limites.** Les détections faibles gardées sont nombreuses là où le bruit est fort : environ
+237 000 sur les 26 vidéos, dont 156 000 sur la 103 (+30 % de détections), sans piste en plus.
+57 % d'entre elles sont à 12-36 px d'une détection forte de leur image : des morceaux de la
+même tache plutôt que des trous comblés, que le critère entre centres laisse passer. Les
+rejeter jusqu'à 36 px garderait le gain (3 381 positions estimées au lieu de 3 358), mais
+perdrait deux réunions jugées justes sur la 090 (mesuré le 17 octobre 2026, non retenu). La cible connue de 3:42.10 sur la 092 n'a que 4 images
+détectées, et ses voisines tombent à 40 px de la prolongation : elle reste sans piste. La
+mémoire et le temps ne bougent presque pas (092 au calme, `compare 092` sur lumiel le 17 octobre 2026, deux passages après la fusion de #24 : 450 Mo contre
+441 à 442 sans #21, 29,4 à 29,8 s contre 29,2 à 29,4).
+
 ## 6. Écarter les images où les jumelles bougent
 
 **Outil.** Un simple **comptage** (`tracking/src/stability.rs`). Une image est suspecte si
@@ -362,10 +440,33 @@ plus proche voisin** (`tracking/src/track.rs`, `track/growing.rs`, `track/associ
 - *La porte est large (120 px)* parce qu'un animal rapide parcourt 60 px par image et
   peut manquer plusieurs images.
 
+**Fortes d'abord** (`track/association.rs`, `track.rs`). À chaque image, l'attribution se fait
+en deux tours : les détections fortes d'abord, exactement comme si les faibles n'existaient
+pas ; puis les pistes restées sans détection prennent les faibles, dans le même ordre. Une
+détection faible restée libre n'ouvre jamais de piste. *Pourquoi* : sans ces deux règles, les
+détections faibles mélangeaient des pistes. L'utilisateur a jugé à l'œil les 15 pistes perdues
+de la première variante sur les 26 vidéos (17 octobre 2026, #21) : 6 réunions de deux
+chauves-souris différentes, par trois mécanismes mesurés.
+
+- Une piste prend une détection faible plus proche de sa prédiction que la forte (099 à
+  3:33.15 : 12,6 px contre 21) ; la forte, restée seule, ouvre une piste parasite qui saute
+  sur l'animal voisin.
+- La forte laissée seule, ou une faible isolée, tombe à moins de 36 px de deux animaux qui
+  volent près l'un de l'autre et fait pont dans la fusion des jumelles (§ 8) : 099 à 3:22.40
+  et 3:44.21.
+- Une piste enchaîne, par une détection faible, sur la tache de l'animal suivant (095 à
+  4:46.68, 100 à 2:01.18).
+
+Avec les deux règles, les 6 réunions disparaissent et les 3 réunions jugées justes restent
+(090 à 2:28.15 et 2:46.50, 099 à 3:21.66). Sur les 26 vidéos : 965 pistes appariées à la
+v0.2.0 sur 972, dont 876 concordantes, 7 perdues et 37 ajoutées ; la 092 garde ses 14 pistes.
+Des 7 perdues, 2 sont des réunions justes (la troisième, à la 099, n'en perd aucune), 4 restent
+une seule piste dont le début bouge de plus de 5 images (096 à 1:42, 098 à 2:27, 101 à 3:42,
+125 à 1:11) et une disparaît (097 à 0:16, cause non isolée). Le recollage du [§ 9 bis](#9-bis-recoller-un-vol-caché-derrière-la-végétation) passe après, et les deux effets ne s'additionnent pas : mesurés ensemble, 889 pistes appariées, 746 concordantes, 83 perdues et 33 ajoutées, contre 905, 844, 67 et 0 pour le recollage seul (une piste réunie à une autre compte pour perdue) ; la 092 garde ses 14 pistes (fusion de #24, 17 octobre 2026).
+
 **Pourquoi pas plus savant.** Un filtre de Kalman ou une affectation optimale
 (algorithme hongrois) sont les outils habituels. Avec quelques taches par image, le
-glouton donne le même résultat, et il reste court. Kalman deviendra utile pour
-élargir la porte pendant un trou (issue #21).
+glouton donne le même résultat, et il reste court.
 
 **Limites.** Une interruption de plus de 6 images coupe le vol en deux pistes ; le recollage les réunit quand le trou ne dure pas plus de 19 images ([§ 9 bis](#9-bis-recoller-un-vol-caché-derrière-la-végétation)). La piste commence quand la tache dépasse le seuil, donc après l'arrivée réelle de
 l'animal (issue #8). `max_jump` et `max_gap` ne se règlent que dans le banc.
@@ -378,11 +479,19 @@ former des familles (`tracking/src/track/twins.rs`).
 **Règle.** Deux pistes qui coexistent, partagent au moins une image et restent à moins de
 `twin_distance` (36 px) l'une de l'autre sur *toutes* leurs images communes sont un seul
 animal vu en deux morceaux. Elles sont fusionnées : boîte englobante commune, aires
-additionnées, centre pondéré par l'aire, amplitude la plus forte.
+additionnées, centre pondéré par l'aire, amplitude la plus forte ; le point réuni est fort si
+l'un des deux l'est.
 
 **Pourquoi « toutes ».** Deux vrais animaux qui volent ensemble s'écartent au moins une
 fois ; deux fragments d'un même animal, jamais. Cette règle n'a été vérifiée que sur des
 trajectoires fabriquées (issue #26).
+
+**Limite.** La règle se juge paire par paire, et les familles se forment de proche en proche :
+une piste d'un seul point, à moins de 36 px de deux animaux proches sur sa seule image,
+suffit à les réunir (mesuré sur la 099, #21). « Fortes d'abord » (§ 7) retire les ponts faits
+de détections faibles. Exiger que toutes les pistes d'une famille soient jumelles deux à deux
+supprimait aussi les autres ponts, mais ajoutait 3 pistes sur la 092 : cette règle n'a pas été
+retenue.
 
 ## 9. Garder ce qui ressemble à un vol
 
@@ -425,6 +534,7 @@ Quand une fin peut se prolonger par plusieurs débuts, ou un début continuer pl
 **Ce que ça donne.**
 
 - *Sur les 26 vidéos* : 67 soudures, 972 pistes ramenées à 905, toutes sur 11 vidéos (093 : 2, 094 : 1, 095 : 11, 096 : 13, 097 : 15, 098 : 8, 099 : 7, 100 : 5, 101 : 1, 102 : 1, 125 : 3). 70 paires remplissaient les conditions : 2 fins et 3 débuts en avaient deux, et l'ordre du plus proche a tranché. 16 autres paires ont été écartées parce qu'un bout touchait le bord. L'allure (plus bas) en refuse 2 de plus, sur la 095 et la 097 : 65 soudures, 907 pistes. La 092 garde ses 14 pistes.
+- *Avec les détections faibles* ([§ 5 ter](#5-ter-garder-les-taches-faibles-qui-comblent-un-vol)) : 80 soudures au lieu de 67, sur les mêmes 11 vidéos (093 : 3, 094 : 1, 095 : 14, 096 : 16, 097 : 18, 098 : 9, 099 : 7, 100 : 5, 101 : 1, 102 : 3, 125 : 3), qui ramènent 1 002 pistes à 922. Des 67 soudures d'avant, 65 se refont. À la 097 vers 2:42, deux bouts se recollent à une autre suite que sans détections faibles. À la 098 vers 2:27, le bout du milieu manque (§ 7) et les deux autres ne se recollent plus.
 - *Fausses soudures au hasard* : les mêmes règles appliquées à des pistes décalées de 10 ou 20 s, qui ne peuvent pas être le même animal, en soudent 2,7 en moyenne. Sur le banc de chasse, très dense (720 cibles synthétiques en 5 minutes), une soudure sur 15 a collé deux cibles différentes qui se suivaient au même endroit.
 - *Les cas regardés à l'œil* : sur une planche de 10 paires, l'utilisateur en a jugé 8 « même passage » et 2 « non » (le trou de 5,9 s, une sortie du cadre) ; la règle recolle les 8 et aucun des 2. Le plus grand écart des 8 au point de rencontre est de 45 px, le plus long trou de 13 images.
 - *Le zoom* : une piste recollée garde son extrait zoomé si l'un de ses bouts, seul, y avait droit (plus grande tache sous 100 px² ou écart au fond sous 40, [02](02-methode.md#extrait-zoomé-et-ralenti)). Sans cela, la piste recollée prendrait la plus grande tache et le plus fort écart de ses bouts, et le bout net ferait perdre son zoom au bout faible : 10 pistes sur les 26 vidéos l'auraient perdu. Une piste qui n'est pas recollée suit la règle de toujours.
@@ -490,7 +600,7 @@ jugement de la naturaliste.
 | --- | --- |
 | Les jumelles sont fixes | Les périodes de mouvement sont ignorées et signalées |
 | L'animal bouge de plus que sa taille en une seconde | Il s'efface dans le fond |
-| L'animal s'écarte du fond filtré de plus de 12 niveaux et de 8 fois le bruit du pixel (1,4826 × MAD) | Il n'est pas vu ; le ciel saturé est aveugle ; devant de la végétation agitée, il faut un contraste plus fort |
+| L'animal s'écarte du fond filtré de plus de 12 niveaux et de 8 fois le bruit du pixel (1,4826 × MAD), sauf entre deux images où il le fait, à 3 images au plus de chaque côté (alors 9 niveaux et 6 fois le bruit suffisent) | Il n'est pas vu ; le ciel saturé est aveugle ; devant de la végétation agitée, il faut un contraste plus fort |
 | La cible a à peu près la taille du filtre gaussien (1,5 px d'origine) | Plus petite, elle perd du contraste ; plus grande, elle est moins rehaussée |
 | Une cible allume au moins deux pixels de travail (960 px sur une source de 1440) | L'image est perdue (`min_area`) |
 | Le gain des jumelles change peu en une demi-seconde | Autour d'un saut de 30 niveaux ou plus, quelques secondes sont ignorées |

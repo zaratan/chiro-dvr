@@ -1,6 +1,6 @@
 use std::num::{NonZeroU32, NonZeroUsize};
 
-use types::detection::Detection;
+use types::detection::{Detection, Measures, Strength};
 use types::size::SourceSize;
 
 use rayon::ThreadPoolBuilder;
@@ -281,4 +281,52 @@ fn sixty_one_and_eighty_one_background_samples_give_the_same_detections_bit_for_
         assert_eq!(run(4, 16), one_by_one, "{half}");
         assert_eq!(run(3, 7), one_by_one, "{half}");
     }
+}
+
+fn quiet(index: usize) -> Vec<u8> {
+    background(WIDTH, HEIGHT, GRAY, 0.5, index as u64)
+}
+
+fn shapes(found: &[Vec<Detection>]) -> Vec<Vec<Measures>> {
+    found
+        .iter()
+        .map(|frame| {
+            frame
+                .iter()
+                .map(|found| Measures {
+                    amplitude: 0.0,
+                    ..Measures::of(found)
+                })
+                .collect()
+        })
+        .collect()
+}
+
+#[test]
+fn a_spot_between_three_quarters_of_the_threshold_and_the_threshold_is_found_weak() {
+    let found = detected((0..40).map(|index| with_square(quiet(index), WIDTH, (30 + 6 * index, 90), 6, -12.0)));
+
+    single_at(&found, |index| 32.5 + 6.0 * index as f64, 92.5);
+    assert!(
+        found
+            .iter()
+            .flatten()
+            .all(|detection| detection.strength == Strength::Weak)
+    );
+}
+
+#[test]
+fn a_faint_spot_within_the_merge_radius_of_a_strong_one_neither_grows_it_nor_adds_a_detection() {
+    let alone: Vec<Vec<u8>> = (0..40)
+        .map(|index| with_square(quiet(index), WIDTH, (30 + 6 * index, 90), 6, -80.0))
+        .collect();
+    let touched: Vec<Vec<u8>> = alone
+        .iter()
+        .enumerate()
+        .map(|(index, frame)| with_square(frame.clone(), WIDTH, (40 + 6 * index, 90), 6, -12.0))
+        .collect();
+
+    let (alone, touched) = (detected(alone), detected(touched));
+
+    assert_eq!(shapes(&touched), shapes(&alone));
 }

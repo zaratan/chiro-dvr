@@ -9,6 +9,7 @@ mod tests;
 
 pub const MAX_DATED_LINES: usize = 3;
 const SECONDS_PER_MINUTE: u64 = 60;
+const SECONDS_PER_HOUR: u64 = 3600;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HeaderLine {
@@ -42,11 +43,12 @@ fn clock_whole(seconds: u64) -> String {
 }
 
 pub fn duration(whole_seconds: u64) -> String {
-    let (minutes, rest) = (whole_seconds / SECONDS_PER_MINUTE, whole_seconds % SECONDS_PER_MINUTE);
-    if minutes == 0 {
-        format!("{rest} s")
-    } else {
-        format!("{minutes} min {rest} s")
+    let (hours, rest) = (whole_seconds / SECONDS_PER_HOUR, whole_seconds % SECONDS_PER_HOUR);
+    let (minutes, seconds) = (rest / SECONDS_PER_MINUTE, rest % SECONDS_PER_MINUTE);
+    match (hours, minutes) {
+        (0, 0) => format!("{seconds} s"),
+        (0, _) => format!("{minutes} min {seconds} s"),
+        _ => format!("{hours} h {minutes} min {seconds} s"),
     }
 }
 

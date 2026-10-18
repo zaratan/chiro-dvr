@@ -1,5 +1,6 @@
 mod background;
 pub mod blur;
+mod bracketing;
 mod closing;
 mod components;
 pub mod config;

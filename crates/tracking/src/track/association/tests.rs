@@ -1,7 +1,7 @@
 use types::frame::FrameIndex;
 
 use super::Association;
-use crate::fake::detection;
+use crate::fake::{detection, weak};
 use crate::track::growing::Growing;
 
 #[test]
@@ -76,4 +76,26 @@ fn at_equal_distance_the_detection_listed_first_is_taken() {
         .collect();
     assert_eq!(unmatched, [5.0]);
     assert!((active[0].last().x - 15.0).abs() < 1e-12);
+}
+
+#[test]
+fn a_track_takes_a_strong_detection_over_a_closer_weak_one() {
+    let mut active = vec![Growing::new(detection(0, 0.0, 0.0))];
+    let found = [weak(1, 12.0, 0.0), detection(1, 21.0, 0.0)];
+    let unmatched: Vec<_> = Association::default()
+        .assign(&mut active, &found, FrameIndex::new(1), 120.0)
+        .collect();
+    assert_eq!(active[0].last(), &found[1]);
+    assert_eq!(unmatched, [found[0]]);
+}
+
+#[test]
+fn a_track_without_a_strong_detection_in_reach_takes_a_weak_one() {
+    let mut active = vec![Growing::new(detection(0, 0.0, 0.0))];
+    let found = [detection(1, 500.0, 0.0), weak(1, 12.0, 0.0)];
+    let unmatched: Vec<_> = Association::default()
+        .assign(&mut active, &found, FrameIndex::new(1), 120.0)
+        .collect();
+    assert_eq!(active[0].last(), &found[1]);
+    assert_eq!(unmatched, [found[0]]);
 }

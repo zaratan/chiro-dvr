@@ -1,5 +1,5 @@
 use crate::geometry::Geometry;
-use crate::gray::GRAY;
+use crate::gray;
 
 #[cfg(test)]
 mod tests;
@@ -17,6 +17,7 @@ pub(crate) struct Area {
     columns: Axis,
     rows: Axis,
     rounding: Rounding,
+    blocks: Option<Blocks>,
     source_gray: Vec<u8>,
     line: Vec<u32>,
 }
@@ -25,6 +26,26 @@ pub(crate) struct Area {
 enum Rounding {
     Reciprocal { multiplier: u64, half: u64 },
     Exact { divisor: u64, half: u64 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Narrow {
+    multiplier: u32,
+    half: u32,
+}
+
+#[derive(Debug)]
+enum Blocks {
+    TwoToOne(Fixed<2, 1>),
+    ThreeToOne(Fixed<3, 1>),
+    ThreeToTwo(Fixed<3, 2>),
+    FourToThree(Fixed<4, 3>),
+}
+
+#[derive(Debug)]
+struct Fixed<const SPAN: usize, const PHASES: usize> {
+    weights: [[u32; SPAN]; PHASES],
+    narrow: Narrow,
 }
 
 #[derive(Debug)]
@@ -62,10 +83,12 @@ impl Reduction {
 impl Area {
     fn between((source_width, source_height): (usize, usize), (width, height): (usize, usize)) -> Self {
         let (columns, rows) = (Axis::new(source_width, width), Axis::new(source_height, height));
+        let divisor = columns.weight * rows.weight;
         Self {
             source_width,
             width,
-            rounding: Rounding::new(columns.weight * rows.weight),
+            rounding: Rounding::new(divisor),
+            blocks: Blocks::new(&columns, divisor),
             columns,
             rows,
             source_gray: vec![0; source_width * source_height],
@@ -91,12 +114,13 @@ impl Area {
                 }
             }
             let columns = &self.columns;
-            match columns.padded.len() / columns.phases.len() {
-                1 => across::<1>(&self.line, out, columns, &rounded),
-                2 => across::<2>(&self.line, out, columns, &rounded),
-                3 => across::<3>(&self.line, out, columns, &rounded),
-                4 => across::<4>(&self.line, out, columns, &rounded),
-                widest => across_any(&self.line, out, columns, widest, &rounded),
+            match (&self.blocks, columns.padded.len() / columns.phases.len()) {
+                (Some(blocks), _) => blocks.across(&self.line, out),
+                (None, 1) => across::<1>(&self.line, out, columns, &rounded),
+                (None, 2) => across::<2>(&self.line, out, columns, &rounded),
+                (None, 3) => across::<3>(&self.line, out, columns, &rounded),
+                (None, 4) => across::<4>(&self.line, out, columns, &rounded),
+                (None, widest) => across_any(&self.line, out, columns, widest, &rounded),
             }
         }
     }
@@ -104,7 +128,7 @@ impl Area {
 
 fn to_gray(luma: &[u8], gray: &mut [u8]) {
     for (converted, &value) in gray.iter_mut().zip(luma) {
-        *converted = GRAY[usize::from(value)];
+        *converted = gray::computed(value);
     }
 }
 
@@ -152,6 +176,68 @@ impl Rounding {
             Self::Reciprocal { multiplier, half } => ((u128::from(multiplier) * u128::from(total + half)) >> 64) as u8,
             Self::Exact { divisor, half } => ((total + half) / divisor) as u8,
         }
+    }
+}
+
+impl Blocks {
+    fn new(columns: &Axis, divisor: u64) -> Option<Self> {
+        let narrow = Narrow::new(divisor)?;
+        let phases = &columns.phases;
+        match (columns.span, phases.len()) {
+            (2, 1) => Some(Self::TwoToOne(Fixed::new(phases, narrow))),
+            (3, 1) => Some(Self::ThreeToOne(Fixed::new(phases, narrow))),
+            (3, 2) => Some(Self::ThreeToTwo(Fixed::new(phases, narrow))),
+            (4, 3) => Some(Self::FourToThree(Fixed::new(phases, narrow))),
+            _ => None,
+        }
+    }
+
+    fn across(&self, line: &[u32], out: &mut [u8]) {
+        match self {
+            Self::TwoToOne(fixed) => fixed.across(line, out),
+            Self::ThreeToOne(fixed) => fixed.across(line, out),
+            Self::ThreeToTwo(fixed) => fixed.across(line, out),
+            Self::FourToThree(fixed) => fixed.across(line, out),
+        }
+    }
+}
+
+impl<const SPAN: usize, const PHASES: usize> Fixed<SPAN, PHASES> {
+    fn new(phases: &[Vec<(usize, u32)>], narrow: Narrow) -> Self {
+        let weights = std::array::from_fn(|phase| {
+            std::array::from_fn(|pixel| {
+                phases[phase]
+                    .iter()
+                    .find(|&&(at, _)| at == pixel)
+                    .map_or(0, |&(_, weight)| weight)
+            })
+        });
+        Self { weights, narrow }
+    }
+
+    fn across(&self, line: &[u32], out: &mut [u8]) {
+        for (block, values) in line.as_chunks::<SPAN>().0.iter().zip(out.as_chunks_mut::<PHASES>().0) {
+            for (value, phase) in values.iter_mut().zip(&self.weights) {
+                let total: u32 = phase.iter().zip(block).map(|(&weight, &pixel)| weight * pixel).sum();
+                *value = self.narrow.rounded(total);
+            }
+        }
+    }
+}
+
+impl Narrow {
+    const SHIFT: u32 = 23;
+    const LARGEST_DIVISOR: u64 = 128;
+
+    fn new(divisor: u64) -> Option<Self> {
+        (1..=Self::LARGEST_DIVISOR).contains(&divisor).then(|| Self {
+            multiplier: ((1_u64 << Self::SHIFT) / divisor + 1) as u32,
+            half: (divisor / 2) as u32,
+        })
+    }
+
+    fn rounded(self, total: u32) -> u8 {
+        (((total + self.half) * self.multiplier) >> Self::SHIFT) as u8
     }
 }
 
