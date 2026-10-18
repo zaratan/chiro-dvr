@@ -23,11 +23,11 @@ La référence sert à comparer (aussi bien ou mieux), pas à exiger l'identité
 
 Le seau Scaleway `chiro-dvr-videos` (projet `chiro-dvr`), lu par rclone sous le remote `chiro-dvr` (clé de l'utilisateur dans sa configuration rclone), porte deux préfixes :
 
-- `reference-v0.1.1/` : `data/`, `bench/`, `summary/`, `logs/`, les sorties de l'extrait (`outputs/{fr,en}/video_092_original_3m24-4m05/`, lues par `local_outputs`) et un `README.md` (provenance, recette pour réenregistrer).
-  Les autres sorties et `videos/` n'y sont pas : aucun test ne les lit, et s'ils sont refaits depuis le tag, c'est hors de `BATDETECT_REFERENCE_DIR`, que la tâche refuserait ensuite ;
+- `reference-v0.1.1/` : `data/`, `bench/`, `summary/`, `logs/`, les sorties de l'extrait (`outputs/{fr,en}/video_092_original_3m24-4m05/`, lues par `local_outputs`), la concaténation `videos/video_089-091.mp4` (lue par `local_frozen`) et un `README.md` (provenance, recette pour réenregistrer).
+  Les autres sorties n'y sont pas : aucun test ne les lit, et si elles sont refaites depuis le tag, c'est hors de `BATDETECT_REFERENCE_DIR`, que la tâche refuserait ensuite ;
 - `img_0000/` : les 26 vidéos.
 
-`SHA256SUMS`, à côté de ce fichier, donne la somme (`shasum -a 256`) de chacun des 199 fichiers de la référence et des 26 vidéos, sous ces deux préfixes ; le `README.md` du seau n'y est pas, et n'est pas récupéré ; un dossier copié en entier du seau peut le garder (#339).
+`SHA256SUMS`, à côté de ce fichier, donne la somme (`shasum -a 256`) de chacun des 200 fichiers de la référence et des 26 vidéos, sous ces deux préfixes ; le `README.md` du seau n'y est pas, et n'est pas récupéré ; un dossier copié en entier du seau peut le garder (#339).
 
 Contrôles du seau après envoi, depuis le Mac de l'enregistrement, par `rclone check` du dossier local contre le préfixe :
 
@@ -35,6 +35,7 @@ Contrôles du seau après envoi, depuis le Mac de l'enregistrement, par `rclone 
 | --- | --- | --- | --- |
 | `img_0000/` (`--include "*.mp4"`) | `~/dossier sans titre/img_0000` | 15 octobre 2026, 20 h 41 | `0 differences found`, `26 matching files` |
 | `reference-v0.1.1/` | `~/Projects/dvr-wt/seau/reference-v0.1.1` | 16 octobre 2026, 0 h 26 | `0 differences found`, `200 matching files` |
+| `reference-v0.1.1/`, après l'ajout de `videos/video_089-091.mp4` | `~/Projects/dvr-wt/reference-v0.1.1` | 19 octobre 2026, 7 h 21 | `0 differences found`, `201 matching files` |
 
 ```bash
 BATDETECT_REFERENCE_DIR=… BATDETECT_VIDEOS_DIR=… mise run rust:data
