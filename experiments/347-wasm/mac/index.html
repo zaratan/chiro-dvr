@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<title>Banc 347</title>
+<style>
+  body { font: 15px/1.5 -apple-system, system-ui, sans-serif; margin: 24px; max-width: 900px; }
+  button { font: inherit; margin: 0 8px 8px 0; padding: 6px 12px; }
+  pre { background: #f4f4f4; padding: 12px; white-space: pre-wrap; word-break: break-all; }
+</style>
+<body>
+<h1>Banc 347</h1>
+<p id="context"></p>
+<p>
+  <button data-case="decode">Décodage seul et empreintes</button>
+  <button data-case="single">Détection, un fil</button>
+  <button data-case="threads">Détection, threads</button>
+  <button data-case="encode">Encodage, l'un après l'autre</button>
+  <button data-case="parallel">Encodage, 3 en parallèle</button>
+</p>
+<p><a id="save" hidden>Télécharger l'extrait encodé</a></p>
+<pre id="log"></pre>
+<script type="module">
+const log = document.getElementById("log");
+const threads = navigator.hardwareConcurrency;
+const context = { userAgent: navigator.userAgent, crossOriginIsolated, hardwareConcurrency: threads, webCodecs: typeof VideoDecoder === "function" };
+document.getElementById("context").textContent = JSON.stringify(context);
+document.querySelector('[data-case="threads"]').disabled = !crossOriginIsolated;
+
+const cases = {
+  decode: { worker: "decode.js", options: { video: "/extract.mp4", detect: false, hash: true } },
+  single: { worker: "decode.js", options: { video: "/extract.mp4", detect: true, pkg: "/pkg-simd" } },
+  threads: { worker: "decode.js", options: { video: "/extract.mp4", detect: true, pkg: "/pkg-threads", threads } },
+  encode: { worker: "encode.js", options: { video: "/extract.mp4", codec: "avc1.640028", acceleration: "no-preference", bitrateMode: "variable", bitrate: 24000000, clips: 3, clipFrames: 120, parallel: false } },
+  parallel: { worker: "encode.js", options: { video: "/extract.mp4", codec: "avc1.640028", acceleration: "no-preference", bitrateMode: "variable", bitrate: 24000000, clips: 3, clipFrames: 120, parallel: true } },
+};
+
+const text = async (path) => (await fetch(path)).text();
+
+async function verdictOf(name, result) {
+  if (result.hashes?.length) {
+    const reference = (await text("/reference/ffmpeg.hashes")).trim().split("\n");
+    const same = result.hashes.filter((hash, index) => String(hash) === reference[index]).length;
+    return `empreintes identiques à FFmpeg : ${same} sur ${reference.length}`;
+  }
+  if (result.result) {
+    const split = (body) => body.trim().split("\n");
+    const reference = split(await text("/reference/native.txt")), got = split(result.result);
+    const detections = (lines) => lines.filter((line) => /^\d/.test(line));
+    const rest = (lines) => lines.filter((line) => !/^\d/.test(line)).join("\n");
+    const expected = detections(reference), found = detections(got);
+    const same = found.filter((line, index) => line === expected[index]).length;
+    const tracks = rest(reference) === rest(got) ? "pistes et fond identiques" : "PISTES OU FOND DIFFÉRENTS\n" + rest(got);
+    return `détections identiques au binaire : ${same} sur ${expected.length} (trouvées : ${found.length}) ; ${tracks}`;
+  }
+  return "";
+}
+
+function run(name) {
+  const { worker: script, options } = cases[name];
+  log.textContent += `\n== ${name} : en cours…\n`;
+  const worker = new Worker(script, { type: "module" });
+  worker.onmessage = async ({ data }) => {
+    if (data.file) {
+      const link = document.getElementById("save");
+      link.href = URL.createObjectURL(new Blob([data.file], { type: "video/mp4" }));
+      link.download = "piste_01_navigateur.mp4";
+      link.hidden = false;
+      return;
+    }
+    if (data.error) { log.textContent += `ERREUR : ${data.error}\n`; worker.terminate(); return; }
+    if (!data.done) return;
+    const { hashes, result, ...summary } = data;
+    if (summary.support) summary.support = summary.support.filter((entry) => entry.supported === true);
+    log.textContent += (await verdictOf(name, data)) + "\n" + JSON.stringify(summary) + "\n";
+    worker.terminate();
+  };
+  worker.onerror = (event) => { log.textContent += `ERREUR : ${event.message}\n`; };
+  worker.postMessage(options);
+}
+
+for (const button of document.querySelectorAll("button")) button.onclick = () => run(button.dataset.case);
+</script>
+</body>
+</html>

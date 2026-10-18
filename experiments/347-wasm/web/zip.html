@@ -1,0 +1,23 @@
+<!doctype html><meta charset="utf-8"><title>347 zip</title><body><a id="save">save</a><script type="module">
+import init, { Zipper } from "/pkg-zip/zipweb.js";
+window.run = async ({ root, files }) => {
+  await init();
+  const t0 = performance.now();
+  const parts = [];
+  let largest = 0;
+  const zipper = new Zipper((chunk) => { parts.push(chunk); largest = Math.max(largest, chunk.byteLength); });
+  for (const name of files) {
+    const response = await fetch(root + "/" + name);
+    const size = Number(response.headers.get("Content-Length"));
+    zipper.start(name, size >= 0xffffffff);
+    const reader = response.body.getReader();
+    for (let read = await reader.read(); !read.done; read = await reader.read()) zipper.write(read.value);
+  }
+  zipper.finish();
+  const blob = new Blob(parts, { type: "application/zip" });
+  const link = document.getElementById("save");
+  link.href = URL.createObjectURL(blob);
+  link.download = "batdetect.zip";
+  return { done: true, bytes: blob.size, chunks: parts.length, largestChunk: largest, ms: performance.now() - t0 };
+};
+</script>

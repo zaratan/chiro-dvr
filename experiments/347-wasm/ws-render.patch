@@ -1,0 +1,793 @@
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/Cargo.lock b/Cargo.lock
+--- a/Cargo.lock	2026-10-17 20:09:53.000000000 +0000
++++ b/Cargo.lock	2026-10-17 20:25:54.159317903 +0000
+@@ -211,6 +211,12 @@
+ ]
+ 
+ [[package]]
++name = "bumpalo"
++version = "3.20.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
++
++[[package]]
+ name = "bytemuck"
+ version = "1.25.2"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+@@ -341,6 +347,15 @@
+ ]
+ 
+ [[package]]
++name = "crossbeam-channel"
++version = "0.5.17"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "98b0cc327b5bc766e7fda9c9260cc0fa81b43a8e240440422dff70788e3f9ef1"
++dependencies = [
++ "crossbeam-utils",
++]
++
++[[package]]
+ name = "crossbeam-deque"
+ version = "0.8.8"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+@@ -610,6 +625,30 @@
+ ]
+ 
+ [[package]]
++name = "futures-core"
++version = "0.3.34"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "92d699e522242e69e3003b94ecc1f960f3a5e015aa7c5d7486e65ad01dd94f5e"
++
++[[package]]
++name = "futures-task"
++version = "0.3.34"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "cd417de3d1d015fc3bfd2b1ea46dfc7bab72ef86f1cc7cc9c78e728b34a6d1fd"
++
++[[package]]
++name = "futures-util"
++version = "0.3.34"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "0d50a92467f8ba5dd6e3ee5d4bd04d73ab2e4e1c44474a0674821dfce14b79bc"
++dependencies = [
++ "futures-core",
++ "futures-task",
++ "pin-project-lite",
++ "slab",
++]
++
++[[package]]
+ name = "getrandom"
+ version = "0.3.4"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+@@ -736,6 +775,17 @@
+ ]
+ 
+ [[package]]
++name = "js-sys"
++version = "0.3.106"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "7883d941dae510fb2d978fc3fe018c71c9e2892fd38854de3e8b92c2e5ad9cc5"
++dependencies = [
++ "cfg-if",
++ "futures-util",
++ "wasm-bindgen",
++]
++
++[[package]]
+ name = "lazy_static"
+ version = "1.5.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+@@ -932,6 +982,12 @@
+ ]
+ 
+ [[package]]
++name = "pin-project-lite"
++version = "0.2.17"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
++
++[[package]]
+ name = "pkg-config"
+ version = "0.3.34"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+@@ -1075,6 +1131,7 @@
+ dependencies = [
+  "either",
+  "rayon-core",
++ "wasm_sync",
+ ]
+ 
+ [[package]]
+@@ -1085,6 +1142,7 @@
+ dependencies = [
+  "crossbeam-deque",
+  "crossbeam-utils",
++ "wasm_sync",
+ ]
+ 
+ [[package]]
+@@ -1195,6 +1253,12 @@
+ ]
+ 
+ [[package]]
++name = "rustversion"
++version = "1.0.23"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
++
++[[package]]
+ name = "rusty-fork"
+ version = "0.3.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+@@ -1284,6 +1348,12 @@
+ ]
+ 
+ [[package]]
++name = "slab"
++version = "0.4.12"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
++
++[[package]]
+ name = "smallvec"
+ version = "1.16.3"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+@@ -1557,6 +1627,96 @@
+ ]
+ 
+ [[package]]
++name = "wasm-bindgen"
++version = "0.2.129"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "9bb54f33acc68fd454578d9820b0bde1a1a3d17aa17bb7b6595806d02886d409"
++dependencies = [
++ "cfg-if",
++ "once_cell",
++ "rustversion",
++ "wasm-bindgen-macro",
++ "wasm-bindgen-shared",
++]
++
++[[package]]
++name = "wasm-bindgen-macro"
++version = "0.2.129"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "2e29d0c35b16e224a7eeb5cd2d25e3e1968fbd65604117b44d3b789d00ee8535"
++dependencies = [
++ "quote",
++ "wasm-bindgen-macro-support",
++]
++
++[[package]]
++name = "wasm-bindgen-macro-support"
++version = "0.2.129"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "6f501a8bc3719dba86ef8ae4728879c08001bea749eb1333ac5b91e040e2a6b7"
++dependencies = [
++ "bumpalo",
++ "proc-macro2",
++ "quote",
++ "syn 3.0.7",
++ "wasm-bindgen-shared",
++]
++
++[[package]]
++name = "wasm-bindgen-rayon"
++version = "1.3.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "9a16c60a56c81e4dc3b9c43d76ba5633e1c0278211d59a9cb07d61b6cd1c6583"
++dependencies = [
++ "crossbeam-channel",
++ "js-sys",
++ "rayon",
++ "wasm-bindgen",
++]
++
++[[package]]
++name = "wasm-bindgen-shared"
++version = "0.2.129"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "23f0c9c52aa7cd7d77769a4cfe2a9adb1b331f489a41d912ce14513d5ab995c6"
++dependencies = [
++ "unicode-ident",
++]
++
++[[package]]
++name = "wasm_sync"
++version = "0.1.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "cff360cade7fec41ff0e9d2cda57fe58258c5f16def0e21302394659e6bbb0ea"
++dependencies = [
++ "js-sys",
++ "wasm-bindgen",
++ "web-sys",
++]
++
++[[package]]
++name = "web-sys"
++version = "0.3.106"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "88261b9deccee56594c11a3460c462c41f58d148598fe70ad77070126a68aba4"
++dependencies = [
++ "js-sys",
++ "wasm-bindgen",
++]
++
++[[package]]
++name = "webproto"
++version = "0.0.0"
++dependencies = [
++ "engine",
++ "rayon",
++ "tracking",
++ "types",
++ "wasm-bindgen",
++ "wasm-bindgen-rayon",
++]
++
++[[package]]
+ name = "windows-link"
+ version = "0.2.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/engine/Cargo.toml b/crates/engine/Cargo.toml
+--- a/crates/engine/Cargo.toml	2026-10-17 20:09:53.000000000 +0000
++++ b/crates/engine/Cargo.toml	2026-10-17 20:23:27.626494543 +0000
+@@ -6,8 +6,12 @@
+ license.workspace = true
+ publish.workspace = true
+ 
++[features]
++default = ["native"]
++native = ["media/native"]
++
+ [dependencies]
+-media.workspace = true
++media = { workspace = true, default-features = false }
+ rayon.workspace = true
+ serde.workspace = true
+ thiserror.workspace = true
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/engine/src/damage.rs b/crates/engine/src/damage.rs
+--- a/crates/engine/src/damage.rs	2026-10-17 20:09:53.000000000 +0000
++++ b/crates/engine/src/damage.rs	2026-10-17 20:23:27.626677956 +0000
+@@ -2,6 +2,7 @@
+ use types::losses::EdgeLosses;
+ use types::span::{Span, merged};
+ 
++#[cfg(feature = "native")]
+ use crate::input::Reading;
+ use crate::lost::frames_after_jumps;
+ 
+@@ -22,6 +23,7 @@
+ }
+ 
+ impl Damage {
++    #[cfg(feature = "native")]
+     pub fn of(reading: &Reading, margin: usize) -> Self {
+         let frames = reading.frames();
+         let pts: Vec<Option<Pts>> = frames.iter().map(|info| info.pts()).collect();
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/engine/src/lib.rs b/crates/engine/src/lib.rs
+--- a/crates/engine/src/lib.rs	2026-10-17 20:09:53.000000000 +0000
++++ b/crates/engine/src/lib.rs	2026-10-17 20:23:27.626581114 +0000
+@@ -5,10 +5,12 @@
+ pub mod config;
+ mod convert;
+ pub mod damage;
++#[cfg(feature = "native")]
+ pub mod detection;
+ mod detector;
+ pub mod geometry;
+ pub mod gray;
++#[cfg(feature = "native")]
+ pub mod input;
+ pub mod lost;
+ pub mod luma;
+@@ -23,4 +25,5 @@
+ #[cfg(test)]
+ mod testing;
+ mod threshold;
++pub mod web;
+ mod window;
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/engine/src/web.rs b/crates/engine/src/web.rs
+--- a/crates/engine/src/web.rs	1970-01-01 00:00:00.000000000 +0000
++++ b/crates/engine/src/web.rs	2026-10-17 20:25:06.740475403 +0000
+@@ -0,0 +1,87 @@
++use std::num::NonZeroU32;
++
++use media::frame::{ColorRange, YuvFrame};
++use types::detection::FrameDetections;
++use types::rate::FrameRate;
++use types::size::SourceSize;
++
++use crate::background::BackgroundFrames;
++use crate::blur::{self, Blur};
++use crate::closing::Disk;
++use crate::config::{self, DetectConfig};
++use crate::detector::{BATCH, Detector};
++use crate::geometry::{self, Geometry};
++use crate::mask::{self, Mask};
++
++#[derive(Debug, thiserror::Error)]
++pub enum Error {
++    #[error("geometry")]
++    Geometry(#[from] geometry::Error),
++    #[error("blur")]
++    Blur(#[from] blur::Error),
++    #[error("mask")]
++    Mask(#[from] mask::Error),
++    #[error("config")]
++    Config(#[from] config::Error),
++    #[error("frame")]
++    Frame(#[from] media::frame::Error),
++}
++
++#[derive(Debug)]
++pub struct Streamed {
++    detector: Detector,
++    background: BackgroundFrames,
++    width: u32,
++    height: u32,
++    pushed: usize,
++    half_window: usize,
++}
++
++impl Streamed {
++    pub fn new(size: SourceSize, rate: FrameRate, announced: usize, config: &DetectConfig) -> Result<Self, Error> {
++        let geometry = Geometry::new(size, config.work_width())?;
++        let blur = Blur::new(config.target_sigma() / geometry.scale().factor(), geometry)?;
++        let disk = Disk::new(config.merge_radius() / geometry.scale().factor(), geometry);
++        let mask = Mask::new(config.osd_regions(), geometry.width(), geometry.height(), blur.reach())?;
++        let half_window = config.half_window(rate, geometry.pixels())?;
++        let detector = Detector::new(geometry, &blur, &disk, mask, half_window, config, BATCH);
++        let announced = std::num::NonZeroUsize::new(announced).unwrap_or(std::num::NonZeroUsize::MIN);
++        Ok(Self {
++            detector,
++            background: BackgroundFrames::new(announced),
++            width: size.width().get(),
++            height: size.height().get(),
++            pushed: 0,
++            half_window: half_window.get(),
++        })
++    }
++
++    pub fn workers(&self) -> usize {
++        self.detector.workers()
++    }
++
++    pub fn half_window(&self) -> usize {
++        self.half_window
++    }
++
++    pub fn push(&mut self, y: &[u8], u: &[u8], v: &[u8]) -> Result<(), Error> {
++        let mut frame = YuvFrame::new(self.width, self.height, ColorRange::Limited)?;
++        frame.y_mut().copy_from_slice(y);
++        frame.u_mut().copy_from_slice(u);
++        frame.v_mut().copy_from_slice(v);
++        let index = types::frame::FrameIndex::new(self.pushed);
++        self.background.offer(index, &frame);
++        self.detector.push(frame.y(), |_| {});
++        self.pushed += 1;
++        Ok(())
++    }
++
++    pub fn finish(self) -> (FrameDetections, Option<YuvFrame>) {
++        let detections = self.detector.finish();
++        (detections, self.background.into_background(&[]))
++    }
++}
++
++pub fn source_size(width: u32, height: u32) -> Option<SourceSize> {
++    Some(SourceSize::new(NonZeroU32::new(width)?, NonZeroU32::new(height)?))
++}
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/media/Cargo.toml b/crates/media/Cargo.toml
+--- a/crates/media/Cargo.toml	2026-10-17 20:09:53.000000000 +0000
++++ b/crates/media/Cargo.toml	2026-10-17 20:23:27.626091266 +0000
+@@ -7,11 +7,13 @@
+ publish.workspace = true
+ 
+ [features]
+-testing = []
++default = ["native"]
++native = ["dep:ffmpeg-next", "dep:tempfile"]
++testing = ["native"]
+ 
+ [dependencies]
+-ffmpeg-next.workspace = true
+-tempfile.workspace = true
++ffmpeg-next = { workspace = true, optional = true }
++tempfile = { workspace = true, optional = true }
+ thiserror.workspace = true
+ types.workspace = true
+ 
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/media/src/convert/region.rs b/crates/media/src/convert/region.rs
+--- a/crates/media/src/convert/region.rs	2026-10-17 20:09:53.000000000 +0000
++++ b/crates/media/src/convert/region.rs	2026-10-17 20:26:36.146207630 +0000
+@@ -16,28 +16,7 @@
+ const KEPT_SIZES: usize = 32;
+ const KEPT_PIXELS: u64 = 4_000_000;
+ 
+-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+-pub struct Region {
+-    pub left: u32,
+-    pub top: u32,
+-    pub width: u32,
+-    pub height: u32,
+-}
+-
+-impl Region {
+-    pub(super) fn fits(self, width: u32, height: u32) -> bool {
+-        let even = [self.left, self.top, self.width, self.height]
+-            .iter()
+-            .all(|value| value % 2 == 0);
+-        let inside = self.left.checked_add(self.width).is_some_and(|right| right <= width)
+-            && self.top.checked_add(self.height).is_some_and(|bottom| bottom <= height);
+-        even && self.width > 0 && self.height > 0 && inside
+-    }
+-
+-    fn rows(self) -> usize {
+-        self.height as usize
+-    }
+-}
++pub use crate::region::Region;
+ 
+ struct Scratch {
+     width: u32,
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/media/src/lib.rs b/crates/media/src/lib.rs
+--- a/crates/media/src/lib.rs	2026-10-17 20:09:53.000000000 +0000
++++ b/crates/media/src/lib.rs	2026-10-17 20:26:36.147162347 +0000
+@@ -1,16 +1,25 @@
++#[cfg(feature = "native")]
+ pub mod convert;
++#[cfg(feature = "native")]
+ pub mod decode;
++#[cfg(feature = "native")]
+ pub mod decode_errors;
++#[cfg(feature = "native")]
+ pub mod encode;
++#[cfg(feature = "native")]
+ pub mod failure;
+-#[cfg(any(test, feature = "testing"))]
++#[cfg(all(feature = "native", any(test, feature = "testing")))]
+ pub mod fingerprint;
+ pub mod frame;
++#[cfg(feature = "native")]
+ mod init;
++#[cfg(feature = "native")]
+ pub mod library;
++#[cfg(feature = "native")]
+ mod path;
+-#[cfg(any(test, feature = "testing"))]
++#[cfg(all(feature = "native", any(test, feature = "testing")))]
+ pub mod payload;
+ mod planes;
+-#[cfg(test)]
++pub mod region;
++#[cfg(all(feature = "native", test))]
+ mod testing;
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/media/src/region.rs b/crates/media/src/region.rs
+--- a/crates/media/src/region.rs	1970-01-01 00:00:00.000000000 +0000
++++ b/crates/media/src/region.rs	2026-10-17 20:26:36.147070135 +0000
+@@ -0,0 +1,23 @@
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub struct Region {
++    pub left: u32,
++    pub top: u32,
++    pub width: u32,
++    pub height: u32,
++}
++
++impl Region {
++    pub fn fits(self, width: u32, height: u32) -> bool {
++        let even = [self.left, self.top, self.width, self.height]
++            .iter()
++            .all(|value| value % 2 == 0);
++        let inside = self.left.checked_add(self.width).is_some_and(|right| right <= width)
++            && self.top.checked_add(self.height).is_some_and(|bottom| bottom <= height);
++        even && self.width > 0 && self.height > 0 && inside
++    }
++
++    pub fn rows(self) -> usize {
++        self.height as usize
++    }
++}
++
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/render/Cargo.toml b/crates/render/Cargo.toml
+--- a/crates/render/Cargo.toml	2026-10-17 20:09:53.000000000 +0000
++++ b/crates/render/Cargo.toml	2026-10-17 20:26:44.667057980 +0000
+@@ -7,11 +7,13 @@
+ publish.workspace = true
+ 
+ [features]
+-testing = ["media/testing"]
++default = ["native"]
++native = ["media/native"]
++testing = ["native", "media/testing"]
+ 
+ [dependencies]
+ draw.workspace = true
+-media.workspace = true
++media = { workspace = true, default-features = false }
+ thiserror.workspace = true
+ types.workspace = true
+ 
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/render/src/lib.rs b/crates/render/src/lib.rs
+--- a/crates/render/src/lib.rs	2026-10-17 20:09:53.000000000 +0000
++++ b/crates/render/src/lib.rs	2026-10-17 20:28:57.034478025 +0000
+@@ -1,19 +1,27 @@
++#[cfg(feature = "native")]
+ mod ahead;
++#[cfg(feature = "native")]
+ pub mod clips;
+ pub mod colored;
+ pub mod config;
+ #[cfg(feature = "testing")]
+ pub mod drawn;
++#[cfg(feature = "native")]
+ mod encoders;
++#[cfg(feature = "native")]
+ mod group;
+ mod ink;
++mod marks;
+ mod overlay;
++#[cfg(feature = "native")]
+ pub mod picture;
+ mod positions;
++#[cfg(feature = "native")]
+ mod schedule;
+ #[cfg(test)]
+ #[path = "../tests/support/sequential.rs"]
+ mod sequential;
++#[cfg(feature = "native")]
+ pub mod source;
+ #[cfg(test)]
+ mod testing;
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/render/src/marks.rs b/crates/render/src/marks.rs
+--- a/crates/render/src/marks.rs	1970-01-01 00:00:00.000000000 +0000
++++ b/crates/render/src/marks.rs	2026-10-17 20:28:57.034319802 +0000
+@@ -0,0 +1,8 @@
++use draw::canvas::Canvas;
++use media::region::Region;
++use types::frame::FrameIndex;
++
++pub(crate) trait Marks {
++    fn zones(&self, frame: FrameIndex, width: u32, height: u32) -> Vec<Region>;
++    fn draw(&self, canvas: &mut Canvas, frame: FrameIndex);
++}
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/render/src/overlay.rs b/crates/render/src/overlay.rs
+--- a/crates/render/src/overlay.rs	2026-10-17 20:09:53.000000000 +0000
++++ b/crates/render/src/overlay.rs	2026-10-17 20:28:57.034793580 +0000
+@@ -1,7 +1,7 @@
+ use draw::canvas::{Canvas, PixelBox, Point};
+ use draw::style::TRACK_LABEL;
+ use draw::text::{ShapedText, Typeface};
+-use media::convert::Region;
++use media::region::Region;
+ use types::detection::Detection;
+ use types::frame::FrameIndex;
+ use types::rate::FrameRate;
+@@ -9,7 +9,7 @@
+ 
+ use crate::config::RenderConfig;
+ use crate::ink::{Ink, ink_at};
+-use crate::picture::Marks;
++use crate::marks::Marks;
+ use crate::positions::{bounded, filled};
+ use crate::zones::{even_region, merged};
+ 
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/render/src/picture.rs b/crates/render/src/picture.rs
+--- a/crates/render/src/picture.rs	2026-10-17 20:09:53.000000000 +0000
++++ b/crates/render/src/picture.rs	2026-10-17 20:28:57.020411298 +0000
+@@ -19,10 +19,7 @@
+     Frame(#[source] frame::Error),
+ }
+ 
+-pub(crate) trait Marks {
+-    fn zones(&self, frame: FrameIndex, width: u32, height: u32) -> Vec<Region>;
+-    fn draw(&self, canvas: &mut Canvas, frame: FrameIndex);
+-}
++pub(crate) use crate::marks::Marks;
+ 
+ #[derive(Debug)]
+ pub(crate) struct Picture {
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/render/src/zones.rs b/crates/render/src/zones.rs
+--- a/crates/render/src/zones.rs	2026-10-17 20:09:53.000000000 +0000
++++ b/crates/render/src/zones.rs	2026-10-17 20:26:36.147522173 +0000
+@@ -1,5 +1,5 @@
+ use draw::canvas::PixelBox;
+-use media::convert::Region;
++use media::region::Region;
+ 
+ #[cfg(test)]
+ mod tests;
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/render/src/zoom.rs b/crates/render/src/zoom.rs
+--- a/crates/render/src/zoom.rs	2026-10-17 20:09:53.000000000 +0000
++++ b/crates/render/src/zoom.rs	2026-10-17 20:29:04.253048769 +0000
+@@ -2,14 +2,13 @@
+ 
+ use draw::canvas::{Canvas, PixelBox, Point};
+ use draw::color::Rgb;
+-use media::convert::Region;
++use media::region::Region;
+ use media::frame::YuvFrame;
+ use types::detection::Detection;
+ use types::frame::FrameIndex;
+ use types::track::Track;
+ 
+-use crate::clips::Error;
+-use crate::picture::Marks;
++use crate::marks::Marks;
+ use crate::positions::{bounded, filled};
+ use crate::zones::{even_region, merged};
+ 
+@@ -24,6 +23,19 @@
+ const PIXEL_CENTER: f64 = 0.5;
+ const ZONE_MARGIN: i32 = 4;
+ 
++#[derive(Debug, thiserror::Error)]
++pub enum Error {
++    #[error("a {found_width}×{found_height} frame reached a zoom made for {width}×{height}")]
++    ZoomSize {
++        width: u32,
++        height: u32,
++        found_width: u32,
++        found_height: u32,
++    },
++    #[error("cannot hold a zoomed frame")]
++    Frame(#[source] media::frame::Error),
++}
++
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+ pub(crate) struct Crop {
+     pub(crate) left: u32,
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/webproto/Cargo.toml b/crates/webproto/Cargo.toml
+--- a/crates/webproto/Cargo.toml	1970-01-01 00:00:00.000000000 +0000
++++ b/crates/webproto/Cargo.toml	2026-10-17 20:25:52.493288302 +0000
+@@ -0,0 +1,21 @@
++[package]
++name = "webproto"
++version = "0.0.0"
++edition = "2024"
++publish = false
++
++[lib]
++crate-type = ["cdylib", "rlib"]
++
++[features]
++threads = ["dep:wasm-bindgen-rayon"]
++
++[dependencies]
++engine = { path = "../engine", default-features = false }
++tracking = { path = "../tracking" }
++types = { path = "../types" }
++rayon = "1.12.0"
++
++[target.'cfg(target_arch = "wasm32")'.dependencies]
++wasm-bindgen = "0.2"
++wasm-bindgen-rayon = { version = "1.3", optional = true }
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/webproto/src/bin/native.rs b/crates/webproto/src/bin/native.rs
+--- a/crates/webproto/src/bin/native.rs	1970-01-01 00:00:00.000000000 +0000
++++ b/crates/webproto/src/bin/native.rs	2026-10-17 20:25:52.502288461 +0000
+@@ -0,0 +1,24 @@
++use std::io::Read;
++use std::time::Instant;
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let (width, height): (usize, usize) = (args[2].parse().unwrap(), args[3].parse().unwrap());
++    let frames: usize = args[4].parse().unwrap();
++    let mut file = std::io::BufReader::with_capacity(1 << 24, std::fs::File::open(&args[1]).unwrap());
++    let (luma, chroma) = (width * height, width.div_ceil(2) * height.div_ceil(2));
++    let mut buffer = vec![0u8; luma + 2 * chroma];
++    let mut session = webproto::Session::new(width as u32, height as u32, 10000, 333, frames);
++    eprintln!("workers {}", session.workers());
++    let start = Instant::now();
++    let mut pushed = 0;
++    while pushed < frames && file.read_exact(&mut buffer).is_ok() {
++        let (y, rest) = buffer.split_at(luma);
++        let (u, v) = rest.split_at(chroma);
++        session.push(y, u, v);
++        pushed += 1;
++    }
++    let out = session.finish();
++    eprintln!("frames {pushed} seconds {:.3}", start.elapsed().as_secs_f64());
++    print!("{out}");
++}
+diff --color -ruN -x target -x .git -x '*.mp4' -x node_modules -x out -x .ffmpeg -x fixtures a/crates/webproto/src/lib.rs b/crates/webproto/src/lib.rs
+--- a/crates/webproto/src/lib.rs	1970-01-01 00:00:00.000000000 +0000
++++ b/crates/webproto/src/lib.rs	2026-10-17 20:25:52.497288373 +0000
+@@ -0,0 +1,94 @@
++use std::fmt::Write;
++
++use engine::config::DetectConfig;
++use engine::damage::{Damage, Reports};
++use engine::web::Streamed;
++use tracking::exclusion::exclude;
++use tracking::stability::StabilityConfig;
++use tracking::track::{TrackConfig, track_detections};
++use types::detection::FrameDetections;
++use types::rate::FrameRate;
++use types::rational::Rational;
++
++#[cfg(all(target_arch = "wasm32", feature = "threads"))]
++pub use wasm_bindgen_rayon::init_thread_pool;
++
++pub struct Session {
++    streamed: Streamed,
++    rate: FrameRate,
++    size: types::size::SourceSize,
++    frames: usize,
++}
++
++impl Session {
++    pub fn new(width: u32, height: u32, num: i32, den: i32, announced: usize) -> Self {
++        let size = engine::web::source_size(width, height).unwrap();
++        let rate = FrameRate::new(Rational::new(num, den).unwrap()).unwrap();
++        let streamed = Streamed::new(size, rate, announced, &DetectConfig::default()).unwrap();
++        Self { streamed, rate, size, frames: 0 }
++    }
++
++    pub fn workers(&self) -> usize {
++        self.streamed.workers()
++    }
++
++    pub fn push(&mut self, y: &[u8], u: &[u8], v: &[u8]) {
++        self.streamed.push(y, u, v).unwrap();
++        self.frames += 1;
++    }
++
++    pub fn finish(self) -> String {
++        let half = self.streamed.half_window();
++        let (detections, background) = self.streamed.finish();
++        let damage = Damage::reported(Reports::default(), &[], self.frames, half);
++        let exclusion = exclude(&detections, damage.spans().to_vec(), damage.reported_frames(), self.rate, StabilityConfig::default());
++        let tracks = track_detections(&exclusion, self.size, TrackConfig::default()).unwrap();
++        let mut out = describe(&detections);
++        for (number, track) in tracks.iter().enumerate() {
++            writeln!(out, "track {} first {} last {} points {}", number + 1, track.first().frame.get(), track.last().frame.get(), track.points().len()).unwrap();
++        }
++        let checksum: u64 = background.map_or(0, |frame| frame.y().iter().map(|&b| u64::from(b)).sum());
++        writeln!(out, "background_y_sum {checksum}").unwrap();
++        out
++    }
++}
++
++fn describe(detections: &FrameDetections) -> String {
++    let mut out = String::new();
++    for (frame, found) in detections.iter() {
++        for d in found {
++            writeln!(out, "{} {} {} {} {} {} {} {} {}", frame.get(), d.x, d.y, d.left, d.top, d.width, d.height, d.area, d.amplitude).unwrap();
++        }
++    }
++    out
++}
++
++#[cfg(target_arch = "wasm32")]
++mod bindings {
++    use wasm_bindgen::prelude::*;
++
++    #[wasm_bindgen]
++    pub struct WebSession(Option<super::Session>);
++
++    #[wasm_bindgen]
++    impl WebSession {
++        #[wasm_bindgen(constructor)]
++        pub fn new(width: u32, height: u32, num: i32, den: i32, announced: usize) -> Self {
++            Self(Some(super::Session::new(width, height, num, den, announced)))
++        }
++
++        pub fn workers(&self) -> usize {
++            self.0.as_ref().map_or(0, super::Session::workers)
++        }
++
++        pub fn push(&mut self, y: &[u8], u: &[u8], v: &[u8]) {
++            if let Some(session) = self.0.as_mut() {
++                session.push(y, u, v);
++            }
++        }
++
++        pub fn finish(&mut self) -> String {
++            self.0.take().map(super::Session::finish).unwrap_or_default()
++        }
++    }
++}

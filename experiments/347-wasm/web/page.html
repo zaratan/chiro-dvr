@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8"><title>347</title><body><script type="module">
+window.run = (options) => new Promise((resolve, reject) => {
+  const worker = new Worker("worker.js", { type: "module" });
+  worker.onmessage = (event) => { if (event.data.done) resolve(event.data); else if (event.data.error) reject(new Error(event.data.error)); };
+  worker.onerror = (event) => reject(new Error(event.message));
+  worker.postMessage(options);
+});
+window.isolated = crossOriginIsolated;
+</script>
