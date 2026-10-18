@@ -1,4 +1,5 @@
 use std::f64::consts::{PI, TAU};
+use std::ops::Range;
 
 use crate::detection::Detection;
 use crate::frame::FrameIndex;
@@ -10,10 +11,17 @@ mod tests;
 pub struct Track {
     id: usize,
     points: Vec<Detection>,
-    part_starts: Vec<usize>,
+    parts: Vec<Range<usize>>,
 }
 
-/// A run of a track seen without a hiding in between: the whole track unless it was rejoined.
+/// What a rejoined track is made of, in time order.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Stretch {
+    Part(Vec<Detection>),
+    Piece(Vec<Detection>),
+}
+
+/// A kept track inside a track: the whole of it unless it was rejoined, never a bridging piece.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Part<'a> {
     points: &'a [Detection],
@@ -25,6 +33,8 @@ pub enum Error {
     Empty { id: usize },
     #[error("track {id} does not move forward in time at frame {frame}")]
     Unordered { id: usize, frame: FrameIndex },
+    #[error("track {id} is made of pieces only")]
+    PiecesOnly { id: usize },
 }
 
 impl Track {
@@ -38,29 +48,36 @@ impl Track {
                 frame: step[1].frame,
             });
         }
+        let whole = 0..points.len();
         Ok(Self {
             id,
+            parts: vec![whole],
             points,
-            part_starts: Vec::new(),
         })
     }
 
-    pub fn rejoined(id: usize, parts: Vec<Vec<Detection>>) -> Result<Self, Error> {
-        if parts.iter().any(Vec::is_empty) {
-            return Err(Error::Empty { id });
-        }
-        let mut part_starts = Vec::new();
+    pub fn rejoined(id: usize, stretches: Vec<Stretch>) -> Result<Self, Error> {
+        let mut parts = Vec::new();
         let mut points = Vec::new();
-        for part in parts {
-            if !points.is_empty() {
-                part_starts.push(points.len());
+        for stretch in stretches {
+            let (detections, part) = match stretch {
+                Stretch::Part(detections) => (detections, true),
+                Stretch::Piece(detections) => (detections, false),
+            };
+            if detections.is_empty() {
+                return Err(Error::Empty { id });
             }
-            points.extend(part);
+            let start = points.len();
+            points.extend(detections);
+            if part {
+                parts.push(start..points.len());
+            }
         }
-        Ok(Self {
-            part_starts,
-            ..Self::new(id, points)?
-        })
+        let track = Self::new(id, points)?;
+        if parts.is_empty() {
+            return Err(Error::PiecesOnly { id });
+        }
+        Ok(Self { parts, ..track })
     }
 
     #[must_use]
@@ -95,14 +112,8 @@ impl Track {
     }
 
     pub fn parts(&self) -> impl Iterator<Item = Part<'_>> {
-        let starts = std::iter::once(0).chain(self.part_starts.iter().copied());
-        let ends = self
-            .part_starts
-            .iter()
-            .copied()
-            .chain(std::iter::once(self.points.len()));
-        starts.zip(ends).map(|(start, end)| Part {
-            points: &self.points[start..end],
+        self.parts.iter().map(|range| Part {
+            points: &self.points[range.clone()],
         })
     }
 

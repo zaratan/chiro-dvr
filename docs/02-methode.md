@@ -203,6 +203,7 @@ Chaque image, les détections sont attribuées aux pistes ouvertes.
   ont déjà une vitesse passent avant celles d'un seul point. Sans cette priorité, une
   piste naissante (un fragment) volait le point de la vraie piste : le passage de 3:58
   sortait coupé en deux.
+- **Portée** : une piste qui a une vitesse ne prend une tache qu'à moins de `reach_margin` = 50 px plus `reach_travel` = 1 fois le chemin prévu (sa vitesse fois les images depuis son dernier point) de l'endroit prévu ; `reach_margin` à 0 coupe la portée. Sur les 26 vidéos, avant recollage, 40 px change 74 pistes, 50 px 56, et 60 px, comme 2 fois le chemin, laisse une piste de la 090 sauter sur une autre chauve-souris (109 px pour 110 permis). Ne sont pas des réglages : la marge de 30 px au bord, celle du recollage, où la portée ne joue pas ; et la vitesse effondrée, sous 0,4 fois la vitesse des 5 derniers points, remplacée par celle-ci (même résultat de 0,25 à 0,6 sur les cas jugés). Logique, mesures et cas jugés : [10 § 7](10-logique-de-detection.md#7-relier-les-taches-dans-le-temps--le-suivi).
 - **Trous** : une piste survit à `max_gap` = 6 images consécutives sans détection
   (0,2 s), le temps qu'une chauve-souris peu contrastée réapparaisse ; elle est close à
   la septième. Les tests de borne vérifient exactement ces deux cas.
@@ -323,6 +324,8 @@ Deux pistes gardées sont un même vol caché un moment quand la seconde démarr
 - `rejoin_hidden` = 19 images (0,63 s ; depuis le 17 octobre 2026) : couvre la traversée des deux zones de végétation de la 095 à la 100 (8 images en médiane, 12 à 18 pour une traversée sur dix) et les 8 passages jugés « même passage » sur la planche (trous de 8 à 13 images). 0 désactive le recollage. Un trou de 5,9 s jugé « non » est hors de portée.
 - `rejoin_distance` = 60 px : le plus grand écart des 8 passages jugés est de 45 px, donc 40 px en perdrait un ; sur les 26 vidéos, 60 px soude 67 paires pour 2,7 au hasard (pistes décalées de 10 ou 20 s), 80 px 74 pour 3,7.
 - La marge de 30 px au bord n'est pas un réglage : c'est là que l'excès de fins de piste près des bords retombe au niveau du reste de l'image.
+- `rejoin_piece_points` = 2 : les morceaux écartés par `min_hits` qui ont au moins 2 détections relient ou prolongent des pistes gardées, jamais seuls. À 1, 35 prolongements de plus, d'une seule image chacun, dont le début de la piste 5 de la 092 avancé de 8 images ; à 3, 1 pont au lieu de 3 et 52 prolongements au lieu de 79. 0 n'en prend aucun.
+- `rejoin_junction_pace` = 0,25 et `rejoin_piece_pace` = 0,45 : un morceau ne relie ou ne prolonge une piste que si le saut par-dessus le trou va au moins à 0,25 fois la vitesse de la piste à son bout, et le morceau lui-même (s'il a 2 points ou plus) au moins à 0,45 fois. Sur une planche de 10 morceaux, les 2 jugés douteux allaient à 0,02 à 0,10 (saut) et 0,29 à 0,40 (morceau), les 8 bons à 0,33 au moins (saut) et 0,49 au moins (morceau). Le saut vaut aussi entre deux pistes gardées, contre la vitesse de chacune : il refuse 2 des 67 soudures, où la seconde piste repart presque là où la première s'arrête, jugées très douteuses à l'œil.
 
 Les pistes restantes sont numérotées par ordre chronologique, après le recollage. Le numéro change dès
 qu'une piste apparaît ou disparaît plus tôt dans la vidéo : pour désigner un passage,

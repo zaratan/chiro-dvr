@@ -1,9 +1,9 @@
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroUsize};
 
 use serde::{Deserialize, Serialize};
 
 use crate::stability::StabilityConfig;
-use crate::track::{RejoinConfig, TrackConfig};
+use crate::track::{Reach, RejoinConfig, TrackConfig};
 
 #[cfg(test)]
 mod tests;
@@ -21,6 +21,16 @@ pub struct TrackSettings {
     pub rejoin_hidden: usize,
     #[serde(default)]
     pub rejoin_distance: f64,
+    #[serde(default)]
+    pub rejoin_piece_points: usize,
+    #[serde(default)]
+    pub rejoin_junction_pace: f64,
+    #[serde(default)]
+    pub rejoin_piece_pace: f64,
+    #[serde(default)]
+    pub reach_margin: f64,
+    #[serde(default)]
+    pub reach_travel: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
@@ -41,6 +51,14 @@ impl From<TrackConfig> for TrackSettings {
             max_median_turn: track.max_median_turn(),
             rejoin_hidden: track.rejoin().map_or(0, |rejoin| rejoin.max_hidden().get()),
             rejoin_distance: track.rejoin().map_or(0.0, RejoinConfig::max_distance),
+            rejoin_piece_points: track
+                .rejoin()
+                .and_then(RejoinConfig::piece_points)
+                .map_or(0, NonZeroUsize::get),
+            rejoin_junction_pace: track.rejoin().map_or(0.0, |rejoin| rejoin.pace().junction()),
+            rejoin_piece_pace: track.rejoin().map_or(0.0, |rejoin| rejoin.pace().piece()),
+            reach_margin: track.reach().map_or(0.0, Reach::margin),
+            reach_travel: track.reach().map_or(0.0, Reach::travel),
         }
     }
 }

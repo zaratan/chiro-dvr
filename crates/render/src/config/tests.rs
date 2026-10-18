@@ -2,7 +2,7 @@ use types::detection::{Detection, Strength};
 use types::frame::FrameIndex;
 use types::rate::FrameRate;
 use types::rational::Rational;
-use types::track::Track;
+use types::track::{Stretch, Track};
 
 use super::{Error, RenderConfig, Seconds, Zoom, ZoomConfig};
 
@@ -129,12 +129,45 @@ fn auto_zooms_a_rejoined_track_when_one_part_alone_is_small_or_faint_although_th
             })
             .collect::<Vec<_>>()
     };
-    let small_then_large = Track::rejoined(1, vec![part(0, 60.0, 60.0), part(20, 300.0, 60.0)]).unwrap();
-    let large_then_faint = Track::rejoined(1, vec![part(0, 300.0, 80.0), part(20, 300.0, 30.0)]).unwrap();
-    let large_twice = Track::rejoined(1, vec![part(0, 300.0, 80.0), part(20, 200.0, 60.0)]).unwrap();
+    let small_then_large = Track::rejoined(
+        1,
+        vec![Stretch::Part(part(0, 60.0, 60.0)), Stretch::Part(part(20, 300.0, 60.0))],
+    )
+    .unwrap();
+    let large_then_faint = Track::rejoined(
+        1,
+        vec![
+            Stretch::Part(part(0, 300.0, 80.0)),
+            Stretch::Part(part(20, 300.0, 30.0)),
+        ],
+    )
+    .unwrap();
+    let large_twice = Track::rejoined(
+        1,
+        vec![
+            Stretch::Part(part(0, 300.0, 80.0)),
+            Stretch::Part(part(20, 200.0, 60.0)),
+        ],
+    )
+    .unwrap();
     assert!(auto.wants(&small_then_large));
     assert!(auto.wants(&large_then_faint));
     assert!(!auto.wants(&large_twice));
+}
+
+#[test]
+fn a_sharp_piece_bridging_a_faint_track_does_not_take_its_zoom_away() {
+    let faint = measured(60.0, 60.0).points().to_vec();
+    let sharp: Vec<Detection> = measured(300.0, 90.0)
+        .points()
+        .iter()
+        .map(|point| Detection {
+            frame: FrameIndex::new(point.frame.get() + 10),
+            ..*point
+        })
+        .collect();
+    let extended = Track::rejoined(1, vec![Stretch::Part(faint), Stretch::Piece(sharp)]).unwrap();
+    assert!(ZoomConfig::default().wants(&extended));
 }
 
 #[test]

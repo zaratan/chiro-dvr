@@ -8,7 +8,7 @@ use clap::error::ErrorKind;
 use engine::config::DetectConfig;
 use engine::settings::{DetectSettings, Region};
 use tracking::stability::StabilityConfig;
-use tracking::track::{RejoinConfig, TrackConfig};
+use tracking::track::{Reach, RejoinConfig, TrackConfig};
 
 use super::{Request, Source, command, parse};
 
@@ -197,6 +197,17 @@ fn the_rejoin_is_set_by_its_two_options_and_a_zero_distance_disables_it() {
 }
 
 #[test]
+fn the_reach_is_set_by_its_two_options_and_a_zero_margin_disables_it() {
+    let set = parsed(&["video.mp4", "--reach-margin", "40", "--reach-travel", "2"]);
+    assert_eq!(set.settings.track.reach(), Some(Reach::new(40.0, 2.0).unwrap()));
+    assert_eq!(parsed(&["video.mp4"]).settings.track.reach(), Some(Reach::default()));
+    assert_eq!(
+        parsed(&["video.mp4", "--reach-margin", "0"]).settings.track.reach(),
+        None
+    );
+}
+
+#[test]
 fn replayed_targets_and_a_recorded_bench_name_their_file_or_folder() {
     assert_eq!(
         parsed(&["video.mp4", "--targets", "bats.jsonl.gz"]).source,
@@ -273,6 +284,14 @@ fn a_setting_out_of_bounds_is_refused_with_the_option_that_holds_it() {
             "--rejoin-distance is out of bounds: -1",
         ),
         (&["v.mp4", "--max-gap", "19"], "--rejoin-hidden is out of bounds: 19"),
+        (
+            &["v.mp4", "--reach-margin", "-1"],
+            "--reach-margin is out of bounds: -1",
+        ),
+        (
+            &["v.mp4", "--reach-travel", "-1"],
+            "--reach-travel is out of bounds: -1",
+        ),
         (
             &["v.mp4", "--unstable-pad", "-1"],
             "--unstable-pad is out of bounds: -1",

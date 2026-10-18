@@ -1,5 +1,7 @@
 mod association;
+mod edge;
 mod growing;
+mod reach;
 mod rejoin;
 mod twins;
 
@@ -13,12 +15,13 @@ use types::track::Track;
 use crate::error::Error;
 use crate::exclusion::Exclusion;
 use crate::setting::Setting;
-use crate::track::association::Association;
+use crate::track::association::{Association, Gate};
 use crate::track::growing::Growing;
 use crate::track::rejoin::{Hiding, rejoin};
 use crate::track::twins::merge_twins;
 
-pub use crate::track::rejoin::RejoinConfig;
+pub use crate::track::reach::Reach;
+pub use crate::track::rejoin::{RejoinConfig, RejoinPace};
 
 #[cfg(test)]
 mod tests;
@@ -40,6 +43,7 @@ pub struct TrackConfig {
     min_travel: f64,
     twin_distance: Option<f64>,
     max_median_turn: f64,
+    reach: Option<Reach>,
     rejoin: Option<RejoinConfig>,
 }
 
@@ -52,6 +56,7 @@ impl Default for TrackConfig {
             min_travel: 45.0,
             twin_distance: Some(36.0),
             max_median_turn: 0.8,
+            reach: Some(Reach::default()),
             rejoin: Some(RejoinConfig::default()),
         }
     }
@@ -94,6 +99,7 @@ impl TrackConfig {
             twin_distance,
             max_median_turn,
             rejoin,
+            ..Self::default()
         })
     }
 
@@ -119,6 +125,15 @@ impl TrackConfig {
 
     pub fn max_median_turn(self) -> f64 {
         self.max_median_turn
+    }
+
+    pub fn reach(self) -> Option<Reach> {
+        self.reach
+    }
+
+    #[must_use]
+    pub fn with_reach(self, reach: Option<Reach>) -> Self {
+        Self { reach, ..self }
     }
 
     pub fn rejoin(self) -> Option<RejoinConfig> {
@@ -153,6 +168,11 @@ pub fn track_detections(excluded: &Exclusion, size: SourceSize, config: TrackCon
     let mut active: Vec<Growing> = Vec::new();
     let mut finished: Vec<Track> = Vec::new();
     let mut association = Association::default();
+    let gate = Gate {
+        max_jump: config.max_jump,
+        reach: config.reach,
+        size,
+    };
     for (frame, found) in excluded.detections.iter() {
         for ended in active.extract_if(.., |track| config.expired(track, frame)) {
             finished.push(Track::new(0, ended.into_points())?);
@@ -160,7 +180,7 @@ pub fn track_detections(excluded: &Exclusion, size: SourceSize, config: TrackCon
         if found.is_empty() {
             continue;
         }
-        let unmatched = association.assign(&mut active, found, frame, config.max_jump);
+        let unmatched = association.assign(&mut active, found, frame, gate);
         active.extend(
             unmatched
                 .filter(|detection| detection.strength.is_strong())
@@ -174,16 +194,20 @@ pub fn track_detections(excluded: &Exclusion, size: SourceSize, config: TrackCon
         Some(distance) => merge_twins(finished, distance)?,
         None => finished,
     };
-    let kept: Vec<Track> = merged.into_iter().filter(|track| config.keeps(track)).collect();
+    let (kept, dropped): (Vec<Track>, Vec<Track>) = merged.into_iter().partition(|track| config.keeps(track));
     let mut kept = match config.rejoin {
         Some(rejoining) => {
+            let pieces: Vec<Track> = dropped
+                .into_iter()
+                .filter(|track| rejoining.takes_as_piece(track, config.min_hits))
+                .collect();
             let ignored: Vec<Span> = excluded.ignored_spans().collect();
             let hiding = Hiding {
                 longer_than: config.max_gap.get(),
                 ignored: &ignored,
                 size,
             };
-            rejoin(&kept, hiding, rejoining)?
+            rejoin(&kept, &pieces, hiding, rejoining)?
         }
         None => kept,
     };

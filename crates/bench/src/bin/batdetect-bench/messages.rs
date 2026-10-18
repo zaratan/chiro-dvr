@@ -64,6 +64,16 @@ pub(crate) const REJOIN_HIDDEN_HELP: &str = "a track that hides longer than --ma
      joined to the one that starts where both point; frames; 0 disables";
 pub(crate) const REJOIN_DISTANCE_HELP: &str = "farthest the start of the second track may lie from where both tracks \
      point; source pixels; 0 disables";
+pub(crate) const REJOIN_PIECE_POINTS_HELP: &str = "a track too short to keep, from this many points, may still \
+     bridge or extend kept tracks when rejoining, never alone; points; 0 disables";
+pub(crate) const REJOIN_JUNCTION_PACE_HELP: &str = "slowest jump over a hiding, as a share of the speed of each kept \
+     track of the link; 0 accepts any";
+pub(crate) const REJOIN_PIECE_PACE_HELP: &str = "slowest own speed of a piece of two points or more, as a share of the \
+     speed of the kept track it continues; 0 accepts any";
+pub(crate) const REACH_MARGIN_HELP: &str = "farthest a track with a speed takes a detection from where it should be, \
+     plus --reach-travel times the way it should have flown; source pixels; 0 disables";
+pub(crate) const REACH_TRAVEL_HELP: &str =
+    "share of the way a track should have flown since its last point that it may still miss by";
 pub(crate) const BENCH_HEADING: &str = "bench";
 pub(crate) const DETECTION_HEADING: &str = "detection";
 pub(crate) const TRACKING_HEADING: &str = "tracking";
@@ -103,6 +113,10 @@ fn tracking_option(setting: TrackingSetting) -> &'static str {
         TrackingSetting::MaxMedianTurn => "--max-median-turn",
         TrackingSetting::RejoinHidden => "--rejoin-hidden",
         TrackingSetting::RejoinDistance => "--rejoin-distance",
+        TrackingSetting::RejoinJunctionPace => "--rejoin-junction-pace",
+        TrackingSetting::RejoinPiecePace => "--rejoin-piece-pace",
+        TrackingSetting::ReachMargin => "--reach-margin",
+        TrackingSetting::ReachTravel => "--reach-travel",
     }
 }
 
