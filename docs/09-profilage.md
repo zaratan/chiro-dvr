@@ -237,6 +237,8 @@ Détection de la 092 entière par la commande, `LANG=fr_FR.UTF-8`, un dossier de
 - Le gain reste petit parce que le réseau ne pèse qu'environ 7 % du CPU de la commande (17,7 s sur un fil, contre 244 s en tout).
 - Les pistes ne changent pas : le CSV est identique à l'octet sur les 5 paires, `compare local` donne les mêmes détections sur les 26 vidéos hors des plages abîmées (`--same-as`), et `rust:reference` trouve les 14 pistes de la 092.
 
+Sur le M1 Max (macOS 27), même commande sous `/usr/bin/time -l`, 3 paires alternées : avant 46980bf, après 5da2a01. La détection passe de 11,37 à 11,13 s en moyenne, 1,7 % en médiane (3,2, 1,6 et 1,7 %, les trois du même signe) ; le CPU baisse de 1,5 % en médiane, de 121,8 à 119,7 s en moyenne ; le pic reste autour de 1 Go des deux côtés ; le CSV des pistes est identique à l'octet dans les 3 paires. Le gain est du même ordre que sur lumiel.
+
 ## v0.1.1 (Python)
 
 Historique des optimisations du Python jusqu'à la v0.1.1, mesuré du 4 au 6 octobre 2026
