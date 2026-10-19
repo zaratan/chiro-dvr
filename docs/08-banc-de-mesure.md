@@ -1,12 +1,14 @@
 # Banc de mesure par cibles synthétiques
 
 Sans vérité terrain, on règle la détection à l'aveugle.
-Le banc incruste de fausses chauves-souris dans une vraie vidéo, à des positions et des instants connus, puis compare ce que l'outil retrouve à ce qui a été injecté.
+Le banc incruste de fausses chauves-souris dans une vraie vidéo, à des positions et à des instants connus.
+Il compare ensuite ce que l'outil retrouve à ce qui a été injecté.
 Aucun pipeline publié en écologie ne le fait ([07](07-ameliorer-la-detection.md)).
 
-Un banc fait deux détections complètes de la vidéo : le run de référence, sur la vidéo telle quelle, et le run injecté, avec les cibles.
+Un banc fait deux détections complètes de la vidéo.
+Le run de référence porte sur la vidéo telle quelle, le run injecté sur la vidéo avec ses cibles.
 Les mesures de la fin de ce document datent de la v0.1.1 (3 au 6 octobre 2026) et ont fixé les réglages par défaut.
-Celles du banc actuel, et sa garde contre les bancs enregistrés par la v0.1.1, sont dans [11](11-migration-rust.md#banc-de-mesure).
+Celles du banc actuel sont dans [11](11-migration-rust.md#banc-de-mesure), avec sa garde contre les bancs enregistrés par la v0.1.1.
 
 ## La commande et ses sorties
 
@@ -19,68 +21,86 @@ cargo run --release -p bench -- --replay out/bench/video_092_original --max-gap 
 ```
 
 - **Tirer des cibles** (par défaut) : `--per-class`, `--amplitudes`, `--sigmas`, `--motions`, `--seed`.
-  La vidéo se donne avant `--amplitudes`, qui prend plusieurs valeurs.
+  `--amplitudes` prend plusieurs valeurs : la vidéo se donne donc avant cette option.
 - **Rejouer des cibles** : `--targets FICHIER` reprend les cibles d'un `bats.jsonl.gz` au lieu de les tirer.
-  `--against DOSSIER` rejoue un banc enregistré par la v0.1.1 et dresse la garde : cibles perdues et gagnées, échec sous la borne basse de Wilson d'une classe ([11](11-migration-rust.md#garde)).
+  `--against DOSSIER` rejoue un banc enregistré par la v0.1.1 et dresse la garde ([11](11-migration-rust.md#garde)).
+  La garde compte les cibles perdues et gagnées. Elle échoue quand une classe tombe sous sa borne basse de Wilson.
   Le banc enregistré fixe les réglages.
   La v0.1.1 ne recollait pas les vols cachés et n'avait pas de portée : contre elle, `--against` demande `--rejoin-hidden 0 --reach-margin 0`.
 - **Réévaluer** : `--replay DOSSIER` relit un banc déjà écrit et le réévalue avec d'autres réglages de suivi, de stabilité ou d'appariement.
-  Il ne refait aucune détection, et répond donc tout de suite.
-- **Réglages** : les dix de la détection (`--threshold`, `--min-area`, `--max-area`, `--bg-window`, `--bg-step`, `--osd-region`, `--merge-radius`, `--work-width`, `--noise-factor`, `--target-sigma`), la stabilité (`--max-blobs`, `--unstable-pad`), le suivi (`--max-jump`, `--max-gap`, `--min-hits`, `--min-travel`, `--twin-distance`, `--max-median-turn`, `--rejoin-hidden`, `--rejoin-distance`, `--rejoin-piece-points`, `--rejoin-junction-pace`, `--rejoin-piece-pace`, `--reach-margin`, `--reach-travel`) et l'appariement (`--match-radius`).
-  `batdetect-bench --help` donne leurs défauts, qui sont ceux de la commande.
-- **Sorties** dans `-o` (`out/bench` par défaut), un dossier par vidéo.
-  Il contient le banc lui-même : `run.json`, les détections de référence et injectées (`reference.jsonl.gz` et `injected.jsonl.gz`), les cibles et leur contraste effectif (`bats.jsonl.gz`).
-  `bench.json` donne les réglages, la version du code, le résumé par classe et le résultat par cible, avec les clés des bancs de la v0.1.1 plus `targets` et `seconds`.
-  `--against` écrit dans `<vidéo>_<dossier>/` et ajoute `guard.txt` ; `--replay` écrit `bench.json` dans `-o`.
+  Il ne refait aucune détection et répond donc tout de suite.
+- **Réglages** : `batdetect-bench --help` donne leurs défauts. Ce sont ceux de la commande.
+  Les dix de la détection : `--threshold`, `--min-area`, `--max-area`, `--bg-window`, `--bg-step`, `--osd-region`, `--merge-radius`, `--work-width`, `--noise-factor` et `--target-sigma`.
+  La stabilité : `--max-blobs` et `--unstable-pad`. L'appariement : `--match-radius`.
+  Le suivi : `--max-jump`, `--max-gap`, `--min-hits`, `--min-travel`, `--twin-distance`, `--max-median-turn`, `--rejoin-hidden`, `--rejoin-distance`, `--rejoin-piece-points`, `--rejoin-junction-pace`, `--rejoin-piece-pace`, `--reach-margin` et `--reach-travel`.
+- **Sorties** : un dossier par vidéo dans `-o` (`out/bench` par défaut).
+  Il contient le banc lui-même : `run.json`, les détections des deux runs dans `reference.jsonl.gz` et `injected.jsonl.gz`, et les cibles avec leur contraste effectif dans `bats.jsonl.gz`.
+  `bench.json` donne les réglages, la version du code, le résumé par classe et le résultat par cible.
+  Il garde les clés des bancs de la v0.1.1 et ajoute `targets` et `seconds`.
+  `--against` écrit dans `<vidéo>_<dossier>/` et ajoute `guard.txt`. `--replay` écrit `bench.json` dans `-o`.
   Une sortie qui écraserait l'entrée est refusée.
-- La sortie standard donne le tableau par classe, le chemin du rapport et, avec `--against`, la garde.
-  Code de sortie : 0, 1 (échec, ou garde en échec), 2 (usage).
+- La sortie standard donne le tableau par classe et le chemin du rapport. Avec `--against`, elle donne aussi la garde.
+  Le code de sortie vaut 0 en cas de succès, 1 sur un échec ou une garde en échec, et 2 sur une erreur d'usage.
 
 ## Les cibles
 
-- **Forme** : une tache gaussienne signée, ajoutée en pleine résolution **avant** la réduction de l'image, là où se perd le contraste.
-  Amplitudes par défaut −15, −30 et −60 niveaux ; tailles σ = 1,5, 3 et 5 px d'origine.
-  Pour comparaison, les vraies chauves-souris de la 092 font des taches de 150 à 400 px d'origine au-dessus du seuil.
-- **Trajectoire** : une courbe de Bézier qui entre par un bord et sort par un autre, sans apparition brutale en plein champ.
+- **Forme** : une tache gaussienne signée.
+  Elle est ajoutée en pleine résolution **avant** la réduction de l'image, là où se perd le contraste.
+  Les amplitudes par défaut sont de −15, −30 et −60 niveaux. Les tailles σ valent 1,5, 3 et 5 px d'origine.
+  Les vraies chauves-souris de la 092 font en comparaison des taches de 150 à 400 px d'origine au-dessus du seuil.
+- **Trajectoire** : une courbe de Bézier qui entre par un bord et sort par un autre.
+  Aucune cible n'apparaît brutalement en plein champ.
   Elle va de 15 à 60 px d'origine par image et accélère (progression en u^a, a de 1 à 1,8).
-  Elle reproduit la **saccade de période 3** mesurée sur les Symbion : un pas double, deux simples, phase au hasard ([07](07-ameliorer-la-detection.md#cadence-saccadée)).
+  Elle reproduit la **saccade de période 3** mesurée sur les Symbion ([07](07-ameliorer-la-detection.md#cadence-saccadée)) : un pas double puis deux simples, avec une phase au hasard.
 - **Battements** : l'amplitude est multipliée par un facteur au hasard de 0,6 à 1 à chaque image.
-- **Vols de chasse** (`--motions hunt circle`, `crates/bench/src/synthetic/hunting.rs`) : la cible entre par un bord vers l'intérieur et vole à 8 à 30 px d'origine par image.
+- **Vols de chasse** (`--motions hunt circle`) : la cible entre par un bord vers l'intérieur et vole à 8 à 30 px d'origine par image.
   Elle enchaîne des segments presque droits et des virages de 45° à 180°.
-  Les segments durent 0,2 à 1 s pour `hunt`, 0,1 à 0,3 s pour `circle`, qui vire plus de la moitié du temps.
-  Au sommet d'un virage, la vitesse descend à 25 à 50 % de la croisière, et la vitesse angulaire culmine, à 0,15 à 0,4 rad par image au plus (un virage court est adouci, avec un sommet réalisé jusqu'à 0,09).
-  Le rayon suit le carré de la vitesse, et l'accélération latérale reste constante.
-  Ce modèle vient du demi-tour mesuré d'une chauve-souris (0,69 s, de 2 à 0,5 m/s, rayon de 5,5 cm au sommet, [PMC7608926](https://pmc.ncbi.nlm.nih.gov/articles/PMC7608926/)) et des pistes de chasse des pipistrelles, plus lentes et sinueuses que le transit ([PMC5234808](https://pmc.ncbi.nlm.nih.gov/articles/PMC5234808/)).
+  Les segments durent 0,2 à 1 s pour `hunt` et 0,1 à 0,3 s pour `circle`, qui vire plus de la moitié du temps.
+  Au sommet d'un virage, la vitesse descend à 25 à 50 % de la croisière.
+  La vitesse angulaire y culmine à 0,15 à 0,4 rad par image au plus. Un virage court est adouci : son sommet réalisé va jusqu'à 0,09.
+  Le rayon suit le carré de la vitesse : l'accélération latérale reste constante.
+  Ce modèle vient d'abord du demi-tour mesuré d'une chauve-souris ([PMC7608926](https://pmc.ncbi.nlm.nih.gov/articles/PMC7608926/)).
+  Ce demi-tour dure 0,69 s, la vitesse y passe de 2 à 0,5 m/s et le rayon au sommet vaut 5,5 cm.
+  Il vient aussi des pistes de chasse des pipistrelles, plus lentes et sinueuses que le transit ([PMC5234808](https://pmc.ncbi.nlm.nih.gov/articles/PMC5234808/)).
   La saccade et les battements sont ceux du transit.
-  Le vol finit à la sortie du champ ou au bout de 4 s, en plein champ : l'animal peut aussi sortir en profondeur.
-  Pour 99 % des cibles, le virage médian géométrique reste sous 0,2 rad par image ; c'est le bruit de position de la détection, au sommet des virages lents, qui fait monter le virage mesuré.
+  Le vol finit à la sortie du champ ou au bout de 4 s.
+  Dans ce second cas il finit en plein champ, car l'animal peut aussi sortir en profondeur.
+  Pour 99 % des cibles, le virage médian géométrique reste sous 0,2 rad par image.
+  Ce qui fait monter le virage mesuré, c'est le bruit de position de la détection au sommet des virages lents.
+  Le code est dans `crates/bench/src/synthetic/hunting.rs`.
   Le banc par défaut reste en transit seul (`--motions pass`).
-  Les classes de chasse sont tirées après celles de transit, dont les trajectoires ne changent donc pas.
+  Les classes de chasse sont tirées après celles de transit. Les trajectoires de transit ne changent donc pas.
   Mais dans un banc qui mélange les deux, les cibles de chasse changent la détection et le suivi des autres : on garde des bancs séparés.
 - **Placement** : tirage par rejet.
-  Aucune cible n'est à moins de 3 rayons d'appariement d'une piste du run de référence, ou d'une autre cible au même instant : on évite ainsi les crédits indus et les fusions de jumelles.
-- **Reproductible** : chaque cible a sa graine, tirée de `--seed` dans l'ordre des numéros (`crates/bench/src/random.rs`), et ajouter une classe ne change pas les cibles déjà tirées.
-  La même graine redonne les mêmes cibles sur un même système ; d'un système à l'autre, on rejoue les cibles par `--targets`.
+  Aucune cible n'est à moins de 3 rayons d'appariement d'une piste du run de référence ni d'une autre cible au même instant.
+  On évite ainsi les crédits indus et les fusions de jumelles.
+- **Reproductible** : chaque cible a sa graine, tirée de `--seed` dans l'ordre des numéros (`crates/bench/src/random.rs`).
+  Ajouter une classe ne change pas les cibles déjà tirées.
+  La même graine redonne les mêmes cibles sur un même système. D'un système à l'autre, on rejoue les cibles par `--targets`.
   Les cibles tirées par la v0.1.1 ne se retirent pas : ses bancs se rejouent par `--against`.
 
 ## Ce qui compte comme visible
 
-Une cible est visible à une image si son centre est à plus de 2σ des bords et si son **contraste effectif**, après écrêtage, atteint 8 niveaux.
+Une cible est visible à une image si son centre est à plus de 2σ des bords et si son **contraste effectif** atteint 8 niveaux après écrêtage.
 Les cibles visibles moins de `min_hits` images sont écartées (« not visible »).
 
 Plusieurs cas ne comptent ni comme trouvés ni comme manqués :
 
-- une tache sombre sur le ciel saturé à 0, qui n'a aucun contraste effectif ;
-- les images des périodes ignorées parce que saturées de taches ([02](02-methode.md#4-bis-images-saturées-de-taches)) ;
-- les images illisibles, abîmées au décodage, et leur marge ([10](10-logique-de-detection.md)) : le banc passe par la même fonction `exclude` que la commande, pour les deux runs.
+- Une tache sombre sur le ciel saturé à 0 : elle n'a aucun contraste effectif.
+- Les images des périodes ignorées parce que saturées de taches ([02](02-methode.md#4-bis-images-saturées-de-taches)).
+- Les images que le décodage rend illisibles, et leur marge ([10](10-logique-de-detection.md)).
+  Le banc les écarte des deux runs par la même fonction `exclude` que la commande.
   Sur une vidéo très abîmée, beaucoup de cibles tombent ainsi en « not visible ».
 
 Les périodes saturées sont calculées sur le run injecté, comme le suivi rejoué.
-Elles dépendent donc des réglages de détection (seuil, `work_width`) : deux réglages qui en produisent ne se comparent plus sur exactement le même dénominateur.
-Sur la 092, il n'y en a aucune.
+Elles dépendent donc des réglages de détection, seuil et `work_width`.
+Deux réglages qui en produisent ne se comparent plus sur exactement le même dénominateur.
+La 092 n'en a aucune.
 
-Le banc ne connaît aucun affichage de caméra : une cible injectée sous un affichage fixe reste comptée visible, alors qu'en vrai l'affichage la cacherait.
+Le banc ne repère pas seul l'affichage de la caméra.
+Par défaut, il n'y a pas d'`--osd-region` : une cible injectée sous un affichage fixe reste comptée visible alors qu'en vrai l'affichage la cacherait.
 Le biais est faible, car l'affichage occupe peu de place.
+Une cible sous une `--osd-region` donnée n'est pas comptée visible ([Limites](#limites)).
 
 ## Appariement et métriques
 
@@ -99,40 +119,47 @@ Le banc ne compte que les détections réelles des pistes : l'interpolation à l
 ## Limites
 
 - **Pas d'artefacts de compression** : on injecte après le décodage.
-  Sur l'original (12 Mb/s, sans B-frames), le biais est faible, mais il va dans le sens optimiste.
+  L'original est à 12 Mb/s sans B-frames. Le biais y est faible mais va dans le sens optimiste.
 - **Forme simplifiée** : une gaussienne ronde, pas une silhouette d'ailes.
-- **Chasse en 2D, sans distance** : vitesses et rayons sont en pixels, indépendants de la taille de la tache.
+- **Chasse en 2D, sans distance** : les vitesses et les rayons sont en pixels et ne dépendent pas de la taille de la tache.
   Le rayon au sommet (5 à 100 px) peut être un peu plus serré que 0,1 envergure pour σ 5.
-  Ce qui décide du virage mesuré est le pas au sommet (2 px par image au moins) face au bruit du centroïde, et ce bruit-là, le banc le mesure pour de vrai.
-- **Saccade modélisée** : comme le banc reproduit la saccade, un correctif de la saccade y paraîtra efficace par construction.
+  Ce qui décide du virage mesuré, c'est le pas au sommet (2 px par image au moins) face au bruit du centroïde.
+  Ce bruit-là, le banc le mesure pour de vrai.
+- **Saccade modélisée** : le banc reproduit la saccade, donc un correctif de la saccade y paraîtra efficace par construction.
   Le run réel (trous, fragments) reste juge.
 - **`min_hits` sert deux fois** : au suivi, et au banc pour dire qu'une cible est visible et trouvée.
   Changer `min_hits` change donc aussi le critère de mesure ([vols de chasse](#vols-de-chasse-4-octobre-2026)).
-- **Coût** : environ 31 s sur la 092 en `release` pour les deux détections ; `--replay` réévalue un banc écrit en moins d'une seconde.
+- **Coût** : environ 31 s sur la 092 en `release` pour les deux détections.
+  `--replay` réévalue un banc écrit en moins d'une seconde.
   Le rapport note la version du code avec `git describe --always --dirty` ([11](11-migration-rust.md#banc-de-mesure)).
-- **Placement figé** : les cibles sont placées loin des pistes du run de référence, calculées avec les réglages de suivi du premier run.
-  Rejouer avec un autre réglage de suivi réutilise ces mêmes cibles, ce qui garde les comparaisons appariées.
+- **Placement figé** : les cibles sont placées loin des pistes du run de référence.
+  Ces pistes sont calculées avec les réglages de suivi du premier run.
+  Rejouer avec un autre réglage de suivi réutilise ces mêmes cibles : les comparaisons restent appariées.
 - **Masques** : une cible sous une `--osd-region` n'est pas comptée visible.
   Pour mesurer le coût d'un masque, on compare le nombre de cibles trouvées plutôt que la complétude.
 
 ## Mesures de la v0.1.1 (3 au 6 octobre 2026)
 
-Ces mesures ont été faites avec le banc de la v0.1.1, sur `video_092_original.mp4`, graine 1.
+Ces mesures ont été faites avec le banc de la v0.1.1 sur `video_092_original.mp4`, avec la graine 1.
 Elles justifient les réglages par défaut d'aujourd'hui.
-Leurs chiffres ne se comparent pas à l'unité près à ceux du banc actuel, et leurs temps ne valent que pour la v0.1.1.
+Leurs chiffres ne se comparent pas à l'unité près à ceux du banc actuel. Leurs temps ne valent que pour la v0.1.1.
 
-Dans les tableaux, une classe se note par son amplitude et sa taille : « −30, σ 3 » est la classe d'amplitude −30 et de σ = 3 px d'origine.
-Les colonnes des premières sections donnent le contraste effectif mesuré (−46 pour −60, −24 pour −30).
+Une classe se note dans les tableaux par son amplitude et sa taille : « −30, σ 3 » est la classe d'amplitude −30 et de σ = 3 px d'origine.
+Les colonnes des premières sections donnent le contraste effectif mesuré (−46 pour −60 et −24 pour −30).
 Entre parenthèses : la complétude médiane.
-« Pistes de référence » : les pistes du run de référence, celles que verrait la naturaliste.
-Le banc ne compte comme fausses que les pistes absentes de la référence ; le bruit présent dans les deux runs n'y apparaît pas, d'où cette colonne.
-« Mêmes cibles » : les cibles tirées sont identiques à celles du réglage par défaut (le placement suit les pistes de référence de chaque réglage) ; sinon, la ligne ne se lit qu'en ordre de grandeur.
+« Pistes de référence » désigne les pistes du run de référence, celles que verrait la naturaliste.
+Le banc ne compte comme fausses que les pistes absentes de la référence.
+Le bruit présent dans les deux runs n'y apparaît donc pas, d'où la colonne des pistes de référence.
+« Mêmes cibles » dit si les cibles tirées sont identiques à celles du réglage par défaut, car le placement suit les pistes de référence de chaque réglage.
+Quand elles diffèrent, la ligne ne se lit qu'en ordre de grandeur.
 
 ### Résolution de travail et `min_area`
 
-Avec le réglage d'alors (480 px, `min_area` 18, seuil fixe 25), 251 cibles sont évaluées sur 270 tirées (19 jamais visibles assez longtemps).
-Il faut un contraste effectif d'environ −45 niveaux **et** une tache d'au moins σ = 3 px d'origine : à −46 et σ 1,5, une seule cible sur 28 est trouvée.
-La chauve-souris de 3:57 à son arrivée (−30 à −70 en pleine résolution, petite) tombe exactement dans cette zone ([07](07-ameliorer-la-detection.md#la-piste-14-357)).
+Le réglage d'alors travaillait à 480 px, avec `min_area` 18 et un seuil fixe de 25.
+Avec lui, 251 cibles sont évaluées sur 270 tirées : 19 ne sont jamais visibles assez longtemps.
+Il faut un contraste effectif d'environ −45 niveaux **et** une tache d'au moins σ = 3 px d'origine.
+À −46 et σ 1,5, une seule cible sur 28 est trouvée.
+La chauve-souris de 3:57 arrive petite, avec un contraste de −30 à −70 en pleine résolution : elle tombe exactement dans cette zone ([07](07-ameliorer-la-detection.md#la-piste-14-357)).
 
 | Réglage | −46, σ 1,5 | −46, σ 3 | −24, σ 3 | −24, σ 5 | Pistes de référence | Fausses pistes | Temps |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -143,34 +170,41 @@ La chauve-souris de 3:57 à son arrivée (−30 à −70 en pleine résolution, 
 | 720 px, `min_area` 4 | 21/25 (0,80) | 24/26 (0,87) | 15/24 (0,30) | 18/23 (0,54) | **7 652** | 318 | 2 min 49 |
 | 960 px, `min_area` 4 | 25/27 (0,87) | 25/26 (0,91) | 18/26 (0,30) | 26/27 (0,56) | **498** | 7 | 4 min 34 |
 
-À 720 px avec `min_area` 4, le bruit a gêné le tirage (43 cibles jamais visibles au lieu de 19) : ce jeu de cibles n'est pas le même.
+À 720 px avec `min_area` 4, le bruit a gêné le tirage : 43 cibles ne sont jamais visibles, au lieu de 19.
+Ce jeu de cibles n'est donc pas le même.
 Le run en pleine résolution (1440 px) a été arrêté après 25 minutes sans résultat.
 
 - **C'est `min_area` qui bloquait, pas la résolution.**
-  À 480 px, l'abaisser de 18 à 4 px² fait passer les petites cibles contrastées de 1 à 26 sur 28, et les grosses peu contrastées de 15 à 26 sur 27, sans piste de bruit en plus (14 pistes de référence).
-- **La réduction à 480 px est un débruitage**, puisque chaque pixel de travail moyenne 3×3 pixels d'origine.
-  À plus haute résolution, le même seuil de 25 laisse passer le bruit, en centaines ou en milliers de pistes.
-  À 720 px, `min_area` 4 px² vaut 1 pixel de travail, donc un pixel isolé suffit ; à 960 px, il en faut 2, d'où moins de bruit qu'à 720.
-- **La haute résolution apporte de la complétude** : à 960 px, 0,87 contre 0,62 sur les petites cibles fortes, 0,56 contre 0,39 sur les grosses faibles.
-  Elle n'est exploitable qu'avec un seuil adapté au bruit local (D1) et un filtrage à la taille de la cible (B2), qui remplace le débruitage de la réduction.
+  À 480 px, l'abaisser de 18 à 4 px² fait passer les petites cibles contrastées de 1 à 26 sur 28 et les grosses peu contrastées de 15 à 26 sur 27.
+  Il n'ajoute aucune piste de bruit : les pistes de référence restent 14.
+- **La réduction à 480 px est un débruitage** : chaque pixel de travail moyenne 3×3 pixels d'origine.
+  À plus haute résolution, le même seuil de 25 laisse passer des centaines ou des milliers de pistes de bruit.
+  À 720 px, `min_area` 4 px² vaut 1 pixel de travail : un pixel isolé suffit.
+  À 960 px il en faut 2, d'où moins de bruit qu'à 720.
+- **La haute résolution apporte de la complétude** : à 960 px, elle passe de 0,62 à 0,87 sur les petites cibles fortes et de 0,39 à 0,56 sur les grosses faibles.
+  Elle n'est exploitable qu'avec un seuil adapté au bruit local (D1) et un filtrage à la taille de la cible (B2).
+  Ce filtrage remplace le débruitage de la réduction.
 
 ### Sans masque d'affichage (4 octobre 2026)
 
-480 px, `min_area` 4, visibilité sans profil de caméra, les deux lignes mesurées avec le même code :
+Mesures à 480 px et `min_area` 4, avec une visibilité sans profil de caméra.
+Les deux lignes viennent du même code :
 
 | Réglage | −46, σ 1,5 | −46, σ 3 | −24, σ 5 | Fausses pistes | Pistes de référence |
 | --- | --- | --- | --- | --- | --- |
 | Anciennes bandes (`--osd-region 0,0,1,0.07 --osd-region 0,0.9,1,1`) | 26/28 (0,59) | 24/26 (0,86) | 26/27 (0,37) | 0 | 14 |
 | **Sans masque (défaut)** | **27/28 (0,66)** | 24/26 **(0,95)** | 26/27 **(0,44)** | 0 | 14 |
 
-La vitesse estimée sur 3 images ne change rien de mesurable au banc (une seule complétude bouge de 0,01) ; sur la vraie vidéo, elle prolonge de 2 images la piste la plus rapide.
+La vitesse estimée sur 3 images ne change rien de mesurable au banc, où une seule complétude bouge de 0,01.
+Sur la vraie vidéo, elle prolonge de 2 images la piste la plus rapide.
 
 ### Vols de chasse (4 octobre 2026)
 
-Banc dédié sur la 092 : `--motions hunt circle --amplitudes -60 -30 --sigmas 1.5 3 5 --per-class 60`, 34,7 s.
-720 cibles sont tirées (12 classes × 60), et 592 sont visibles.
-Les 128 autres ne quittent jamais les coins noirs de l'oculaire : une chasse courte qui entre près d'un coin n'atteint pas le disque visible, et il reste en pratique environ 49 cibles par classe.
-Avec `min_hits` 5, 371 sont trouvées, sans fausse piste.
+Un banc dédié tourne sur la 092 en 34,7 s : `--motions hunt circle --amplitudes -60 -30 --sigmas 1.5 3 5 --per-class 60`.
+720 cibles sont tirées (12 classes × 60) et 592 sont visibles.
+Les 128 autres ne quittent jamais les coins noirs de l'oculaire : une chasse courte qui entre près d'un coin n'atteint pas le disque visible.
+Il reste en pratique environ 49 cibles par classe.
+Avec `min_hits` 5, 371 sont trouvées sans fausse piste.
 Comme en transit, la classe −30, σ 1,5 est invisible et −30, σ 3 difficile.
 
 Comparaison appariée sur les mêmes cibles : cibles trouvées avec le réglage d'alors et perdues avec le nouveau.
@@ -182,17 +216,21 @@ Comparaison appariée sur les mêmes cibles : cibles trouvées avec le réglage 
 | `min_hits` 6 | 0 | −14 |
 | `min_hits` 7 | −1 | −24 |
 
-Les cibles perdues quand `min_hits` monte sont surtout peu contrastées (−30) : visibles une quinzaine d'images, elles sont détectées sur 5 ou 6.
+Les cibles perdues quand `min_hits` monte sont surtout peu contrastées (−30).
+Visibles une quinzaine d'images, elles sont détectées sur 5 ou 6.
 
 Retenu le 4 octobre : `max_median_turn` 0,8 et `min_hits` 6.
-Rejoués avec ces réglages, le transit trouve 115 cibles sur 253 visibles et la chasse 357 sur 584 (136 non visibles), sans fausse piste.
-Si `min_hits` passe à 6 pour le suivi seul, le critère « trouvée » restant à 5, la chasse perd 11 cibles au lieu de 14.
+Rejoués avec ces réglages, le transit trouve 115 cibles sur 253 visibles et la chasse 357 sur 584 (136 non visibles).
+Aucun des deux n'a de fausse piste.
+Si `min_hits` passe à 6 pour le suivi seul et que le critère « trouvée » reste à 5, la chasse perd 11 cibles au lieu de 14.
 
 ### Seuil par pixel (D1)
 
-5 octobre 2026, 480 px, transit.
-`threshold` est le plancher, `noise_factor` (k) le relèvement local ([02](02-methode.md#3-seuil-dans-les-deux-sens)) ; k = 0 est le seuil fixe d'alors.
-Les classes à −15 ne sont trouvées par aucun réglage, sauf aux seuils 15 et 12, où le bruit domine (colonne −15).
+Mesures du 5 octobre 2026 en transit à 480 px.
+`threshold` est le plancher et `noise_factor` (k) le relèvement local ([02](02-methode.md#3-seuil-dans-les-deux-sens)).
+Avec k = 0, on retrouve le seuil fixe d'alors.
+Les classes à −15 ne sont trouvées qu'au seuil 18 avec k = 0 ou 4 et aux seuils 15 et 12 (colonne −15).
+Tous ces réglages ont aussi des fausses pistes.
 Les temps sont ceux d'une première version qui calculait la carte de bruit sur toute l'image.
 
 | Seuil, k | −60, σ 1,5 | −60, σ 3 | −60, σ 5 | −30, σ 1,5 | −30, σ 3 | −30, σ 5 | −15 | Pistes de réf. | Fausses | Mêmes cibles | Temps | CPU | Mémoire |
@@ -214,7 +252,7 @@ Les temps sont ceux d'une première version qui calculait la carte de bruit sur 
 | 12, 6 | 16/26 (0,74) | 23/25 (0,94) | 23/29 (0,90) | 5/26 | 25/28 (0,79) | 24/25 (0,93) | 9 | 3 351 | 2 172 | non | 163 s | 352 s | 448 Mo |
 | 12, 8 | 24/26 (0,71) | 27/27 (0,96) | 28/30 (0,94) | 4/27 | 25/27 (0,71) | 26/28 (0,89) | 5 | 1 258 | 329 | non | 158 s | 347 s | 339 Mo |
 
-Banc de chasse (`--motions hunt circle --amplitudes -60 -30 --per-class 60`), cibles trouvées sur les visibles, toutes classes :
+Le banc de chasse (`--motions hunt circle --amplitudes -60 -30 --per-class 60`) compte les cibles trouvées sur les visibles, toutes classes confondues :
 
 | Seuil, k | Trouvées | −30, σ 3 (hunt / circle) | −30, σ 5 (hunt / circle) | Pistes de réf. | Fausses | Temps |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -223,37 +261,43 @@ Banc de chasse (`--motions hunt circle --amplitudes -60 -30 --per-class 60`), ci
 | 18, 6 | 448 / 584 | 42/48 · 41/48 | 49/51 · 44/48 | 15 | 0 | 156 s |
 | 18, 8 | 430 / 584 | 39/48 · 36/48 | 48/51 · 44/48 | 14 | 0 | 156 s |
 
-Sur la 092, avec la commande complète :
+Sur la 092 avec la commande complète :
 
-- **18 et 8** garde les 14 pistes, sans piste en plus.
+- **18 et 8** garde les 14 pistes et n'en ajoute aucune.
   0:51 tombe de 9 à 6 détections, **exactement `min_hits`** : une détection de moins et elle disparaît.
-- **18 et 6** sort 15 pistes. La nouvelle (2:45.02 → 2:45.38, 9 détections) chevauche la fin de 2:44, qui passe de 44 à 39 détections.
-  Pour l'utilisateur (5 octobre), ce n'est pas un second animal mais la chauve-souris de 2:43.95, sortie en double.
+- **18 et 6** sort 15 pistes. La nouvelle (2:45.02 → 2:45.38) a 9 détections et chevauche la fin de 2:44.
+  Celle-ci passe de 44 à 39 détections.
+  L'utilisateur a jugé le 5 octobre que ce n'était pas un second animal mais la chauve-souris de 2:43.95 sortie en double.
   La fusion des jumelles n'a pas été modifiée pour autant (#26).
 - **18 et 0** sort 91 pistes.
 
 Ce qu'on en tire :
 
 - **Le gain vient de la baisse du seuil fixe, et D1 la rend utilisable.**
-  À 18 sans relèvement, les cibles −30, σ 3 passent de 10 à 26 sur 27, mais la vraie vidéo donne 91 pistes et le banc 6 fausses.
-  Avec k = 8, 22 sur 27 restent trouvées, et la vidéo revient à ses 14 pistes, sans fausse piste.
-- **À seuil 25, D1 ne fait que perdre**, puisqu'il ne peut que relever le seuil : à k = 8, une piste de référence disparaît.
+  À 18 sans relèvement, les cibles −30, σ 3 passent de 10 à 26 sur 27.
+  Mais la vraie vidéo donne alors 91 pistes et le banc 6 fausses.
+  Avec k = 8, 22 sur 27 restent trouvées. La vidéo revient à ses 14 pistes et le banc n'a plus de fausse piste.
+- **À seuil 25, D1 ne fait que perdre**, puisqu'il ne peut que relever le seuil.
+  À k = 8, une piste de référence disparaît.
 - **Sous 18, le plancher ne tient plus** : à 15 ou 12, même k = 8 laisse des dizaines à des milliers de pistes de bruit.
   La MAD sur 11 images est trop instable pour servir seule.
-- **Coût** : 2 médianes de plus par image, en flottants.
-  Calculé sur toute l'image, le banc passe de 32 à 155 s, et de 224 à 343 s de CPU, avec 50 Mo de plus.
-  Le bruit n'est utile que sur les pixels dont le résidu dépasse déjà le plancher, puisque les autres ne peuvent pas être retenus.
-  Calculé sur eux seuls, avec les mêmes détections au bit près, le banc à 18 et 8 prend 45 s et 236 s de CPU (machine chargée).
-- Les petites cibles faibles (−30, σ 1,5) restent introuvables à 480 px sans bruit en plus : c'est le rôle du filtre à la taille de la cible et de la pleine résolution (B2 et B1 dans [07](07-ameliorer-la-detection.md)).
+- **Coût** : 2 médianes en flottants de plus par image.
+  Avec un bruit calculé sur toute l'image, le banc passe de 32 à 155 s et de 224 à 343 s de CPU. Il prend aussi 50 Mo de plus.
+  Le bruit n'est utile que sur les pixels dont le résidu dépasse déjà le plancher : les autres ne peuvent pas être retenus.
+  Calculé sur eux seuls, le bruit donne les mêmes détections au bit près.
+  Le banc à 18 et 8 prend alors 45 s et 236 s de CPU (machine chargée).
+- Les petites cibles faibles (−30, σ 1,5) restent introuvables à 480 px sans bruit en plus.
+  Les trouver est le rôle du filtre à la taille de la cible et de la pleine résolution (B2 et B1 dans [07](07-ameliorer-la-detection.md)).
 
 ### Filtre à la taille de la cible (B2)
 
-5 octobre 2026, transit, `min_area` 4 sauf mention.
-σ est `--target-sigma` en pixels d'origine, k est `--noise-factor`.
+Mesures du 5 octobre 2026 en transit, avec `min_area` 4 sauf mention.
+σ est `--target-sigma` en pixels d'origine et k est `--noise-factor`.
 « À la limite » : pistes de référence qui ont exactement `min_hits` détections.
-Les temps marqués * ont été pris sous charge, deux bancs à la fois, et les autres un banc à la fois ; les comptes ne dépendent pas de la charge.
+Les temps marqués * ont été pris sous charge, avec deux bancs à la fois. Les autres viennent d'un banc seul.
+Les comptes ne dépendent pas de la charge.
 
-Témoins, et chaque changement pris seul :
+Témoins et chaque changement pris seul :
 
 | Réglage | −60, σ 1,5 | −60, σ 3 | −60, σ 5 | −30, σ 1,5 | −30, σ 3 | −30, σ 5 | −15 | Pistes de réf. | À la limite | Fausses | Non visibles | Mêmes cibles | Temps | CPU | Mémoire |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -286,7 +330,7 @@ Témoins, et chaque changement pris seul :
 
 Le réglage 960 px, σ 1, seuil 8, k 0 a été arrêté par le garde-fou après 12 minutes : son voisin au seuil 12 donnait déjà 1 408 pistes de référence.
 
-Autres largeurs, et `min_area` :
+Autres largeurs et `min_area` :
 
 | Réglage | −60, σ 1,5 | −60, σ 3 | −60, σ 5 | −30, σ 1,5 | −30, σ 3 | −30, σ 5 | −15 | Pistes de réf. | À la limite | Fausses | Non visibles | Mêmes cibles | Temps | CPU | Mémoire |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -302,7 +346,8 @@ Autres largeurs, et `min_area` :
 | 1440 px, σ 1,5, seuil 12, k 0, min_area 9 | 27/28 (0,95) | 26/26 (1,00) | 28/30 (0,98) | 1/28 (0,00) | 26/27 (0,97) | 27/27 (1,00) | 19 | 14 | 0 | 0 | 17 | oui | 533 s | 913 s | 523 Mo |
 | 1440 px, σ 1,5, seuil 12, k 0, min_area 18 | 26/28 (0,68) | 26/26 (0,98) | 28/30 (0,98) | 0/28 (0,00) | 26/27 (0,88) | 27/27 (1,00) | 9 | 14 | 0 | 0 | 17 | oui | 540 s | 917 s | 524 Mo |
 
-Banc de chasse (`--motions hunt circle --amplitudes -60 -30 --per-class 60`), cibles trouvées sur 584 visibles, sans fausse piste nulle part.
+Le banc de chasse (`--motions hunt circle --amplitudes -60 -30 --per-class 60`) compte les cibles trouvées sur 584 visibles.
+Aucun réglage n'y a de fausse piste.
 Le temps de D1 est celui de la première version de la carte de bruit.
 
 | Réglage | Trouvées | −30, σ 1,5 (hunt · circle) | −30, σ 3 | Pistes de réf. | Temps |
@@ -315,8 +360,8 @@ Le temps de D1 est celui de la première version de la carte de bruit.
 | **C4** : 960 px, σ 2, seuil 8, k 0 | 540 | 43/48 · 43/53 | 46/48 · 45/48 | 18 | 238 s |
 | **C5** : 1440 px, σ 1,5, seuil 12, k 8 | 470 | 11/48 · 11/53 | 45/48 · 41/48 | 14 | 556 s |
 
-Sur la 092, avec la commande complète, les trois candidats suivent toujours 3:36 et 3:58.
-Écart de début en images (négatif : plus tôt) et écart de détections, par rapport au réglage d'alors :
+Sur la 092 avec la commande complète, les trois candidats suivent toujours 3:36 et 3:58.
+Chaque case donne l'écart de début en images (négatif : plus tôt) puis l'écart de détections par rapport au réglage d'alors :
 
 | Passage (défaut) | C1 | C2 | C3 |
 | --- | --- | --- | --- |
@@ -339,45 +384,56 @@ Sur la 092, avec la commande complète, les trois candidats suivent toujours 3:3
 Ce qu'on en tire :
 
 - **Le filtre apporte le plus gros gain mesuré, mais il ne paie qu'avec la résolution.**
-  À 960 px, σ 1,5 et seuil 12 sans carte de bruit (C1), les petites cibles faibles (−30, σ 1,5) passent de 0 à 14 sur 28.
-  Les −30, σ 3 passent de 10 à 26, avec une complétude de 0 à 0,98, et 26 cibles à −15 apparaissent, pour 14 pistes de référence et 1 fausse piste.
+  C1 travaille à 960 px avec σ 1,5 et un seuil de 12, sans carte de bruit.
+  Les petites cibles faibles (−30, σ 1,5) y passent de 0 à 14 sur 28.
+  Les −30, σ 3 passent de 10 à 26 et leur complétude de 0 à 0,98.
+  Il apparaît 26 cibles à −15, pour 14 pistes de référence et 1 fausse piste.
   Le même filtre à 480 px donne 33 pistes de référence, dont 9 à la limite.
-- **La résolution seule** (960 px sans filtre) laisse passer le bruit : 118 pistes de référence, 5 fausses.
-  **D1 seul** à 960 px gagne peu : 16 pistes de référence, dont 1 à la limite, et aucune fausse.
-- **Filtre et seuil par pixel ensemble** (C3) : aucune fausse piste, mais la carte de bruit reprend l'essentiel du gain sur les petites cibles faibles (−30, σ 1,5 : 1 sur 28 ; chasse 456 contre 510).
+- **La résolution seule** (960 px sans filtre) laisse passer le bruit : 118 pistes de référence et 5 fausses.
+  **D1 seul** à 960 px gagne peu : 16 pistes de référence dont 1 à la limite, et aucune fausse.
+- **Filtre et seuil par pixel ensemble** (C3) : aucune fausse piste.
+  Mais la carte de bruit reprend l'essentiel du gain sur les petites cibles faibles (1 sur 28 en −30, σ 1,5 et 456 contre 510 en chasse).
   Le filtre fait déjà le travail de débruitage.
-- **1440 px** (C2) gagne encore un peu (−30, σ 1,5 : 18 sur 28 ; chasse 525), pour deux fois le temps de 960 px, et sort deux pistes nouvelles sur la 092.
-- **σ et seuil vont ensemble**, car le filtre abaisse le pic d'une petite tache d'autant plus que σ est grand.
+- **1440 px** (C2) gagne encore un peu (18 sur 28 en −30, σ 1,5 et 525 en chasse).
+  Il prend deux fois le temps de 960 px et sort deux pistes nouvelles sur la 092.
+- **σ et seuil vont ensemble** : le filtre abaisse le pic d'une petite tache d'autant plus que σ est grand.
   σ 1 laisse passer le bruit sans carte (1 408 pistes de référence au seuil 12).
   σ 2 perd les petites cibles faibles au seuil 12 (0 sur 28).
-  Au seuil 8, il donne l'un des meilleurs résultats (−30, σ 1,5 : 23 sur 28, −15 : 56), pour 18 pistes de référence, dont 2 à la limite, et aucune fausse.
+  Au seuil 8, σ 2 donne l'un des meilleurs résultats (23 sur 28 en −30, σ 1,5 et 56 à −15).
+  Il sort en contrepartie 18 pistes de référence dont 2 à la limite, mais aucune fausse.
   σ 1,5 au seuil 12 est le meilleur réglage qui garde 14 pistes de référence.
-  Au seuil 8, σ 1,5 explose sans carte (4 078) ; au seuil 16, les cibles faibles sont perdues.
+  Au seuil 8, σ 1,5 explose sans carte (4 078 pistes de référence). Au seuil 16, il perd les cibles faibles.
 - **`min_area`** 9 ou 18 perd les petites cibles faibles (14 → 1 ou 0 sur 28) et ne retire qu'une fausse piste (1 → 0) : il reste à 4.
-- **Coût** : la médiane sur des images en flottants, et le flou.
-  Le banc passe de 32 s à 4 min à 960 px, et à 9 min à 1440 px ; la 092, de 30 s à 135 s (960 px) ou 283 s (1440 px).
+- **Coût** : la médiane sur des images en flottants et le flou.
+  Le banc passe de 32 s à 4 min à 960 px et à 9 min à 1440 px.
+  La 092 passe de 30 s à 135 s à 960 px, ou à 283 s à 1440 px.
 
 #### Sur six autres vidéos
 
 Les quatre candidats et le défaut d'alors ont été passés sur la 092 et sur six autres vidéos sans erreur de décodage : 089, 090, 091, 125, 126 et 127 (comparaison détaillée hors dépôt).
 
-Avec un seuil fixe abaissé et sans seuil par pixel (C1, C2, C4), la 089, la 090 et la 091 donnent des centaines à des milliers de pistes (C1 : 560, 374, 394 ; C4 : 5 479, 4 925, 3 974).
+C1, C2 et C4 abaissent le seuil fixe sans seuil par pixel.
+Avec eux, la 089, la 090 et la 091 donnent des centaines à des milliers de pistes : 560, 374 et 394 avec C1, et 5 479, 4 925 et 3 974 avec C4.
 La 092 et la 125 restent propres.
 Avec C1, ces trois vidéos ont en permanence 3 à 5 taches de bruit par image, contre 0 sur la 092 et la 125.
-Ces taches font un pixel de travail, leur amplitude est juste au-dessus du seuil, et le suivi les enchaîne en fausses pistes.
+Ces taches font un pixel de travail et dépassent juste le seuil. Le suivi les enchaîne en fausses pistes.
 Les mouvements de jumelles n'y sont pour rien : la 090 n'en a aucun.
-C3, avec le seuil par pixel, garde une médiane de 0 tache par image, et sort 1, 20 et 21 pistes sur ces trois vidéos (4, 12 et 23 avec le défaut d'alors).
-**Un seuil fixe abaissé ne se règle pas sur une seule vidéo calme** : le banc, fait sur la 092, ne le montrait pas.
+Avec le seuil par pixel, C3 garde une médiane de 0 tache par image.
+Il sort 1, 20 et 21 pistes sur ces trois vidéos, contre 4, 12 et 23 avec le défaut d'alors.
+**Un seuil fixe abaissé ne se règle pas sur une seule vidéo calme** : le banc fait sur la 092 ne le montrait pas.
 
-C5, c'est-à-dire C3 en pleine résolution (1440 px), tient aussi sur les sept vidéos (14, 1, 17, 22, 48, 10 et 7 pistes), pour plus du double du temps de C3.
+C5 est C3 en pleine résolution (1440 px).
+Il tient aussi sur les sept vidéos (14, 1, 17, 22, 48, 10 et 7 pistes) pour plus du double du temps de C3.
 Ni C3 ni C5 ne trouvent le passage réel de 3:42.10 sur la 092.
-La cible n'y dépasse le plancher que de 1 à 10 niveaux, et le seuil par pixel la perd sur 2 de ses 6 images, où 8σ vaut 22 à 36 : elle tombe alors sous `min_hits`.
-C1 la perd autrement : à 960 px, une de ses images n'a qu'un pixel de travail au-dessus du seuil, sous `min_area`.
+La cible n'y dépasse le plancher que de 1 à 10 niveaux.
+Sur 2 de ses 6 images, 8σ vaut 22 à 36 : le seuil par pixel l'y perd, et elle tombe sous `min_hits`.
+C1 la perd autrement. À 960 px, une de ses images n'a qu'un pixel de travail au-dessus du seuil, ce qui reste sous `min_area`.
 
 ### Décision du 6 octobre 2026
 
 C3 devient le réglage par défaut : 960 px, filtre de 1,5 px, seuil 12, facteur de bruit 8.
-L'utilisateur a regardé une à une les six pistes de l'ancien réglage que C3 ne sort plus, et les a toutes jugées fausses ; il a validé comme réelles les pistes 8 et 9 de C3 sur la 125 ([03](03-resultats-092.md#cibles-connues-pour-les-issues-suivantes)).
+L'utilisateur a regardé une à une les six pistes de l'ancien réglage que C3 ne sort plus et les a toutes jugées fausses.
+Il a validé comme réelles les pistes 8 et 9 de C3 sur la 125 ([03](03-resultats-092.md#cibles-connues-pour-les-issues-suivantes)).
 
 Sur les sept vidéos :
 
@@ -388,6 +444,8 @@ Sur les sept vidéos :
 | C5 (C3 à 1440 px) | 14 | 1 | 17 | 22 | 48 | 10 | 7 | 119 | 38 / 67 min |
 | C1, C2, C4 (sans seuil par pixel) | 14 à 18 | 560 à 5 479 | 374 à 4 925 | 394 à 3 974 | 48 à 57 | 11 à 13 | 7 à 13 | | |
 
-Bancs refaits avec les nouveaux défauts, identiques clé par clé à ceux de C3 : en transit, 148 cibles trouvées, 14 pistes de référence et aucune fausse piste (260 s, 640 s de CPU) ; en chasse, 456 sur 584 et aucune fausse piste (254 s).
+Les bancs refaits avec les nouveaux défauts sont identiques clé par clé à ceux de C3.
+En transit, ils trouvent 148 cibles pour 14 pistes de référence et aucune fausse piste, en 260 s et 640 s de CPU.
+En chasse, ils en trouvent 456 sur 584 sans fausse piste, en 254 s.
 Ce sont les nombres de cibles trouvées par la v0.1.1 que reprend la garde de `--against` ([11](11-migration-rust.md#garde)).
 Le passage réel de 3:42.10 sur la 092 reste manqué ([03](03-resultats-092.md#cibles-connues-pour-les-issues-suivantes)).

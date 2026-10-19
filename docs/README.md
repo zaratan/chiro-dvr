@@ -14,7 +14,7 @@ Vous relisez les résultats d'une soirée : passez à [lire les résultats](lire
 
 ## Pour comprendre ou modifier l'outil
 
-Ces documents disent ce que le code ne dit pas : pourquoi chaque réglage a sa valeur, ce qu'on a mesuré, ce qui reste à trancher.
+Ces documents disent ce que le code ne dit pas : pourquoi chaque réglage a sa valeur, ce qu'on a mesuré et ce qui reste à trancher.
 
 | Document | Pour qui | Contenu |
 | --- | --- | --- |
@@ -34,18 +34,18 @@ Ces documents disent ce que le code ne dit pas : pourquoi chaque réglage a sa v
 
 ## Qui tient quoi
 
-Chaque vérité s'écrit à un seul endroit, et les autres documents y renvoient.
+Chaque vérité s'écrit à un seul endroit. Les autres documents y renvoient.
 Un changement de comportement du code met à jour ce document-là, dans la même série de changements.
 
 | Vérité | Document | Ailleurs |
 | --- | --- | --- |
 | Valeur de chaque réglage et sa justification mesurée | [02](02-methode.md) | 10 cite le défaut et renvoie à 02 ; le README n'en recopie aucun (`batdetect --help` affiche les défauts depuis le code) |
-| Logique étape par étape, module de chaque étape | [10](10-logique-de-detection.md) | — |
+| Logique étape par étape, module de chaque étape | [10](10-logique-de-detection.md) | aucun |
 | Chaîne de construction, charte, tests, licences, encodage | [11](11-migration-rust.md), sections Construction à Plage réelle des sources | 05 et 02 y renvoient |
 | Détail des crates | [11](11-migration-rust.md#crates), qui suit les lots | la carte courte dans CLAUDE.md |
-| Carte courte des crates, règles des agents | [CLAUDE.md](../CLAUDE.md) | — |
+| Carte courte des crates, règles des agents | [CLAUDE.md](../CLAUDE.md) | aucun |
 | Temps de calcul actuels | [09](09-profilage.md) | les autres citent ses chiffres |
-| Questions ouvertes | [06](06-questions-ouvertes.md) | — |
+| Questions ouvertes | [06](06-questions-ouvertes.md) | aucun |
 | Utilisation | [README](../README.md) | les détails dans premiere-soiree et lire-les-resultats |
 | Fichiers produits | [lire-les-resultats](lire-les-resultats.md#où-sont-les-résultats) | `params.json` et le ménage des sorties, pour le développeur, dans [02](02-methode.md#sorties) |
 | Construire, vérifier, publier une version | [CONTRIBUTING](../CONTRIBUTING.md) | le détail de la CI et de la distribution dans [05](05-outillage.md) |
@@ -53,4 +53,4 @@ Un changement de comportement du code met à jour ce document-là, dans la même
 | Parcours d'une soirée, des jumelles aux résultats, pour qui n'a jamais lancé l'outil | [premiere-soiree](premiere-soiree.md) | le README y renvoie |
 | Lecture de l'image résumé : bandeau, trait, flèche, pastille, zone masquée, frise du temps, couleurs | [lire-les-resultats](lire-les-resultats.md#lire-limage-résumé) | le README y renvoie |
 | Lecture d'un extrait, façon de désigner une piste et de noter son verdict, faux positifs observés | [lire-les-resultats](lire-les-resultats.md#juger-un-extrait) | le dessin des extraits et ses réglages sont dans [02](02-methode.md#extrait-zoomé-et-ralenti) |
-| Histoire du dépôt | git et le [CHANGELOG](../CHANGELOG.md) ; les mesures datées qui justifient un réglage restent dans 07, 08 et 09 | — |
+| Histoire du dépôt | git et le [CHANGELOG](../CHANGELOG.md) ; les mesures datées qui justifient un réglage restent dans 07, 08 et 09 | aucun |

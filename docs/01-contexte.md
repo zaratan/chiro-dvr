@@ -3,8 +3,9 @@
 ## Le besoin
 
 Des naturalistes filment des falaises au crépuscule avec des jumelles thermiques pour repérer les chauves-souris.
-Regarder des heures de vidéo à l'œil est long, et on rate des passages.
-`batdetect` repère chaque objet qui bouge, le suit, et sort un extrait par passage, qu'une naturaliste confirme ou écarte.
+Regarder des heures de vidéo à l'œil est long. On y rate des passages.
+`batdetect` repère chaque objet qui bouge, le suit et sort un extrait par passage.
+Une naturaliste confirme ou écarte ensuite chaque extrait.
 
 L'outil signale que quelque chose a bougé à tel endroit, de telle seconde à telle seconde.
 C'est la naturaliste qui dit si c'est une chauve-souris : Manon sert de référence et confirme les passages à l'œil.
@@ -26,7 +27,8 @@ Les « 2.0x » et « 6.5x » de l'affichage incrusté sont les grossissements de
 ## Récupérer les vidéos originales
 
 **L'export par l'application Stream Vision 2 réencode les vidéos et divise leur débit par environ 12.**
-On copie donc les originaux directement depuis les jumelles : les brancher en USB-C **allumées**, choisir le mode **« Accès aux fichiers »** avec la bague, valider par MENU.
+On copie donc les originaux directement depuis les jumelles.
+Il faut les brancher en USB-C **allumées**, choisir le mode **« Accès aux fichiers »** avec la bague et valider par MENU.
 Elles apparaissent alors comme une clé USB (manuel, section « Connexion USB »).
 
 | | Export Stream Vision 2 | Original (USB) |
@@ -55,20 +57,24 @@ Mesuré par `ffprobe` sur l'original de la 092 :
 | Audio | piste AAC, sans intérêt pour la détection |
 | Affichage incrusté (OSD) | compteur d'enregistrement rouge, heure, date, batterie en haut ; grossissements (« 2.0x », « 6.5x ») en bas sur certains fichiers |
 
-Sur l'original de la 092, sans aucun masque, aucune piste ne vient de l'affichage incrusté.
+Sur l'original de la 092 sans aucun masque, aucune piste ne vient de l'affichage incrusté.
 Ce qui reste fixe ne crée aucune détection.
-Le compteur d'enregistrement change chaque seconde, mais sur place : ses détections ne se déplacent pas, et le suivi rejette ce qui parcourt moins de `min_travel`.
-L'outil n'a donc **pas de masque par défaut**, ce qui le garde indépendant de la caméra.
+Le compteur d'enregistrement change chaque seconde, mais sur place : ses détections ne se déplacent pas.
+Le suivi rejette ce qui parcourt moins de `min_travel`.
+L'outil n'a donc **pas de masque par défaut**. Il reste ainsi indépendant de la caméra.
 `--osd-region` sert pour un appareil dont l'affichage bougerait.
 
 ## Ce que la prise de vue impose
 
 **Les jumelles doivent être fixes.**
-La vidéo `video_027` a été écartée : Manon avait bougé ses jumelles, tout le fond bouge, et la détection par soustraction de fond n'a plus de sens.
-Sur `video_092`, posée, la luminosité moyenne ne varie que de 3 niveaux sur 255 en 5 minutes, et aucun pixel ne bouge en dehors des passages.
+La vidéo `video_027` a été écartée : Manon avait bougé ses jumelles et tout le fond bouge.
+La détection par soustraction de fond n'y a plus de sens.
+La `video_092` a été filmée jumelles posées. Sa luminosité moyenne ne varie que de 3 niveaux sur 255 en 5 minutes.
+Aucun pixel n'y bouge en dehors des passages.
 
 La chauve-souris est plus sombre que la roche.
-En palette white-hot, la falaise chauffée par la journée sort blanche, et une chauve-souris en vol passe devant en tache sombre (contraste négatif).
+En palette white-hot, la falaise chauffée par la journée sort blanche.
+Une chauve-souris en vol passe devant en tache sombre (contraste négatif).
 Un outil qui suppose « chaud = clair » rate ces passages.
 Sur le ciel froid, le contraste s'inverserait : `batdetect` détecte donc l'écart au fond dans les deux sens.
 

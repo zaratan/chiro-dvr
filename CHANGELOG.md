@@ -1,6 +1,7 @@
 # Changelog
 
-Les versions suivent [SemVer](https://semver.org/lang/fr/). Chaque version publiée a sa section ici ; la release GitHub en reprend le texte (`packaging/release-notes.sh`), et le workflow de release échoue sans elle.
+Les versions suivent [SemVer](https://semver.org/lang/fr/). Chaque version publiée a sa section ici.
+La release GitHub en reprend le texte par `packaging/release-notes.sh`. Sans cette section, le workflow de release échoue.
 
 ## [0.3.0] - 2026-10-18
 
