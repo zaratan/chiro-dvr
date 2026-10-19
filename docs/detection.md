@@ -92,7 +92,8 @@ On croit que ces outils servent la science et devraient être open source.
 Ce que la littérature justifie dans nos choix :
 
 - En vol, les ailes ne sont qu'à environ 1 °C au-dessus de l'air et ce sont elles qui occupent les pixels à distance.
-  Devant la roche qui garde la chaleur du jour, une chauve-souris lointaine est donc plus froide que le fond. Sur nos vidéos jusqu'ici, c'est souvent le cas.
+  Devant la roche qui garde la chaleur du jour, une chauve-souris lointaine est donc plus froide que le fond.
+  Sur nos vidéos jusqu'ici, c'est souvent le cas.
   Le contraste peut même s'annuler au croisement thermique. D'où le seuil sur la valeur absolue de l'écart.
 - Sabol et Melton (brevet US Army, 2009) prennent aussi la valeur absolue de l'écart au fond.
   Leur prédiction tient compte des images manquées.
