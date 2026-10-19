@@ -85,7 +85,7 @@ Il soustrait le fond par MOG2 et ne suppose pas de sens au contraste.
 Il sait ignorer les objets plus clairs ou plus sombres que le fond. Sa précision publiée va de 51 à 95 % selon les vidéos.
 
 Aucun de ces outils ne publie de temps de calcul comparable : ils se comparent au comptage humain.
-Aucun n'a tourné sur nos vidéos.
+Aucun n'a encore tourné sur nos vidéos (#386).
 batdetect est libre (MIT), maintenu, et ne demande aucun environnement propriétaire.
 On croit que ces outils servent la science et devraient être open source.
 
