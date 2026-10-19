@@ -168,6 +168,14 @@ terminal_images() {
   terminal "$images/premiere-soiree-05-attendre.jpg"
 }
 
+results_page() {
+  LANGUAGE=en cargo run --quiet --release -p batdetect -- "$extract" -o "$work/page" --no-notify
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --blink-settings=preferredColorScheme=0 \
+    --window-size=1440,1300 --screenshot="$work/page.png" "file://$repository/$work/page/results.html"
+  magick "$work/page.png" -resize 1200x -quality 80 "$images/results-page.jpg"
+}
+
 summary_images
 clip_images
 terminal_images
+results_page

@@ -585,7 +585,7 @@ fn a_folder_refused_to_read_is_refused_before_any_work_with_the_advice_given_for
         (
             english,
             format!(
-                "error: no video is processed:\n  {}: reading refused\n    what to do: check the rights of {}; on a \
+                "error: no video is processed:\n  {}: reading refused\n    what to do: check the permissions of {}; on a \
                  Mac, allow the Terminal in System Settings, Privacy & Security, Files and Folders\n",
                 name(&videos),
                 videos.display()
@@ -916,7 +916,7 @@ fn a_folder_where_nothing_can_be_written_stops_every_video_before_any_work_and_s
             english,
             format!(
                 "error: no video is processed, the results cannot be written in this folder:\n  {}: writing refused\n    \
-                 what to do: check the rights of this folder, or choose another one with -o\n",
+                 what to do: check the permissions of this folder, or choose another one with -o\n",
                 refused.display()
             ),
         ),

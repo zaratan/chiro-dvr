@@ -58,7 +58,7 @@ struct Shared {
     at_1440: Result<Comparison, String>,
 }
 
-const BATS_MANON_CONFIRMED_S: [f64; 13] = [
+const BATS_THE_EXPERT_CONFIRMED_S: [f64; 13] = [
     7.39, 33.93, 51.62, 53.75, 72.59, 108.92, 122.81, 144.62, 156.98, 163.94, 228.27, 230.87, 237.16,
 ];
 const SLOW_OBJECT_S: f64 = 209.59;
@@ -142,7 +142,7 @@ fn at_1440() -> Result<Comparison, Box<dyn Error>> {
 
 #[test]
 #[ignore = "reference"]
-fn the_092_tracks_the_thirteen_bats_manon_confirmed_from_their_start_and_nothing_new_beside_the_slow_object_at_3_29_and_the_known_target_at_3_42()
+fn the_092_tracks_the_thirteen_bats_the_expert_confirmed_from_their_start_and_nothing_new_beside_the_slow_object_at_3_29_and_the_known_target_at_3_42()
  {
     let run = tracked(&shared().defaults.as_ref().unwrap().detected, &Options::default()).unwrap();
     let tolerance = run.timeline.rate().seconds(FrameIndex::new(START_TOLERANCE_FRAMES));
@@ -152,14 +152,14 @@ fn the_092_tracks_the_thirteen_bats_manon_confirmed_from_their_start_and_nothing
         .map(|track| run.timeline.seconds_by_pts(track.first().frame).unwrap())
         .collect();
 
-    let found: Vec<Option<usize>> = BATS_MANON_CONFIRMED_S
+    let found: Vec<Option<usize>> = BATS_THE_EXPERT_CONFIRMED_S
         .iter()
         .map(|bat| starts.iter().position(|start| (start - bat).abs() <= tolerance))
         .collect();
 
     assert!(found.iter().all(Option::is_some), "{found:?} among {starts:?}");
     let bats: BTreeSet<usize> = found.into_iter().flatten().collect();
-    assert_eq!(bats.len(), BATS_MANON_CONFIRMED_S.len());
+    assert_eq!(bats.len(), BATS_THE_EXPERT_CONFIRMED_S.len());
     let others: Vec<f64> = starts
         .iter()
         .enumerate()

@@ -132,7 +132,7 @@ autre/batdetect
 
 Trop de pistes (tableau écrit, ni extraits ni image résumé)\u{a0}:
   video_099\u{a0}: 412 pistes, au-delà de 300
-    à faire\u{a0}: ouvrir le tableau des pistes et regarder la vidéo à quelques-uns de ses temps\u{a0}; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
+    à faire\u{a0}: ouvrir le tableau des pistes et regarder la vidéo à quelques-uns des débuts qu'il donne\u{a0}; si ce sont de vrais passages, relancer avec un --max-tracks plus grand
 
 1 vidéo sur 5 en échec\u{a0}:
   video_094\u{a0}: la vidéo est abîmée ou incomplète

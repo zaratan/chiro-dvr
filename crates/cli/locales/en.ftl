@@ -47,19 +47,19 @@ failure = { $video }: { $cause ->
     }
 failure-todo = {"  "}what to do: { $cause ->
         [missing] check the path; the video may have been moved or renamed
-        [read-refused] check its rights; on a Mac, allow the Terminal in System Settings, Privacy & Security, Files and Folders
+        [read-refused] check its permissions; on a Mac, allow the Terminal in System Settings, Privacy & Security, Files and Folders
         [not-a-video] if it comes from the binoculars, copy it again over the USB cable, not through Stream Vision 2; otherwise, move it out of the folder
         [unusable-name] rename the video with letters, digits and dashes
         [damaged] copy it again from the binoculars over the USB cable, not through Stream Vision 2, then run again; if it stays damaged, report it
         [unsupported] report it, with the detail below
         [settings] run again without --work-width or --osd-region
         [disk-full] free some space on the disk holding { $folder }, then run again
-        [forbidden] check the rights of this folder, or choose another one with -o
+        [forbidden] check the permissions of this folder, or choose another one with -o
         [in-use] close it, then run again
         [encoding] run again; if it happens again, report it with the detail below
-        [too-many-tracks] open the tracks table and watch the video at a few of its times; if these are real passes, run again with a larger --max-tracks
+        [too-many-tracks] open the tracks table and watch the video at a few of the start times it lists; if these are real passes, run again with a larger --max-tracks
         [input-missing] check the path { $folder }; the folder or the video may have been moved or renamed
-        [input-read-refused] check the rights of { $folder }; on a Mac, allow the Terminal in System Settings, Privacy & Security, Files and Folders
+        [input-read-refused] check the permissions of { $folder }; on a Mac, allow the Terminal in System Settings, Privacy & Security, Files and Folders
         [unreachable] check that the disk is still connected, then run again; if it happens again, report it
         [not-a-video-name] give only videos, or folders of videos
         [no-video] check that { $folder } is the right folder: only the videos directly inside it are processed, not those of its subfolders
@@ -388,7 +388,7 @@ page-js-understood = Got it
 page-js-replace-unsaved = Some changes are not downloaded. Replace them with this file?
 page-js-not-verdicts = { $name } is not a verdicts file.
 page-js-draft-same = Verdicts not downloaded since { $time }, taken back into the page.
-page-js-draft-other = Verdicts were not downloaded (since { $time }), on another verdicts file than the one the page just read.
+page-js-draft-other = Verdicts not downloaded (since { $time }) belong to a different verdicts file from the one the page just read.
 page-js-draft-keep = Take them back
 page-js-draft-drop = Drop them
 page-js-orphans = Verdicts without a track: { $count }

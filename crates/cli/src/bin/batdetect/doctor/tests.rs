@@ -10,7 +10,7 @@ use crate::texts::Texts;
 
 fn ready(encoding: Encoding) -> Checkup {
     Checkup {
-        folder: PathBuf::from("/Users/manon/Soirées"),
+        folder: PathBuf::from("/Users/naturaliste/Soirées"),
         encoding,
         space: Space::Enough(412_300_000_000),
         refused_writing: None,
@@ -27,8 +27,8 @@ fn a_mac_ready_for_an_evening_says_so_line_by_line() {
         french(&ready(Encoding::Preferred(Codec::VideoToolbox))),
         "batdetect 0.2.1 — FFmpeg 7.1.1 inclus\n\
          ✓ encodeur\u{a0}: VideoToolbox (matériel)\n\
-         ✓ place libre\u{a0}: 412\u{a0}Go dans /Users/manon/Soirées\n\
-         ✓ écriture\u{a0}: permise dans /Users/manon/Soirées\n\
+         ✓ place libre\u{a0}: 412\u{a0}Go dans /Users/naturaliste/Soirées\n\
+         ✓ écriture\u{a0}: permise dans /Users/naturaliste/Soirées\n\
          Tout est prêt."
     );
 }
@@ -80,7 +80,7 @@ fn a_space_just_under_the_threshold_is_rounded_down_so_it_never_reads_as_the_thr
         ..ready(Encoding::Preferred(Codec::OpenH264))
     });
     assert!(
-        report.contains("19,9\u{a0}Go dans /Users/manon/Soirées, moins de 20\u{a0}Go"),
+        report.contains("19,9\u{a0}Go dans /Users/naturaliste/Soirées, moins de 20\u{a0}Go"),
         "{report}"
     );
 }
@@ -102,7 +102,7 @@ fn a_free_space_that_cannot_be_measured_is_a_warning_without_anything_to_do() {
         ..ready(Encoding::Preferred(Codec::OpenH264))
     });
     assert!(
-        report.contains("⚠ place libre\u{a0}: non mesurée dans /Users/manon/Soirées\n✓"),
+        report.contains("⚠ place libre\u{a0}: non mesurée dans /Users/naturaliste/Soirées\n✓"),
         "{report}"
     );
 }
@@ -119,7 +119,7 @@ fn the_english_report_counts_one_problem_in_the_singular() {
         Texts::new(Language::English),
     );
     assert!(
-        report.contains("✗ writing: refused in /Users/manon/Soirées (not allowed)\n"),
+        report.contains("✗ writing: refused in /Users/naturaliste/Soirées (not allowed)\n"),
         "{report}"
     );
     assert!(report.ends_with("1 point to fix."), "{report}");
