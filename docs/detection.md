@@ -105,8 +105,8 @@ La détection ne lit que la luminance Y, convertie en gris de 0 à 255 par une f
 gris = (Y × 4 769 − 81 520) >> 12, borné à 0..255
 ```
 
-Cet étirement linéaire de pente 4 769 / 4 096 (environ 255 / 219) redonne niveau par niveau la table de gris de la v0.1.1.
-Cette table tirée de la conversion d'OpenCV reste dans le code pour le test qui compare les deux.
+Cet étirement linéaire de pente 4 769 / 4 096 (environ 255 / 219) étire la plage vidéo de Y, de 16 à 235, sur 0 à 253.
+Une table de référence reste dans le code pour le test qui vérifie la formule niveau par niveau.
 Une source marquée en plage pleine (`pc`) passe par la même formule qu'une source `tv`.
 La même lecture donne pour chaque image son horodatage `pts`, si c'est une image-clé et les erreurs signalées par le décodeur.
 Elles servent à [écarter les images illisibles](#écarter-les-images-illisibles).
@@ -135,7 +135,7 @@ Il moyenne le bruit d'un pixel avec ses voisins sans écraser une tache de quelq
 Filtrer avant d'estimer le fond mesure fond, résidu et bruit dans le même espace.
 
 **Valeurs**, choisies le 6 octobre 2026 sur sept vidéos 1440×1080 en blanc chaud, toutes du même site.
-Les bancs de cibles synthétiques de la v0.1.1 ont tranché entre les candidats (graine 1, sur la 092).
+Des bancs de cibles synthétiques ont tranché entre les candidats (graine 1, sur la 092).
 « −30, σ 1,5 » note une classe de cibles de −30 niveaux et de σ = 1,5 px d'origine.
 
 | Réglage | 092 | 089 | 090 | 091 | 125 | 126 | 127 | Calcul (réel / CPU) |
@@ -206,7 +206,7 @@ L'écart de gain d'une image est sa moyenne filtrée hors de `--osd-region` moin
 Il est retiré au résidu de chaque pixel, en entiers jusqu'à une seule division.
 C'est le modèle le plus simple : un même décalage pour tous les pixels.
 
-Sur des images fabriquées avec la v0.1.1 et ses défauts, un saut de gain de 10 niveaux donne au plus une tache.
+Sur des images fabriquées, un saut de gain de 10 niveaux donne au plus une tache.
 Un saut de 20 en donne jusqu'à 10 par image sur 11 images, et de 30 à 40 des centaines. Aucune piste n'en sort, de 10 à 40.
 À 30 et 40, le filtre des [images saturées](#écarter-les-images-où-les-jumelles-bougent) ignore 2,6 à 2,8 s autour du saut.
 
@@ -246,7 +246,7 @@ Sans seuil par pixel, elles sortent des centaines de pistes ([table du 6 octobre
 La MAD monte à peine pour un animal présent sur une ou deux images de la fenêtre, à la différence de l'écart-type.
 Prendre la fenêtre du fond plutôt qu'une moyenne depuis le début garde chaque image dépendante de ses seules voisines.
 Le plancher est nécessaire car la MAD sur 11 images est souvent très faible.
-Sur l'extrait de test à 480 px, le descendre de 4 à 1 niveau multiplie par 60 les pixels au-dessus de 6 fois le bruit (v0.1.1).
+Sur l'extrait de test à 480 px, le descendre de 4 à 1 niveau multiplie par 60 les pixels au-dessus de 6 fois le bruit.
 
 - `threshold` = 12 niveaux de gris sur 255 mesurés sur l'image filtrée : c'est le **plancher**, bas pour être sensible sur la roche calme.
 - `noise_factor` = 8, et 0 revient au seuil fixe. Au banc, il coûte des petites cibles faibles : 1 sur 28 en −30, σ 1,5 au lieu de 14.
@@ -275,7 +275,7 @@ Sur la 092, il donne les mêmes 14 pistes que sans masque avec les mêmes début
 Des bandes fixes en haut et en bas (7 et 10 % de l'image) coupaient 5 pistes sur 14.
 
 **Limites.** 11 images estiment mal le bruit d'un pixel : une feuille agitée passe encore parfois.
-Une cible faible sur des pixels agités peut être perdue. Sur la 092, le passage réel de 3:42.10 a un pic de 13 à 22 après filtre (v0.1.1).
+Une cible faible sur des pixels agités peut être perdue. Sur la 092, le passage réel de 3:42.10 a un pic de 13 à 22 après filtre.
 Sur deux de ses six images, il tombe sous un seuil relevé à 22 à 36 et n'a plus assez de détections pour faire une piste.
 Le ciel saturé à 0 est aveugle : sa MAD est nulle et aucun résidu sombre n'y est possible. Il couvre 21,2 % des pixels de la 092.
 Sous 17 images par seconde avec `bg_step` = 3, seul reste le plancher sur toute la vidéo. Toutes nos vidéos sont à 30 i/s.
@@ -364,7 +364,7 @@ L'outil ne cherche rien sur ces images et leurs abords, et le signale sur l'imag
 Sur 17 des 22 vidéos des sessions du 2 septembre et du 2 octobre 2026, il manque quelques octets à la fin de certaines images.
 Le décodeur bouche le trou par *dissimulation d'erreur*.
 Une image P réparée sert de référence aux suivantes : le dégât dure jusqu'à l'image-clé suivante, 8 à 16 images plus loin.
-Sans ce filtre, la 122 donnait des centaines de fausses pistes (v0.1.1).
+Sans ce filtre, la 122 donnait des centaines de fausses pistes.
 
 Une image est **abîmée** si le décodeur la signale (`media/src/decode_errors.rs`) ou si elle suit un trou dans les `pts` (`engine/src/lost.rs`).
 Il y a trou quand l'écart à l'image précédente divisé par le pas habituel dépasse une image une fois arrondi.
@@ -376,7 +376,7 @@ Elle s'élargit de chaque côté de la demi-fenêtre du fond (15 images à 30 i/
 L'étape n'a ni réglage ni option pour la désactiver.
 
 **Pourquoi une marge.** Une image saine à moins d'une demi-fenêtre d'une image réparée a un fond faux.
-Sur la 122 sans marge, il restait 50,3 s instables et 4 pistes (v0.1.1).
+Sur la 122 sans marge, il restait 50,3 s instables et 4 pistes.
 Les 81 images qui déclenchaient encore le filtre de stabilité étaient toutes à 9 images au plus d'une plage abîmée.
 Les 4 pistes finissaient 1 à 6 images avant une plage.
 
@@ -389,7 +389,7 @@ Les images décodées doivent être celles qu'annonce le fichier, moins les pert
 Une perte s'explique par un saut de `pts`, des images manquantes avant la première ou des paquets illisibles à la fin.
 Sinon la vidéo est en échec (« la vidéo est abîmée ou incomplète ») et les autres vidéos du lot continuent.
 
-**Mesures** (v0.1.1, Mac). Le Rust les reproduit plage pour plage sur 25 des 26 vidéos de la référence.
+**Mesures** (Mac). Elles sont les mêmes plage pour plage sur 25 des 26 vidéos de la référence.
 Sur la 124, il écarte 43 images de plus que le décodeur signale par sa dissimulation.
 
 | Vidéo | Images signalées | Illisible | Instable restant | Union | Pistes avant → après |
@@ -404,7 +404,7 @@ Sur la 093, une seule période instable reste au lieu de quatre.
 **Limites.**
 
 - Une tranche très abîmée peut ne produire aucun signalement, et l'image passe pour saine.
-  La v0.1.1 l'a montré sur une vidéo fabriquée en coupant 60 % d'une tranche.
+  Une vidéo fabriquée en coupant 60 % d'une tranche l'a montré.
 - Le dégât s'arrête à l'image-clé parce que celles des jumelles sont des IDR sans image B.
   Un autre appareil pourrait ne pas respecter cette hypothèse.
 - Dans une plage abîmée, les pixels inventés varient avec le nombre de fils du décodeur : une raison de plus d'écarter toute la plage.
@@ -431,7 +431,7 @@ Deux périodes qu'une seconde au plus sépare sont réunies.
 Leurs détections sont vidées avant le suivi (`tracking/src/exclusion.rs`) et une piste qui en traverse une est coupée en deux.
 
 Le nombre de taches est un indicateur de mouvement gratuit.
-Mesurer le décalage du cadre par corrélation de phase coûterait 3,2 ms par image, environ 29 s par vidéo de 5 min (v0.1.1).
+Mesurer le décalage du cadre par corrélation de phase coûterait 3,2 ms par image, environ 29 s par vidéo de 5 min.
 La médiane adapte la limite au bruit de chaque vidéo : avec un seuil bas, même une vidéo stable compte des dizaines de taches par image.
 Sur l'extrait de la 092 à `--threshold 15`, une limite fixe de 20 excluait toute la vidéo et la limite relative n'exclut rien.
 
@@ -439,7 +439,7 @@ Sur l'extrait de la 092 à `--threshold 15`, une limite fixe de 20 excluait tout
   Avec les défauts, la médiane reste à 0 tache par image sur la 089, la 090 et la 091 : la limite reste donc à 20.
 - `pad_s` = 1 s : la fenêtre du fond déborde d'une demi-seconde et les images calmes au milieu d'un mouvement restent suspectes.
 
-**Mesures.** Au seuil fixe de 25 de la v0.1.1, le filtre fait passer la 089 de 1 546 à 96 pistes en ignorant 19,5 s.
+**Mesures.** Au seuil fixe de 25, le filtre fait passer la 089 de 1 546 à 96 pistes en ignorant 19,5 s.
 La 091 passe de 4 327 à 53 pistes (22,3 s ignorées) et la 092 reste à 14 pistes sans rien d'ignoré.
 Avec les défauts, il ignore 8,3 s sur la 089 et 20,6 s sur la 091.
 
@@ -594,7 +594,7 @@ Une piste trop courte pour avoir un virage a un virage médian de 0.
 Ce sont des taches d'un pixel de travail, d'un contraste juste au-dessus du seuil.
 Elles font 5 à 7 détections et prennent leurs directions au hasard.
 Leur virage médian est de 1,5 rad, contre 0,35 au plus pour les vraies pistes de la 092.
-Après le filtre des images saturées, les deux filtres font passer la 089 de 96 à 4 pistes et la 091 de 53 à 23 (v0.1.1, seuil fixe 25).
+Après le filtre des images saturées, les deux filtres font passer la 089 de 96 à 4 pistes et la 091 de 53 à 23 (seuil fixe 25).
 La 092 garde ses 14 pistes. Au banc du 4 octobre 2026, le virage ne coûte aucune cible, même en chasse ou en tournoiement.
 En transit, 115 cibles sont trouvées sur 253 visibles comme sans ces filtres. En chasse, 357 sur 584 au lieu de 371 sur 592.
 Les 14 pertes de la chasse viennent de `min_hits` 6 : des cibles peu contrastées détectées sur 5 images seulement.
