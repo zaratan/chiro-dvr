@@ -27,6 +27,26 @@ Taper ensuite `batdetect --version` pour vérifier : la première ligne doit dir
 Copier dans le Terminal `echo 'autoload -Uz compinit && compinit' >> ~/.zshrc` puis appuyer sur Entrée.
 Ouvrir ensuite une nouvelle fenêtre du Terminal (Cmd + N).
 
+**Régler les jumelles.**
+Les noms des réglages sont ceux du manuel des Pulsar Symbion DXT50.
+L'outil a été mis au point sur des vidéos filmées avec ces quatre réglages :
+
+- **Compression vidéo sur OFF** (menu Media).
+  Sur une copie compressée, une chauve-souris de quelques pixels sortait souvent en deux taches.
+- **Filtre de lissage sur OFF.** Il risque d'effacer les petits points.
+- **Calibrage semi-automatique.**
+  En automatique, l'image se fige environ une seconde à chaque calibrage. Un passage peut tomber dedans.
+- **Pas de zoom numérique.**
+  Les « 2.0x » et « 6.5x » affichés en bas de l'image sont les grossissements de base : ils ne signalent pas un zoom.
+
+Trois autres conseils viennent du manuel et de la littérature. Ils n'ont pas encore été essayés sur ces jumelles :
+
+- Régler le gain et le contraste à la main pour que le ciel ne sature pas.
+  Un ciel tout noir est une zone où l'outil ne voit rien.
+- Mettre la stabilisation d'image sur OFF. Elle est faite pour filmer à main levée.
+- Garder la même luminosité et le même contraste d'une soirée à l'autre (option « Enregistrer les paramètres de l'image thermique »).
+  Les soirées restent ainsi comparables.
+
 Jusqu'ici, tout ne se fait qu'une fois.
 
 **Vérifier que tout est prêt** (depuis la version 0.3.0).
@@ -40,11 +60,22 @@ Sous une ligne ✗, la ligne « à faire » dit quoi faire.
 Une ligne ⚠ ne bloque rien.
 Cette vérification se refait de la même façon avant une soirée importante.
 
-## 2. Brancher les jumelles
+## 2. Filmer, puis brancher les jumelles
 
-Brancher les jumelles **allumées** au Mac par leur câble USB-C.
+**Les jumelles restent fixes sur un trépied pendant tout l'enregistrement.**
+Quand elles bougent, tout le fond bouge avec elles.
+L'outil met alors ce moment hors analyse et n'y cherche rien.
+
+Déclencher le calibrage juste avant d'enregistrer.
+Cadrer de préférence la zone de passage devant la roche.
+La roche garde la chaleur de la journée : une chauve-souris s'y détache en tache sombre.
+Le ciel et la végétation sombre la font moins ressortir.
+Commencer l'enregistrement au début de la sortie des chauves-souris : le fond change de température autour du coucher du soleil.
+Ces deux derniers conseils viennent de la littérature et n'ont pas encore été essayés.
+
+À la fin de la soirée, brancher les jumelles **allumées** au Mac par leur câble USB-C.
 Sur les jumelles, choisir le mode **« Accès aux fichiers »** avec la bague puis valider par MENU.
-Les jumelles apparaissent dans le Finder comme une clé USB ([Contexte : récupérer les vidéos](01-contexte.md#récupérer-les-vidéos-originales)).
+Les jumelles apparaissent dans le Finder comme une clé USB (manuel des jumelles, section « Connexion USB »).
 
 ## 3. Copier les vidéos
 
@@ -142,7 +173,7 @@ Chacune porte ce qu'il faut faire.
 
 Le Mac du développeur (un M1 Max) calcule une vidéo de 5 min en 20 s environ.
 Cela fait à peu près 4 min par heure d'enregistrement.
-Un Mac plus modeste met plus longtemps. Ce temps n'y a pas encore été mesuré ([Questions ouvertes](06-questions-ouvertes.md)).
+Un Mac plus modeste met plus longtemps. Ce temps n'y a pas encore été mesuré.
 
 Dès la première vidéo calculée, la ligne qui se redessine donne aussi l'heure à laquelle toute la soirée devrait être traitée.
 Par exemple : `[3/12] video_094 — détection · fin vers 22:41`.

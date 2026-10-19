@@ -23,7 +23,7 @@ You will watch the clips and decide which tracks are bats: if you filmed bats th
 
 There's no LLM (nor any other kind of AI) looking at your images: it's just maths, a few clever tricks and hours of juggling with parameters.
 Everything runs on your computer, even without internet, and your videos never leave it.
-Want to learn more: [how the detection works](docs/10-logique-de-detection.md) (in French).
+Want to learn more: [how the detection works](docs/detection.md) (in French).
 
 ## Installation
 

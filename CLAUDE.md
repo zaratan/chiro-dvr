@@ -2,11 +2,11 @@
 
 Détection et suivi de chauves-souris dans des vidéos de jumelles thermiques. Rust, FFmpeg lié en statique.
 Mode d'emploi : [README.md](README.md). Construire, vérifier, publier : [CONTRIBUTING.md](CONTRIBUTING.md).
-Base de connaissances : [docs/](docs/README.md), à lire avant de toucher à un réglage ([docs/02-methode.md](docs/02-methode.md)).
+Base de connaissances : [docs/](docs/README.md), à lire avant de toucher à un réglage ([docs/detection.md](docs/detection.md)).
 
 ```bash
-mise run check                    # rust:static et rust:test, 20 s à 1 min : vert avant de rendre la main
-cargo run --release -p batdetect -- in/video_092_original.mp4 -o out # référence : 5 min, 14 pistes, ~20 s de calcul (docs/09)
+mise run check                    # rust:static, rust:test et page:js, 20 s à 1 min : vert avant de rendre la main
+cargo run --release -p batdetect -- in/video_092_original.mp4 -o out # référence : 5 min, 14 pistes, ~20 s de calcul (docs/developpement.md#temps-actuels)
 ```
 
 Un binaire `-dirty` (changements non commités, `--version`) ne saute jamais une vidéo déjà faite : la relance de la référence mesure toujours le code courant (#70).
@@ -15,7 +15,7 @@ Un binaire propre la saute.
 ## Rôles
 
 Manon, naturaliste, confirme les passages à l'œil.
-Son verdict sur la 092, rendu le 9 octobre 2026, est la vérité terrain du test `slow` ([docs/03](docs/03-resultats-092.md)).
+Son verdict sur la 092, rendu le 9 octobre 2026, est la vérité terrain du test `slow` ([docs/resultats-092.md](docs/resultats-092.md)).
 Sur 14 pistes, 13 sont des chauves-souris. Seule la piste lente de 3:29 n'en est pas une.
 Mieux vaut un faux positif facile à écarter qu'un passage manqué.
 Une question sur ce qui est ou n'est pas une chauve-souris lui remonte. Elle ne se tranche pas dans le code.
@@ -24,16 +24,16 @@ Une question sur ce qui est ou n'est pas une chauve-souris lui remonte. Elle ne 
 
 - **Jamais d'écriture dans git** : ni `add`, ni `commit`, ni `stash`, ni `push`. L'utilisateur construit l'historique lui-même.
 - **Tout changement de détection ou de suivi se mesure sur `video_092_original.mp4`** avant d'être rendu.
-  On relève le nombre de pistes et les temps de début, et on met à jour [docs/03-resultats-092.md](docs/03-resultats-092.md).
+  On relève le nombre de pistes et les temps de début, et on met à jour [docs/resultats-092.md](docs/resultats-092.md).
 - **`in/` et `out/` sont hors git.** `in/` contient les vidéos de l'utilisateur : ne rien y supprimer ni modifier.
 - **L'extrait `tests/fixtures/video_092_original_3m24-4m05.mp4` est coupé sans réencodage** sur une image-clé de l'original (image source 6150, 30,03 i/s).
   Le réencoder changerait les détections.
 - **Seules trois vidéos de `tests/fixtures/` sont suivies par Git LFS** (`.gitattributes`) : les deux de la 092 et `video_092_original_3m24-4m05_720x540.mp4`.
-  Cette dernière est l'extrait réduit une fois par la commande de [docs/11](docs/11-migration-rust.md#réglages), et ne se refait jamais.
+  Cette dernière est l'extrait réduit une fois par la commande de [docs/developpement.md](docs/developpement.md#réglages), et ne se refait jamais.
   Après un clone, lancer `git lfs pull`. Sinon les tests `slow` et `reference` échouent sur un pointeur (garde dans la crate `reference`).
   Les cinq petites fixtures du Rust sont des fichiers git ordinaires de quelques Ko.
   Ce sont `full_range.mp4`, `full_range_midway.mp4`, `two_gops.mp4`, `spot.mp4` et son remux en plage pleine `spot_full_range.mp4`.
-  Elles ont été faites une fois par la commande de [docs/11](docs/11-migration-rust.md#tests).
+  Elles ont été faites une fois par la commande de [docs/developpement.md](docs/developpement.md#fixtures-du-rust).
   Les détections de l'extrait par le Rust (`tests/fixtures/rust/`) sont aussi des fichiers ordinaires.
   `compare --frames` les écrit, et chaque système doit les retrouver au bit près.
   La 092 entière `video_092_original.mp4` est une copie exacte de `in/`.
@@ -42,14 +42,14 @@ Une question sur ce qui est ou n'est pas une chauve-souris lui remonte. Elle ne 
   Les gardes de détection portent sur la référence v0.2.0 (`tests/fixtures/reference-v0.2.0/`, #276).
   Ce sont des écarts figés par vidéo et par cas. Ils comptent les images qui diffèrent et les détections perdues et ajoutées.
   Côté pistes, ils comptent les pistes appariées, concordantes, perdues et ajoutées. Ils valent 0 jusqu'à #21.
-  Après, ils ne comptent que des détections faibles ajoutées et leurs pistes, avec leur cause (docs/11).
+  Après, ils ne comptent que des détections faibles ajoutées et leurs pistes, avec leur cause (docs/developpement.md).
   Une piste s'apparie à ±5 images de début et ±3 points.
   Les seuls faits affirmés sans référence sont ceux de Manon sur la 092 (`reference_092`) : ses 13 passages et leurs débuts.
-  À côté, seuls l'objet lent de 3:29 et la cible connue de 3:42.10 sont tolérés (docs/03).
+  À côté, seuls l'objet lent de 3:29 et la cible connue de 3:42.10 sont tolérés (docs/resultats-092.md).
   L'écart entre Mac et Linux de 4 images et 2 points avait été mesuré contre la v0.1.1.
   Celle-ci ne garde plus que l'aval, les sorties, le format v1 et les entrées (témoin ffprobe).
 - **Les vidéos se copient depuis les jumelles en USB**, jamais par l'export Stream Vision 2.
-  Cet export divise le débit par 12 ([docs/01-contexte.md](docs/01-contexte.md)).
+  Cet export divise le débit par 12 ([docs/premiere-soiree.md](docs/premiere-soiree.md)).
 - **Docs synchronisées** : un changement de comportement met à jour `docs/` dans la même série de changements.
   Il ne touche que le document qui possède cette vérité (table de [docs/README.md](docs/README.md#qui-tient-quoi)).
 - **Coupure des lignes** : dans les `.md`, on coupe à la fin d'une phrase.
@@ -69,7 +69,7 @@ Une question sur ce qui est ou n'est pas une chauve-souris lui remonte. Elle ne 
   Un outil du système se teste par un vrai exécutable factice (script `sh` sur le `PATH` passé au test).
 - `tests/fixtures/reference/` tient la référence v0.1.1 en fichiers git ordinaires.
   Elle couvre l'extrait, la 092 et la 092 à 1440 pixels de travail (`video_092_original_width_1440/`, #151).
-  Son dossier `settings/` a ses 16 cas à d'autres réglages de détection (`--detect`, docs/11).
+  Son dossier `settings/` a ses 16 cas à d'autres réglages de détection (`--detect`, docs/developpement.md).
   Son `README.md` donne le format, le dossier des 26 vidéos (`BATDETECT_VIDEOS_DIR`) et les versions.
   Elle ne se réenregistre que depuis le tag `python-final` (`tools/reference_v011.py`, qui exige `src/` identique à `v0.1.1`).
 - `tests/fixtures/reference-v0.2.0/` tient la référence v0.2.0 du Rust (#250). Elle a les mêmes cas que la v0.1.1, plus ses deux bancs.
@@ -77,14 +77,14 @@ Une question sur ce qui est ou n'est pas une chauve-souris lui remonte. Elle ne 
   Son `README.md` donne le format, la provenance et la recette. Elle ne se réenregistre que par `record`, depuis un clone propre.
 - `packaging/` : `NOTICE` et `licenses/` décrivent le binaire Rust livré (code MIT, FFmpeg LGPL 2.1, #224).
   `mise run notice` y réécrit la liste des crates.
-  `release.yml` publie sur un tag `vX.Y.Z`, derrière les gardes de `release-guards.sh` (docs/05).
+  `release.yml` publie sur un tag `vX.Y.Z`, derrière les gardes de `release-guards.sh` (CONTRIBUTING.md).
 - Toutes les coordonnées, distances et surfaces hors de la détection sont en pixels de la vidéo d'origine.
   Seule la détection travaille à `work_width`.
 
 ## Rust
 
 Le Python est retiré depuis #199 (dernier état au tag `python-final`).
-La chaîne de construction, la charte et les tests sont dans [docs/11](docs/11-migration-rust.md). L'histoire de la réécriture est dans git.
+La chaîne de construction, la charte et les tests sont dans [docs/developpement.md](docs/developpement.md). L'histoire de la réécriture est dans git.
 
 ```bash
 /Users/zaratan/Projects/dvr-wt/verrou lourd mise run rust:ffmpeg  # FFmpeg 7.1.1 + openh264, une fois par poste
@@ -111,7 +111,7 @@ Sans cache FFmpeg pour la branche, `LEFTHOOK=0 git push` le saute.
 Ne pas lancer `lefthook run` ni `lefthook install` : ils réécrivent les hooks du dossier git commun à tous les worktrees.
 
 Windows (MSVC, `/MT`, `+crt-static`) ne se construit que dans les tâches CI `rust-windows` et `rust-windows-slow`.
-FFmpeg y est construit par `packaging/ffmpeg-windows.sh` sous MSYS2 ([docs/11](docs/11-migration-rust.md#windows)).
+FFmpeg y est construit par `packaging/ffmpeg-windows.sh` sous MSYS2 ([docs/developpement.md](docs/developpement.md#windows)).
 
 Le workspace est virtuel : `members = ["crates/*"]` et la toolchain de `rust-toolchain.toml`.
 Il a treize crates depuis #71, aux dépendances à sens unique :
@@ -215,7 +215,7 @@ Il a treize crates depuis #71, aux dépendances à sens unique :
   La version est gravée par `build/engraved.rs`, partagé avec `compare` (#295).
   Les textes sont en Fluent dans `locales/{fr,en}.ftl` : langue de l'aide, des erreurs, des lignes et du bandeau (#114).
 
-Charte (23 règles numérotées, lints et raisons dans [docs/11](docs/11-migration-rust.md#charte)) :
+Charte (23 règles numérotées, lints et raisons dans [docs/developpement.md](docs/developpement.md#charte)) :
 
 - Rust idiomatique, sans imiter ni Python, ni numpy, ni OpenCV. Un écart de détection se mesure par appariement, puis se juge.
 - Lints dans `[workspace.lints]` seulement. Zéro `#[allow]` ou `#[expect]`. Un lint gênant se résout en réécrivant le code.

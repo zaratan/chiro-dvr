@@ -1,8 +1,8 @@
 # Lire les résultats
 
 Ce document aide à relire les résultats de `batdetect` : l'image résumé, le tableau des pistes et les extraits.
-Les mots qu'on y croise sont définis dans le [glossaire](#glossaire).
-La façon dont l'outil trouve les pistes est expliquée sans jargon dans [docs/10](10-logique-de-detection.md#les-techniques-en-simple).
+Les colonnes du tableau des pistes et quelques mots de la page sont définis dans le [glossaire](#glossaire).
+La façon dont l'outil trouve les pistes est expliquée dans la [logique de détection](detection.md#méthode-globale).
 
 L'outil ne sait pas reconnaître une chauve-souris : c'est vous qui tranchez à l'œil sur l'extrait.
 D'où deux mots distincts. Une **piste** est ce que l'outil a trouvé : quelque chose qui s'est déplacé dans l'image.
@@ -20,38 +20,27 @@ Un nombre de pistes n'est donc pas un nombre de chauves-souris.
 Une zone sans trajectoire n'est pas non plus une zone sans passage.
 
 Le tableau part de ce que vous voyez puis dit ce qui a pu se passer et comment le vérifier.
-Les liens entre guillemets mènent à l'étape en cause dans les [techniques en simple][techniques].
+Les liens entre guillemets mènent à l'étape en cause dans la [logique de détection](detection.md#méthode-globale).
 Le numéro entre parenthèses mène au suivi du défaut. Une ligne sans numéro est une limite de principe.
 
 | Ce que vous voyez | Ce qui a pu se passer | Quoi faire |
 | --- | --- | --- |
-| Une piste s'arrête net dans le ciel, ou une partie du ciel n'a aucune piste | Le ciel est d'une seule teinte uniforme, tout noir sur vos vidéos. Une chauve-souris sombre s'y confond, et rien ne signale cette zone ([« Un seuil propre à chaque endroit »][techniques]) | Revoir la vidéo d'origine là où la piste s'arrête, et ne pas lire ce ciel comme vide ([#9]) |
-| Deux pistes qui se suivent, la seconde repartant là où la première s'arrête | L'outil ne recolle que les disparitions de moins d'une seconde, derrière un buisson par exemple, quand le vol reprend là où on l'attend. Ici, la chauve-souris a disparu plusieurs secondes, ou elle est sortie de l'image puis revenue, ou elle a beaucoup changé de direction pendant qu'elle était cachée, ou elle semble repartir presque sur place, bien plus lentement qu'elle ne volait ([« Le recollage »][techniques]) | Regarder les deux extraits : si c'est le même animal, c'est un seul passage |
-| Une piste qui commence au tout début ou finit à la toute fin d'un clip | Le vol continue dans le clip voisin, traité séparément. Et la scène sans animal y est estimée sur moins d'images : la détection y est moins sûre ([« La scène sans animal »][techniques]) | Ouvrir la fin du clip précédent ou le début du suivant : un vol à cheval sur deux clips est un seul passage ([#11]) |
-| Un animal posé, en vol stationnaire, très lent ou qui tourne sur place, sans piste | Il s'est fondu dans le décor, ou son trajet n'a pas été reconnu comme un vol ([« La scène sans animal »][techniques], [« Ressembler à un vol »][techniques]) | Revoir la vidéo d'origine : l'outil voit mal ces animaux ([#22]) |
-| Une cible faible, petite ou lointaine, ou qui passe devant de la végétation qui bouge, que vous suivez à l'œil, sans piste | Sur aucune image, ou sur trop peu, elle ne se détache assez du fond. Votre œil additionne plusieurs images, l'outil décide image par image ([« Le filtre à la taille de la cible »][techniques], [« Un seuil propre à chaque endroit »][techniques], [« Les taches »][techniques]) | Noter son temps et la compter vous-même : c'est un passage que l'outil a manqué ([#23]) |
-| Dans l'extrait, la boîte passe en trait fin sur quelques images | La piste n'a pas de point sur ces images, même en comptant les taches faibles qui comblent un vol : la boîte y est à une position estimée ([« Le suivi image par image »][techniques], [« Les taches faibles encadrées »][techniques]) | Regarder l'extrait zoomé, s'il existe, ou la vidéo d'origine pour voir où est vraiment l'animal |
-| L'animal est déjà visible dans l'extrait avant que la boîte n'apparaisse | La piste ne commence qu'une fois que la cible se détache assez du fond. Sur des vols de chasse fabriqués, ce retard dépasse parfois quelques images ([« Le suivi image par image »][techniques]) | Regarder l'extrait depuis son tout début : la durée et la vitesse du tableau des pistes ne couvrent alors qu'une partie du vol ([#42]) |
-| L'animal vole encore dans l'extrait après que la boîte a disparu | La piste finit à la dernière image où la cible se détache assez du fond. Sur des vols de chasse fabriqués, cette fin arrive parfois quelques images trop tôt ([« Le suivi image par image »][techniques]) | Regarder l'extrait jusqu'à sa toute fin : la durée et la vitesse du tableau des pistes ne couvrent alors qu'une partie du vol ([#42]) |
-| Une seule piste là où vous voyez deux animaux | Deux animaux restés tout près l'un de l'autre sont réunis en une piste. Cette règle n'a jamais été éprouvée sur deux vraies chauves-souris ([« La fusion des morceaux »][techniques]) | Compter les animaux à l'œil dans l'extrait, et noter ce moment : il servira à éprouver l'outil ([#26]) |
-| Une piste très lente au milieu de vols rapides | L'outil ne distingue pas un vol d'un déplacement lent : c'est le cas de la piste de 3:29 sur la 092 ([verdict](03-resultats-092.md#verdict-de-manon-9-octobre-2026), [« Ressembler à un vol »][techniques]) | Comparer sa vitesse dans le tableau des pistes, puis trancher à l'extrait ([#28]) |
-| Une chauve-souris plus claire que le ciel derrière elle | L'outil cherche dans les deux sens, plus clair ou plus sombre, mais n'a jamais été essayé sur une vraie vidéo de ce genre ([« Un seuil propre à chaque endroit »][techniques]) | Revoir la vidéo d'origine, et garder la vidéo : elle servira à éprouver l'outil ([#27]) |
-| Une période hors analyse ou illisible sur l'image résumé | Les jumelles ont bougé, la luminosité a sauté d'un coup, un essaim a rempli l'image, ou le fichier est abîmé : rien n'y a été cherché ([« Les périodes ignorées »][techniques]) | Revoir la vidéo d'origine aux moments donnés par le bandeau (les trois premiers de chaque sorte) et par la frise du temps sous l'image, qui les montre tous |
-| Une piste sur une image visiblement abîmée (blocs, morceaux d'image décalés), hors des périodes illisibles | Le fichier a été réparé à la lecture sans que rien ne le signale, et l'image passe pour une vraie scène ([« Les périodes ignorées »][techniques]) | L'écarter à l'extrait |
+| Une piste s'arrête net dans le ciel, ou une partie du ciel n'a aucune piste | Le ciel est d'une seule teinte uniforme, tout noir sur vos vidéos. Une chauve-souris sombre s'y confond, et rien ne signale cette zone ([« Un seuil propre à chaque endroit »](detection.md#seuiller-chaque-pixel)) | Revoir la vidéo d'origine là où la piste s'arrête, et ne pas lire ce ciel comme vide ([#9]) |
+| Deux pistes qui se suivent, la seconde repartant là où la première s'arrête | L'outil ne recolle que les disparitions de moins d'une seconde, derrière un buisson par exemple, quand le vol reprend là où on l'attend. Ici, la chauve-souris a disparu plusieurs secondes, ou elle est sortie de l'image puis revenue, ou elle a beaucoup changé de direction pendant qu'elle était cachée, ou elle semble repartir presque sur place, bien plus lentement qu'elle ne volait ([« Le recollage »](detection.md#recoller-un-vol-caché-derrière-la-végétation)) | Regarder les deux extraits : si c'est le même animal, c'est un seul passage |
+| Une piste qui commence au tout début ou finit à la toute fin d'un clip | Le vol continue dans le clip voisin, traité séparément. Et la scène sans animal y est estimée sur moins d'images : la détection y est moins sûre ([« La scène sans animal »](detection.md#estimer-le-fond)) | Ouvrir la fin du clip précédent ou le début du suivant : un vol à cheval sur deux clips est un seul passage ([#11]) |
+| Un animal posé, en vol stationnaire, très lent ou qui tourne sur place, sans piste | Il s'est fondu dans le décor, ou son trajet n'a pas été reconnu comme un vol ([« La scène sans animal »](detection.md#estimer-le-fond), [« Ressembler à un vol »](detection.md#garder-ce-qui-ressemble-à-un-vol)) | Revoir la vidéo d'origine : l'outil voit mal ces animaux ([#22]) |
+| Une cible faible, petite ou lointaine, ou qui passe devant de la végétation qui bouge, que vous suivez à l'œil, sans piste | Sur aucune image, ou sur trop peu, elle ne se détache assez du fond. Votre œil additionne plusieurs images, l'outil décide image par image ([« Le filtre à la taille de la cible »](detection.md#réduire-et-filtrer-limage), [« Un seuil propre à chaque endroit »](detection.md#seuiller-chaque-pixel), [« Les taches »](detection.md#regrouper-les-pixels-en-taches)) | Noter son temps et la compter vous-même : c'est un passage que l'outil a manqué ([#23]) |
+| Dans l'extrait, la boîte passe en trait fin sur quelques images | La piste n'a pas de point sur ces images, même en comptant les taches faibles qui comblent un vol : la boîte y est à une position estimée ([« Le suivi image par image »](detection.md#relier-les-taches-dans-le-temps), [« Les taches faibles encadrées »](detection.md#garder-les-taches-faibles-qui-comblent-un-vol)) | Regarder l'extrait zoomé, s'il existe, ou la vidéo d'origine pour voir où est vraiment l'animal |
+| L'animal est déjà visible dans l'extrait avant que la boîte n'apparaisse | La piste ne commence qu'une fois que la cible se détache assez du fond. Sur des vols de chasse fabriqués, ce retard dépasse parfois quelques images ([« Le suivi image par image »](detection.md#relier-les-taches-dans-le-temps)) | Regarder l'extrait depuis son tout début : la durée et la vitesse du tableau des pistes ne couvrent alors qu'une partie du vol ([#42]) |
+| L'animal vole encore dans l'extrait après que la boîte a disparu | La piste finit à la dernière image où la cible se détache assez du fond. Sur des vols de chasse fabriqués, cette fin arrive parfois quelques images trop tôt ([« Le suivi image par image »](detection.md#relier-les-taches-dans-le-temps)) | Regarder l'extrait jusqu'à sa toute fin : la durée et la vitesse du tableau des pistes ne couvrent alors qu'une partie du vol ([#42]) |
+| Une seule piste là où vous voyez deux animaux | Deux animaux restés tout près l'un de l'autre sont réunis en une piste. Cette règle n'a jamais été éprouvée sur deux vraies chauves-souris ([« La fusion des morceaux »](detection.md#fusionner-les-pistes-jumelles)) | Compter les animaux à l'œil dans l'extrait, et noter ce moment : il servira à éprouver l'outil ([#26]) |
+| Une piste très lente au milieu de vols rapides | L'outil ne distingue pas un vol d'un déplacement lent : c'est le cas de la piste de 3:29 sur la 092 ([verdict](resultats-092.md#verdict-de-manon-9-octobre-2026), [« Ressembler à un vol »](detection.md#garder-ce-qui-ressemble-à-un-vol)) | Comparer sa vitesse dans le tableau des pistes, puis trancher à l'extrait ([#28]) |
+| Une chauve-souris plus claire que le ciel derrière elle | L'outil cherche dans les deux sens, plus clair ou plus sombre, mais n'a jamais été essayé sur une vraie vidéo de ce genre ([« Un seuil propre à chaque endroit »](detection.md#seuiller-chaque-pixel)) | Revoir la vidéo d'origine, et garder la vidéo : elle servira à éprouver l'outil ([#27]) |
+| Une période hors analyse ou illisible sur l'image résumé | Les jumelles ont bougé, la luminosité a sauté d'un coup, un essaim a rempli l'image, ou le fichier est abîmé : rien n'y a été cherché ([« Les périodes ignorées »](detection.md#écarter-les-images-où-les-jumelles-bougent)) | Revoir la vidéo d'origine aux moments donnés par le bandeau (les trois premiers de chaque sorte) et par la frise du temps sous l'image, qui les montre tous |
+| Une piste sur une image visiblement abîmée (blocs, morceaux d'image décalés), hors des périodes illisibles | Le fichier a été réparé à la lecture sans que rien ne le signale, et l'image passe pour une vraie scène ([« Les périodes ignorées »](detection.md#écarter-les-images-illisibles)) | L'écarter à l'extrait |
 | Un nombre de passages à la fin de la relecture | L'outil manque des passages, pour les raisons ci-dessus, et aucun comptage de référence ne dit encore dans quelle proportion | Le présenter comme un minimum, et ne pas le comparer tel quel à un comptage à l'œil ou à une autre soirée ([#25]) |
 
-### Prise de vue
-
-Une règle est vérifiée sur vos vidéos : les jumelles doivent rester fixes sur trépied.
-Sinon, le moment est hors analyse ([docs/01](01-contexte.md#ce-que-la-prise-de-vue-impose)).
-D'autres conseils viennent du manuel des jumelles et de la littérature sur l'observation en caméra thermique ([docs/07](07-ameliorer-la-detection.md#a-la-prise-de-vue), [docs/04](04-outils-existants.md)).
-L'outil a été réglé sur les vidéos de Manon.
-Elles en suivent déjà quatre : compression vidéo sur OFF, filtre de lissage sur OFF, calibrage semi-automatique et pas de zoom numérique.
-Les autres n'ont pas encore été essayés sur ses jumelles ([#15]) :
-
-- Gain et contraste réglés à la main, pour que le ciel ne sature pas.
-- Stabilisation d'image sur OFF, sur trépied.
-- Luminosité et contraste gardés d'une soirée à l'autre.
+Les réglages des jumelles qui aident l'outil sont dans la [première soirée](premiere-soiree.md#1-avant-la-première-fois).
 
 ## La page des résultats
 
@@ -210,9 +199,9 @@ C'est la page qui le télécharge. L'outil le lit sans jamais l'écrire.
   Par défaut, l'extrait zoomé n'existe que pour les pistes petites ou faibles ([Juger un extrait](#juger-un-extrait)).
 - La vidéo annotée est la vidéo entière avec toutes les pistes dessinées. Elle n'est écrite qu'avec `--annotated`.
   Sans l'option, celle d'un calcul précédent est effacée.
-  Au-delà du [garde-fou](#garde-fou-du-nombre-de-pistes), il n'y a ni extraits ni image résumé, ni fond ni vidéo annotée.
+  Une vidéo à [trop de pistes](#trop-de-pistes) n'a ni extraits ni image résumé, ni fond ni vidéo annotée.
 - `params.json` s'écrit en dernier.
-  Un dossier sans lui n'est pas terminé : le calcul a été interrompu, ou la vidéo est en échec pour une autre raison que le garde-fou.
+  Un dossier sans lui n'est pas terminé : le calcul a été interrompu, ou la vidéo est en échec pour une autre raison que trop de pistes.
   La vidéo est alors refaite à la relance.
 - Le tableau français s'ouvre dans un tableur réglé en français (point-virgule, virgule décimale).
   Le tableau anglais s'ouvre dans un tableur réglé en anglais.
@@ -289,7 +278,7 @@ Les repères numérotés (carrés blancs) ont été ajoutés pour ce document : 
    Les inscriptions fixes que l'option ne couvre pas restent aussi.
    Ici, les grossissements « 2.0x » et « 6.5x » restent à peine visibles en bas de l'image.
 
-Le fond est la scène sans animal de toute la vidéo ([fond médian](#fond-médian)).
+Le fond est la scène sans animal de toute la vidéo.
 Il est assombri pour que les traits ressortent.
 
 ### La frise du temps, sous l'image
@@ -326,7 +315,7 @@ L'image résumé dit où regarder. Le verdict se donne à l'œil, sur l'extrait.
 
 ### Regarder l'extrait, puis le zoom
 
-Sauf au-delà du [garde-fou](#garde-fou-du-nombre-de-pistes), chaque piste a son extrait `extraits/piste_01_0m04s.mp4`.
+Sauf dans une vidéo à [trop de pistes](#trop-de-pistes), chaque piste a son extrait `extraits/piste_01_0m04s.mp4`.
 C'est la vidéo en pleine taille et à vitesse réelle.
 Par défaut, il va de 1,5 s avant le début de la piste à 1,5 s après sa fin.
 Il se regarde dans la [page des résultats](#la-page-des-résultats). Un lecteur vidéo permet aussi d'avancer image par image.
@@ -337,7 +326,7 @@ C'est la même scène recadrée autour du trajet, agrandie jusqu'à quatre fois 
 Par défaut, il n'existe que pour les pistes dont la plus grande tache fait moins de 100 px ou dont l'amplitude est sous 40.
 Une piste recollée après un passage derrière la végétation a son zoom si l'une de ses parties seule l'aurait eu.
 La partie nette ne fait pas perdre le zoom à la partie faible.
-`--zoom all` en fait un pour chaque piste et `--zoom none` aucun ([docs/02](02-methode.md#extrait-zoomé-et-ralenti)).
+`--zoom all` en fait un pour chaque piste et `--zoom none` aucun ([détection](detection.md#extrait-zoomé-et-ralenti)).
 
 Regarder le zoom après l'extrait normal.
 C'est de là qu'il vient : une cible de 3:42 sur la 092 avait été jugée fausse à vitesse normale.
@@ -359,7 +348,7 @@ Une fois agrandie et ralentie dans un lecteur, elle s'est révélée un objet r�
 4. **L'affichage des jumelles** (chrono d'enregistrement en rouge, heure, date, batterie) reste tel qu'il a été filmé : ce rouge-là ne vient pas de l'outil.
 
 Les autres pistes présentes au même moment sont dessinées aussi, chacune avec sa boîte, son numéro et sa trace.
-Les réglages du dessin sont dans [docs/02](02-methode.md#rendu).
+Les réglages du dessin sont dans [détection](detection.md#dessiner-les-extraits).
 
 ![Trois images successives de la piste 2 agrandies trois fois : boîte épaisse, boîte fine, boîte épaisse](images/extrait-boites.png)
 
@@ -423,13 +412,13 @@ Manon doit encore relire cette liste.
 
 | Ce que vous voyez | Où ça a été vu | Source |
 | --- | --- | --- |
-| Un objet qui se déplace lentement et régulièrement, sur plusieurs secondes | La piste de 3:29 sur la 092, que Manon a écartée. C'est la piste 1 de l'extrait de test (0:00:04, 95 px/s, contre 1 383 à 1 926 px/s pour les trois chauves-souris) : voir l'image ci-dessous | [docs/03](03-resultats-092.md#verdict-de-manon-9-octobre-2026) |
-| Une piste courte qui change de direction au hasard, sur une vidéo au grain fort | Le scintillement de pixels isolés, que le suivi enchaîne en pistes. Sur la 089, deux filtres le visent et écartent 92 de ses 96 pistes | [docs/02](02-methode.md#7-filtres-finaux) |
-| Une piste sur une image abîmée (blocs, morceaux d'image décalés) | Sur la 122 : 4 pistes collées aux plages illisibles, que la marge laissée autour des images abîmées écarte | [docs/10](10-logique-de-detection.md#5-bis-écarter-les-images-que-le-décodeur-a-réparées), [Ce que l'outil ne voit pas](#ce-que-loutil-ne-voit-pas) |
-| Une piste avec un trou, qui repart ailleurs : peut-être deux animaux | Pas encore vu sur une vraie vidéo. Possible quand deux animaux se suivent de près, au même endroit et à la même vitesse : l'outil ne sépare que ceux dont la seconde piste repart presque là où la première s'est arrêtée | [docs/10](10-logique-de-detection.md#9-bis-recoller-un-vol-caché-derrière-la-végétation) |
+| Un objet qui se déplace lentement et régulièrement, sur plusieurs secondes | La piste de 3:29 sur la 092, que Manon a écartée. C'est la piste 1 de l'extrait de test (0:00:04, 95 px/s, contre 1 383 à 1 926 px/s pour les trois chauves-souris) : voir l'image ci-dessous | [résultats de la 092](resultats-092.md#verdict-de-manon-9-octobre-2026) |
+| Une piste courte qui change de direction au hasard, sur une vidéo au grain fort | Le scintillement de pixels isolés, que le suivi enchaîne en pistes. Sur la 089, deux filtres le visent et écartent 92 de ses 96 pistes | [détection](detection.md#garder-ce-qui-ressemble-à-un-vol) |
+| Une piste sur une image abîmée (blocs, morceaux d'image décalés) | Sur la 122 : 4 pistes collées aux plages illisibles, que la marge laissée autour des images abîmées écarte | [détection](detection.md#écarter-les-images-illisibles), [Ce que l'outil ne voit pas](#ce-que-loutil-ne-voit-pas) |
+| Une piste avec un trou, qui repart ailleurs : peut-être deux animaux | Pas encore vu sur une vraie vidéo. Possible quand deux animaux se suivent de près, au même endroit et à la même vitesse : l'outil ne sépare que ceux dont la seconde piste repart presque là où la première s'est arrêtée | [détection](detection.md#recoller-un-vol-caché-derrière-la-végétation) |
 
 D'autres cas sont possibles, mais aucun n'a encore été relevé sur ces vidéos : un insecte, un oiseau ou une feuille agitée par le vent.
-Sur une feuille, un pixel passe encore parfois le seuil ([docs/10](10-logique-de-detection.md#4-décider-pixel-par-pixel--le-seuil)).
+Sur une feuille, un pixel passe encore parfois le seuil ([détection](detection.md#seuiller-chaque-pixel)).
 
 ![Extrait de la piste 1, la piste lente de 3:29 sur la 092](images/extrait-lente.jpg)
 
@@ -438,137 +427,76 @@ La trace d'une seconde y est courte : l'objet avance peu.*
 
 ## Glossaire
 
+Ces mots apparaissent dans le tableau des pistes, la page ou le Terminal.
+
 ### Amplitude
 
-Le plus fort écart au fond médian atteint par la piste, en niveaux de gris.
-Il se mesure sur l'image filtrée par l'outil et non sur l'image brute ([docs/10](10-logique-de-detection.md#4-décider-pixel-par-pixel--le-seuil)).
-On la lit dans le tableau des pistes : plus elle est faible, plus la cible se voit mal à l'œil.
+Colonne `amplitude (niveaux de gris)` du tableau des pistes.
+C'est le plus fort écart entre la piste et la scène sans animal.
+Il se mesure sur l'image filtrée par l'outil et non sur l'image brute ([détection](detection.md#seuiller-chaque-pixel)).
+Plus l'amplitude est faible, plus la cible se voit mal à l'œil.
 
 ### Corde
 
-La distance en ligne droite entre le début et la fin de la piste, en pixels de la vidéo d'origine.
-Elle figure dans le tableau des pistes (`corde (px)`).
+Colonne `corde (px)` du tableau des pistes.
+C'est la distance en ligne droite entre le début et la fin de la piste, en pixels de la vidéo d'origine.
 Une piste longue à petite corde a tourné ou est revenue sur ses pas.
 
-### Extrait
+### Images comblées
 
-Une courte vidéo par piste, de peu avant son début à peu après sa fin.
-Elle montre une boîte autour de la cible, son numéro et la trace de son vol juste derrière elle.
-Les autres pistes visibles au même moment y sont dessinées aussi.
-C'est sur l'extrait que se donne le verdict.
-
-### Extrait zoomé
-
-Un second extrait rangé à côté du premier, pour les pistes petites ou faibles.
-C'est la même scène recadrée sur la trajectoire, agrandie jusqu'à quatre fois, montrée à la taille de la vidéo et ralentie quatre fois.
-Seule la trace du vol y est dessinée, pour ne pas cacher une cible ténue.
-
-### Fond médian
-
-La scène sans animal : pour chaque pixel, la valeur médiane des images voisines dans le temps.
-Un animal qui ne fait que traverser ne la modifie pas ([docs/10](10-logique-de-detection.md#2-estimer-le-fond--la-médiane-temporelle)).
-Un objet qui reste immobile plus d'un instant entre dans ce fond et n'est plus vu.
-Le décor assombri de l'image résumé est obtenu de la même façon, mais sur toute la vidéo.
-
-### Garde-fou du nombre de pistes
-
-Au-delà d'un certain nombre de pistes, elles sont presque sûrement du bruit d'image.
-L'outil écrit alors le tableau des pistes, mais ni extraits ni image résumé.
-Pour en juger, ouvrir le tableau et regarder la vidéo à quelques-uns des débuts qu'il donne.
-Si ce sont de vrais passages, relancer avec un `--max-tracks` plus grand.
-Le bilan de la soirée compte cette vidéo à part, avec son nombre de pistes. Les autres vidéos du lot sont traitées normalement.
-
-### Image résumé
-
-Une image qui montre toutes les pistes sur le fond médian.
-Chaque piste y a un trait, une flèche au bout (sens du vol) et une pastille numérotée.
-L'image a aussi un bandeau à droite et une frise du temps dessous.
-Une vidéo de plus de 10 min donne une image par tranche de 10 min.
-Une tranche de plus de 20 pistes est coupée en parties.
-Pour la lire repère par repère : [Lire l'image résumé](#lire-limage-résumé).
-
-### Images estimées
-
-Les images d'une piste sans point, entre deux points.
-La boîte de l'extrait y passe en trait fin à une position estimée, pour ne pas clignoter.
-Le tableau des pistes en donne le nombre (`images comblées`).
-
-### Passage
-
-Le vol d'une chauve-souris confirmé à l'œil sur son extrait.
-Si l'outil l'a coupé en deux pistes, c'est un seul passage.
-L'outil ne produit que des pistes : les passages viennent des verdicts.
-
-### Pastille
-
-Le disque numéroté posé sur chaque trajectoire de l'image résumé, vers le quart du trajet et à l'écart des croisements.
-Elle ne marque pas le départ de la piste ([repère 7](#limage)).
-Son numéro est celui de la piste dans la légende, dans le tableau des pistes et dans le nom de l'extrait.
-Les numéros suivent l'ordre chronologique et changent dès qu'un réglage ajoute ou retire une piste plus tôt dans la vidéo.
+Colonne `images comblées` du tableau des pistes.
+Ce sont les images d'une piste sans point, entre deux points.
+La boîte de l'extrait y passe en trait fin à une position estimée pour ne pas clignoter.
 
 ### Période hors analyse
 
-Un moment où l'image se remplit soudain de taches, le plus souvent parce que les jumelles ont bougé.
-L'outil ignore ces images et leurs abords ([docs/10](10-logique-de-detection.md#6-écarter-les-images-où-les-jumelles-bougent)).
+Un moment où l'image se remplit soudain de taches.
+Le plus souvent, les jumelles ont bougé.
+L'outil ignore ces images et leurs abords ([détection](detection.md#écarter-les-images-où-les-jumelles-bougent)).
 Rien n'y a été cherché : ces moments sont à revoir à l'œil.
-Le bandeau de l'image résumé donne le début et la fin des trois premiers, comptés depuis le début de la vidéo.
+Le bandeau de l'image résumé donne le début et la fin des trois premiers.
 La frise du temps les montre tous.
 
 ### Période illisible
 
 Un moment où le fichier vidéo est abîmé, avec des images manquantes ou réparées à la lecture.
-L'outil l'ignore avec une marge de chaque côté ([docs/10](10-logique-de-detection.md#5-bis-écarter-les-images-que-le-décodeur-a-réparées)).
+L'outil l'ignore avec une marge de chaque côté ([détection](detection.md#écarter-les-images-illisibles)).
 Comme pour une période hors analyse, rien n'y a été cherché.
 Le bandeau donne les trois premières, puis le nombre des autres et la durée illisible en tout.
 La frise du temps les montre toutes.
 
-### Piste
-
-Ce que l'outil trouve : une suite de points sur des images proches, reliés comme le vol d'un même objet.
-Son trajet ressemble à un vol ([docs/10](10-logique-de-detection.md#7-relier-les-taches-dans-le-temps--le-suivi), [§ 9](10-logique-de-detection.md#9-garder-ce-qui-ressemble-à-un-vol)).
-Ce peut être une chauve-souris, un autre animal ou du bruit d'image.
-Un même vol peut aussi être coupé en deux pistes.
-Chaque piste a sa ligne dans le tableau des pistes.
-Sauf au-delà du garde-fou, elle a aussi sa pastille sur l'image résumé et son extrait.
-
 ### Point
 
-Une détection : la tache (groupe de pixels voisins qui se détachent du fond) retenue pour une piste sur une image ([docs/10](10-logique-de-detection.md#5-regrouper-les-pixels-en-taches)).
-Le tableau des pistes donne le nombre de points de chaque piste.
-Entre deux points, la boîte de l'extrait suit la piste sur des [images estimées](#images-estimées).
-
-### Réglage
-
-Une valeur qui guide le calcul, comme le contraste minimal d'une cible ou le nombre minimal de points d'une piste.
-Chaque calcul enregistre les siens à côté des résultats.
-Changer un réglage de détection ou de suivi peut changer les pistes trouvées et leurs numéros.
+Colonne `points` du tableau des pistes : le nombre d'images où l'outil a vu la cible.
+Un point est la tache retenue pour la piste sur une image.
+Une tache est un groupe de pixels voisins qui se détachent du fond ([détection](detection.md#regrouper-les-pixels-en-taches)).
+Entre deux points, la boîte de l'extrait suit la piste sur des [images comblées](#images-comblées).
 
 ### Surface
 
-La surface de la plus grande tache de la piste, comptée en pixels de la vidéo d'origine qui se détachent du fond.
-Elle figure dans le tableau des pistes ([docs/10](10-logique-de-detection.md#5-regrouper-les-pixels-en-taches)).
+Colonne `surface max (px)` du tableau des pistes.
+C'est la surface de la plus grande tache de la piste, en pixels de la vidéo d'origine.
 Elle dépend de la distance et du contraste de l'animal autant que de sa taille.
 Une piste peut être cachée en cours de vol, derrière la végétation par exemple.
 Elle garde son extrait zoomé si une de ses parties est petite ou pâle, même quand cette colonne montre une grande tache.
 
-### Verdict
+### Trop de pistes
 
-Votre jugement, à l'œil sur l'extrait : cette piste est-elle une chauve-souris ?
-L'outil ne s'en sert pas.
-Il se note dans la page ([Noter le verdict](#noter-le-verdict)) et se garde dans le fichier de verdicts de la soirée.
-Ailleurs, on désigne la piste par la vidéo, son début et son numéro. Le numéro seul peut changer.
-Ceux de la 092 sont dans [docs/03](03-resultats-092.md#verdict-de-manon-9-octobre-2026).
+Mention du bilan dans le Terminal et de la page.
+Au-delà d'un certain nombre de pistes, elles sont presque sûrement du bruit d'image.
+L'outil écrit alors le tableau des pistes mais ni extraits ni image résumé.
+Pour en juger, ouvrir le tableau et regarder la vidéo à quelques-uns des débuts qu'il donne.
+Si ce sont de vrais passages, relancer avec un `--max-tracks` plus grand.
+Les autres vidéos du lot sont traitées normalement.
 
 ### Vitesse
 
-Le chemin parcouru par la piste divisé par sa durée, en pixels par seconde dans l'image.
-Elle figure dans le tableau des pistes.
+Colonne `vitesse (px/s)` du tableau des pistes.
+C'est le chemin parcouru par la piste divisé par sa durée, en pixels par seconde dans l'image.
 Ce n'est pas une vitesse en mètres par seconde : la distance entre l'animal et les jumelles est inconnue.
 
-[techniques]: 10-logique-de-detection.md#les-techniques-en-simple
 [#9]: https://github.com/zaratan/chiro-dvr/issues/9
 [#11]: https://github.com/zaratan/chiro-dvr/issues/11
-[#15]: https://github.com/zaratan/chiro-dvr/issues/15
 [#22]: https://github.com/zaratan/chiro-dvr/issues/22
 [#23]: https://github.com/zaratan/chiro-dvr/issues/23
 [#25]: https://github.com/zaratan/chiro-dvr/issues/25

@@ -127,7 +127,7 @@ Les valeurs sont les mêmes : comparer le CSV par ses valeurs, pas à l'octet.
 Le tirage (`SeedSequence.spawn`, `default_rng`) ne se reproduit pas en Rust : rejouer les cibles de `bats.jsonl.gz`.
 
 En Rust (#100), `reference::bench` lit et écrit `bats.jsonl.gz` (`TargetLine`), les lignes `{frame, detections}` d'`injected.jsonl.gz` et `bench.json` (`BenchReport`) ; `reference::location::recorded_bench(nom)` donne `$BATDETECT_REFERENCE_DIR/bench/<nom>/`.
-Les tests `local_injection` et `local_guard` de `bench` lisent les deux bancs (`local_metrics` aussi, jusqu'à #277), et `batdetect-bench VIDÉO --against DOSSIER` rejoue un banc pour la garde (docs/11, « Banc de mesure »).
+Les tests `local_injection` et `local_guard` de `bench` lisent les deux bancs (`local_metrics` aussi, jusqu'à #277), et `batdetect-bench VIDÉO --against DOSSIER` rejoue un banc pour la garde (docs/developpement.md, « Banc de mesure »).
 `bench-run.json` n'est pas relu.
 
 ## Sorties complètes
@@ -149,7 +149,7 @@ Un champ inconnu ou une valeur que la v0.1.1 refuse arrête le script avant tout
 
 `settings/<cas>/` : 16 enregistrements de la v0.1.1 à d'autres réglages de détection (#149), sur l'extrait et sur sa réduction en 720×540 (`video_092_original_3m24-4m05_720x540.mp4`, sous LFS), avec les mêmes versions que ci-dessous.
 Mêmes quatre fichiers par dossier, `frames.jsonl.gz` compressé, 1,6 Mo en tout.
-Liste des cas, réglages, commande de la 720×540 et chiffres : [docs/11](../../../docs/11-migration-rust.md#réglages).
+Liste des cas, réglages, commande de la 720×540 et chiffres : [docs/developpement.md](../../../docs/developpement.md#réglages).
 
 `video_092_original_width_1440/` : la 092 entière à `--detect '{"work_width": 1440}'` (#151), enregistrée le 12 octobre 2026 sous le verrou, mêmes versions, mêmes quatre fichiers (`frames.jsonl.gz` compressé, 0,2 Mo en tout).
 751 détections, 14 pistes.

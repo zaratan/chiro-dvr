@@ -55,7 +55,7 @@ Les flottants sont écrits par `serde_json` : la plus courte écriture qui redon
 
 ## Provenance
 
-- Le binaire `record` refuse de tourner s'il est `-dirty`, fichiers non suivis compris, ou construit hors de git (docs/11, crate `compare`).
+- Le binaire `record` refuse de tourner s'il est `-dirty`, fichiers non suivis compris, ou construit hors de git (docs/developpement.md, crate `compare`).
   L'enregistrement s'est fait depuis `git clone --branch rust/250-record` au commit 1e4cf6b, `git status` vide, `git describe` à `v0.2.0-28-g1e4cf6b`.
 - Chaîne de détection depuis `v0.2.0` (`git diff --stat v0.2.0 1e4cf6b -- crates/{engine,media,tracking,types} Cargo.lock rust-toolchain.toml packaging/ffmpeg-* .cargo`) : #172 (`FrameDetections` rempli par `push` dans les tests seuls), #245 (noms uniques des fichiers `.partial`, côté encodage), #227 (ouverture par `avformat_open_input` puis `avformat_find_stream_info`, comme le faisait `ffmpeg::format::input`, pour les chemins non UTF-8), #274 et #250 (tests et dépendance de test).
   Aucun ne change ce que le décodeur rend ni ce que le moteur détecte, ce que la preuve ci-dessous mesure.
@@ -79,7 +79,7 @@ Réenregistrer depuis ce tag donne les mêmes détections **hors des plages abî
 `SHA256SUMS` change donc.
 Les 19 cas du dépôt n'ont pas de plage abîmée : leurs `frames.jsonl` et `tracks.jsonl` se refont à l'octet, mais leur `video.json` change par `versions.batdetect` et `versions.commit`, puisque le commit du tag n'est pas 1e4cf6b.
 
-Le décodeur de lumiel signale 14 images en erreur de plus que celui du Mac, sur 8 vidéos (docs/11, `local_damage`) : les plages de ces vidéos sont celles de lumiel.
+Le décodeur de lumiel signale 14 images en erreur de plus que celui du Mac, sur 8 vidéos (docs/developpement.md, `local_damage`) : les plages de ces vidéos sont celles de lumiel.
 Un enregistrement sur le Mac ne les signalerait pas.
 
 ```bash
