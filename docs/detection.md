@@ -836,7 +836,7 @@ Quand l'une est fausse, il manque un passage ou en invente un.
 | Le ciel n'est pas saturé | Le ciel saturé à 0 est aveugle |
 | La cible a à peu près la taille du filtre gaussien (1,5 px d'origine) | Plus petite, elle perd du contraste. Plus grande, elle est moins rehaussée |
 | Une cible allume au moins deux pixels de travail (960 px sur une source de 1440) | L'image est perdue (`min_area`) |
-| Le gain des jumelles change peu en une demi-seconde | Autour d'un saut de 30 niveaux ou plus, quelques secondes sont ignorées |
+| Le gain ne saute pas de 30 niveaux ou plus d'un coup. Une dérive lente, comme la nuit qui tombe, est suivie par le fond | Autour d'un saut, quelques secondes sont ignorées |
 | Le vol est régulier d'une image à la suivante | La piste se coupe ou est rejetée |
 | Deux animaux proches finissent par s'écarter | Ils sont fusionnés en un seul |
 | Le décodeur signale chaque image qu'il répare, dissimulation comprise | Une image réparée en silence passe pour une vraie scène |
