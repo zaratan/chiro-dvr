@@ -64,8 +64,8 @@ Les modules cités sont relatifs à `crates/`.
 
 # Pourquoi pas un outil existant
 
-TLDR : les outils libres de détection de mouvement visent des objets bien plus gros qu'une chauve-souris lointaine.
-Ceux pour chauves-souris supposent souvent une cible plus chaude que le fond. Sur nos vidéos, elle est souvent plus froide.
+TLDR : les outils de détection de mouvement visent des objets bien plus gros qu'une chauve-souris lointaine.
+Ceux faits pour les chauves-souris sont abandonnés, liés à MATLAB ou payants.
 
 ## Explications
 
@@ -76,14 +76,23 @@ Sa réduction et son filtre du bruit par défaut effacent une cible de quelques 
 Son seuil porte sur la part de l'image qui bouge, qu'un point minuscule ne remue presque pas.
 Il fusionne les passages proches en un seul événement à une seule boîte.
 
-**ThermalTracker** (PNNL) suppose des cibles plus claires que le fond. Il ne voit pas une cible plus sombre que lui.
-**ThruTracker** est le seul outil mûr et maintenu pour ce cas. Il est sous licence annuelle et n'a pas été comparé.
-**BatCount** ne tourne que sous Windows. Sa précision publiée va de 51 à 95 % selon les vidéos.
+**ThermalTracker** (PNNL) est libre : sa bibliothèque et sa ligne de commande sont sous une licence de style BSD.
+Il demande que le plus chaud soit blanc et dépend d'OpenCV 2.4. Rien n'y a été poussé depuis juin 2018.
+**ThruTracker** 2.0 est écrit en MATLAB et publié sous BSD-3. Son README le dit archivé et plus maintenu.
+La 3.0, en Python, est maintenue mais vendue sous licence annuelle.
+Il soustrait le fond par MOG2 et ne suppose pas de sens au contraste.
+**BatCount** ne tourne que sous Windows. Il est en bêta (v1.24), sans licence nommée et sans mise à jour depuis août 2023.
+Il sait ignorer les objets plus clairs ou plus sombres que le fond. Sa précision publiée va de 51 à 95 % selon les vidéos.
+
+Aucun de ces outils ne publie de temps de calcul comparable : ils se comparent au comptage humain.
+Aucun n'a encore tourné sur nos vidéos (#386).
+batdetect est libre (MIT), maintenu, et ne demande aucun environnement propriétaire.
+On croit que ces outils servent la science et devraient être open source.
 
 Ce que la littérature justifie dans nos choix :
 
 - En vol, les ailes ne sont qu'à environ 1 °C au-dessus de l'air et ce sont elles qui occupent les pixels à distance.
-  Devant la roche qui garde la chaleur du jour, une chauve-souris lointaine est donc sombre.
+  Devant la roche qui garde la chaleur du jour, une chauve-souris lointaine est donc plus froide que le fond. Sur nos vidéos jusqu'ici, c'est souvent le cas.
   Le contraste peut même s'annuler au croisement thermique. D'où le seuil sur la valeur absolue de l'écart.
 - Sabol et Melton (brevet US Army, 2009) prennent aussi la valeur absolue de l'écart au fond.
   Leur prédiction tient compte des images manquées.
