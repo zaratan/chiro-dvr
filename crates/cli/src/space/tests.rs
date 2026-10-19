@@ -48,7 +48,7 @@ fn the_needs_of_one_volume_add_up_and_name_its_first_results_folder() {
     };
     let needs = [
         need("/Volumes/BATS/nuit-12-oct/batdetect", 2 * GIGABYTE),
-        need("/Users/manon/Desktop/batdetect", 2 * GIGABYTE),
+        need("/Users/naturaliste/Desktop/batdetect", 2 * GIGABYTE),
         need("/Volumes/BATS/nuit-13-oct/batdetect", 2 * GIGABYTE),
     ];
     assert_eq!(

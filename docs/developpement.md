@@ -719,7 +719,7 @@ La logique de chaque étape est dans [detection.md](detection.md). Cette section
 - `detect_injected` est la couture du banc : un crochet générique sur la copie du plan Y. La commande passe un crochet vide et ne paie rien.
 - **Borne de la fenêtre** : la fenêtre garde ses images à 2 octets par pixel de travail.
   Au-delà de `BACKGROUND_BUDGET` = 4 Gio, `half_window` refuse (`LongWindow`).
-  Le refus se décide en `f64` avant tout calcul entier. Au plafond la détection tient autour de 5 Go, sous les 16 Go de la machine de Manon.
+  Le refus se décide en `f64` avant tout calcul entier. Au plafond la détection tient autour de 5 Go, sous les 16 Go de la machine cible.
 - `merge_radius` est borné à 12 pixels d'origine. Au rayon 25 en 1440, une image d'éclair plein cadre prenait 3,77 s.
   La borne tient une seconde par image à toute largeur.
 - `DetectConfig::try_from` refuse ce que la v0.1.1 refuse, plus NaN et l'infini.
@@ -916,7 +916,7 @@ Sans vérité connue, tout réglage est un pari.
 On vérifie donc de deux façons : avec de fausses chauves-souris ajoutées à une vraie vidéo ([Banc de mesure](#banc-de-mesure)) et avec une vidéo dont chaque passage a été jugé à l'œil.
 Cette vidéo est la 092 et ses 14 pistes sont gardées par `cli/tests/reference_092.rs` ([Gardes de détection](#gardes-de-détection)).
 Selon le verdict de la naturaliste du 9 octobre 2026, 13 sont des chauves-souris.
-La piste lente de 3:29 n'en est pas une ([résultats de la 092](resultats-092.md#verdict-de-manon-9-octobre-2026)).
+La piste lente de 3:29 n'en est pas une ([résultats de la 092](resultats-092.md#verdict-de-lexperte-9-octobre-2026)).
 Le banc ne dit pas si une piste réelle est une chauve-souris. Cela reste le jugement de la naturaliste.
 
 ## Réglages

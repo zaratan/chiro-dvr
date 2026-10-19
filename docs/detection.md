@@ -54,7 +54,7 @@ flowchart TD
 16. [Extrait zoomé et ralenti](#extrait-zoomé-et-ralenti) : pour les cibles trop petites ou trop rapides.
 
 Les étapes 1 à 13 lisent la vidéo en petit. Les étapes 15 et 16 la relisent en pleine résolution autour des pistes seulement.
-Règle de Manon (9 octobre 2026) : mieux vaut un faux positif facile à écarter qu'un passage manqué.
+Règle de l'experte (9 octobre 2026) : mieux vaut un faux positif facile à écarter qu'un passage manqué.
 La piste lente de 3:29 sur la 092 reste donc produite.
 
 Distances et surfaces des réglages, des pistes et du tableau sont en **pixels de la vidéo d'origine**.

@@ -12,7 +12,7 @@ L'outil compte des pistes. Seuls les verdicts comptent des passages.
 ## Ce que l'outil ne voit pas
 
 L'outil dit « quelque chose a bougé ici », jamais « c'est une chauve-souris ».
-Depuis le verdict de Manon sur la 092 du 9 octobre 2026, ses réglages préfèrent une piste de trop à un passage manqué.
+Depuis le verdict de l'experte sur la 092 du 9 octobre 2026, ses réglages préfèrent une piste de trop à un passage manqué.
 Une piste de trop s'écarte facilement à l'extrait.
 La piste lente de 3:29 sur la 092 n'est pas une chauve-souris. L'outil la sort quand même : c'est voulu.
 Il peut aussi manquer un passage, en couper un en deux ou en réunir deux.
@@ -34,7 +34,7 @@ Le numéro entre parenthèses mène au suivi du défaut. Une ligne sans numéro 
 | L'animal est déjà visible dans l'extrait avant que la boîte n'apparaisse | La piste ne commence qu'une fois que la cible se détache assez du fond. Sur des vols de chasse fabriqués, ce retard dépasse parfois quelques images ([« Le suivi image par image »](detection.md#relier-les-taches-dans-le-temps)) | Regarder l'extrait depuis son tout début : la durée et la vitesse du tableau des pistes ne couvrent alors qu'une partie du vol ([#42]) |
 | L'animal vole encore dans l'extrait après que la boîte a disparu | La piste finit à la dernière image où la cible se détache assez du fond. Sur des vols de chasse fabriqués, cette fin arrive parfois quelques images trop tôt ([« Le suivi image par image »](detection.md#relier-les-taches-dans-le-temps)) | Regarder l'extrait jusqu'à sa toute fin : la durée et la vitesse du tableau des pistes ne couvrent alors qu'une partie du vol ([#42]) |
 | Une seule piste là où vous voyez deux animaux | Deux animaux restés tout près l'un de l'autre sont réunis en une piste. Cette règle n'a jamais été éprouvée sur deux vraies chauves-souris ([« La fusion des morceaux »](detection.md#fusionner-les-pistes-jumelles)) | Compter les animaux à l'œil dans l'extrait, et noter ce moment : il servira à éprouver l'outil ([#26]) |
-| Une piste très lente au milieu de vols rapides | L'outil ne distingue pas un vol d'un déplacement lent : c'est le cas de la piste de 3:29 sur la 092 ([verdict](resultats-092.md#verdict-de-manon-9-octobre-2026), [« Ressembler à un vol »](detection.md#garder-ce-qui-ressemble-à-un-vol)) | Comparer sa vitesse dans le tableau des pistes, puis trancher à l'extrait ([#28]) |
+| Une piste très lente au milieu de vols rapides | L'outil ne distingue pas un vol d'un déplacement lent : c'est le cas de la piste de 3:29 sur la 092 ([verdict](resultats-092.md#verdict-de-lexperte-9-octobre-2026), [« Ressembler à un vol »](detection.md#garder-ce-qui-ressemble-à-un-vol)) | Comparer sa vitesse dans le tableau des pistes, puis trancher à l'extrait ([#28]) |
 | Une chauve-souris plus claire que le ciel derrière elle | L'outil cherche dans les deux sens, plus clair ou plus sombre, mais n'a jamais été essayé sur une vraie vidéo de ce genre ([« Un seuil propre à chaque endroit »](detection.md#seuiller-chaque-pixel)) | Revoir la vidéo d'origine, et garder la vidéo : elle servira à éprouver l'outil ([#27]) |
 | Une période hors analyse ou illisible sur l'image résumé | Les jumelles ont bougé, la luminosité a sauté d'un coup, un essaim a rempli l'image, ou le fichier est abîmé : rien n'y a été cherché ([« Les périodes ignorées »](detection.md#écarter-les-images-où-les-jumelles-bougent)) | Revoir la vidéo d'origine aux moments donnés par le bandeau (les trois premiers de chaque sorte) et par la frise du temps sous l'image, qui les montre tous |
 | Une piste sur une image visiblement abîmée (blocs, morceaux d'image décalés), hors des périodes illisibles | Le fichier a été réparé à la lecture sans que rien ne le signale, et l'image passe pour une vraie scène ([« Les périodes ignorées »](detection.md#écarter-les-images-illisibles)) | L'écarter à l'extrait |
@@ -408,11 +408,11 @@ Le tableau des pistes `<vidéo>_pistes.csv` appartient à l'outil. Un recalcul l
 ### Les faux positifs déjà vus
 
 Les cas ci-dessous ont été vus à la relecture de vraies vidéos. Chacun renvoie à l'endroit où il est décrit.
-Manon doit encore relire cette liste.
+L'experte doit encore relire cette liste.
 
 | Ce que vous voyez | Où ça a été vu | Source |
 | --- | --- | --- |
-| Un objet qui se déplace lentement et régulièrement, sur plusieurs secondes | La piste de 3:29 sur la 092, que Manon a écartée. C'est la piste 1 de l'extrait de test (0:00:04, 95 px/s, contre 1 383 à 1 926 px/s pour les trois chauves-souris) : voir l'image ci-dessous | [résultats de la 092](resultats-092.md#verdict-de-manon-9-octobre-2026) |
+| Un objet qui se déplace lentement et régulièrement, sur plusieurs secondes | La piste de 3:29 sur la 092, que l'experte a écartée. C'est la piste 1 de l'extrait de test (0:00:04, 95 px/s, contre 1 383 à 1 926 px/s pour les trois chauves-souris) : voir l'image ci-dessous | [résultats de la 092](resultats-092.md#verdict-de-lexperte-9-octobre-2026) |
 | Une piste courte qui change de direction au hasard, sur une vidéo au grain fort | Le scintillement de pixels isolés, que le suivi enchaîne en pistes. Sur la 089, deux filtres le visent et écartent 92 de ses 96 pistes | [détection](detection.md#garder-ce-qui-ressemble-à-un-vol) |
 | Une piste sur une image abîmée (blocs, morceaux d'image décalés) | Sur la 122 : 4 pistes collées aux plages illisibles, que la marge laissée autour des images abîmées écarte | [détection](detection.md#écarter-les-images-illisibles), [Ce que l'outil ne voit pas](#ce-que-loutil-ne-voit-pas) |
 | Une piste avec un trou, qui repart ailleurs : peut-être deux animaux | Pas encore vu sur une vraie vidéo. Possible quand deux animaux se suivent de près, au même endroit et à la même vitesse : l'outil ne sépare que ceux dont la seconde piste repart presque là où la première s'est arrêtée | [détection](detection.md#recoller-un-vol-caché-derrière-la-végétation) |

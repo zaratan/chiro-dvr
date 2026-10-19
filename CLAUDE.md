@@ -14,7 +14,7 @@ Un binaire propre la saute.
 
 ## Rôles
 
-Manon, naturaliste, confirme les passages à l'œil.
+Une experte naturaliste confirme les passages à l'œil.
 Son verdict sur la 092, rendu le 9 octobre 2026, est la vérité terrain du test `slow` ([docs/resultats-092.md](docs/resultats-092.md)).
 Sur 14 pistes, 13 sont des chauves-souris. Seule la piste lente de 3:29 n'en est pas une.
 Mieux vaut un faux positif facile à écarter qu'un passage manqué.
@@ -44,7 +44,7 @@ Une question sur ce qui est ou n'est pas une chauve-souris lui remonte. Elle ne 
   Côté pistes, ils comptent les pistes appariées, concordantes, perdues et ajoutées. Ils valent 0 jusqu'à #21.
   Après, ils ne comptent que des détections faibles ajoutées et leurs pistes, avec leur cause (docs/developpement.md).
   Une piste s'apparie à ±5 images de début et ±3 points.
-  Les seuls faits affirmés sans référence sont ceux de Manon sur la 092 (`reference_092`) : ses 13 passages et leurs débuts.
+  Les seuls faits affirmés sans référence sont ceux de l'experte sur la 092 (`reference_092`) : ses 13 passages et leurs débuts.
   À côté, seuls l'objet lent de 3:29 et la cible connue de 3:42.10 sont tolérés (docs/resultats-092.md).
   L'écart entre Mac et Linux de 4 images et 2 points avait été mesuré contre la v0.1.1.
   Celle-ci ne garde plus que l'aval, les sorties, le format v1 et les entrées (témoin ffprobe).

@@ -2,7 +2,7 @@
 
 La 092 est la vidéo de référence du projet : 5 minutes de falaise filmées jumelles posées.
 On en garde l'original copié en USB (`video_092_original.mp4`).
-Le verdict de Manon sur ses pistes est la vérité terrain du test `slow` et de `reference_092`.
+Le verdict de l'experte sur ses pistes est la vérité terrain du test `slow` et de `reference_092`.
 Les temps viennent des `pts` de la vidéo.
 Les temps mesurés avec la v0.1.1 tombent de 0 à 2 centièmes plus tard : elle divisait le numéro d'image par la cadence moyenne.
 
@@ -36,7 +36,7 @@ Chacune remplace une position que le suivi estimait pendant un trou.
 Les pistes rapides passent ainsi de 26 à 20 positions estimées.
 Les 14 autres détections faibles restent hors piste.
 
-## Verdict de Manon (9 octobre 2026)
+## Verdict de l'experte (9 octobre 2026)
 
 Sur les 14 pistes du réglage par défaut, les mêmes qu'aujourd'hui, **13 sont des chauves-souris**, y compris 0:51 et 2:37.
 La piste de 0:51 passe surtout en bordure droite de l'écran mais elle n'est pas lente.
@@ -61,7 +61,7 @@ Le passage de 3:42.10 ([plus bas](#cibles-connues-pour-les-issues-suivantes)) re
   Sur 2 de ses 6 images il passe sur des pixels agités où le seuil par pixel monte à 22 à 36.
   Il ne reste alors que 4 détections pour un minimum de 6.
   On le trouve à 1440 px sans seuil par pixel. Ce réglage explose sur d'autres vidéos ([détection](detection.md#réduire-et-filtrer-limage)).
-  Manon doit encore confirmer que c'est une chauve-souris.
+  L'experte doit encore confirmer que c'est une chauve-souris.
 - **125, pistes 8 et 9 du réglage par défaut** : jugées réelles à l'œil.
   La piste 8 va de 0:28.41 à 0:29.64 avec 37 détections. La piste 9 va de 0:28.94 à 0:29.74 avec 25 détections.
   Le réglage d'avant le 6 octobre n'en sortait qu'une (0:29.04 → 0:29.34, 8 détections).
