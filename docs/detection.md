@@ -105,7 +105,7 @@ La détection ne lit que la luminance Y, convertie en gris de 0 à 255 par une f
 gris = (Y × 4 769 − 81 520) >> 12, borné à 0..255
 ```
 
-Cet étirement linéaire de pente 4 769 / 4 096 (environ 255 / 219) étire la plage vidéo de Y, de 16 à 235, sur 0 à 253.
+La pente vaut 4 769 / 4 096, environ 255 / 219. Elle étire la plage vidéo de Y (16 à 235) sur 0 à 253.
 Une table de référence reste dans le code pour le test qui vérifie la formule niveau par niveau.
 Une source marquée en plage pleine (`pc`) passe par la même formule qu'une source `tv`.
 La même lecture donne pour chaque image son horodatage `pts`, si c'est une image-clé et les erreurs signalées par le décodeur.
