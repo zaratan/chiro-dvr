@@ -9,7 +9,7 @@ Ces documents s'adressent à la naturaliste. Ils ne contiennent rien de techniqu
 
 ## Pour comprendre ou modifier l'outil
 
-- [Détection](detection.md) : chaque technique employée, étape par étape, avec ses réglages et leur mesure. Aucune n'utilise d'IA.
+- [Détection](detection.md) : chaque technique employée, étape par étape, avec ses réglages et leur mesure.
 - [Développement](developpement.md) : construction, licences, charte, tests, encodage, contrats des crates, banc, temps actuels.
 - [Résultats de la 092](resultats-092.md) : le verdict de Manon, vérité terrain des tests.
 - [CONTRIBUTING](../CONTRIBUTING.md) : construire, vérifier, publier une version, outillage et CI.

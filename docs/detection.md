@@ -1,6 +1,5 @@
 # Méthode globale
 
-Aucune étape n'utilise d'intelligence artificielle ni d'apprentissage automatique.
 Chaque étape est une technique classique de traitement d'image ou de statistique.
 Chaque réglage est un nombre fixe écrit dans le code et choisi d'après des mesures.
 
@@ -69,7 +68,6 @@ Ce que la littérature justifie dans nos choix :
 - Betke (Boston University, 2008) écarte le seuil fixe : près de la végétation, la cible a l'intensité du fond.
   ThermalTracker (Matzner, 2015) seuille aussi chaque pixel selon son propre bruit.
 - ThruTracker lisse et dilate l'image à la taille du plus petit objet, comme notre flou et notre fermeture.
-- Yarbrough et al. (2023-2026) trient les détections par un réseau de neurones. batdetect n'en a pas : la naturaliste trie à l'œil.
 - Aucun de ces outils n'injecte de cibles synthétiques pour se mesurer. Notre banc le fait ([développement](developpement.md)).
 
 # Lire la vidéo
