@@ -10,7 +10,7 @@ I saw my girlfriend, a naturalist, use dvr-scan to look for bats in the videos o
 It was super slow and it didn't work well (not its fault: it's made for security cameras, not for bats).
 Then she had to watch every clip it cut out and try to see what was moving.
 
-`batdetect` was made to do the watching for her <3 I hope you'll also find the tool usefull.
+`batdetect` was made to do the watching for her ❤️ I hope you'll also find the tool usefull.
 
 On my Mac (M1 Max), a 5-minute video takes about 20 seconds.
 
