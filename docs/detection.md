@@ -76,7 +76,7 @@ Sa réduction et son filtre du bruit par défaut effacent une cible de quelques 
 Son seuil porte sur la part de l'image qui bouge, qu'un point minuscule ne remue presque pas.
 Il fusionne les passages proches en un seul événement à une seule boîte.
 
-**ThermalTracker** (PNNL) suppose des cibles claires en palette *white-hot* et ne voit pas notre contraste négatif.
+**ThermalTracker** (PNNL) suppose des cibles plus claires que le fond. Il ne voit pas une cible plus sombre que lui.
 **ThruTracker** est le seul outil mûr et maintenu pour ce cas. Il est sous licence annuelle et n'a pas été comparé.
 **BatCount** ne tourne que sous Windows. Sa précision publiée va de 51 à 95 % selon les vidéos.
 
@@ -134,7 +134,7 @@ C'est le **filtre adapté** (*matched filter*) d'une tache gaussienne dans un br
 Il moyenne le bruit d'un pixel avec ses voisins sans écraser une tache de quelques pixels.
 Filtrer avant d'estimer le fond mesure fond, résidu et bruit dans le même espace.
 
-**Valeurs**, choisies le 6 octobre 2026 sur sept vidéos 1440×1080 de la falaise.
+**Valeurs**, choisies le 6 octobre 2026 sur sept vidéos 1440×1080 en blanc chaud, toutes du même site.
 Les bancs de cibles synthétiques de la v0.1.1 ont tranché entre les candidats (graine 1, sur la 092).
 « −30, σ 1,5 » note une classe de cibles de −30 niveaux et de σ = 1,5 px d'origine.
 
@@ -235,9 +235,9 @@ Il lui faut au moins 7 valeurs et un `noise_factor` non nul.
 Elle n'est calculée que pour les pixels non masqués dont |r| dépasse déjà les trois quarts de `threshold`, les seuls qui peuvent être retenus.
 Le seuil d'une image ne dépend que de sa fenêtre.
 
-**Pourquoi la valeur absolue.** L'animal peut être plus sombre que le fond (devant la roche chaude) ou plus clair (devant un ciel froid).
-En palette *white-hot*, la falaise chauffée par la journée sort blanche et une chauve-souris passe devant en tache sombre.
-Un outil qui suppose « chaud = clair » rate ces passages.
+**Pourquoi la valeur absolue.** L'animal peut être plus chaud ou plus froid que ce qui est derrière lui.
+Selon le fond et la palette, il sort donc plus clair ou plus sombre que le fond.
+La valeur absolue retient les deux cas, quelle que soit la palette en niveaux de gris.
 
 **Pourquoi un seuil par pixel.** Un seuil unique traite pareil la roche calme et la végétation qui bouge.
 Assez bas pour la 092, il laisse passer le bruit des vidéos agitées.
@@ -748,7 +748,7 @@ Les images y gardent la numérotation de la détection. Le reste du rendu est d�
 Boîte, numéro et trace prennent la couleur de la piste. C'est la même sur l'image résumé, les extraits, les zooms et la vidéo annotée.
 La boîte entoure la tache avec 12 px de marge, en trait de 2 px bordé d'un liseré noir de 1 px de chaque côté.
 Le numéro est placé 6 px au-dessus de la boîte avec lui aussi un liseré noir de 1 px.
-La couleur se détache ainsi de la roche claire comme du ciel sombre, même la plus claire de la palette (235, 235, 235).
+La couleur se détache ainsi d'un fond clair comme d'un fond sombre, même la plus claire des couleurs de pistes (235, 235, 235).
 La trace montre la dernière seconde de la piste (`trail_s`), sans liseré.
 Le numéro reste au-dessus de la boîte par choix de l'utilisateur (16 octobre 2026).
 Une place à 24 px en diagonale cachait moins de pixels à moins de 30 px de la cible : aucun sur trois images sur quatre et 16 sur la quatrième.
@@ -818,6 +818,8 @@ Quand l'une est fausse, il manque un passage ou en invente un.
 | Hypothèse | Si elle est fausse |
 | --- | --- |
 | Les jumelles sont fixes | Les périodes de mouvement sont ignorées et signalées |
+| La vidéo est en niveaux de gris et sa luminosité suit la température. Seul le blanc chaud est éprouvé, pas le noir chaud (#331) | En palette en couleurs, la luminosité ne suit pas la température : la détection n'est pas fiable (#328, #333) |
+| Les réglages valent pour la caméra mesurée (1440×1080, 30 i/s, blanc chaud) | Une autre définition, une autre cadence ou une autre palette demandera peut-être d'autres valeurs (#343) |
 | L'animal bouge de plus que sa taille en une seconde | Il s'efface dans le fond |
 | L'animal s'écarte du fond filtré de plus de 12 niveaux et de 8 fois le bruit du pixel (1,4826 × MAD) | Il n'est pas vu. Entre deux images où il l'est, à 3 images au plus de chaque côté, 9 niveaux et 6 fois le bruit suffisent |
 | Le ciel n'est pas saturé | Le ciel saturé à 0 est aveugle |
