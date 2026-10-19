@@ -830,7 +830,8 @@ Quand l'une est fausse, il manque un passage ou en invente un.
 | Les jumelles sont fixes | Les périodes de mouvement sont ignorées et signalées |
 | La vidéo est en niveaux de gris et sa luminosité suit la température. Seul le blanc chaud est éprouvé, pas le noir chaud (#331) | En palette en couleurs, la luminosité ne suit pas la température : la détection n'est pas fiable (#328, #333) |
 | Les réglages valent pour la caméra mesurée (1440×1080, 30 i/s, blanc chaud) | Une autre définition, une autre cadence ou une autre palette demandera peut-être d'autres valeurs (#343) |
-| L'animal bouge de plus que sa taille en une seconde | Il s'efface dans le fond |
+| L'animal ne reste pas plus d'une demi-seconde au même endroit | Posé ou en surplace, il entre dans la médiane du fond et disparaît |
+| Les deux premières détections d'un vol sont à 120 px au plus l'une de l'autre (`max_jump`), environ 3 600 px/s à 30 i/s | La piste ne démarre pas. Le vol le plus rapide de la 092 va à 1 939 px/s (#28) |
 | L'animal s'écarte du fond filtré de plus de 12 niveaux et de 8 fois le bruit du pixel (1,4826 × MAD) | Il n'est pas vu. Entre deux images où il l'est, à 3 images au plus de chaque côté, 9 niveaux et 6 fois le bruit suffisent |
 | Le ciel n'est pas saturé | Le ciel saturé à 0 est aveugle |
 | La cible a à peu près la taille du filtre gaussien (1,5 px d'origine) | Plus petite, elle perd du contraste. Plus grande, elle est moins rehaussée |
