@@ -21,7 +21,7 @@ La référence sert à comparer (aussi bien ou mieux), pas à exiger l'identité
 
 ### Récupération sur une autre machine
 
-Le seau Scaleway `chiro-dvr-videos` (projet `chiro-dvr`), lu par rclone sous le remote `chiro-dvr` (clé de l'utilisateur dans sa configuration rclone), porte deux préfixes :
+Le seau Scaleway `chiro-dvr-videos` (projet `chiro-dvr`), lu par rclone sous le remote `chiro-dvr` (clé dans la configuration rclone du poste), porte deux préfixes :
 
 - `reference-v0.1.1/` : `data/`, `bench/`, `summary/`, `logs/`, les sorties de l'extrait (`outputs/{fr,en}/video_092_original_3m24-4m05/`, lues par `local_outputs`), la concaténation `videos/video_089-091.mp4` (lue par `local_frozen`) et un `README.md` (provenance, recette pour réenregistrer).
   Les autres sorties n'y sont pas : aucun test ne les lit, et si elles sont refaites depuis le tag, c'est hors de `BATDETECT_REFERENCE_DIR`, que la tâche refuserait ensuite ;

@@ -10,7 +10,7 @@ Le Rust doit détecter au moins aussi bien que la v0.1.1 sans la reproduire bit 
 La v0.1.1 est la dernière version en Python (tag `python-final`).
 Les détections et les pistes se comparent par appariement avec des tolérances. Chaque écart se juge ensuite à l'œil.
 
-Sur le poste de l'utilisateur, les commandes lourdes passent par `/Users/zaratan/Projects/dvr-wt/verrou lourd` (`MESURES.md`, hors dépôt).
+Sur le Mac de développement, les commandes lourdes passent par `/Users/zaratan/Projects/dvr-wt/verrou lourd` (`MESURES.md`, hors dépôt).
 Ailleurs elles se lancent sans lui.
 
 ## Construction
@@ -89,7 +89,7 @@ mise run package:check    # contrôles du livrable sur cette archive
 - **Intel SDE** : `packaging/sde.sh` télécharge le kit 10.13.1 de `packaging/sde-versions` et vérifie son sha256.
   Il l'extrait dans `${XDG_CACHE_HOME:-~/.cache}/batdetect/sde/`.
   SDE présente le CPUID de Nehalem et arrête le programme sur toute instruction que Nehalem n'a pas.
-  Sa licence permet l'usage et la redistribution sans modification. L'utilisateur l'a acceptée le 17 octobre 2026.
+  Sa licence permet l'usage et la redistribution sans modification. Elle est acceptée depuis le 17 octobre 2026.
   Sous Ubuntu, Pin demande `kernel.yama.ptrace_scope=0`. `package.yml` le pose par `sudo sysctl`.
   Le kit n'a pas de cache CI : `sde.sh` fait confiance à un kit déjà extrait et un cache restauré contournerait l'épinglage.
   Une release dépend donc du miroir d'Intel. S'il manque, elle échoue en clair (`could not fetch Intel SDE`).
@@ -198,7 +198,7 @@ Pas d'imitation :
 5. Ni Python ni numpy ni OpenCV ne s'imitent.
    On n'utilise pas `round_ties_even` pour copier `round()` et on ne recopie pas l'ordre des opérations.
    Le calcul s'écrit simple et juste. L'écart se mesure par appariement avec tolérances (`reference`) puis se juge.
-   **Exception** (décision de l'utilisateur à #118) : le gris de la détection reprend la table mesurée sur OpenCV et l'arrondi à 8 bits après la réduction.
+   **Exception** (#118) : le gris de la détection reprend la table mesurée sur OpenCV et l'arrondi à 8 bits après la réduction.
    Les seuils de la v0.1.1 sont en effet réglés sur ce gris ([Gris de la détection](#gris-de-la-détection)).
 
 Sûreté et erreurs :
@@ -213,7 +213,7 @@ Sûreté et erreurs :
     Les fils passent par `std::thread::scope` ou rayon. Ils ne sont jamais détachés.
 11. Aucun résultat jeté : ni `let _ =` sur un `Result` ni `.ok();`.
 12. Ni `println!` ni `eprintln!` : on écrit par `writeln!` sur un flux verrouillé et on traite son erreur.
-    Tout texte vu par l'utilisateur vit dans un seul module de la commande.
+    Tout texte affiché vit dans un seul module de la commande.
 
 Types et calcul :
 
@@ -251,7 +251,7 @@ Forme et tests :
   `cargo deny check` échoue sur un avis de sécurité, une licence hors liste, une source inconnue, un paquet retiré ou une version sans borne.
   Il ne fait qu'avertir sur une version en double.
 - `serde_json` a la feature `float_roundtrip` pour qu'un flottant de la référence se relise au bit près.
-- **Pas d'`ab_glyph`** : il tire `ttf-parser`, que RUSTSEC-2026-0192 déclare non maintenu. L'utilisateur refuse d'ignorer l'avis.
+- **Pas d'`ab_glyph`** : il tire `ttf-parser`, que RUSTSEC-2026-0192 déclare non maintenu. L'avis n'est pas ignoré.
   `fontdue` et `rusttype` le tirent aussi. Les polices passent donc par `skrifa` et le tracé par `tiny-skia` sans sa feature `png`.
 - `png` sert en direct dans `summary`. `draw` reste sans format de fichier.
 - `clap` sert en builder : la commande se construit à l'exécution avec les textes de la langue, ce que `derive` ne fait pas.
@@ -292,7 +292,7 @@ Le niveau d'un test se choisit par le nom de son fichier. Ajouter un test ne dem
 - `tests/fixtures/rust/video_092_original_3m24-4m05/frames.jsonl` : les détections de l'extrait par le Rust.
   `slow_extract` les redemande au bit près sur les trois systèmes.
   Elles s'écrivent sur le Mac depuis la racine du dépôt par `verrou lourd cargo run --profile ci -p compare --bin compare -- extract --frames tests/fixtures/rust`.
-  Un écart remonte à l'utilisateur.
+  Un écart se signale.
 - `tests/fixtures/rust/video_092_original_3m24-4m05/tracks.csv` : le tableau des pistes de l'extrait que C6 contrôle.
   Il se refait en anglais par le binaire `release` :
   `verrou lourd env -u LANGUAGE -u LC_ALL -u LC_MESSAGES LANG=C target/release/batdetect tests/fixtures/video_092_original_3m24-4m05.mp4 -o out/csv`.
@@ -330,7 +330,7 @@ La table des tâches est dans [CONTRIBUTING.md](../CONTRIBUTING.md#ci).
 
 ### Tests figés
 
-Six cas d'extraits et de zooms ont été jugés à l'aveugle par l'utilisateur le 15 octobre 2026 contre les sorties de la v0.1.1, puis figés.
+Six cas d'extraits et de zooms ont été jugés à l'aveugle le 15 octobre 2026 contre les sorties de la v0.1.1, puis figés.
 Le verdict est « aussi bien » pour les six.
 
 | Cas | Vidéo | Piste (début v0.1.1) | Fichier |
@@ -478,7 +478,7 @@ Elles suivent le nombre et la durée des passages, qu'on ne connaît pas avant l
 Les soirées chargées (095 à 100, 78 à 149 pistes) dépassent 3 fois la vidéo. Les calmes restent sous 1 fois.
 La vidéo annotée pèse de 0,64 fois la vidéo (120 sans piste) à 2,72 fois (090).
 Un extrait pèse de 0,81 à 3,17 fois le débit de la vidéo d'entrée par seconde de fenêtre. Un zoom pèse de 0,29 à 2,63 fois ce débit.
-Coefficients retenus par l'utilisateur (16 octobre 2026) :
+Coefficients retenus (16 octobre 2026) :
 
 - au lancement, 1 fois la vidéo : 18 soirées sur 26 tiennent dessous.
   Une soirée chargée le dépasse et c'est le contrôle par vidéo qui la protège.
@@ -492,7 +492,7 @@ VideoToolbox écrit environ 0,77 fois ce qu'écrit openh264 : sur le Mac, ces co
 Sur le Mac, les extraits et la vidéo annotée passent par VideoToolbox matériel en q65 si un essai au démarrage réussit.
 openh264 en QP 23 sert de repli ([`render`](#render)).
 Ailleurs ils passent par openh264 seul. Les zooms passent toujours par openh264, chacun en travail à part.
-Aucun de ces réglages n'est une option (décision de l'utilisateur).
+Aucun de ces réglages n'est une option.
 
 Mesure du 11 octobre 2026 sur le M1 Max, sur l'extrait. Le SSIM est celui du filtre `ssim` de FFmpeg contre l'original.
 
@@ -503,7 +503,7 @@ Mesure du 11 octobre 2026 sur le M1 Max, sur l'extrait. Le SSIM est celui du fil
 | openh264 | profil high, QP 23 | 0,9799 (0,9698) | 136,9 Mo | 16,8 s | 16,3 s | ≈ 16 Mo |
 
 - QP 23 atteint le SSIM de VideoToolbox q65. QP 24 donne 0,9761 et passe sous le plancher de 0,977.
-  L'utilisateur a validé QP 23 à l'œil sur la piste la moins contrastée de l'extrait.
+  QP 23 est validé à l'œil sur la piste la moins contrastée de l'extrait.
 - openh264 sert de repli plutôt que le logiciel d'Apple : 30 fois moins de mémoire, 3 fois moins de CPU et le même encodeur que sous Linux.
   Le prix est un fichier 30 % plus gros.
 - **Couleur** : plage limitée et BT.709 pour la matrice, le transfert et les primaires, écrits dans le flux H.264.
@@ -520,7 +520,7 @@ Mesure du 11 octobre 2026 sur le M1 Max, sur l'extrait. Le SSIM est celui du fil
   L'étape matérielle de la CI macOS encode les images 660 à 779 de l'extrait en q65 et les relit.
   Elle exige un PSNR de luminance supérieur à 37,9 dB (38,9 dB mesurés en q65, 34,9 dB sans).
   Le test lent d'openh264 exige 39,1 dB (39,53 à QP 23, 38,69 à QP 24).
-  Cette étape bloque la CI (décision de l'utilisateur). Si elle casse à cause d'une machine de GitHub, la question se rouvre avec lui.
+  Cette étape bloque la CI. Si elle casse à cause d'une machine de GitHub, la question se rouvre.
   Sur `macos-latest`, le journal affiche « IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver ». Le message est sans effet.
 - **Sessions** : 17 sessions matérielles tiennent sur le M1 Max.
   À partir de 18 l'envoi d'images échoue (`-17691`) et le repli à l'ouverture ne couvre pas ce cas.
@@ -555,7 +555,7 @@ Les 26 vidéos annoncent `tv` sur le conteneur et sur chaque image.
   Y > 235 est surtout en bas (sol chaud).
   V à 255 n'occupe qu'un petit carré, vraisemblablement une icône rouge de l'affichage des jumelles.
 - Les fichiers produits sont resserrés sans écrêtage.
-- **Noir calé sur 16** (décision de l'utilisateur, à l'œil sur les fonds de la 092, de la 122 et de la 124).
+- **Noir calé sur 16** (jugé à l'œil sur les fonds de la 092, de la 122 et de la 124).
   Lu en plage pleine, le ciel froid sortait gris comme un voile.
   La formule est `Y' = max(0, Y − 16) × 255 / 239`, arrondie au plus proche, avant la conversion en plage pleine.
   La chrominance n'est pas touchée.
@@ -631,7 +631,7 @@ Cette section ne garde que les contrats et les pièges de chacune.
 
 ### `draw`
 
-- Le texte est en Roboto 400 et les numéros en 600 (choix de l'utilisateur). Une taille est la hauteur des chiffres.
+- Le texte est en Roboto 400 et les numéros en 600. Une taille est la hauteur des chiffres.
   Les chiffres ont tous la même largeur.
 - Le texte est normalisé en NFC. Un caractère absent devient U+FFFD. Il n'y a ni crénage ni placement d'accent par GPOS.
 - Un texte se prépare une fois (`shape`) puis se redessine sans allocation.
@@ -654,7 +654,7 @@ Couleurs, flèches, légende et tranches suivent les règles de la v0.1.1.
 - Le bandeau est un modèle sans texte (`HeaderLine`) que le trait `Labels` met en mots.
 - Une tranche de plus de 20 pistes (`MAX_TRACKS_PER_IMAGE`) donne `ceil(n / 20)` images de paquets égaux : 21 pistes donnent 11 + 10.
   Les images gardent les numéros de la vidéo. Couleurs et pastilles s'attribuent paquet par paquet.
-- Aucune pastille n'est hors cadre ni n'en recouvre une autre (choix de l'utilisateur).
+- Aucune pastille n'est hors cadre ni n'en recouvre une autre.
   Sur les 966 pistes de la référence, la v0.1.1 avait 266 recouvrements et ce placement 0.
 - Le PNG s'écrit dans son partiel puis il est renommé.
   `png` n'expose la cause d'une erreur que par `cause()`, donc `Error::Write` garde l'`io::Error`.
@@ -764,7 +764,7 @@ Retenter la formule avec des seuils réajustés est l'objet de #142.
 
 ### `cli`
 
-Tout texte vu par l'utilisateur vit dans `locales/{fr,en}.ftl`, lus par le seul binaire.
+Tout texte affiché vit dans `locales/{fr,en}.ftl`, lus par le seul binaire.
 La bibliothèque reçoit ses libellés par les traits `Wording` et `Labels`.
 
 - `doctor` et `completion` s'aiguillent sur le premier argument avant le parseur. Une vidéo nommée ainsi se donne en `./doctor`.
@@ -841,7 +841,7 @@ La bibliothèque reçoit ses libellés par les traits `Wording` et `Labels`.
   C'est le seul format du début d'une piste sur la page : le binaire l'écrit et le script le relit.
 - Contre la v0.1.1 sur la 092, les temps du CSV sont plus tôt d'un ou deux centièmes.
   La v0.1.1 divisait le numéro d'image par la cadence moyenne au lieu de lire les `pts`.
-- `results` ignore un sous-dossier sans `params.json` ni sortie nommée d'après la vidéo, pour ne jamais lister un dossier de l'utilisateur.
+- `results` ignore un sous-dossier sans `params.json` ni sortie nommée d'après la vidéo, pour ne jamais lister un dossier que batdetect n'a pas écrit.
   `verdicts` prend le plus récent des `verdicts*.csv`, car le navigateur numérote les doubles.
 
 ### `render`
@@ -861,7 +861,7 @@ La bibliothèque reçoit ses libellés par les traits `Wording` et `Labels`.
 - **Boîte bornée** : pour l'affichage seulement, chaque côté est borné à 4 fois la médiane du même côté sur les points détectés de la piste.
   Elle est née de la 092 piste 13 image 6945, où une tache étalée dessinait 363 × 259 px autour de rien.
   Le facteur 4 borne 33 des 33 865 points de la référence. Le facteur 3 en bornerait 129.
-- Le zoom garde la taille de la vidéo : l'utilisateur a refusé le 720×540, car la pleine taille montre mieux les objets diffus.
+- Le zoom garde la taille de la vidéo et non le 720×540, car la pleine taille montre mieux les objets diffus.
 - Seules les zones autour des dessins passent en RGBA. Un test vérifie que tout pixel dessiné tombe dans une zone.
 - La vidéo annotée s'écrit aux `pts` de la source et reste en phase avec le CSV après une perte d'images.
 - Chaque fil garde son `Picture`, car `Converter` n'est pas `Send`.
@@ -896,7 +896,7 @@ Outil de développement lancé depuis la racine du dépôt. Ses binaires `compar
   Le reste n'emploie que des opérations fixées bit à bit par IEEE 754.
   `area_to_source` multiplie par `échelle × échelle` et non par `powi(2)`, dont Rust ne fixe pas la précision.
 - `tests/slow_brightness_jump.rs` porte les 3 tests de saut de luminosité de la v0.1.1. Le saut de 30 n'est qu'à un niveau du bord.
-  Si openh264 encode autrement sur un autre système, ce test le montrera. L'écart remonte à l'utilisateur.
+  Si openh264 encode autrement sur un autre système, ce test le montrera. L'écart se signale.
 
 ### `bench`
 
@@ -959,7 +959,7 @@ Tous les cas sauf le dernier portent sur l'extrait.
 | `width_1440_osd` | `work_width` 1440, `osd_regions` `[[0, 0, 1, 0.07]]` |
 | `size_720x540` | aucun, sur la 720×540 (travail en 720×540) |
 
-- `max_area` vaut 400 et non 500 (décision de l'utilisateur).
+- `max_area` vaut 400 et non 500.
   À 500 le cas redonnait les défauts, car la plus grande tache de l'extrait fait 488,25 px².
 - `sigma_0` est le seul cas avec des plages instables. Sans flou, le bruit du capteur passe le seuil par endroits.
 - `crates/compare/tests/settings_agreement.rs` exige les 16 cas comparés sans échec et fige leurs écarts.
@@ -1035,7 +1035,7 @@ cargo run --release -p bench -- --replay out/bench/video_092_original --max-gap 
   Elle liste ensuite les cibles perdues et gagnées.
   Sur la 092, chaque côté a 14 pistes de référence. Un autre nombre dirait une autre vidéo.
 - Elle échoue (code 1) seulement si la proportion trouvée par le Rust tombe sous cette borne basse.
-  Sinon la liste est jugée par l'utilisateur.
+  Sinon la liste reste à juger.
 - La sortie va dans `<-o>/<vidéo>_<dossier>/` avec `guard.txt`, qui porte le texte de la sortie standard.
 
 ## Parallélisme

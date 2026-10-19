@@ -54,7 +54,7 @@ Le passage de 3:42.10 ([plus bas](#cibles-connues-pour-les-issues-suivantes)) re
   Elle va à 95 px/s contre 600 à 1 900 pour les autres pistes.
   Rien d'autre ne bouge à 3:36.
   La piste reste produite : un faux positif facile à écarter vaut mieux qu'un passage manqué.
-- **092, 3:42.10 → 3:42.30** : objet réel confirmé par l'utilisateur en zoomant et en ralentissant ×0,5.
+- **092, 3:42.10 → 3:42.30** : objet réel confirmé en zoomant et en ralentissant ×0,5.
   Il est rapide (1 430 px/s) et entre par le haut de l'image.
   Il est aussi faible : pic de 13 à 22 après filtre selon les images (v0.1.1, 6 octobre 2026).
   **Le réglage par défaut le manque.**
@@ -62,8 +62,8 @@ Le passage de 3:42.10 ([plus bas](#cibles-connues-pour-les-issues-suivantes)) re
   Il ne reste alors que 4 détections pour un minimum de 6.
   On le trouve à 1440 px sans seuil par pixel. Ce réglage explose sur d'autres vidéos ([détection](detection.md#réduire-et-filtrer-limage)).
   Manon doit encore confirmer que c'est une chauve-souris.
-- **125, pistes 8 et 9 du réglage par défaut** : réelles selon l'utilisateur.
+- **125, pistes 8 et 9 du réglage par défaut** : jugées réelles à l'œil.
   La piste 8 va de 0:28.41 à 0:29.64 avec 37 détections. La piste 9 va de 0:28.94 à 0:29.74 avec 25 détections.
   Le réglage d'avant le 6 octobre n'en sortait qu'une (0:29.04 → 0:29.34, 8 détections).
-- **Six pistes du réglage d'avant le 6 octobre que l'actuel ne sort plus**, toutes jugées fausses par l'utilisateur.
+- **Six pistes du réglage d'avant le 6 octobre que l'actuel ne sort plus**, toutes jugées fausses.
   Sur la 089, elles sont à 1:34.91, 1:46.27 et 3:13.33. Sur la 091, à 0:00.23. Sur la 125, à 2:03.35 et 4:04.18.

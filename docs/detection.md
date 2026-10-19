@@ -155,7 +155,7 @@ Des bancs de cibles synthétiques ont tranché entre les candidats (graine 1, su
 | Le même à 1440 px | 14 | 1 | 17 | 22 | 48 | 10 | 7 | 38 / 67 min |
 | Sans seuil par pixel (trois variantes) | 14 à 18 | 560 à 5 479 | 374 à 4 925 | 394 à 3 974 | 48 à 57 | 11 à 13 | 7 à 13 | |
 
-L'utilisateur a jugé fausses les six pistes du réglage d'avant que le défaut ne sort plus.
+Six pistes du réglage d'avant qui étaient fausses sur les précédents réglages ne ressortent plus.
 
 - `work_width` = 960 px : la pleine résolution donne presque les mêmes pistes pour 2,4 fois le temps de calcul.
   Le capteur des Symbion DXT50 fait 1280×1024.
@@ -487,8 +487,8 @@ Le passage de 3:58 de la 092 sortait ainsi en deux.
 **Fortes d'abord.** À chaque image, les fortes sont attribuées comme si les faibles n'existaient pas.
 Les pistes restées sans détection prennent ensuite les faibles dans le même ordre. Une faible restée libre n'ouvre jamais de piste.
 Sans ces deux règles, les faibles mélangeaient des pistes.
-L'utilisateur a jugé à l'œil les 15 pistes perdues de cette variante (26 vidéos, 17 octobre 2026, #21).
-Il y a trouvé 6 réunions de deux chauves-souris différentes, par trois mécanismes :
+Les 15 pistes perdues de cette variante ont été jugées à l'œil (26 vidéos, 17 octobre 2026, #21).
+Elles comptent 6 réunions de deux chauves-souris différentes, par trois mécanismes :
 
 - Une piste prend une faible plus proche de sa prédiction que la forte (099 à 3:33.15 : 12,6 px contre 21).
   La forte reste seule et ouvre une piste parasite qui saute sur l'animal voisin.
@@ -530,7 +530,7 @@ C'est la seule pour une piste d'un seul point, qui n'a pas de vitesse.
   Le bord épargné pour le dernier point et la détection ramène les 56 à 39 et garde la 090 et la 095 corrigées.
 
 **Cas regardés à l'œil** (18 octobre 2026).
-Sur une planche des 32 endroits où la portée changeait les pistes des 26 vidéos, l'utilisateur en a trouvé 21 mieux et 5 pires.
+Sur une planche des 32 endroits où la portée changeait les pistes des 26 vidéos, 21 sont mieux et 5 pires.
 Les autres sont sans effet visible ou ont un défaut présent dans les deux versions.
 Le bord du point de départ de la vitesse et la vitesse effondrée corrigent 3 des 5 pires et rien d'autre.
 Ils y redonnent exactement le suivi sans portée, qui était jugé juste.
@@ -703,7 +703,7 @@ Sur la planche des morceaux, certains bons cas s'écartent de leur piste de 55°
 **Ce que ça donne.** Sur les 26 vidéos, 81 soudures ramènent 1 002 pistes à 921.
 Par vidéo : 093 : 3, 094 : 1, 095 : 13, 096 : 17, 097 : 17, 098 : 10, 099 : 7, 100 : 5, 101 : 1, 102 : 3, 125 : 3, 129 : 1.
 La 092 garde ses 14 pistes. Sans la portée, il y aurait 80 soudures : celle de plus est la soudure fausse de la 098 vers 1:06.70.
-Sur la planche de 10 paires, l'utilisateur en a jugé 8 « même passage » et 2 « non » (le trou de 5,9 s et une sortie du cadre).
+Sur la planche de 10 paires, 8 sont le même passage et 2 non (le trou de 5,9 s et une sortie du cadre).
 La règle recolle les 8 et aucun des 2. Le banc de chasse est très dense (720 cibles synthétiques en 5 minutes).
 Les deux bouts seuls y collaient une fois sur 15 deux cibles différentes qui se suivaient au même endroit.
 Avec les morceaux et l'allure, le banc trouve 455 cibles comme sans recollage.
@@ -760,7 +760,7 @@ La boîte entoure la tache avec 12 px de marge, en trait de 2 px bordé d'un lis
 Le numéro est placé 6 px au-dessus de la boîte avec lui aussi un liseré noir de 1 px.
 La couleur se détache ainsi d'un fond clair comme d'un fond sombre, même la plus claire des couleurs de pistes (235, 235, 235).
 La trace montre la dernière seconde de la piste (`trail_s`), sans liseré.
-Le numéro reste au-dessus de la boîte par choix de l'utilisateur (16 octobre 2026).
+Le numéro reste au-dessus de la boîte (choix du 16 octobre 2026).
 Une place à 24 px en diagonale cachait moins de pixels à moins de 30 px de la cible : aucun sur trois images sur quatre et 16 sur la quatrième.
 Au-dessus de la boîte, le numéro en cache de 13 à 277 sur ces quatre images.
 
