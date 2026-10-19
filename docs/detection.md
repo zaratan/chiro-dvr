@@ -3,6 +3,28 @@
 Chaque étape est une technique classique de traitement d'image ou de statistique.
 Chaque réglage est un nombre fixe écrit dans le code et choisi d'après des mesures.
 
+```mermaid
+flowchart TD
+    V["Vidéo"] --> L["1. Lecture en gris"]
+    L --> R["2. Image réduite et filtrée"]
+    R --> F["3. Fond : médiane des images voisines"]
+    F --> G["4. Gain automatique compensé"]
+    G --> S["5. Seuil par pixel"]
+    S --> T["6. Taches"]
+    T --> W["7. Taches faibles encadrées gardées"]
+    L -. "signalements du décodeur" .-> I["8. Images illisibles retirées"]
+    W --> I
+    I --> J["9. Images où les jumelles bougent retirées"]
+    J --> K["10. Suivi des taches"]
+    K --> M["11. Pistes jumelles fusionnées"]
+    M --> N["12. Filtres : ce qui ressemble à un vol"]
+    N --> O["13. Vols cachés recollés"]
+    O --> P["Pistes"]
+    P --> X["14. Image résumé"]
+    P --> Y["15. Extraits en pleine résolution"]
+    P --> Z["16. Extraits zoomés et ralentis"]
+```
+
 **L'image**
 
 1. [Lire la vidéo](#lire-la-vidéo) : image par image, la luminosité seule.
