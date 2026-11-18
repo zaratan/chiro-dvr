@@ -101,7 +101,7 @@ Rust crates:
 - rayon-core 1.13.0, MIT
 - read-fonts 0.45.0, MIT
 - rustc-hash 2.1.3, MIT
-- rustix 1.1.5, MIT
+- rustix 1.1.6, MIT
 - self_cell 1.3.0, Apache-2.0
 - serde 1.0.229, MIT
 - serde_core 1.0.229, MIT
